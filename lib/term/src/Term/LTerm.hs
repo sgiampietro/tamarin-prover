@@ -156,12 +156,20 @@ import           Term.VTerm
 -- >  LSortFresh < LSortMsg
 -- >  LSortPub   < LSortMsg
 -- >  LSortNat   < LSortMsg
+-- >  LSortNZE   < LSortE
+-- >  LSortPubG  < LSortG
+-- >  LSortFrNZE < LSortNZE
 --
-data LSort = LSortPub   -- ^ Arbitrary public names.
-           | LSortFresh -- ^ Arbitrary fresh names.
-           | LSortMsg   -- ^ Arbitrary messages.
-           | LSortNode  -- ^ Sort for variables denoting nodes of derivation graphs.
-           | LSortNat   -- ^ Arbitrary natural numbers.
+data LSort = LSortPub    -- ^ Arbitrary public names.
+           | LSortFresh  -- ^ Arbitrary fresh names.
+           | LSortMsg    -- ^ Arbitrary messages.
+           | LSortG      -- ^ Arbitrary group elements.
+           | LSortE      -- ^ Arbitrary exponents.
+           | LSortNZE    -- ^ Arbitrary non-zero exponents
+           | LSortPubG   -- ^ Arbitrary public group generators
+           | LSortFrNZE  -- ^ Arbitrary fresh non-zero exponents
+           | LSortNode   -- ^ Sort for variables denoting nodes of derivation graphs.
+           | LSortNat    -- ^ Arbitrary natural numbers.
            deriving( Eq, Ord, Show, Enum, Bounded, Typeable, Data, Generic, NFData, Binary )
 
 -- | @sortCompare s1 s2@ compares @s1@ and @s2@ with respect to the partial order on sorts.
@@ -180,6 +188,27 @@ sortCompare s1 s2 = case (s1, s2) of
     (LSortNode,  _        )  -> Nothing
     (_,          LSortNode)  -> Nothing
     -- Msg is greater than all sorts except Node
+    (LSortMsg,   LSortG)  -> Nothing
+    (LSortG,     LSortMsg )  -> Nothing
+    (LSortMsg,   LSortE)  -> Nothing
+    (LSortE,     LSortMsg )  -> Nothing
+    (LSortMsg,   LSortNZE)  -> Nothing
+    (LSortNZE,   LSortMsg )  -> Nothing
+    (LSortG,     LSortNZE)  -> Nothing
+    (LSortNZE,   LSortG )  -> Nothing
+    (LSortG,     LSortPubG)  -> Just GT
+    (LSortPubG,   LSortG )  -> Just LT
+    (_,     LSortPubG)  -> Nothing
+    (LSortPubG,  _ )  -> Nothing
+    (LSortE,     LSortNZE)  -> Just GT
+    (LSortNZE,   LSortE )  -> Just LT
+    (LSortNZE,   LSortFrNZE)  -> Just GT
+    (LSortFrNZE,  LSortNZE)  -> Just LT
+    (LSortE,   LSortFrNZE)  -> Just GT
+    (LSortFrNZE,  LSortE)  -> Just LT
+    (_,   LSortFrNZE)  -> Nothing
+    (LSortFrNZE,  _)  -> Nothing
+    -- Msg is greater than all OTHER sorts except Node
     (LSortMsg,   _        )  -> Just GT
     (_,          LSortMsg )  -> Just LT
     -- The remaining combinations (Pub/Fresh/Nat) are incomparable
@@ -192,6 +221,11 @@ sortPrefix LSortFresh = "~"
 sortPrefix LSortPub   = "$"
 sortPrefix LSortNode  = "#"
 sortPrefix LSortNat   = "%"
+sortPrefix LSortG   = "boxG"
+sortPrefix LSortE   = "boxE"
+sortPrefix LSortNZE   = "boxNZE"
+sortPrefix LSortFrNZE   = "~E"
+sortPrefix LSortPubG   = "$G"
 
 -- | @sortSuffix s@ is the suffix we use for annotating variables of sort @s@.
 sortSuffix :: LSort -> String
@@ -200,7 +234,11 @@ sortSuffix LSortFresh = "fresh"
 sortSuffix LSortPub   = "pub"
 sortSuffix LSortNode  = "node"
 sortSuffix LSortNat   = "nat"
-
+sortSuffix LSortG     = "gg"
+sortSuffix LSortNZE   = "nexp"
+sortSuffic LSortE     = "exp"
+sortSuffix LSortPubG  = "pubG"
+sortSuffix LSortFreshNZE = "freshNZE"
 
 ------------------------------------------------------------------------------
 -- Names
@@ -211,7 +249,7 @@ newtype NameId = NameId { getNameId :: String }
     deriving( Eq, Ord, Typeable, Data, Generic, NFData, Binary )
 
 -- | Tags for names.
-data NameTag = FreshName | PubName | NodeName | NatName
+data NameTag = FreshName | PubName | NodeName | NatName | FreshEName | PubGName
     deriving( Eq, Ord, Show, Typeable, Data, Generic, NFData, Binary )
 
 -- | Names.
@@ -232,6 +270,8 @@ instance Show Name where
   show (Name PubName    n) = "'"  ++ show n ++ "'"
   show (Name NodeName   n) = "#'" ++ show n ++ "'"
   show (Name NatName   n) = "%'" ++ show n ++ "'"
+  show (Name FreshEName   n) = "~E'" ++ show n ++ "'"
+  show (Name PubGName    n) = "G'"  ++ show n ++ "'"
 
 instance Show NameId where
   show = getNameId
@@ -257,6 +297,8 @@ sortOfName (Name FreshName _) = LSortFresh
 sortOfName (Name PubName   _) = LSortPub
 sortOfName (Name NodeName  _) = LSortNode
 sortOfName (Name NatName   _) = LSortNat
+sortOfName (Name FreshEName   _) = LSortFrNZE
+sortOfName (Name PubGName   _) = LSortPubG
 
 -- | Is a term a public constant?
 isPubConst :: LNTerm -> Bool
