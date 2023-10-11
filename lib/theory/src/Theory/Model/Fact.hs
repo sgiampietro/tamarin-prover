@@ -141,6 +141,7 @@ data FactTag = ProtoFact Multiplicity String Int
              | InFact     -- ^ Officially known by the intruder/network.
              | KUFact     -- ^ Up-knowledge fact in messsage deduction.
              | KDFact     -- ^ Down-knowledge fact in message deduction.
+             | KdhFact    -- ^ Corresponding KUFact for Diffie-Hellman terms.
              | DedFact    -- ^ Log-fact denoting that the intruder deduced
                           -- a message using a construction rule.
              | TermFact   -- ^ internal fact, only used to convert terms to facts
@@ -368,6 +369,7 @@ factTagArity tag = case  tag of
     ProtoFact _ _ k -> k
     KUFact          -> 1
     KDFact          -> 1
+    KdhFact         -> 1
     DedFact         -> 1
     FreshFact       -> 1
     InFact          -> 1
@@ -512,6 +514,7 @@ factTagName :: FactTag -> String
 factTagName tag = case tag of
     KUFact            -> "KU"
     KDFact            -> "KD"
+    KdhFact           -> "Kdh"
     DedFact           -> "Ded"
     InFact            -> "In"
     OutFact           -> "Out"
