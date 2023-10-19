@@ -208,6 +208,11 @@ kdFact = Fact KDFact S.empty . return
 kuFact = Fact KUFact S.empty . return
 termFact = Fact TermFact S.empty . return
 
+
+--SOFIA: what is this for?
+kdhFact :: t -> Fact t
+kdhFact = Fact KdhFact S.empty . return
+
 -- | Make annotated KU/KD facts
 kdFactAnn, kuFactAnn :: S.Set FactAnnotation -> t -> Fact t
 kdFactAnn ann = Fact KDFact ann . return
@@ -369,7 +374,7 @@ factTagArity tag = case  tag of
     ProtoFact _ _ k -> k
     KUFact          -> 1
     KDFact          -> 1
-    KdhFact         -> 1
+    KdhFact         -> 2
     DedFact         -> 1
     FreshFact       -> 1
     InFact          -> 1

@@ -79,6 +79,14 @@ rule irecv:
 rule iequality:
    [ KU( x ) , KD( x ) ] --> []
 
+
+Rules that we want to add: 
+rule isendDH:
+    [ Kdh( ix, x ) ] --[ K(x) ]-> [ In(ix) ]
+
+rule irecvDH:
+    [ Out(ix) ] --[ K(x) ]-> [ Kdh( ix, x ) ]
+
 -}
 -- | @specialIntruderRules@ returns the special intruder rules that are
 --   included independently of the message theory
@@ -90,6 +98,8 @@ specialIntruderRules diff =
     , kuRule FreshConstrRule [freshFact x_fresh_var] (x_fresh_var)          []
     , Rule ISendRule [kuFact x_var]  [inFact x_var] [kLogFact x_var]        []
     , Rule IRecvRule [outFact x_var] [kdFact x_var] []                      []
+    , Rule ISendRuleDH [kdhFact x_var]  [inFact x_var] [kLogFact x_var]        []
+    , Rule IRecvRuleDH [outFact x_var] [kdhFact x_var] []                      []
     ] ++
     if diff 
        then [ Rule IEqualityRule [kuFact x_var, kdFact x_var]  [] [] [] ]
