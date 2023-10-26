@@ -41,6 +41,14 @@ module Term.Term.FunctionSymbols (
     , xorSymString
     , natPlusSymString
     , natOneSymString
+    -- SOFIA: extra DH mult function symbols that aren't already there: 
+    , dhMultSymString -- g1.g2
+    , dhGinvSymString -- g^-1
+    , dhZeroSymString
+    , dhMinusSymString 
+    , dhTimesSymString -- e1*e2 for E (not necessarily NZE) elements
+    , dhPlusSymString -- e1+e2
+    , dhMuSymString
 
     -- ** concrete symbols
     , diffSym
@@ -56,6 +64,14 @@ module Term.Term.FunctionSymbols (
     , sndDestSym    
     , zeroSym
     , natOneSym
+     -- SOFIA: extra DH mult symbols that aren't already there: 
+    , dhMultSym -- g1.g2
+    , dhGinvSym -- g^-1
+    , dhZeroSym
+    , dhMinusSym
+    , dhTimesSym -- e1*e2 for E (not necessarily NZE) elements
+    , dhPlusSym -- e1+e2
+    , dhMuSym
 
     -- ** concrete signatures
     , dhFunSig
@@ -69,6 +85,7 @@ module Term.Term.FunctionSymbols (
     , xorReducibleFunSig
     , implicitFunSig
     , natFunSig
+    , dhMultFunSig
     ) where
 
 import           GHC.Generics (Generic)
@@ -151,6 +168,15 @@ emapSymString, pmultSymString :: ByteString
 emapSymString  = "em"
 pmultSymString = "pmult"
 
+dhMultSymString, dhGinvSymString, dhZeroSymString, dhMinusSymString, dhTimesSymString, dhPlusSymString, dhMuSymString :: ByteString
+dhMultSymString = "dhMult"
+dhGinvSymString = "dhGinv"
+dhZeroSymString = "dhZero"
+dhMinusSymString = "dhMinus"
+dhTimesSymString = "dhTimes"
+dhPlusSymString = "dhPlus"
+dhMuSymString = "dhMu"
+
 pairSym, diffSym, expSym, invSym, oneSym, dhNeutralSym, fstSym, sndSym, pmultSym, zeroSym, natOneSym :: NoEqSym
 -- | Pairing.
 pairSym  = ("pair",(2,Public,Constructor))
@@ -175,6 +201,15 @@ zeroSym  = (zeroSymString,(0,Public,Constructor))
 -- | One for natural numbers.
 natOneSym = (natOneSymString, (0,Public,Constructor))
 
+dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym, dhTimesSym, dhPlusSym, dhMuSym  :: NoEqSym
+dhMultSym = (dhMultSymString,(2,Public,Constructor))
+dhGinvSym = (dhGinvSymString,(1,Public,Constructor))
+dhZeroSym = (dhZeroSymString,(0,Public,Constructor))
+dhMinusSym = (dhMinusSymString,(1,Public,Constructor))
+dhTimesSym = (dhTimesSymString,(2,Public,Constructor))
+dhPlusSym = (dhPlusSymString,(2,Public,Constructor))
+dhMuSym = (dhMuSymString,(1,Public,Constructor))
+
 mkDestSym :: NoEqSym -> NoEqSym
 mkDestSym (name,(k,p,_)) = (name,(k,p, Destructor))
 
@@ -191,6 +226,9 @@ sndDestSym   = mkDestSym sndSym
 -- | The signature for Diffie-Hellman function symbols.
 dhFunSig :: FunSig
 dhFunSig = S.fromList [ AC Mult, NoEq expSym, NoEq oneSym, NoEq invSym, NoEq dhNeutralSym ]
+
+dhMultFunSig :: FunSig
+dhFunSig = S.union dhFunSig (S.fromList [ NoEq dhMultSym, NoEq dhGinvSym, NoEq dhZeroSym, NoEq dhMinusSym, NoEq dhTimesSym, NoEq dhPlusSym, NoEq dhMuSym] )
 
 -- | The signature for Xor function symbols.
 xorFunSig :: FunSig

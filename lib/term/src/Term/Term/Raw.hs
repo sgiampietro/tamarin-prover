@@ -10,7 +10,7 @@
 -- Maintainer  : Benedikt Schmidt <beschmi@gmail.com>
 --
 -- Term Algebra and related notions.
-module Term.Term.Raw (
+module term.src.Term.Term.Raw (
     -- * Terms
       Term(..)
     , TermView (..)
@@ -146,6 +146,11 @@ unsafefApp fsym as = FAPP fsym as
 -- | View on terms that distinguishes function application of builtin symbols like exp.
 data TermView2 a = FExp (Term a) (Term a)   | FInv (Term a) | FMult [Term a] | One | DHNeutral
                  | FPMult (Term a) (Term a) | FEMap (Term a) (Term a)
+                 -- SOFIA: added DH options
+                 | FdhMult (Term a) (Term a)| FdhGinv (Term a) | FdhMinus (Term a) | DHZero 
+                 | FdhTimes (Term a) (Term a) | FdhPlus (Term a) (Term a) | FdhMu (Term a)
+                 -- alternative would just be to add an FDH (Term a) that covers all above cases
+                 -- SOFIA: end of modified part
                  | FXor [Term a] | Zero
                  | FUnion [Term a]
                  | FNatPlus [Term a] | NatOne
@@ -176,7 +181,14 @@ viewTerm2 t@(FAPP (NoEq o) ts) = case ts of
     [ t1, t2 ] | o == pmultSym  -> FPMult t1 t2
     [ t1, t2 ] | o == pairSym   -> FPair  t1 t2
     [ t1, t2 ] | o == diffSym   -> FDiff  t1 t2
+    [ t1, t2 ] | o == dhMultSym   -> FdhMult  t1 t2
+    [ t1, t2 ] | o == dhTimesSym   -> FdhTimes  t1 t2
+    [ t1, t2 ] | o == dhPlusSym   -> FdhPlus  t1 t2
     [ t1 ]     | o == invSym    -> FInv   t1
+    [ t1 ]     | o == dhGinvSym    -> FdhGinv   t1
+    [ t1 ]     | o == dhMinusSym    -> FdhMinus   t1
+    [ t1 ]     | o == dhMuSym    -> FdhMu  t1
+    []         | o == dhZeroSym    -> DHZero
     []         | o == oneSym    -> One
     []         | o == natOneSym -> NatOne
     []         | o == dhNeutralSym  -> DHNeutral
@@ -184,7 +196,8 @@ viewTerm2 t@(FAPP (NoEq o) ts) = case ts of
     _                           -> FAppNoEq o ts
   where
     -- special symbols
-    ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym ]
+    ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym , dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym, dhTimesSym, dhPlusSym, dhMuSym]
+
 
 ----------------------------------------------------------------------
 -- Instances
