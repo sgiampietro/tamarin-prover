@@ -143,12 +143,14 @@ lit l = LIT l
 unsafefApp :: FunSym -> [Term a] -> Term a
 unsafefApp fsym as = FAPP fsym as
 
+
 -- | View on terms that distinguishes function application of builtin symbols like exp.
 data TermView2 a = FExp (Term a) (Term a)   | FInv (Term a) | FMult [Term a] | One | DHNeutral
                  | FPMult (Term a) (Term a) | FEMap (Term a) (Term a)
                  -- SOFIA: added DH options
                  | FdhMult (Term a) (Term a)| FdhGinv (Term a) | FdhMinus (Term a) | DHZero 
-                 | FdhTimes (Term a) (Term a) | FdhPlus (Term a) (Term a) | FdhMu (Term a)
+                 | FdhInv (Term a) | DHEg | FdhTimes2 (Term a) (Term a) | FdhExp (Term a) (Term a) | DHOne
+                 | FdhTimes (Term a) (Term a) | FdhPlus (Term a) (Term a) | FdhMu (Term a) | FdhBox (Term a)
                  -- alternative would just be to add an FDH (Term a) that covers all above cases
                  -- SOFIA: end of modified part
                  | FXor [Term a] | Zero
@@ -183,12 +185,18 @@ viewTerm2 t@(FAPP (NoEq o) ts) = case ts of
     [ t1, t2 ] | o == diffSym   -> FDiff  t1 t2
     [ t1, t2 ] | o == dhMultSym   -> FdhMult  t1 t2
     [ t1, t2 ] | o == dhTimesSym   -> FdhTimes  t1 t2
+    [ t1, t2 ] | o == dhTimes2Sym   -> FdhTimes2  t1 t2
+    [ t1, t2 ] | o == dhExpSym   -> FdhExp  t1 t2
     [ t1, t2 ] | o == dhPlusSym   -> FdhPlus  t1 t2
     [ t1 ]     | o == invSym    -> FInv   t1
     [ t1 ]     | o == dhGinvSym    -> FdhGinv   t1
+    [ t1 ]     | o == dhInvSym    -> FdhInv   t1
     [ t1 ]     | o == dhMinusSym    -> FdhMinus   t1
     [ t1 ]     | o == dhMuSym    -> FdhMu  t1
+    [ t1 ]     | o == dhBoxSym    -> FdhBox  t1
     []         | o == dhZeroSym    -> DHZero
+    []         | o == dhEgSym    -> DHEg  
+    []         | o == dhOneSym    -> DHOne
     []         | o == oneSym    -> One
     []         | o == natOneSym -> NatOne
     []         | o == dhNeutralSym  -> DHNeutral
@@ -197,6 +205,53 @@ viewTerm2 t@(FAPP (NoEq o) ts) = case ts of
   where
     -- special symbols
     ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym , dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym, dhTimesSym, dhPlusSym, dhMuSym]
+
+
+-- | View on terms that distinguishes between diffie-hellman and non diffie-hellman terms.
+-- A priori, this distinction does not even require diffie-hellman terms to be boxed. 
+data TermView3 a = MsgLit a
+                 | MsgFApp FunSym [Term a]
+                 | DH FunSym [Term a]
+                 | Box (Term a)
+  deriving (Show, Eq, Ord)
+
+-- | Returns the 'TermView3' of the given term.
+viewTerm3 :: Show a => Term a -> TermView2 a
+viewTerm3 (LIT l) = MsgLit l
+viewTerm3 (FAPP List ts) = MsgFApp List ts
+viewTerm3 t@(FAPP (AC o) ts)
+  | length ts < 2 = error $ "viewTerm3: malformed term `"++show t++"'"
+  | otherwise     = MsgFApp (AC o) ts
+viewTerm3 t@(FAPP (C EMap) [ t1 ,t2 ]) = MsgFApp (C EMap) [ t1 ,t2 ]
+viewTerm3 t@(FAPP (C _)  _)          = error $ "viewTerm3: malformed term `"++show t++"'"
+viewTerm3 t@(FAPP (NoEq o) ts) = case ts of
+    [ t1, t2 ] | o == expSym    -> MsgFApp (NoEq o) ts  -- ensure here that FExp is always exp, never a user-defined symbol
+    [ t1, t2 ] | o == pmultSym  -> MsgFApp (NoEq o) ts
+    [ t1, t2 ] | o == pairSym   -> MsgFApp (NoEq o) ts
+    [ t1, t2 ] | o == diffSym   -> MsgFApp (NoEq o) ts
+    [ t1, t2 ] | o == dhMultSym   -> DH (NoEq o) ts
+    [ t1, t2 ] | o == dhTimesSym   -> DH (NoEq o) ts
+    [ t1, t2 ] | o == dhTimes2Sym   -> DH (NoEq o) ts
+    [ t1, t2 ] | o == dhExpSym   -> DH (NoEq o) ts
+    [ t1, t2 ] | o == dhPlusSym   -> DH (NoEq o) ts
+    [ t1 ]     | o == invSym    -> MsgFApp (NoEq o) ts
+    [ t1 ]     | o == dhGinvSym    -> DH (NoEq o) ts
+    [ t1 ]     | o == dhInvSym    -> DH (NoEq o) ts
+    [ t1 ]     | o == dhMinusSym    -> DH (NoEq o) ts
+    [ t1 ]     | o == dhMuSym    -> DH (NoEq o) ts
+    [ t1 ]     | o == dhBoxSym    -> Box (t1)
+    []         | o == dhZeroSym    -> DH (NoEq o) ts
+    []         | o == dhEgSym    -> DH (NoEq o) ts 
+    []         | o == dhOneSym    -> DH (NoEq o) ts
+    []         | o == oneSym    -> MsgFApp (NoEq o) ts
+    []         | o == natOneSym -> MsgFApp (NoEq o) ts
+    []         | o == dhNeutralSym  -> MsgFApp (NoEq o) ts
+    _          | o `elem` ssyms -> error $ "viewTerm2: malformed term `"++show t++"'"
+    _                           -> MsgFApp (NoEq o) ts
+  where
+    -- special symbols
+    ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym , dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym, dhTimesSym, dhPlusSym, dhMuSym]
+
 
 
 ----------------------------------------------------------------------
