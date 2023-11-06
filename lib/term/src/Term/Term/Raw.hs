@@ -150,7 +150,7 @@ data TermView2 a = FExp (Term a) (Term a)   | FInv (Term a) | FMult [Term a] | O
                  -- SOFIA: added DH options
                  | FdhMult (Term a) (Term a)| FdhGinv (Term a) | FdhMinus (Term a) | DHZero 
                  | FdhInv (Term a) | DHEg | FdhTimes2 (Term a) (Term a) | FdhExp (Term a) (Term a) | DHOne
-                 | FdhTimes (Term a) (Term a) | FdhPlus (Term a) (Term a) | FdhMu (Term a) | FdhBox (Term a)
+                 | FdhTimes (Term a) (Term a) | FdhPlus (Term a) (Term a) | FdhMu (Term a) | FdhBox (Term a) | FdhBoxE (Term a)
                  -- alternative would just be to add an FDH (Term a) that covers all above cases
                  -- SOFIA: end of modified part
                  | FXor [Term a] | Zero
@@ -194,6 +194,7 @@ viewTerm2 t@(FAPP (NoEq o) ts) = case ts of
     [ t1 ]     | o == dhMinusSym    -> FdhMinus   t1
     [ t1 ]     | o == dhMuSym    -> FdhMu  t1
     [ t1 ]     | o == dhBoxSym    -> FdhBox  t1
+    [ t1 ]     | o == dhBoxESym    -> FdhBoxE  t1
     []         | o == dhZeroSym    -> DHZero
     []         | o == dhEgSym    -> DHEg  
     []         | o == dhOneSym    -> DHOne
@@ -213,6 +214,7 @@ data TermView3 a = MsgLit a
                  | MsgFApp FunSym [Term a]
                  | DH FunSym [Term a]
                  | Box (Term a)
+                 | BoxE (Term a)
   deriving (Show, Eq, Ord)
 
 -- | Returns the 'TermView3' of the given term.
@@ -240,6 +242,7 @@ viewTerm3 t@(FAPP (NoEq o) ts) = case ts of
     [ t1 ]     | o == dhMinusSym    -> DH (NoEq o) ts
     [ t1 ]     | o == dhMuSym    -> DH (NoEq o) ts
     [ t1 ]     | o == dhBoxSym    -> Box (t1)
+    [ t1 ]     | o == dhBoxESym    -> BoxE (t1)
     []         | o == dhZeroSym    -> DH (NoEq o) ts
     []         | o == dhEgSym    -> DH (NoEq o) ts 
     []         | o == dhOneSym    -> DH (NoEq o) ts
