@@ -58,6 +58,7 @@ import           Theory.Constraint.System.Guarded
 import           Theory.Model
 import           Theory.Text.Pretty
 import           Theory.Tools.EquationStore
+import Distribution.PackageDescription (Library)
 
 ------------------------------------------------------------------------------
 -- Graph part of a sequent                                                  --
@@ -111,12 +112,24 @@ instance HasFrees Edge where
 
 
 ------------------------------------------------------------------------------
+-- Diffie-Hellman special facts
+------------------------------------------------------------------------------
+
+data DHFact = 
+    B LNTerm LVar  -- TODO: LVar indicates the timepoint?
+  | NB LNTerm LVar
+  | IndEq LNTerm LNTerm
+  | Needed LVar --TODO: check if we want LVar or just a literal
+  | NoCanc LNTerm LNTerm
+  deriving( Eq, Ord, Show, Generic, NFData, Binary )
+------------------------------------------------------------------------------
 -- Goals
 ------------------------------------------------------------------------------
 
 -- | A 'Goal' denotes that a constraint reduction rule is applicable, which
 -- might result in case splits. We either use a heuristic to decide what goal
 -- to solve next or leave the choice to user (in case of the interactive UI).
+
 data Goal =
        ActionG LVar LNFact
        -- ^ An action that must exist in the trace.
@@ -130,6 +143,7 @@ data Goal =
        -- ^ A case split over a disjunction.
      | SubtermG (LNTerm, LNTerm)
        -- ^ A split of a Subterm which is in SubtermStore -> _subterms
+     | DHFactG DHFact
      deriving( Eq, Ord, Show, Generic, NFData, Binary )
 
 -- Indicators

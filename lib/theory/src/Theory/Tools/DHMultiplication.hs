@@ -92,13 +92,30 @@ isRoot o t@(viewTerm3 -> BoxE dht) = isRoot o dht
 isRoot o t@(viewTerm3 -> DH dht) = S.size (rootSet o dht) == 1
 isRoot o _ = error "rootSet applied on non DH term'"
 
-rootIndicator :: Show a => Term a -> Term a
+frInd :: Show a => Term a -> Term a
 
-indicator :: Show a => Term a -> Term a
-indicator t@(isRoot -> True) = rootIndicator t
-indicator t@(isRoot -> False) = error "indicator applied on non root term"
+-- instead of just returning the indicator, we also return a list of variables that is unempty only if
+-- the function cannot yet be evaluated, in which case it contains the exponents that don't belong to N neither NB yet.  
+rootIndicator :: Show a => Set (Term a) -> Set (Term a) -> Term a -> (Term a, [(Lvar, VTerm Name LVar)])
+rootIndicator b nb t@(viewTerm2 -> FdhExp t1 t2) = (FAPP (NoEq dhExpSym) [fst $ rootIndicator b nb t1, fst $ rootIndicator b nb t2], concat (snd $ rootIndicator b nb t1) (snd $ rootIndicator b nb t1) )
+rootIndicator b nb t@(viewTerm2 -> FdhGinv dht) = (FAPP (NoEq FdhGinv) [fst $ rootIndicator b nb dht], snd $ rootIndicator b nb dht)
+rootIndicator b nb t@(viewTerm2 -> FdhTimes t1 t2) = (FAPP (NoEq dhTimesSym) [fst $ rootIndicator b nb t1, fst $ rootIndicator b nb t2], concat (snd $ rootIndicator b nb t1) (snd $ rootIndicator b nb t1) )
+rootIndicator b nb t@(viewTerm2 -> FdhTimes2 t1 t2) = (FAPP (NoEq dhTimes2Sym) [fst $ rootIndicator b nb t1, fst $ rootIndicator b nb t2], concat (snd $ rootIndicator b nb t1) (snd $ rootIndicator b nb t1) )
+rootIndicator b nb t@(viewTerm2 -> FdhMu t1) = (FAPP (NoEq dhOne) [], [])
+rootIndicator b nb t@(viewTerm2 -> LitE t1)
+  | S.member t nb = (FAPP (NoEq dhOne) [], [])
+  | S.member t b = (t, [])
+  | otherwise = (LIT (Var ), [(Lvar "t" LSortE, dht)])
+rootIndicator b nb t@(viewTerm2 -> LitG (Con c)) = t
+rootIndicator b nb _ = error "rootSet applied on non DH term'"
 
 
--- Auxiliary functions we'd want to define: 
--- indicator
+indicator :: Show a => Set (Term a) -> Set (Term a) -> Term a -> Term a
+indicator b nb t@(isRoot dhMultSym -> True) = rootIndicator b nb t
+indicator b nb t@(isRoot dhMultSym -> False) = error "indicator applied on non root term"
+
+
+-- TODO missing auxiliary functions: 
+-- but first check how unification in simplified theory (should be able to leveage)
+-- on current DH unification approach. 
 -- simplify

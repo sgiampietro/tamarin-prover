@@ -325,6 +325,11 @@ data LVar = LVar
 -- variables of sort 'LSortNode'.
 type NodeId = LVar
 
+-- | An alternative name for logical variables, which are intented to be
+-- variables of sort 'DH' (whether E or G).
+type EVar = LVar
+type GVar = LVar
+
 -- | Terms used for proving; i.e., variables fixed to logical variables.
 type LTerm c = VTerm c LVar
 
