@@ -235,10 +235,11 @@ sortSuffix LSortPub   = "pub"
 sortSuffix LSortNode  = "node"
 sortSuffix LSortNat   = "nat"
 sortSuffix LSortG     = "gg"
+sortSuffix LSortE     = "exp"
 sortSuffix LSortNZE   = "nexp"
-sortSuffic LSortE     = "exp"
+sortSuffix LSortFrNZE = "freshNZE"
 sortSuffix LSortPubG  = "pubG"
-sortSuffix LSortFreshNZE = "freshNZE"
+
 
 ------------------------------------------------------------------------------
 -- Names

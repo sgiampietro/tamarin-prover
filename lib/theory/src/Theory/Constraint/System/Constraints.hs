@@ -58,7 +58,7 @@ import           Theory.Constraint.System.Guarded
 import           Theory.Model
 import           Theory.Text.Pretty
 import           Theory.Tools.EquationStore
-import Distribution.PackageDescription (Library)
+-- import Distribution.PackageDescription (Library)
 
 ------------------------------------------------------------------------------
 -- Graph part of a sequent                                                  --
