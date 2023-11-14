@@ -10,7 +10,7 @@
 -- Maintainer  : Benedikt Schmidt <beschmi@gmail.com>
 --
 -- Term Algebra and related notions.
-module term.src.Term.Term.Raw (
+module Term.Term.Raw (
     -- * Terms
       Term(..)
     , TermView (..)
@@ -55,6 +55,7 @@ import           Extension.Data.ByteString ()
 
 import           Term.Term.Classes
 import           Term.Term.FunctionSymbols
+-- import           Term.LTerm  !! creates circular dependencies
 
 ----------------------------------------------------------------------
 -- Terms
@@ -151,8 +152,7 @@ data TermView2 a = FExp (Term a) (Term a)   | FInv (Term a) | FMult [Term a] | O
                  | FdhMult (Term a) (Term a)| FdhGinv (Term a) | FdhMinus (Term a) | DHZero 
                  | FdhInv (Term a) | DHEg | FdhTimes2 (Term a) (Term a) | FdhExp (Term a) (Term a) | DHOne
                  | FdhTimes (Term a) (Term a) | FdhPlus (Term a) (Term a) | FdhMu (Term a) | FdhBox (Term a) | FdhBoxE (Term a)
-                 | LitG a | LitE a
-                 -- alternative would just be to add an FDH (Term a) that covers all above cases
+                 -- | LitG a | LitE a
                  -- SOFIA: end of modified part
                  | FXor [Term a] | Zero
                  | FUnion [Term a]
@@ -167,12 +167,12 @@ data TermView2 a = FExp (Term a) (Term a)   | FInv (Term a) | FMult [Term a] | O
 
 -- | Returns the 'TermView2' of the given term.
 viewTerm2 :: Show a => Term a -> TermView2 a
-viewTerm2 (LIT l) 
-    |  (sortOfLit l) == LSortG  = LitG l 
-    |  sortCompare (sortOfLit l) LSortG == Just LT = LitG l 
-    |  (sortOfLit l) == LSortE  = LitE l 
-    |  sortCompare (sortOfLit l) LSortE == Just LT = LitE l 
-    |  otherwise = Lit2 l
+viewTerm2 (LIT l) = Lit2 l
+    -- |  (sortOfLit l) == LSortG  = LitG l 
+    -- |  sortCompare (sortOfLit l) LSortG == Just LT = LitG l 
+    -- |  (sortOfLit l) == LSortE  = LitE l 
+    -- |  sortCompare (sortOfLit l) LSortE == Just LT = LitE l 
+    -- |  otherwise = Lit2 l
 viewTerm2 (FAPP List ts) = FList ts
 viewTerm2 t@(FAPP (AC o) ts)
   | length ts < 2 = error $ "viewTerm2: malformed term `"++show t++"'"
@@ -217,7 +217,6 @@ viewTerm2 t@(FAPP (NoEq o) ts) = case ts of
 -- | View on terms that distinguishes between diffie-hellman and non diffie-hellman terms.
 -- A priori, this distinction does not even require diffie-hellman terms to be boxed. 
 data TermView3 a = MsgLit a
-                 | GLit a | ELit a
                  | MsgFApp FunSym [Term a]
                  | DH FunSym [Term a]
                  | Box (Term a)
@@ -225,13 +224,13 @@ data TermView3 a = MsgLit a
   deriving (Show, Eq, Ord)
 
 -- | Returns the 'TermView3' of the given term.
-viewTerm3 :: Show a => Term a -> TermView2 a
-viewTerm3 (LIT l) 
-    |  (sortOfLit l) == LSortG  = GLit l 
-    |  sortCompare (sortOfLit l) LSortG == Just LT = GLit l 
-    |  (sortOfLit l) == LSortE  = ELit l 
-    |  sortCompare (sortOfLit l) LSortE == Just LT = ELit l 
-    |  otherwise = MsgLit l
+viewTerm3 :: Show a => Term a -> TermView3 a
+viewTerm3 (LIT l) = MsgLit l
+    -- |  (sortOfLit l) == LSortG  = GLit l 
+    -- |  sortCompare (sortOfLit l) LSortG == Just LT = GLit l 
+    -- |  (sortOfLit l) == LSortE  = ELit l 
+    -- |  sortCompare (sortOfLit l) LSortE == Just LT = ELit l 
+    -- |  otherwise = MsgLit l
 viewTerm3 (FAPP List ts) = MsgFApp List ts
 viewTerm3 t@(FAPP (AC o) ts)
   | length ts < 2 = error $ "viewTerm3: malformed term `"++show t++"'"

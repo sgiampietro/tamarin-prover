@@ -256,7 +256,7 @@ dhFunSig :: FunSig
 dhFunSig = S.fromList [ AC Mult, NoEq expSym, NoEq oneSym, NoEq invSym, NoEq dhNeutralSym ]
 
 dhMultFunSig :: FunSig
-dhFunSig = S.union dhFunSig (S.fromList [ NoEq dhMultSym, NoEq dhGinvSym, NoEq dhZeroSym, NoEq dhMinusSym, NoEq dhInvSym, NoEq dhEgSym, NoEq dhTimes2Sym, NoEq dhExpSym, NoEq dhOneSym, NoEq dhTimesSym, NoEq dhPlusSym, NoEq dhMuSym, NoEq dhBoxSym, NoEq dhBoxESym] )
+dhMultFunSig = S.fromList [ NoEq dhMultSym, NoEq dhGinvSym, NoEq dhZeroSym, NoEq dhMinusSym, NoEq dhInvSym, NoEq dhEgSym, NoEq dhTimes2Sym, NoEq dhExpSym, NoEq dhOneSym, NoEq dhTimesSym, NoEq dhPlusSym, NoEq dhMuSym, NoEq dhBoxSym, NoEq dhBoxESym] 
 
 -- | The signature for Xor function symbols.
 xorFunSig :: FunSig

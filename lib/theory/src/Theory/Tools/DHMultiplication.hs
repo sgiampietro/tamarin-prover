@@ -11,8 +11,10 @@
 --
 module Theory.Tools.DHMultiplication (
     clean
+  , rootSet
+  , isRoot
+  , rootIndicator
   , indicator
-  , simplify
 
 
   -- ** Classifiers
@@ -108,7 +110,7 @@ rootIndicator b nb t@(viewTerm2 -> FdhGinv dht) = (FAPP (NoEq FdhGinv) [fst $ ro
 rootIndicator b nb t@(viewTerm2 -> FdhTimes t1 t2) = (FAPP (NoEq dhTimesSym) [fst $ rootIndicator b nb t1, fst $ rootIndicator b nb t2], concat (snd $ rootIndicator b nb t1) (snd $ rootIndicator b nb t1) )
 rootIndicator b nb t@(viewTerm2 -> FdhTimes2 t1 t2) = (FAPP (NoEq dhTimes2Sym) [fst $ rootIndicator b nb t1, fst $ rootIndicator b nb t2], concat (snd $ rootIndicator b nb t1) (snd $ rootIndicator b nb t1) )
 rootIndicator b nb t@(viewTerm2 -> FdhMu t1) = (FAPP (NoEq dhOne) [], [])
-rootIndicator b nb t@(viewTerm2 -> LitE t1)
+rootIndicator b nb t@(viewTerm2 -> FdhBoxE (LIT t1))
   | S.member t nb = (FAPP (NoEq dhOne) [], [])
   | S.member t b = (t, [])
   | otherwise = (LIT (Var ), [(Lvar "t" LSortE, dht)])
