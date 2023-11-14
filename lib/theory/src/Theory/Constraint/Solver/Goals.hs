@@ -214,6 +214,7 @@ solveGoal goal = do
       SplitG i      -> solveSplit i
       DisjG disj    -> solveDisjunction disj
       SubtermG st   -> solveSubterm st
+      -- TODO: add cases for the newly introduced types of goals
 
 -- The following functions are internal to 'solveGoal'. Use them with great
 -- care.

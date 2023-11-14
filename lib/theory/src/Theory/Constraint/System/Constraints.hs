@@ -122,6 +122,7 @@ data DHFact =
   | Needed LVar --TODO: check if we want LVar or just a literal
   | NoCanc LNTerm LNTerm
   deriving( Eq, Ord, Show, Generic, NFData, Binary )
+  
 ------------------------------------------------------------------------------
 -- Goals
 ------------------------------------------------------------------------------

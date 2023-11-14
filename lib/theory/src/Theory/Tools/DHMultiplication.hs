@@ -56,20 +56,26 @@ import Data.Bool (Bool)
 
 -- How to generate new variables??
 
-clean :: Show a => Term a -> (Term a, [(Lvar, VTerm Name LVar)])
-clean t@(viewTerm3 -> MsgLit l) = (MsgLit l, [])
-clean t@(viewTerm3 -> MsgFApp f ts) = (MsgFapp f (map (fst.clean) ts), concatMap (snd.clean) ts )
-clean t@(viewTerm3 -> Box dht) = (Box (Lvar "t" LSortG), [(Lvar "t" LSortG, dht)] )
-clean t@(viewTerm3 -> BoxE dht) = (BoxE (Lvar "t" LSortE), [(Lvar "t" LSortE, dht)] )
-clean t@(viewTerm3 -> DH dht) = (dht, [] )
+clean2 :: Show a => Term a -> (Term a, [(Lvar, VTerm Name LVar)])
+clean2 t@(viewTerm3 -> MsgLit l) = (MsgLit l, [])
+clean2 t@(viewTerm3 -> MsgFApp f ts) = (MsgFapp f (map (fst.clean) ts), concatMap (snd.clean) ts )
+clean2 t@(viewTerm3 -> Box dht) = (Box (Lvar "t" LSortG), [(Lvar "t" LSortG, dht)] )
+clean2 t@(viewTerm3 -> BoxE dht) = (BoxE (Lvar "t" LSortE), [(Lvar "t" LSortE, dht)] )
+clean2 t@(viewTerm3 -> DH dht) = (dht, [] )
 
 -- alternative need to do something like do v <- freshLVar "t" LSortDH. 
+-- Need to be able to compose VFresh substitutions. 
 
-clean :: Show a => Term a -> (Term a, [(Lvar, VTerm Name LVar)])
+composeVFresh2 :: (IsConst c) => LSubstVFresh c -> LSubstVFresh c -> LSubstVFresh c
+composeVFresh2 s1_0 s2 = composeVFresh s2 s1
+  where
+    s1 = freshToFreeAvoiding s1_0 s2
+
+clean :: Show a => Term a -> (Term a, LNSubstVFresh)
 clean t@(viewTerm3 -> MsgLit l) = (MsgLit l, [])
-clean t@(viewTerm3 -> MsgFApp f ts) = (MsgFapp f (map (fst.clean) ts), concatMap (snd.clean) ts )
-clean t@(viewTerm3 -> Box dht) = (Box (Lvar "t" LSortG), [(Lvar "t" LSortG, dht)] )
-clean t@(viewTerm3 -> BoxE dht) = (BoxE (Lvar "t" LSortE), [(Lvar "t" LSortE, dht)] )
+clean t@(viewTerm3 -> MsgFApp f ts) = (MsgFapp f (map (fst.clean) ts), foldl composeVFresh2 emptySubstVFresh (map (snd.clean) ts ) )
+clean t@(viewTerm3 -> Box dht) = (Box (Lvar "t" LSortG), substFromListVFresh [(Lvar "t" LSortG, dht)] )
+clean t@(viewTerm3 -> BoxE dht) = (BoxE (Lvar "t" LSortE), substFromListVFresh [(Lvar "t" LSortE, dht)] )
 clean t@(viewTerm3 -> DH dht) = (dht, [] )
 
 rootSet :: Show a => FunSym -> Term a -> Set (Term a)
