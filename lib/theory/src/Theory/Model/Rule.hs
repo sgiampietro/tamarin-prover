@@ -488,8 +488,9 @@ data IntrRuleACInfo =
   | CoerceRule
   | IRecvRule
   | ISendRule
-  | IRecvRuleDH
-  | ISendRuleDH
+  | IRecvDHRule
+  | ISendDHRule
+  | CoerceDHRule
   | PubConstrRule
   | NatConstrRule
   | FreshConstrRule

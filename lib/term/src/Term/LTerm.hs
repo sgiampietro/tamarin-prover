@@ -156,13 +156,15 @@ import           Term.VTerm
 -- >  LSortFresh < LSortMsg
 -- >  LSortPub   < LSortMsg
 -- >  LSortNat   < LSortMsg
--- >  LSortNZE   < LSortE
--- >  LSortPubG  < LSortG
+-- >  LSortNZE   < LSortE < LSortDH
+-- >  LSortPubG  < LSortG < LSortDH
 -- >  LSortFrNZE < LSortNZE
+-- I think we might need a top DH one...
 --
 data LSort = LSortPub    -- ^ Arbitrary public names.
            | LSortFresh  -- ^ Arbitrary fresh names.
            | LSortMsg    -- ^ Arbitrary messages.
+           | LSortDH     -- ^ Arbitrary group/exponent elements.
            | LSortG      -- ^ Arbitrary group elements.
            | LSortE      -- ^ Arbitrary exponents.
            | LSortNZE    -- ^ Arbitrary non-zero exponents
@@ -187,15 +189,26 @@ sortCompare s1 s2 = case (s1, s2) of
     -- Node is incomparable to all other sorts, invalid input
     (LSortNode,  _        )  -> Nothing
     (_,          LSortNode)  -> Nothing
-    -- Msg is greater than all sorts except Node
+    -- Can't compare DH and Msg terms
+    (LSortMsg,   LSortDH)  -> Nothing
     (LSortMsg,   LSortG)  -> Nothing
     (LSortG,     LSortMsg )  -> Nothing
+    (LSortDH,   LSortMsg)  -> Nothing
+    (LSortDH,   LSortFresh)  -> Nothing
+    (LSortFresh,   LSortDH)  -> Nothing
+    (LSortDH,   LSortPub)  -> Nothing
+    (LSortPub,   LSortDH)  -> Nothing
+    (LSortDH,   LSortNat)  -> Nothing
+    (LSortNat,   LSortDH)  -> Nothing
+    -- Sub-DH terms
     (LSortMsg,   LSortE)  -> Nothing
     (LSortE,     LSortMsg )  -> Nothing
     (LSortMsg,   LSortNZE)  -> Nothing
     (LSortNZE,   LSortMsg )  -> Nothing
     (LSortG,     LSortNZE)  -> Nothing
     (LSortNZE,   LSortG )  -> Nothing
+    (LSortDH,    _)  -> Just GT
+    (_,         LSortDH)  -> Just LT
     (LSortG,     LSortPubG)  -> Just GT
     (LSortPubG,   LSortG )  -> Just LT
     (_,     LSortPubG)  -> Nothing

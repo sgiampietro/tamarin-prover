@@ -311,9 +311,11 @@ normRule' (Rule i ps cs as nvs) = reader $ \hnd ->
 
 dhmultIntruderRules ::  [IntrRuleAC]
 dhmultIntruderRules = [
-      Rule ISendRuleDH [kuFact x_var]  [inFact x_var] [kLogFact x_var]        []
-    , Rule IRecvRuleDH [outFact x_var] [kdFact x_var] []                      []
+      Rule ISendDHRule [kuFact x_var] [kdFact x_var] []   []
+      , Rule CoerceDHRule [kuFact x_var] [kdFact x_var] []     []
     ] 
+  where
+    x_var       = varTerm (LVar "x"  LSortDH   0)
 
 
 ------------------------------------------------------------------------------
