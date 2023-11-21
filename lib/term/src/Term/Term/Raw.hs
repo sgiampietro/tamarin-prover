@@ -17,6 +17,8 @@ module Term.Term.Raw (
     , viewTerm
     , TermView2 (..)
     , viewTerm2
+    , TermView3 (..)
+    , viewTerm3
     , termViewToTerm
 
     -- * Diff Type

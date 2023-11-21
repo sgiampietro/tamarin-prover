@@ -17,6 +17,7 @@ mainUnit = runTestTT $ TestList $
   , TU.testsMatching
 --, TU.testsTrivial
   , THU.testsEquationStore
+  , THU.testsClean
   ]
 
 main :: IO ()

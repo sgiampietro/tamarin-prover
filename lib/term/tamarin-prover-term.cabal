@@ -87,13 +87,13 @@ library
       Term.Maude.Parser
 
       Term.UnitTests
+      Term.DHMultiplication
 
     other-modules:
       Term.Term
       Term.Term.Classes
-      Term.Term.Raw
       Term.Term.FunctionSymbols
-
+      Term.Term.Raw
       Term.Narrowing.Narrow
 
       Term.Substitution.SubstVFree

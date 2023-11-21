@@ -9,7 +9,24 @@ module Theory.UnitTests where
 
 import           Term.Builtin.Convenience
 import           Theory.Tools.IntruderRules
-import           Theory.Tools.DHMultiplication
+import           Term.Term.DHMultiplication
+
+import Text.PrettyPrint.Class
+
+import Data.List
+import Data.Maybe
+import Prelude
+import Test.HUnit
+import Control.Monad.Reader
+
+
+testEqual :: (Eq a, Show a) => String -> a -> a -> Test
+testEqual t a b = TestLabel t $ TestCase $ assertEqual t b a
+
+testTrue :: String -> Bool -> Test
+testTrue t a = TestLabel t $ TestCase $ assertBool t a
+
+
 
 {-
 -- EquationStore
@@ -229,17 +246,6 @@ test_recipe_3 = encTerm (hashTerm y1) (fstTerm y0) == reci
   eRule   = Rule (IntrRuleACStandard (encTerm y0 y1) Constr) [msgFact h, msgFact m1] [msgFact (encTerm h m1)]
 
   reci = recipe eRule [(fstRule, 1, eRule), (hRule, 0, eRule)]
-
--- Diffie-Hellman functions testing
-----------------------------------------------------------------------
-
-test_clean :: Bool
-test_clean = clean term1 == clterm
-  where
-    term1 = i9
-    clterm = (term1, [])
- 
-
 
 
 

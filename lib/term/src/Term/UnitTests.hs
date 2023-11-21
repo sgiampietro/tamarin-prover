@@ -17,6 +17,7 @@ import Term.Unification
 import Term.Rewriting.Norm
 import Term.Narrowing.Variants
 import Term.Positions
+import Term.DHMultiplication
 
 import Text.PrettyPrint.Class
 
@@ -279,6 +280,7 @@ tests maudePath = do
                       , testsNorm mhnd
                       , testsUnify mhnd
                       , testsSimple mhnd
+                      , testsClean mhnd
                       , testsMatching mhnd
                       ]
 
@@ -287,6 +289,22 @@ allMaudeSig :: MaudeSig
 allMaudeSig = mconcat
     [ bpMaudeSig, msetMaudeSig
     , pairMaudeSig, symEncMaudeSig, asymEncMaudeSig, signatureMaudeSig, revealSignatureMaudeSig, hashMaudeSig ]
+
+
+
+-- Diffie-Hellman functions testing
+----------------------------------------------------------------------
+
+
+testsClean :: MaudeHandle -> Test
+testsClean hnd = TestLabel "Tests for Cleaning" $
+    TestList
+      [ testEqual "a" (clean term1) clterm
+      , testEqual "b" "c" "d"]
+  where
+    term1 = i9
+    clterm = (term1, [])
+ 
 
 
 -- testing in ghci
