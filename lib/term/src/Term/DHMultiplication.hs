@@ -18,7 +18,7 @@ module Term.DHMultiplication (
   --, rootIndicator
   --, indicator
 
-  clean2
+  clean
   -- ** Classifiers
   --, isDExpRule
   --, isDEMapRule
@@ -47,7 +47,7 @@ import           Term.Narrowing.Variants.Compute
 import           Term.Rewriting.Norm
 import           Term.SubtermRule
 --import           Term.Subsumption
-import           Term.Substitution.SubstVFresh
+import           Term.Substitution
 import           Term.Positions
 
 
@@ -76,6 +76,7 @@ isProduct2 (viewTerm3 -> MsgLit _) = True
 isProduct2 _                      = False
 --}
 
+{-
 clean2 :: Show a => Term a -> (Term a, [(Term a, VTerm Name LVar)])
 clean2 t = case (viewTerm3 t) of
                 (MsgLit l) -> (LIT l, [])
@@ -83,7 +84,7 @@ clean2 t = case (viewTerm3 t) of
                 (Box dht) -> (FAPP (NoEq dhBoxSym) [(LVar "t" LSortG)], [(LVar "t" LSortG, dht)] )
                 (BoxE dht) -> (FAPP (NoEq dhBoxESym) [(LVar "t" LSortE)], [(LVar "t" LSortE, dht)] )
                 (DH f dht) -> (FAPP f dht, [] )
-
+-}
 
 
 {-
@@ -97,19 +98,21 @@ clean2 t@(viewTerm3 -> DH f dht) = (FAPP f dht, [] )
 
 -- alternative need to do something like do v <- freshLVar "t" LSortDH. 
 -- Need to be able to compose VFresh substitutions. 
-{--
+
 composeVFresh2 :: (IsConst c) => LSubstVFresh c -> LSubstVFresh c -> LSubstVFresh c
 composeVFresh2 s1_0 s2 = composeVFresh s2 s1
   where
     s1 = freshToFreeAvoiding s1_0 s2
 
-clean :: Show a => Term a -> (Term a, LNSubstVFresh)
-clean t@(viewTerm3 -> MsgLit l) = (LIT l, [])
+clean :: Term (Lit Name LVar) -> (Term (Lit Name LVar), LNSubstVFresh)
+clean t@(viewTerm3 -> MsgLit l) = (LIT l, emptySubstVFresh)
 clean t@(viewTerm3 -> MsgFApp f ts) = (FAPP f (map (fst.clean) ts), foldl composeVFresh2 emptySubstVFresh (map (snd.clean) ts ) )
-clean t@(viewTerm3 -> Box dht) = (FAPP (NoEq dhBoxSym) [(LVar "t" LSortG)], substFromListVFresh [(LVar "t" LSortG, dht)] )
-clean t@(viewTerm3 -> BoxE dht) = (FAPP (NoEq dhBoxESym) [(LVar "t" LSortE)], substFromListVFresh [(LVar "t" LSortE, dht)] )
-clean t@(viewTerm3 -> DH dht) = (FAPP f dht, [] )
+clean t@(viewTerm3 -> Box dht) = (FAPP (NoEq dhBoxSym) [LIT (Var (LVar "t" LSortG 1))], substFromListVFresh [(LVar "t" LSortG 1 , dht)] )
+clean t@(viewTerm3 -> BoxE dht) = (FAPP (NoEq dhBoxESym) [LIT (Var (LVar "t" LSortE 1))], substFromListVFresh [(LVar "t" LSortE 1, dht)] )
+clean t@(viewTerm3 -> DH f dht) = (FAPP f dht, emptySubstVFresh )
 
+
+{--
 rootSet :: Show a => FunSym -> Term a -> S.Set (Term a)
 rootSet operator t@(FAPP (NoEq o) ts) = case ts of
     [ t1, t2 ] | o == operator    -> concat (rootSet t1) (rootSet t2)

@@ -30,6 +30,22 @@ module Term.Term (
     , fAppSnd
     , fAppNatOne
 
+    -- ** Smart constructors for DH
+    , fAppdhMult -- g1.g2
+    , fAppdhGinv -- g^-1
+    , fAppdhZero
+    , fAppdhMinus
+    , fAppdhInv
+    , fAppdhEg
+    , fAppdhTimes
+    , fAppdhTimes2 -- e1*e2 for E (not necessarily NZE) elements
+    , fAppdhPlus -- e1+e2
+    , fAppdhExp
+    , fAppdhOne 
+    , fAppdhMu
+    , fAppdhBox
+    , fAppdhBoxE 
+
     -- ** Destructors and classifiers
     , isPair
     , isDiff
@@ -76,6 +92,21 @@ module Term.Term (
     , zeroSymString
     , xorSymString
 
+    , dhMultSymString -- g1.g2
+    , dhGinvSymString -- g^-1
+    , dhZeroSymString
+    , dhMinusSymString
+    , dhInvSymString
+    , dhEgSymString 
+    , dhTimesSymString
+    , dhTimes2SymString -- e1*e2 for E (not necessarily NZE) elements
+    , dhPlusSymString -- e1+e2
+    , dhExpSymString
+    , dhOneSymString
+    , dhMuSymString
+    , dhBoxSymString
+    , dhBoxESymString
+
     -- ** Function symbols
     , diffSym
     , expSym
@@ -84,6 +115,21 @@ module Term.Term (
     , oneSym
     , zeroSym
     , dhNeutralSym
+     -- SOFIA: extra DH mult symbols that aren't already there: 
+    , dhMultSym -- g1.g2
+    , dhGinvSym -- g^-1
+    , dhZeroSym
+    , dhMinusSym
+    , dhInvSym
+    , dhEgSym
+    , dhTimesSym
+    , dhTimes2Sym -- e1*e2 for E (not necessarily NZE) elements
+    , dhPlusSym -- e1+e2
+    , dhExpSym
+    , dhOneSym  
+    , dhMuSym
+    , dhBoxSym
+    , dhBoxESym
 
     -- ** concrete signatures
     , dhFunSig
@@ -97,6 +143,7 @@ module Term.Term (
     , bpReducibleFunSig
     , xorReducibleFunSig
     , implicitFunSig
+    , dhMultFunSig
 
     , module Term.Term.Classes
     , module Term.Term.Raw
@@ -142,6 +189,28 @@ fAppPMult (s,p) = fAppNoEq pmultSym [s, p]
 fAppEMap,fAppUnion :: Ord a => (Term a, Term a) -> Term a
 fAppEMap  (x,y) = fAppC    EMap     [x, y]
 fAppUnion (x,y) = fAppAC    Union     [x, y]
+
+
+-- | Smart constructors for DH multiplication symbols.
+fAppdhMult, fAppdhTimes, fAppdhTimes2, fAppdhPlus, fAppdhExp :: (Term a, Term a) -> Term a
+fAppdhMult (x,y)  = fAppNoEq dhMultSym  [x, y]
+fAppdhTimes (x,y)  = fAppNoEq dhTimesSym  [x, y]
+fAppdhTimes2  (b,e)  = fAppNoEq dhTimes2Sym   [b, e]
+fAppdhPlus (s,p) = fAppNoEq dhPlusSym [s, p]
+fAppdhExp (s,p) = fAppNoEq dhExpSym [s, p]
+
+fAppdhGinv, fAppdhMinus, fAppdhInv, fAppdhMu, fAppdhBox, fAppdhBoxE :: Term a -> Term a
+fAppdhGinv e = fAppNoEq dhGinvSym [e]
+fAppdhMinus e = fAppNoEq dhMinusSym [e]
+fAppdhInv e = fAppNoEq dhInvSym [e]
+fAppdhMu e = fAppNoEq dhMuSym [e]
+fAppdhBox e = fAppNoEq dhBoxSym [e]
+fAppdhBoxE e = fAppNoEq dhBoxESym [e]
+
+fAppdhZero, fAppdhEg, fAppdhOne :: Term a
+fAppdhOne = fAppNoEq dhOneSym []
+fAppdhEg = fAppNoEq dhEgSym []
+fAppdhZero = fAppNoEq dhZeroSym []
 
 -- | Smart constructors for inv, fst, and snd.
 fAppInv, fAppFst, fAppSnd :: Term a -> Term a

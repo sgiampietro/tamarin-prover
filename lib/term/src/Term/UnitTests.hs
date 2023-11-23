@@ -291,19 +291,41 @@ allMaudeSig = mconcat
     , pairMaudeSig, symEncMaudeSig, asymEncMaudeSig, signatureMaudeSig, revealSignatureMaudeSig, hashMaudeSig ]
 
 
-
+----------------------------------------------------------------------
+----------------------------------------------------------------------
 -- Diffie-Hellman functions testing
 ----------------------------------------------------------------------
+----------------------------------------------------------------------
+
+xvar, yvar, gvar, hvar :: LNTerm
+xvar = lit $ Var $ (LVar "x" LSortE 0)
+yvar = lit $ Var $ (LVar "y" LSortE 0)
+gvar = lit $ Var $ (LVar "g" LSortG 0)
+hvar = lit $ Var $ (LVar "h" LSortG 0)
+
+
+gg :: Term (Lit Name LVar)
+gg = fAppPair (fAppdhBox (fAppdhExp(gvar,yvar)),fAppdhBox (fAppdhMult(gvar, fAppdhExp(hvar,yvar))))
 
 
 testsClean :: MaudeHandle -> Test
 testsClean hnd = TestLabel "Tests for Cleaning" $
     TestList
       [ testEqual "a" (clean term1) clterm
-      , testEqual "b" "c" "d"]
+      , testEqual "b" (clean gg) clterm]
   where
     term1 = i9
-    clterm = (term1, [])
+    clterm = (term1, emptySubstVFresh )
+ 
+
+testsClean2 :: Test
+testsClean2 = TestLabel "Tests for Cleaning" $
+    TestList
+      [ testEqual "a" (clean term1) clterm
+      , testEqual "b" (clean gg) clterm]
+  where
+    term1 = i9
+    clterm = (term1, emptySubstVFresh )
  
 
 
