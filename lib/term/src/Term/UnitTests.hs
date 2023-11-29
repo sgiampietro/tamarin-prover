@@ -21,6 +21,7 @@ import Term.DHMultiplication
 
 import Text.PrettyPrint.Class
 
+import qualified Data.Map as Map
 import Data.List
 import Data.Maybe
 import Prelude
@@ -280,7 +281,7 @@ tests maudePath = do
                       , testsNorm mhnd
                       , testsUnify mhnd
                       , testsSimple mhnd
-                      , testsClean mhnd
+                      --, testsClean3 mhnd
                       , testsMatching mhnd
                       ]
 
@@ -307,7 +308,7 @@ hvar = lit $ Var $ (LVar "h" LSortG 0)
 gg :: Term (Lit Name LVar)
 gg = fAppPair (fAppdhBox (fAppdhExp(gvar,yvar)),fAppdhBox (fAppdhMult(gvar, fAppdhExp(hvar,yvar))))
 
-
+{-
 testsClean :: MaudeHandle -> Test
 testsClean hnd = TestLabel "Tests for Cleaning" $
     TestList
@@ -316,16 +317,32 @@ testsClean hnd = TestLabel "Tests for Cleaning" $
   where
     term1 = i9
     clterm = (term1, emptySubstVFresh )
+ -}
+
+testsClean3 :: Test
+testsClean3 = TestLabel "Tests for Cleaning" $
+    TestList
+      [ testEqual "a" (clean2 term1) clterm1
+      , testEqual "c" (clean2_acc (snd tss) []) []
+      , testEqual "d" (applyTermSubst (Map.fromList [(LVar "g" LSortG 0, LVar "s" LSortG 9)]) gg) i9
+      , testEqual "b" (clean2 gg) clterm]
+  where
+    tss = clean gg
+    term1 = i9
+    clterm = (term1, [])
+    clterm1 = (i8, [])
  
+
+
 
 testsClean2 :: Test
 testsClean2 = TestLabel "Tests for Cleaning" $
     TestList
-      [ testEqual "a" (clean term1) clterm
-      , testEqual "b" (clean gg) clterm]
+      [ testEqual "a" (clean2 term1) clterm
+      , testEqual "b" (clean2 gg) clterm]
   where
     term1 = i9
-    clterm = (term1, emptySubstVFresh )
+    clterm = (term1, [] )
  
 
 
