@@ -22,6 +22,7 @@ import Term.DHMultiplication
 import Text.PrettyPrint.Class
 
 import qualified Data.Map as Map
+import qualified Data.Set as S
 import Data.List
 import Data.Maybe
 import Prelude
@@ -305,45 +306,35 @@ gvar = lit $ Var $ (LVar "g" LSortG 0)
 hvar = lit $ Var $ (LVar "h" LSortG 0)
 
 
+gh :: Term (Lit Name LVar)
+gh = fAppdhMult(gvar, fAppdhExp(hvar,yvar))
+
 gg :: Term (Lit Name LVar)
-gg = fAppPair (fAppdhBox (fAppdhExp(gvar,yvar)),fAppdhBox (fAppdhMult(gvar, fAppdhExp(hvar,yvar))))
+gg = fAppPair (fAppdhBox (fAppdhExp(gvar,yvar)),fAppdhBox gh)
 
-{-
-testsClean :: MaudeHandle -> Test
-testsClean hnd = TestLabel "Tests for Cleaning" $
+testsClean :: Test
+testsClean = TestLabel "Tests for Cleaning" $
     TestList
-      [ testEqual "a" (clean term1) clterm
-      , testEqual "b" (clean gg) clterm]
-  where
-    term1 = i9
-    clterm = (term1, emptySubstVFresh )
- -}
-
-testsClean3 :: Test
-testsClean3 = TestLabel "Tests for Cleaning" $
-    TestList
-      [ testEqual "a" (clean2 term1) clterm1
-      , testEqual "c" (clean2_acc (snd tss) []) []
-      , testEqual "d" (applyTermSubst (Map.fromList [(LVar "g" LSortG 0, LVar "s" LSortG 9)]) gg) i9
-      , testEqual "b" (clean2 gg) clterm]
+      [ testEqual "a" (clean term1 []) clterm1
+      , testEqual "b" (clean gg []) clterm]
   where
     tss = clean gg
     term1 = i9
-    clterm = (term1, [])
-    clterm1 = (i8, [])
+    clterm = (term1, [], [])
+    clterm1 = (i8, [], [])
  
-
-
-
-testsClean2 :: Test
-testsClean2 = TestLabel "Tests for Cleaning" $
+testsRoot :: Test
+testsRoot = TestLabel "Tests for Root Set" $
     TestList
-      [ testEqual "a" (clean2 term1) clterm
-      , testEqual "b" (clean2 gg) clterm]
-  where
-    term1 = i9
-    clterm = (term1, [] )
- 
+      [ testEqual "a" (rootSet dhMultSym gh ) (S.singleton gg)
+      , testEqual "b" (rootSet dhMultSym gvar ) (S.singleton gg)
+      , testEqual "c" (isRoot dhMultSym gvar ) True
+      , testEqual "d" (isRoot dhMultSym gh ) False]
+
+testseTerms :: Test
+testseTerms = TestLabel "Tests for e-Terms" $
+    TestList
+      [ testEqual "a" (eTermsOf gh ) [gvar]]
 
 
 -- testing in ghci

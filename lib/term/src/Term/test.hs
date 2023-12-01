@@ -6,6 +6,7 @@ import Test.HUnit
 
 main :: IO ()
 main = do
-    --runTestTT testsClean
-    runTestTT testsClean3
+    runTestTT testsClean
+    runTestTT testsRoot
+    runTestTT testseTerms
     return ()

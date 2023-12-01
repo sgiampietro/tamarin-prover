@@ -53,6 +53,11 @@ module Term.LTerm (
   , isFreshVar
   , isPubVar
   , isNatVar
+  , isEVar
+  , isNZEVar
+  , isFrNZEVar
+  , isGVar
+  , isPubGVar
   , isPubConst
   , isSimpleTerm
   , getVar
@@ -397,6 +402,26 @@ isFreshVar _                         = False
 getVar :: LNTerm -> Maybe LVar
 getVar (viewTerm -> Lit (Var v)) = Just v
 getVar _                         = Nothing
+
+isEVar :: LNTerm -> Bool
+isEVar (viewTerm -> Lit (Var v)) = (lvarSort v == LSortE)
+isEVar _                         = False
+
+isNZEVar :: LNTerm -> Bool
+isNZEVar (viewTerm -> Lit (Var v)) = (lvarSort v == LSortNZE)
+isNZEVar _                         = False
+
+isFrNZEVar :: LNTerm -> Bool
+isFrNZEVar (viewTerm -> Lit (Var v)) = (lvarSort v == LSortFrNZE)
+isFrNZEVar _                         = False
+
+isGVar :: LNTerm -> Bool
+isGVar (viewTerm -> Lit (Var v)) = (lvarSort v == LSortG)
+isGVar _                         = False
+
+isPubGVar :: LNTerm -> Bool
+isPubGVar (viewTerm -> Lit (Var v)) = (lvarSort v == LSortPubG)
+isPubGVar _                         = False
 
 -- | If the term is a message variable, return it, nothing otherwise.
 getMsgVar :: LNTerm -> Maybe [LVar]
