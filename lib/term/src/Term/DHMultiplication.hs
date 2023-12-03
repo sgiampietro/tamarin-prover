@@ -167,28 +167,36 @@ eTermsOf t@(LIT l)
 eTermsOf t@(FAPP f ts) = concatMap eTermsOf ts
 
 
-indComputable :: Show a => Set (Term a) -> Term a -> Bool
+indComputable :: S.Set LNTerm -> LNTerm -> Bool
 indComputable bs t = S.fromList( eTermsOf t ) `S.isSubsetOf` bs
 
-rootIndicator :: Show a => Set (Term a) -> Set (Term a) -> Term a -> (Term a, [(LVar, VTerm Name LVar)])
+rootIndicator :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> (LNTerm, [(LVar, VTerm Name LVar)])
 rootIndicator b nb t
   | indComputable (b `S.union` nb) t = rootIndKnown b nb t
-  | otherwise = rootIndUnknown n nb t
+  | otherwise = rootIndUnknown b nb t
 
-rootIndKnown :: Show a => Set (Term a) -> Set (Term a) -> Term a -> (Term a, [(LVar, VTerm Name LVar)])
-rootIndKnown b nb t@(viewTerm2 -> FdhExp t1 t2) = (FAPP (NoEq dhExpSym) [fst $ rootIndKnown b nb t1, fst $ rootIndKnown b nb t2], concat (snd $ rootIndKnown b nb t1) (snd $ rootIndKnown b nb t1) )
-rootIndKnown b nb t@(viewTerm2 -> FdhGinv dht) = (FAPP (NoEq FdhGinv) [fst $ rootIndKnown b nb dht], snd $ rootIndKnown b nb dht)
-rootIndKnown b nb t@(viewTerm2 -> FdhTimes t1 t2) = (FAPP (NoEq dhTimesSym) [fst $ rootIndKnown b nb t1, fst $ rootIndKnown b nb t2], concat (snd $ rootIndKnown b nb t1) (snd $ rootIndKnown b nb t1) )
-rootIndKnown b nb t@(viewTerm2 -> FdhTimes2 t1 t2) = (FAPP (NoEq dhTimes2Sym) [fst $ rootIndKnown b nb t1, fst $ rootIndKnown b nb t2], concat (snd $ rootIndKnown b nb t1) (snd $ rootIndKnown b nb t1) )
-rootIndKnown b nb t@(viewTerm2 -> FdhMu t1) = (FAPP (NoEq dhOne) [], [])
-rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT t1))
-  | S.member t nb = (FAPP (NoEq dhOne) [], [])
+rootIndKnown :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> (LNTerm, [(LVar, VTerm Name LVar)])
+rootIndKnown b nb t@(viewTerm2 -> FdhExp t1 t2) = (FAPP (NoEq dhExpSym) [fst $ rootIndKnown b nb t1, fst $ rootIndKnown b nb t2], [] )
+rootIndKnown b nb t@(viewTerm2 -> FdhGinv dht) = (FAPP (NoEq dhGinvSym) [fst $ rootIndKnown b nb dht], [])
+rootIndKnown b nb t@(viewTerm2 -> FdhTimes t1 t2) = (FAPP (NoEq dhTimesSym) [fst $ rootIndKnown b nb t1, fst $ rootIndKnown b nb t2], [] )
+rootIndKnown b nb t@(viewTerm2 -> FdhTimes2 t1 t2) = (FAPP (NoEq dhTimes2Sym) [fst $ rootIndKnown b nb t1, fst $ rootIndKnown b nb t2], [] )
+rootIndKnown b nb t@(viewTerm2 -> FdhMu t1) = (FAPP (NoEq dhOneSym) [], [])
+rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Var t1)))
+  | S.member t nb = (FAPP (NoEq dhOneSym) [], [])
   | S.member t b = (t, [])
-  | otherwise = (LIT (Var ), [(LVar "t" LSortE, dht)])
-rootIndKnown b nb t@(viewTerm2 -> LitG (Con c)) = t
+  | otherwise = error "not computable indicator"
+rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Con t1))) = (t, [])
+rootIndKnown b nb t@(viewTerm2 -> Lit2 (Var t1))
+  | S.member t nb = (FAPP (NoEq dhOneSym) [], [])
+  | S.member t b = (t, [])
+  | otherwise = error "not computable indicator"
+rootIndKnown b nb t@(viewTerm2 -> Lit2 (Con c)) = (t, [])
 rootIndKnown b nb _ = error "rootSet applied on non DH term'"
 
-
+rootIndUnknown :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> (LNTerm, [(LVar, VTerm Name LVar)])
+rootIndUnknown n nb t = ( LIT (Var newv), [(newv, t)])
+    where newv = getNewSimilarVar (LVar "t" LSortG 0) tvars
+          tvars =  varsVTerm t
 
 {-
 -- instead of just returning the indicator, we also return a list of variables that is unempty only if
