@@ -12,6 +12,7 @@
 module Theory.Tools.IntruderRules (
     subtermIntruderRules
   , dhIntruderRules
+  , dhmultIntruderRules
   , bpIntruderRules
   , xorIntruderRules
   , multisetIntruderRules
