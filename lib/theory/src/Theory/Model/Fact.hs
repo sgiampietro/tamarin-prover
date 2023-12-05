@@ -67,6 +67,13 @@ module Theory.Model.Fact (
   , protoOrInFactView
   , protoOrOutFactView
 
+  , kdhFact
+  , bFact
+  , nbFact
+  , indEqFact
+  , noCancFact
+  , neededFact
+
   , isKFact
   , isKUFact
   , isKDFact
@@ -133,6 +140,22 @@ import           Text.PrettyPrint.Class
 data Multiplicity = Persistent | Linear
                   deriving( Eq, Ord, Show, Typeable, Data, Generic, NFData, Binary )
 
+
+------------------------------------------------------------------------------
+-- Diffie-Hellman special facts
+------------------------------------------------------------------------------
+
+{-
+data DHFact = 
+    B LNTerm LVar  -- TODO: LVar indicates the timepoint?
+  | NB LNTerm LVar
+  | IndEq LNTerm LNTerm
+  | Needed LVar --TODO: check if we want LVar or just a literal
+  | NoCanc LNTerm LNTerm
+  deriving( Eq, Ord, Show, Generic, NFData, Binary )
+  -}
+
+
 -- | Fact tags/symbols
 data FactTag = ProtoFact Multiplicity String Int
                -- ^ A protocol fact together with its arity and multiplicity.
@@ -142,6 +165,11 @@ data FactTag = ProtoFact Multiplicity String Int
              | KUFact     -- ^ Up-knowledge fact in messsage deduction.
              | KDFact     -- ^ Down-knowledge fact in message deduction.
              | KdhFact    -- ^ Corresponding KUFact for Diffie-Hellman terms.
+             | BFact      -- ^ DH
+             | NBFact     -- ^ DH
+             | IndEqFact     -- ^ DH
+             | NeededFact     -- ^ DH
+             | NoCancFact     -- ^ DH
              | DedFact    -- ^ Log-fact denoting that the intruder deduced
                           -- a message using a construction rule.
              | TermFact   -- ^ internal fact, only used to convert terms to facts
@@ -208,10 +236,19 @@ kdFact = Fact KDFact S.empty . return
 kuFact = Fact KUFact S.empty . return
 termFact = Fact TermFact S.empty . return
 
+Fact (ProtoFact multi name (length ts)) S.empty ts
 
---SOFIA: what is this for?
 kdhFact :: t -> Fact t
 kdhFact = Fact KdhFact S.empty . return
+
+neededFact :: t -> Fact t
+neededFact x = Fact NeededFact S.empty [x]
+
+bFact, nbFact, indEqFact, noCancFact :: t -> t -> Fact t 
+bFact x i = Fact BFact S.empty [x, i]
+nbFact x i = Fact NBFact S.empty [x, i]
+indEqFact x i = Fact IndEqFact S.empty [x, i]
+noCancFact x i = Fact NoCancFact S.empty [x, i]
 
 -- | Make annotated KU/KD facts
 kdFactAnn, kuFactAnn :: S.Set FactAnnotation -> t -> Fact t

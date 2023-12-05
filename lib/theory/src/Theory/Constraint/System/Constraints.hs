@@ -111,18 +111,7 @@ instance HasFrees Edge where
     mapFrees  f (Edge x y) = Edge <$> mapFrees f x <*> mapFrees f y
 
 
-------------------------------------------------------------------------------
--- Diffie-Hellman special facts
-------------------------------------------------------------------------------
 
-data DHFact = 
-    B LNTerm LVar  -- TODO: LVar indicates the timepoint?
-  | NB LNTerm LVar
-  | IndEq LNTerm LNTerm
-  | Needed LVar --TODO: check if we want LVar or just a literal
-  | NoCanc LNTerm LNTerm
-  deriving( Eq, Ord, Show, Generic, NFData, Binary )
-  
 ------------------------------------------------------------------------------
 -- Goals
 ------------------------------------------------------------------------------
@@ -144,7 +133,6 @@ data Goal =
        -- ^ A case split over a disjunction.
      | SubtermG (LNTerm, LNTerm)
        -- ^ A split of a Subterm which is in SubtermStore -> _subterms
-     | DHFactG DHFact
      deriving( Eq, Ord, Show, Generic, NFData, Binary )
 
 -- Indicators

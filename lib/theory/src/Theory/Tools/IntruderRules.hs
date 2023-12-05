@@ -309,14 +309,25 @@ normRule' (Rule i ps cs as nvs) = reader $ \hnd ->
 -- Diffie-Hellman multiplication rules
 ------------------------------------------------------------------------------
 
+-- I think this is probably where you need to add the rules? or maybe in a separate non-K
+-- related set of rules. Create a DHrules separate file? 
+
 dhmultIntruderRules ::  [IntrRuleAC]
 dhmultIntruderRules = [
-      Rule ISendDHRule [kuFact x_var] [kdFact x_var] []   []
-      , Rule CoerceDHRule [kuFact x_var] [kdFact x_var] []     []
+      kdhRule PubGConstrRule   []                             (x_pub_var)     [(x_pub_var)]
+      , kdhRule FreshNZEConstrRule [freshFact x_fresh_var] (x_fresh_var)          []
+      --, Rule IRecvDHRule [outFact x_var] [kdhFact x_var] []
+      , Rule CoerceDHRule [kdFact x_box] [kdhFact x_varG] []     [x_varG]
+      , Rule CoerceDHRuleE [kdFact x_boxE] [kdhFact x_varE] []     [x_varE]
     ] 
   where
-    x_var       = varTerm (LVar "x"  LSortDH   0)
-
+    kdhRule name prems t nvs = Rule name prems [kdhFact t] [kdhFact t] nvs
+    x_pub_var   = varTerm (LVar "x"  LSortPubG   0)
+    x_fresh_var = varTerm (LVar "x"  LSortFrNZE 0)
+    x_varG = varTerm (LVar "x"  LSortG 0)
+    x_varE = varTerm (LVar "x"  LSortE 0)
+    x_box = fAppdhBox x_varG
+    x_boxE = fAppdhBoxE x_varE
 
 ------------------------------------------------------------------------------
 -- Multiset intruder rules
