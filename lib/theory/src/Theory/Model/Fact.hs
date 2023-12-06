@@ -77,6 +77,8 @@ module Theory.Model.Fact (
   , isKFact
   , isKUFact
   , isKDFact
+  , isKdhFact
+  , isKdhIndFact
   , isKDXorFact
 
   , convertKUtoKD
@@ -165,6 +167,7 @@ data FactTag = ProtoFact Multiplicity String Int
              | KUFact     -- ^ Up-knowledge fact in messsage deduction.
              | KDFact     -- ^ Down-knowledge fact in message deduction.
              | KdhFact    -- ^ Corresponding KUFact for Diffie-Hellman terms.
+             | KdhIndFact    -- ^ Corresponding KdhFact for Diffie-Hellman indicator terms.
              | BFact      -- ^ DH
              | NBFact     -- ^ DH
              | IndEqFact     -- ^ DH
@@ -284,6 +287,18 @@ isKUFact _                 = False
 isKDFact :: LNFact -> Bool
 isKDFact (Fact KDFact _ _) = True
 isKDFact _                 = False
+
+-- | True if the fact is a KD-fact.
+isKdhFact :: LNFact -> Bool
+isKdhFact (Fact KdhFact _ _) = True
+isKdhFact _                 = False
+
+
+-- | True if the fact is a KD-fact.
+isKdhIndFact :: LNFact -> Bool
+isKdhIndFact (Fact KdhIndFact _ _) = True
+isKdhIndFact _                 = False
+
 
 -- | True if the fact is a KD-fact concerning an Xor Term.
 isKDXorFact :: LNFact -> Bool

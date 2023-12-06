@@ -283,6 +283,13 @@ insertEdges edges = do
     void (solveFactEqs SplitNow [ Equal fa1 fa2 | (_, fa1, fa2, _) <- edges ])
     modM sEdges (\es -> foldr S.insert es [ Edge c p | (c,_,_,p) <- edges])
 
+-- | TODO: FIX THIS SO THAT IT WORKS. 
+insertDHEdges :: [(NodeConc, LNFact, LNFact, NodePrem)] -> Reduction ()
+insertDHEdges edges = do
+    void (solveFactEqs SplitNow [ EqualDH fa1 fa2 | (_, fa1, fa2, _) <- edges ])
+    modM sEdges (\es -> foldr S.insert es [ Edge c p | (c,_,_,p) <- edges])
+
+
 -- | Insert an 'Action' atom. Ensures that (almost all) trivial *KU* actions
 -- are solved immediately using rule *S_{at,u,triv}*. We currently avoid
 -- adding intermediate products. Indicates whether nodes other than the given
