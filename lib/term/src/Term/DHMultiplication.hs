@@ -170,6 +170,15 @@ eTermsOf t@(FAPP f ts) = concatMap eTermsOf ts
 indComputable :: S.Set LNTerm -> LNTerm -> Bool
 indComputable bs t = S.fromList( eTermsOf t ) `S.isSubsetOf` bs
 
+
+-- TODO: this function should actually return which indicators are needed too in the 
+-- case its not computable. 
+neededexponents:: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> Maybe (S.Set LNTerm)
+neededexponents b nb t 
+  | null es = Nothing
+  | otherwise = Just es
+      where es =S.fromList( eTermsOf t ) `S.difference` (b `S.union` nb)
+
 rootIndicator :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> (LNTerm, [(LVar, VTerm Name LVar)])
 rootIndicator b nb t
   | indComputable (b `S.union` nb) t = rootIndKnown b nb t

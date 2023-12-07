@@ -376,6 +376,10 @@ data GoalStatus = GoalStatus
 data System = System
     { _sNodes          :: M.Map NodeId RuleACInst
     , _sEdges          :: S.Set Edge
+    , _sNoCanc         :: S.Set NoCanc
+    , _sBasis          :: S.Set LNTerm
+    , _sNotBasis       :: S.Set LNTerm
+    -- , _sIndStore       :: IndEqStore TODO: define this datatype (probs in a data IndEquationStore.hs file)
     , _sLessAtoms      :: S.Set (NodeId, NodeId, Reason)
     , _sLastAtom       :: Maybe NodeId
     , _sSubtermStore   :: SubtermStore

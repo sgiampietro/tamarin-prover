@@ -214,6 +214,8 @@ solveGoal goal = do
       SplitG i      -> solveSplit i
       DisjG disj    -> solveDisjunction disj
       SubtermG st   -> solveSubterm st
+      DHIndF p fa -> solveDHInd (get crOut rules) p fa
+      NeededG x     -> solveNeeded x
 
 -- The following functions are internal to 'solveGoal'. Use them with great
 -- care.
@@ -275,11 +277,11 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
              -> LNFact         -- ^ Fact required at this premise.
              -> Reduction String -- ^ Case name to use.
 solvePremise rules p faPrem
-  | isKdhIndFact = do  
-
+  | isKdhIndFact faPrem = do  
+      insertDHInd p faPrem -- this should introduce the Goal of type "" 
   | isKDFact faPrem = do
       iLearn    <- freshLVar "vl" LSortNode
-      mLearn    <- varTerm <$> freshLVar "t" LSortMsg
+      mLearn    <- varTerm <$> freshLVar "t" LSortMsg -- why do we not care about the term here??
       let concLearn = kdFact mLearn
           premLearn = outFact mLearn
           -- !! Make sure that you construct the correct rule!
@@ -403,6 +405,34 @@ solveDisjunction disj = do
     (i, gfm) <- disjunctionOfList $ zip [(1::Int)..] $ getDisj disj
     insertFormula gfm
     return $ "case_" ++ show i
+
+      
+solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact containing a boxed term as conclusion. 
+             -> NodePrem       -- ^ Premise to solve.
+             -> LNTerm         -- ^ Product term of which we have to find the indicator  
+             -> Reduction String -- ^ Case name to use.
+solveDHInd rules p t = 
+    case prodTerm t of 
+      Just (x,y) -> do 
+        insertNoCanc (NoCanc x y)
+        bset <- get system.basis 
+        nbset <- get system.notbasis
+        case neededexponents of 
+          Just es -> do
+            insertNeeded es
+            insertDHInd (rootIndUnKnown bset nbset x)
+          Nothing ->
+            insertDHInd (rootIndKnown bset nbset x)
+      Nothing -> --TODO:
+
+
+solveNeeded ::  LNTerm         -- exponent that is needed.
+             -> Reduction String -- ^ Case name to use.
+solveNeeded x
+  -- TODO: casesplit: 
+      -- CASE 1: insert x in the basis set (of constraint system) and prohibit K(x)- probs using contradiction
+      -- CASE 2: insert x in the non-basis set (of constraint system) and add K(x) as goal.
+
 
 -- | remove from subterms
 -- get split

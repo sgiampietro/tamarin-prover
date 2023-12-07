@@ -166,13 +166,13 @@ data FactTag = ProtoFact Multiplicity String Int
              | InFact     -- ^ Officially known by the intruder/network.
              | KUFact     -- ^ Up-knowledge fact in messsage deduction.
              | KDFact     -- ^ Down-knowledge fact in message deduction.
-             | KdhFact    -- ^ Corresponding KUFact for Diffie-Hellman terms.
-             | KdhIndFact    -- ^ Corresponding KdhFact for Diffie-Hellman indicator terms.
-             | BFact      -- ^ DH
-             | NBFact     -- ^ DH
-             | IndEqFact     -- ^ DH
-             | NeededFact     -- ^ DH
-             | NoCancFact     -- ^ DH
+             | KdhFact    -- ^ DH Corresponding KUFact for Diffie-Hellman terms.
+             -- | KdhIndFact    -- ^ DH (now put directly as a type of goal to solve)
+             -- | BFact      -- ^ DH (now put directly in the constraint system instead)
+             -- | NBFact     -- ^ DH (now put directly in the constraint system instead)
+             -- | IndEqFact     -- ^ DH (now put directly in the constraint system instead)
+             -- | NeededFact     -- ^ DH (now put directly as a type of goal to solve)
+             -- | NoCancFact     -- ^ DH (now put directly in the constraint system instead)
              | DedFact    -- ^ Log-fact denoting that the intruder deduced
                           -- a message using a construction rule.
              | TermFact   -- ^ internal fact, only used to convert terms to facts

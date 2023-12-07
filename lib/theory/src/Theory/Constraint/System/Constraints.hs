@@ -21,6 +21,7 @@ module Theory.Constraint.System.Constraints (
   , NodePrem
   , NodeConc
   , Edge(..)
+  , NoCanc(..)
   , Reason(..)
   , Less
 
@@ -110,6 +111,11 @@ instance HasFrees Edge where
     foldFreesOcc  f c (Edge x y) = foldFreesOcc f ("edge":c) (x, y)
     mapFrees  f (Edge x y) = Edge <$> mapFrees f x <*> mapFrees f y
 
+------------------------------------------------------------------------------
+-- NoCanc, Basis and NonBasis types for DH multiplication                   --
+------------------------------------------------------------------------------
+
+data NoCanc = NoCanc LNTerm LNTerm
 
 
 ------------------------------------------------------------------------------
@@ -133,6 +139,9 @@ data Goal =
        -- ^ A case split over a disjunction.
      | SubtermG (LNTerm, LNTerm)
        -- ^ A split of a Subterm which is in SubtermStore -> _subterms
+     | DHInd NodePrem LNFact -- I think this might be unnecessary.
+     | NoCanc (LNTerm LNterm)
+     | NeededG LNTerm
      deriving( Eq, Ord, Show, Generic, NFData, Binary )
 
 -- Indicators

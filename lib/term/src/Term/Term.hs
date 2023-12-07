@@ -246,6 +246,12 @@ isProduct :: Show a => Term a -> Bool
 isProduct (viewTerm2 -> FMult _) = True
 isProduct _                      = False
 
+
+-- | 'True' iff the term is a well-formed product.
+prodTerms :: Show a => Term a -> Maybe (a,a)
+prodTerms (viewTerm2 -> FdhMult x y) = Just (x,y)
+prodTerms _                      = Nothing
+
 -- | 'True' iff the term is a well-formed xor.
 isXor :: Show a => Term a -> Bool
 isXor (viewTerm2 -> FXor _) = True
