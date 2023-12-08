@@ -56,6 +56,7 @@ builtinsDiffNames :: [(String,
                        MaudeSig)]
 builtinsDiffNames = [
   ("diffie-hellman", dhMaudeSig),
+  ("DH-multiplication", dhMultMaudeSig),
   ("bilinear-pairing", bpMaudeSig),
   ("multiset", msetMaudeSig),
   ("xor", xorMaudeSig),

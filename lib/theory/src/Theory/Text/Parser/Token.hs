@@ -363,6 +363,12 @@ sortedLVar ss =
           LSortFresh     -> void $ char '~'
           LSortNode      -> void $ char '#'
           LSortNat       -> void $ char '%'
+          LSortDH       -> pure()
+          LSortG       -> void $ char 'G'
+          LSortE     -> void $ char 'E'
+          LSortNZE     -> void $ char 'N'
+          LSortPubG      -> void $ char 'p'
+          LSortFrNZE       -> void $ char 'f'
         (n, i) <- indexedIdentifier
         return (LVar n s i)
 
@@ -373,6 +379,9 @@ lvar = sortedLVar [minBound..]
 -- | Parse a non-node variable.
 msgvar :: Parser LVar
 msgvar = sortedLVar [LSortFresh, LSortPub, LSortNat, LSortMsg]
+
+dhvar :: Parser LVar
+dhvar = sortedLVar [LSortDH, LSortG, LSortE, LSortNZE, LSortPubG, LSortFrNZE]
 
 -- | Parse a graph node variable.
 nodevar :: Parser NodeId
@@ -420,6 +429,12 @@ sortedLVarNoSuffix ss =
           LSortFresh     -> void $ char '~'
           LSortNode      -> void $ char '#'
           LSortNat       -> void $ char '%'
+          LSortDH       -> pure()
+          LSortG       -> void $ char 'G'
+          LSortE     -> void $ char 'E'
+          LSortNZE     -> void $ char 'N'
+          LSortPubG      -> void $ char 'p'
+          LSortFrNZE       -> void $ char 'f'
         (n, i) <- indexedIdentifier
         return (LVar n s i)
 

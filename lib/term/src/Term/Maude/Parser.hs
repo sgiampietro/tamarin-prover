@@ -207,6 +207,12 @@ ppTheory msig = BC.unlines $
        [ theoryOpEq "zero : -> Msg"
        , theoryOpAC "xor : Msg Msg -> Msg [comm assoc]" ]
        else [])
+   -- ++
+   -- (if enableDHMult msig
+   --   then
+   --   [ theoryOpEq "dhmult : G G -> G"
+   --   ]
+   --   else [])
     ++    
     (if enableNat msig
        then

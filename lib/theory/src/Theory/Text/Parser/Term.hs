@@ -74,6 +74,20 @@ reservedBuiltins =  map unpackChars [
   , emapSymString 
   , zeroSymString
   , xorSymString 
+  , dhMultSymString -- g1.g2
+  , dhGinvSymString -- g^-1
+  , dhZeroSymString
+  , dhMinusSymString
+  , dhInvSymString
+  , dhEgSymString 
+  , dhTimesSymString
+  , dhTimes2SymString -- e1*e2 for E (not necessarily NZE) elements
+  , dhPlusSymString -- e1+e2
+  , dhExpSymString
+  , dhOneSymString
+  , dhMuSymString
+  , dhBoxSymString
+  , dhBoxESymString  
   ]
 
 -- | Parse an n-ary operator application for arbitrary n.
