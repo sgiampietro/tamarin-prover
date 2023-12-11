@@ -88,8 +88,8 @@ data MaudeSig = MaudeSig
     , enableMSet         :: Bool
     , enableNat          :: Bool
     , enableXor          :: Bool
-    , enableDiff         :: Bool
     , enableDHMult       :: Bool
+    , enableDiff         :: Bool
     , stFunSyms          :: S.Set NoEqSym     -- ^ function signature for subterm theory
     , stRules            :: S.Set CtxtStRule  -- ^ rewriting rules for subterm theory
 
@@ -103,7 +103,7 @@ data MaudeSig = MaudeSig
 
 -- | Smart constructor for maude signatures. Computes funSyms and irreducibleFunSyms.
 maudeSig :: MaudeSig -> MaudeSig
-maudeSig msig@MaudeSig{enableDH, enableBP, enableMSet, enableNat, enableXor, enableDiff = _, stFunSyms, stRules} =
+maudeSig msig@MaudeSig{enableDH, enableBP, enableMSet, enableNat, enableXor, enableDHMult, enableDiff = _, stFunSyms, stRules} =
     msig {enableDH=enableDH||enableBP, funSyms=allfuns, irreducibleFunSyms=irreduciblefuns, reducibleFunSyms=reducible}
   where
     allfuns = S.map NoEq stFunSyms
@@ -121,8 +121,8 @@ maudeSig msig@MaudeSig{enableDH, enableBP, enableMSet, enableNat, enableXor, ena
 
 -- | A monoid instance to combine maude signatures.
 instance Semigroup MaudeSig where
-    MaudeSig dh1 bp1 mset1 nat1 xor1 diff1 dhmult1 stFunSyms1 stRules1 _ _ _ <>
-      MaudeSig dh2 bp2 mset2 nat2 xor2 diff2 dhmult2 stFunSyms2 stRules2 _ _ _ =
+    MaudeSig dh1 bp1 mset1 nat1 xor1 dhmult1 diff1 stFunSyms1 stRules1 _ _ _ <>
+      MaudeSig dh2 bp2 mset2 nat2 xor2 dhmult2 diff2 stFunSyms2 stRules2 _ _ _ =
           maudeSig (mempty {enableDH=dh1||dh2
                            ,enableBP=bp1||bp2
                            ,enableMSet=mset1||mset2
@@ -144,7 +144,7 @@ instance Semigroup MaudeSig where
                                          S.union st1 st2
                   
 instance Monoid MaudeSig where
-    mempty = MaudeSig False False False False False False S.empty S.empty S.empty S.empty S.empty
+    mempty = MaudeSig False False False False False False False S.empty S.empty S.empty S.empty S.empty
 
 -- | Non-AC function symbols.
 noEqFunSyms :: MaudeSig -> NoEqFunSig
@@ -177,7 +177,7 @@ rrulesForMaudeSig (MaudeSig {enableDH, enableBP, enableMSet, enableXor, stRules}
 -- | Maude signatures for the AC symbols.
 dhMaudeSig, dhMultMaudeSig, bpMaudeSig, msetMaudeSig, natMaudeSig, xorMaudeSig :: MaudeSig
 dhMaudeSig   = maudeSig $ mempty {enableDH=True}
-dhMultMaudeSig = maudeSig $ mempty {enableDH=True}
+dhMultMaudeSig = maudeSig $ mempty {enableDHMult=True}
 bpMaudeSig   = maudeSig $ mempty {enableBP=True}
 msetMaudeSig = maudeSig $ mempty {enableMSet=True}
 natMaudeSig  = maudeSig $ mempty {enableNat=True}

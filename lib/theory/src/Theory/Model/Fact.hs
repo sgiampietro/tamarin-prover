@@ -68,17 +68,17 @@ module Theory.Model.Fact (
   , protoOrOutFactView
 
   , kdhFact
-  , bFact
-  , nbFact
-  , indEqFact
-  , noCancFact
-  , neededFact
+  --, bFact
+  --, nbFact
+  --, indEqFact
+  --, noCancFact
+  --, neededFact
 
   , isKFact
   , isKUFact
   , isKDFact
   , isKdhFact
-  , isKdhIndFact
+  --, isKdhIndFact
   , isKDXorFact
 
   , convertKUtoKD
@@ -239,19 +239,19 @@ kdFact = Fact KDFact S.empty . return
 kuFact = Fact KUFact S.empty . return
 termFact = Fact TermFact S.empty . return
 
-Fact (ProtoFact multi name (length ts)) S.empty ts
+-- Fact (ProtoFact multi name (length ts)) S.empty ts
 
 kdhFact :: t -> Fact t
 kdhFact = Fact KdhFact S.empty . return
 
-neededFact :: t -> Fact t
-neededFact x = Fact NeededFact S.empty [x]
+--neededFact :: t -> Fact t
+--neededFact x = Fact NeededFact S.empty [x]
 
-bFact, nbFact, indEqFact, noCancFact :: t -> t -> Fact t 
-bFact x i = Fact BFact S.empty [x, i]
-nbFact x i = Fact NBFact S.empty [x, i]
-indEqFact x i = Fact IndEqFact S.empty [x, i]
-noCancFact x i = Fact NoCancFact S.empty [x, i]
+--bFact, nbFact, indEqFact, noCancFact :: t -> t -> Fact t 
+--bFact x i = Fact BFact S.empty [x, i]
+--nbFact x i = Fact NBFact S.empty [x, i]
+--indEqFact x i = Fact IndEqFact S.empty [x, i]
+--noCancFact x i = Fact NoCancFact S.empty [x, i]
 
 -- | Make annotated KU/KD facts
 kdFactAnn, kuFactAnn :: S.Set FactAnnotation -> t -> Fact t
@@ -295,9 +295,9 @@ isKdhFact _                 = False
 
 
 -- | True if the fact is a KD-fact.
-isKdhIndFact :: LNFact -> Bool
-isKdhIndFact (Fact KdhIndFact _ _) = True
-isKdhIndFact _                 = False
+--isKdhIndFact :: LNFact -> Bool
+--isKdhIndFact (Fact KdhIndFact _ _) = True
+-- isKdhIndFact _                 = False
 
 
 -- | True if the fact is a KD-fact concerning an Xor Term.

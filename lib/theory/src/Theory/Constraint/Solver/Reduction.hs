@@ -284,12 +284,13 @@ insertEdges edges = do
     modM sEdges (\es -> foldr S.insert es [ Edge c p | (c,_,_,p) <- edges])
 
 -- | TODO: FIX THIS SO THAT IT WORKS. 
-insertDHEdges :: [(NodeConc, LNFact, LNFact, NodePrem)] -> Reduction ()
+{-insertDHEdges :: [(NodeConc, LNFact, LNFact, NodePrem)] -> Reduction ()
 insertDHEdges edges = do
     void (solveFactEqs SplitNow [ EqualDH fa1 fa2 | (_, fa1, fa2, _) <- edges ])
     modM sIndStore (\es -> foldr S.insert es [ Edge c p | (c,_,_,p) <- edges])
+-}
 
-insertDHInd ::  NodePrem -> LNFact -> Reduction ()
+--insertDHInd ::  NodePrem -> LNFact -> Reduction ()
 -- TODO this should insert DH equalities.
 
 -- | Insert an 'Action' atom. Ensures that (almost all) trivial *KU* actions

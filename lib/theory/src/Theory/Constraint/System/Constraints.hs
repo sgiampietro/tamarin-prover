@@ -115,8 +115,8 @@ instance HasFrees Edge where
 -- NoCanc, Basis and NonBasis types for DH multiplication                   --
 ------------------------------------------------------------------------------
 
-data NoCanc = NoCanc LNTerm LNTerm
-
+type NoCanc = (LNTerm, LNTerm)
+   -- deriving (Show, Ord, Eq, Data, Typeable, Generic, NFData, Binary)
 
 ------------------------------------------------------------------------------
 -- Goals
@@ -140,7 +140,7 @@ data Goal =
      | SubtermG (LNTerm, LNTerm)
        -- ^ A split of a Subterm which is in SubtermStore -> _subterms
      | DHInd NodePrem LNFact -- I think this might be unnecessary.
-     | NoCanc (LNTerm LNterm)
+     -- | NoCanc (LNTerm LNterm)
      | NeededG LNTerm
      deriving( Eq, Ord, Show, Generic, NFData, Binary )
 

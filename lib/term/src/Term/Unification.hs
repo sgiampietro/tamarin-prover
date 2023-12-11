@@ -50,6 +50,7 @@ module Term.Unification (
   , minimalMaudeSig
   , enableDiffMaudeSig
   , dhMaudeSig
+  , dhMultMaudeSig
   , natMaudeSig
   , bpMaudeSig
   , xorMaudeSig
