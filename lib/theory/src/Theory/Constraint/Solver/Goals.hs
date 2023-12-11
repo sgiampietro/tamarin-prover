@@ -214,8 +214,9 @@ solveGoal goal = do
       SplitG i      -> solveSplit i
       DisjG disj    -> solveDisjunction disj
       SubtermG st   -> solveSubterm st
-      --DHIndF p fa -> solveDHInd (get crOut rules) p fa
-      --NeededG x     -> solveNeeded x
+      DHIndG p fa -> solveDHInd (get crOut rules) p fa
+      NoCancG t1 t2 -> solveNoCanc t1 t2
+      NeededG x     -> solveNeeded x
 
 -- The following functions are internal to 'solveGoal'. Use them with great
 -- care.
@@ -277,8 +278,8 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
              -> LNFact         -- ^ Fact required at this premise.
              -> Reduction String -- ^ Case name to use.
 solvePremise rules p faPrem
-  -- | isKdhFact faPrem = do  
-  --    insertDHInd p faPrem -- this should introduce the Goal of type "" 
+  | isKdhFact faPrem = do  
+      insertDHInd p faPrem -- this should introduce the Goal of type "DHInd NodePrem LNFact" 
   | isKDFact faPrem = do
       iLearn    <- freshLVar "vl" LSortNode
       mLearn    <- varTerm <$> freshLVar "t" LSortMsg -- why do we not care about the term here??
@@ -406,7 +407,17 @@ solveDisjunction disj = do
     insertFormula gfm
     return $ "case_" ++ show i
 
-{-      
+-- todo: define a "isNoCanc" function!! Probably in the DHMultiplication file in the term folder. 
+solveNoCanc :: LNTerm -> LNTerm -> Reduction String
+solveNoCanc x y = do
+    nocancs <- getM sNoCanc
+    if ( M.member (x,y) nocancs)
+      then markGoalAsSolved "directly" (NoCancG x y)
+      else (
+        if (isNoCanc x y) then  markGoalAsSolved "directly" (NoCancG x y)
+        else ?? -- TODO: not sure what to do if you don't have this condition? maybe add y and inv(x) to the DH-equation store? 
+      )
+    
 solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact containing a boxed term as conclusion. 
              -> NodePrem       -- ^ Premise to solve.
              -> LNTerm         -- ^ Product term of which we have to find the indicator  
@@ -414,22 +425,24 @@ solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact containing a
 solveDHInd rules p t = 
     case prodTerm t of 
       Just (x,y) -> do 
-        insertNoCanc (NoCanc x y)
-        bset <- get system.basis 
-        nbset <- get system.notbasis
+        insertNoCanc x y
+        bset <- getM sBasis 
+        nbset <- getM sNotBasis
         case neededexponents of 
           Just es -> do
             insertNeeded es
-            insertDHInd (rootIndUnKnown bset nbset x)
+            -- double check that this current goal remains. 
           Nothing ->
-            insertDHInd (rootIndKnown bset nbset x)
+            solveEqs (rootIndKnown bset nbset x)
+            insertNoCanc z2 
       Nothing -> --TODO:
 
-
+{-
 solveNeeded ::  LNTerm         -- exponent that is needed.
              -> Reduction String -- ^ Case name to use.
 solveNeeded x
 -}
+
   -- TODO: casesplit: 
       -- CASE 1: insert x in the basis set (of constraint system) and prohibit K(x)- probs using contradiction
       -- CASE 2: insert x in the non-basis set (of constraint system) and add K(x) as goal.

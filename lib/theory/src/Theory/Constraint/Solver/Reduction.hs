@@ -290,8 +290,11 @@ insertDHEdges edges = do
     modM sIndStore (\es -> foldr S.insert es [ Edge c p | (c,_,_,p) <- edges])
 -}
 
---insertDHInd ::  NodePrem -> LNFact -> Reduction ()
--- TODO this should insert DH equalities.
+insertDHInd :: NodePrem -> LNFact -> Reduction ()
+insertDHInd nodep fa@(Fact _ ann [t]) = insertGoal (DHIndG nodep t) False
+
+insertNoCanc :: LNTerm -> LNTerm -> Reduction()
+insertNoCanc x y = insertGoal (NoCancG x y) False
 
 -- | Insert an 'Action' atom. Ensures that (almost all) trivial *KU* actions
 -- are solved immediately using rule *S_{at,u,triv}*. We currently avoid
@@ -550,6 +553,9 @@ markGoalAsSolved how goal =
                          modM sSolvedFormulas (S.insert $ GDisj disj) >>
                          updateStatus
       SubtermG _      -> updateStatus
+      DHIndG _        -> modM sGoals $ M.delete goal
+      NoCancG _       -> modM sGoals $ M.delete goal
+      NeededG _       -> modM sGoals $ M.delete goal
   where
     updateStatus = do
         mayStatus <- M.lookup goal <$> getM sGoals

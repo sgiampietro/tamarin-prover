@@ -139,8 +139,8 @@ data Goal =
        -- ^ A case split over a disjunction.
      | SubtermG (LNTerm, LNTerm)
        -- ^ A split of a Subterm which is in SubtermStore -> _subterms
-     | DHInd NodePrem LNFact -- I think this might be unnecessary.
-     -- | NoCanc (LNTerm LNterm)
+     | DHIndG NodePrem LNTerm LNTerm -- I think this might be unnecessary.
+     | NoCancG (LNTerm, LNterm)
      | NeededG LNTerm
      deriving( Eq, Ord, Show, Generic, NFData, Binary )
 
