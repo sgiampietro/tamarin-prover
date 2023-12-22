@@ -204,6 +204,16 @@ insertFreshNodeConc rules = do
     (v, fa) <- disjunctionOfList $ enumConcs ru
     return (ru, (i, v), fa)
 
+{-
+-- | Insert a fresh rule node labelled with a fresh instance of one of the
+-- rules and return one of the conclusions.
+insertOutConc :: [RuleAC] -> Reduction (RuleACInst, NodeConc, LNFact)
+insertOutConc rules = do
+    (i, ru) <- insertFreshNode rules Nothing
+    (v, fa) <- disjunctionOfList $ enumConcs ru
+    return (ru, (i, v), fa)
+-}
+
 -- | Insert a fresh rule node labelled with a fresh instance of one of the rules
 -- and solve it's 'Fr', 'In', and 'KU' premises immediately.
 -- If a parent node is given, updates the remaining rule applications.
@@ -278,17 +288,29 @@ insertChain c p = insertGoal (ChainG c p) False
 
 -- | Insert an edge constraint. CR-rule *DG1_2* is enforced automatically,
 -- i.e., the fact equalities are enforced.
-insertEdges :: [(NodeConc, LNFact, LNFact, NodePrem)] -> Reduction ()
+insertEdges :: [(NodeConc, LNFact, LNFact, NodePrem)] -> LNTerm -> Reduction ()
 insertEdges edges = do
     void (solveFactEqs SplitNow [ Equal fa1 fa2 | (_, fa1, fa2, _) <- edges ])
     modM sEdges (\es -> foldr S.insert es [ Edge c p | (c,_,_,p) <- edges])
 
+insertEdge :: (NodeConc, LNFact, LNFact, NodePrem) -> Reduction ()
+insertEdge (c, fa1, fa2, p) = do
+    void (solveFactEqs SplitNow [ Equal fa1 fa2 ])
+    modM sEdges (\es -> foldr S.insert es [ Edge c p ])
+
 -- | TODO: FIX THIS SO THAT IT WORKS. 
-{-insertDHEdges :: [(NodeConc, LNFact, LNFact, NodePrem)] -> Reduction ()
-insertDHEdges edges = do
-    void (solveFactEqs SplitNow [ EqualDH fa1 fa2 | (_, fa1, fa2, _) <- edges ])
-    modM sIndStore (\es -> foldr S.insert es [ Edge c p | (c,_,_,p) <- edges])
--}
+insertDHEdge :: (NodeConc, LNFact, LNFact, NodePrem) -> LNTerm -> LNTerm -> Reduction ()
+insertDHEdge (c, fa1, fa2, p) indt1 t1 = do
+    void (solveFactDHEqs SplitNow [ EqInd fa1 fa2 indt1 t1 ])
+    modM sEdges (\es -> foldr S.insert es [ Edge c p ])
+
+insertBasisElem :: LNTerm -> Reduction ()
+insertBasisElem x = do
+    modM sBasis (\es -> S.insert es x)
+
+insertNotBasisElem :: LNTerm -> Reduction ()
+insertNotBasisElem x = do
+    modM sNotBasis (\es -> S.insert es x)
 
 insertDHInd :: NodePrem -> LNFact -> Reduction ()
 insertDHInd nodep fa@(Fact _ ann [t]) = insertGoal (DHIndG nodep t) False
@@ -746,6 +768,28 @@ solveTermEqs splitStrat eqs0 =
         noContradictoryEqStore
         return Changed
 
+
+solveTermDHEqs :: SplitStrategy -> [EqInd LNFact LNTerm LNTerm] -> Reduction ChangeIndicator
+solveTermDHEqs splitStrat eqs0 =
+    case filter (not . evalDHEqual) eqs0 of
+      []  -> do return Unchanged
+      eqs1 -> do
+        hnd <- getMaudeHandle
+        se  <- gets id
+        (eqs2, maySplitId) <- addDHEqs hnd eqs1 =<< getM sEqStore
+        setM sEqStore
+            =<< simp hnd (substCreatesNonNormalTerms hnd se)
+            =<< case (maySplitId, splitStrat) of
+                  (Just splitId, SplitNow) -> disjunctionOfList
+                                                $ fromJustNote "solveTermEqs"
+                                                $ performSplit eqs2 splitId
+                  (Just splitId, SplitLater) -> do
+                      insertGoal (SplitG splitId) False
+                      return eqs2
+                  _                        -> return eqs2
+        noContradictoryEqStore
+        return Changed        
+
 -- | Add a list of equalities in substitution form to the equation store
 solveSubstEqs :: SplitStrategy -> LNSubst -> Reduction ChangeIndicator
 solveSubstEqs split subst =
@@ -758,8 +802,16 @@ solveNodeIdEqs = solveTermEqs SplitNow . map (fmap varTerm)
 -- | Add a list of fact equalities to the equation store, if possible.
 solveFactEqs :: SplitStrategy -> [Equal LNFact] -> Reduction ChangeIndicator
 solveFactEqs split eqs = do
+    contradictoryIf (not $ all evalDHEqual $ map (fmap factTag) eqs)
+    solveListEqs (solveTermEqs split) $ map (fmap factTerms) eqs
+
+
+solveFactDHEqs :: SplitStrategy -> [EqInd LNFact LNTerm] -> Reduction ChangeIndicator
+solveFactDHEqs split eqs = do
     contradictoryIf (not $ all evalEqual $ map (fmap factTag) eqs)
     solveListEqs (solveTermEqs split) $ map (fmap factTerms) eqs
+
+
 
 -- | Add a list of rule equalities to the equation store, if possible.
 solveRuleEqs :: SplitStrategy -> [Equal RuleACInst] -> Reduction ChangeIndicator
@@ -789,3 +841,27 @@ solveRuleConstraints (Just eqConstr) = do
     noContradictoryEqStore
 solveRuleConstraints Nothing = return ()
 
+
+-- | DH: Add a list of term equalities to the equation store, if possible. 
+solveDHTermEqs :: SplitStrategy -> [EqInd LNTerm] -> Reduction ChangeIndicator
+solveDHTermEqs split eqs0 = 
+    --contradictoryIf (not $ all evalEqual $ map (fmap factTag) eqs)
+    --solveListEqs 
+    case filter (not . evalEqual) eqs0 of
+      []  -> do return Unchanged
+      eqs1 -> do
+        hnd <- getMaudeHandle
+        se  <- gets id
+        (eqs2, maySplitId) <- addDHEqs hnd eqs1 =<< getM sEqStore
+        setM sEqStore
+            =<< simp hnd (substCreatesNonNormalTerms hnd se)
+            =<< case (maySplitId, splitStrat) of
+                  (Just splitId, SplitNow) -> disjunctionOfList
+                                                $ fromJustNote "solveTermEqs"
+                                                $ performSplit eqs2 splitId
+                  (Just splitId, SplitLater) -> do
+                      insertGoal (SplitG splitId) False
+                      return eqs2
+                  _                        -> return eqs2
+        noContradictoryEqStore
+        return Changed

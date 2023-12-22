@@ -379,7 +379,7 @@ data System = System
     , _sNoCanc         :: S.Set NoCanc
     , _sBasis          :: S.Set LNTerm
     , _sNotBasis       :: S.Set LNTerm
-    -- , _sIndStore       :: IndEqStore TODO: define this datatype (probs in a data IndEquationStore.hs file)
+    , _sDHEqStore      :: EqStore
     , _sLessAtoms      :: S.Set (NodeId, NodeId, Reason)
     , _sLastAtom       :: Maybe NodeId
     , _sSubtermStore   :: SubtermStore

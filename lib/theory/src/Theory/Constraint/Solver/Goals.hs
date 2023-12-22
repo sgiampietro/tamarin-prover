@@ -279,7 +279,9 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
              -> Reduction String -- ^ Case name to use.
 solvePremise rules p faPrem
   | isKdhFact faPrem = do  
-      insertDHInd p faPrem -- this should introduce the Goal of type "DHInd NodePrem LNFact" 
+      case factTerms faPrem of
+          [t1] -> solveDHInd rules p faPrem t1
+          _ -> error "malformed KdhFact"
   | isKDFact faPrem = do
       iLearn    <- freshLVar "vl" LSortNode
       mLearn    <- varTerm <$> freshLVar "t" LSortMsg -- why do we not care about the term here??
@@ -417,12 +419,12 @@ solveNoCanc x y = do
         if (isNoCanc x y) then  markGoalAsSolved "directly" (NoCancG x y)
         else ?? -- TODO: not sure what to do if you don't have this condition? maybe add y and inv(x) to the DH-equation store? 
       )
-    
+
 solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact containing a boxed term as conclusion. 
              -> NodePrem       -- ^ Premise to solve.
-             -> LNTerm         -- ^ Product term of which we have to find the indicator  
+             -> LNFact -> LNTerm       -- ^ Product term of which we have to find the indicator  
              -> Reduction String -- ^ Case name to use.
-solveDHInd rules p t = 
+solveDHInd rules p faPrem t = 
     case prodTerm t of 
       Just (x,y) -> do 
         insertNoCanc x y
@@ -431,21 +433,32 @@ solveDHInd rules p t =
         case neededexponents of 
           Just es -> do
             insertNeeded es
-            -- double check that this current goal remains. 
+            -- the current goal solveDHInd should remain and we should try to solve it again once we
+            -- have solved the Needed goals. or do we try it with a variable?
           Nothing ->
-            solveEqs (rootIndKnown bset nbset x)
-            insertNoCanc z2 
-      Nothing -> --TODO:
+              (ru, c, faConc) <- insertFreshNodeConc rules -- should only search for the rules with Out facts
+              -- actually maybe we don't need to because, we can solve this via equality of LNFacts instead
+              insertDHEdges (c, faConc, faPrem, p) (rootIndKnown bset nbset x) t 
+              return $ showRuleCaseName ru
+      Nothing -> error "error in prodTerm function"    
 
-{-
-solveNeeded ::  LNTerm         -- exponent that is needed.
+
+
+--how do I make a case distinction _within_ a solve function??
+
+solveNeeded ::  LNTerm ->  NodeId ->        -- exponent that is needed.
              -> Reduction String -- ^ Case name to use.
-solveNeeded x
--}
-
-  -- TODO: casesplit: 
-      -- CASE 1: insert x in the basis set (of constraint system) and prohibit K(x)- probs using contradiction
-      -- CASE 2: insert x in the non-basis set (of constraint system) and add K(x) as goal.
+solveNeeded x i = do
+    markGoalAsSolved "case split: basis or not" (Needed G x y)
+    basisornot <- makeSplit -- this should return a list of True and False
+    case basisornot of 
+      True -> insertBasisElem x 
+              insertGoal (PremiseG (i, PremIdx 0) (kdFact [x])) False
+              --let ru = Rule (IntrInfo CoerceRule) [kdFact [x]] [] [] []
+              --modM sNodes (M.insert i ru) TODO: check if we need to introduce in nodes?
+      False -> insertNotBasisElem x 
+               insertGoal (PremiseG (i, PremIdx 0) (kdFact [x])) False
+                -- TODO: contradict K(x) happening!
 
 
 -- | remove from subterms

@@ -248,6 +248,23 @@ addEqs hnd eqs0 eqStore =
                 (splitAtPos (applyEqStore hnd sfree (addDisj eqSt (S.fromList disj))) 0)
 -}
 
+-- TODO: fix this
+addDHEqs :: MonadFresh m
+       => MaudeHandle -> [EqInd LNFact LNTerm] -> EqStore -> m (EqStore, Maybe SplitId)
+addDHEqs hnd eqs0 eqStore =
+    case unifyLNDHTermFactored eqs `runReader` hnd of
+        (_, []) ->
+            return (set eqsConj falseEqConstrConj eqStore, Nothing)
+        (subst, [substFresh]) | substFresh == emptySubstVFresh ->
+            return (applyEqStore hnd subst eqStore, Nothing)
+        (subst, substs) -> do
+            let (eqStore', sid) = addDisj (applyEqStore hnd subst eqStore)
+                                          (S.fromList substs)
+            return (eqStore', Just sid)
+  where
+    eqs = apply (L.get eqsSubst eqStore) $ trace (unlines ["addEqs: ", show eqs0]) $ eqs0
+
+
 -- | Apply a substitution to an equation store and bring resulting equations into
 --   normal form again by using unification.
 applyEqStore :: MaudeHandle -> LNSubst -> EqStore -> EqStore
@@ -558,6 +575,29 @@ foreachDisj hnd f =
               eqsConj =: Conj (reverse lefts ++ ((,) idx <$> disjs) ++ rights)
               maybe (return ()) (\s -> MS.modify (applyEqStore hnd s)) msubst
               return True
+
+
+------------------------------------------------------------------------------
+-- DH multiplication functions
+------------------------------------------------------------------------------
+
+-- TODO: create a "unifyLNTermDHFactored" that deals with EqInd pairs. 
+
+addDHEqs :: MonadFresh m
+       => MaudeHandle -> [EqInd LNTerm] -> EqStore -> m (EqStore, Maybe SplitId)
+addDHEqs hnd eqs0 eqStore =
+    case unifyLNTermDHFactored eqs `runReader` hnd of
+        (_, []) ->
+            return (set eqsConj falseEqConstrConj eqStore, Nothing)
+        (subst, [substFresh]) | substFresh == emptySubstVFresh ->
+            return (applyEqStore hnd subst eqStore, Nothing)
+        (subst, substs) -> do
+            let (eqStore', sid) = addDisj (applyEqStore hnd subst eqStore)
+                                          (S.fromList substs)
+            return (eqStore', Just sid)
+  where
+    eqs = apply (L.get eqsSubst eqStore) $ trace (unlines ["addEqs: ", show eqs0]) $ eqs0
+
 
 ------------------------------------------------------------------------------
 -- Pretty printing

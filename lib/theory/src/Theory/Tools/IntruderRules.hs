@@ -318,7 +318,8 @@ dhmultIntruderRules = [
       kdhRule PubGConstrRule   []                             (x_pub_var)     [(x_pub_var)]
       , kdhRule FreshNZEConstrRule [freshFact x_fresh_var] (x_fresh_var)          []
       --, Rule IRecvDHRule [outFact x_var] [kdhFact x_var] []
-      , Rule CoerceDHRule [kdhFact x_varG]  [kdFact x_box] []     [x_varG]
+      , Rule DirectDHRule [kdhFact x_varG]  [] [kLogFact x_box]     [x_varG]
+      , Rule CoerceDHRule  [kdhFact x_varG] [kdFact x_box] []     [x_varG]
       , Rule CoerceDHRuleE [kdhFact x_varE] [kdFact x_boxE] []     [x_varE]
     ] 
   where
