@@ -15,6 +15,10 @@ module Term.Unification (
   , unifyLTermFactored
   , unifyLNTermFactored
 
+  -- * Diffie-Hellman unification
+  , unifyLDHTermFactored
+  , unifyLNDHTermFactored
+
   -- * Unification without AC
   , unifyLTermNoAC
   , unifyLNTermNoAC
@@ -124,6 +128,39 @@ unifyLTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unify
 unifyLNTermFactored :: [Equal LNTerm]
                     -> WithMaude (LNSubst, [SubstVFresh Name LVar])
 unifyLNTermFactored = unifyLTermFactored sortOfName
+
+unifyLDHTermFactored :: (IsConst c)
+                   => (c -> LSort)
+                   -> [Equal (LTerm c)]
+                   -> WithMaude (LSubst c, [SubstVFresh c LVar])
+unifyLDHTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTerm: "++ show eqs, "result = "++  show res]) res) $ do
+    solve h $ execRWST unif sortOf M.empty
+  where
+    unif = sequence [ unifyRaw t p | (Equal t p) <- eqs ]
+    solve _ Nothing         = (emptySubst, [])
+    solve _ (Just (m, _))  = (emptySubst, [])
+
+unifyLNDHTermFactored :: [Equal LNTerm]
+                    -> WithMaude (LNSubst, [SubstVFresh Name LVar])
+unifyLNDHTermFactored = unifyLDHTermFactored sortOfName             
+
+
+{- TODO
+unifyLDHTermFactored :: (IsConst c)
+                   => (c -> LSort)
+                   -> [EqInd (LTerm c) (LTerm c)]
+                   -> WithMaude (LSubst c, [SubstVFresh c LVar])
+unifyLDHTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTerm: "++ show eqs, "result = "++  show res]) res) $ do
+    solve h $ execRWST unif sortOf M.empty
+  where
+    unif = sequence [ unifyRaw t p | EqInd (Equal t p) t1 p1 <- eqs ]
+    solve _ Nothing         = (emptySubst, [])
+    solve _ (Just (m, _))  = (emptySubst, [])
+
+unifyLNDHTermFactored :: [EqInd LNTerm LNTerm]
+                    -> WithMaude (LNSubst, [SubstVFresh Name LVar])
+unifyLNDHTermFactored = unifyLDHTermFactored sortOfName             
+-}
 
 -- | @unifyLNTerm eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLTerm :: (IsConst c)

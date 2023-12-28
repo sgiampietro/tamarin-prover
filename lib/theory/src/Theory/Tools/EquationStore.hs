@@ -38,6 +38,9 @@ module Theory.Tools.EquationStore (
   , addRuleVariants
   , addDisj
 
+  -- ** Adding DH equalities
+  , addDHEqs
+
   -- ** Case splitting
   , performSplit
   , dropNameHintsBound
@@ -248,7 +251,7 @@ addEqs hnd eqs0 eqStore =
                 (splitAtPos (applyEqStore hnd sfree (addDisj eqSt (S.fromList disj))) 0)
 -}
 
--- TODO: fix this
+{-
 addDHEqs :: MonadFresh m
        => MaudeHandle -> [EqInd LNFact LNTerm] -> EqStore -> m (EqStore, Maybe SplitId)
 addDHEqs hnd eqs0 eqStore =
@@ -263,7 +266,7 @@ addDHEqs hnd eqs0 eqStore =
             return (eqStore', Just sid)
   where
     eqs = apply (L.get eqsSubst eqStore) $ trace (unlines ["addEqs: ", show eqs0]) $ eqs0
-
+-}
 
 -- | Apply a substitution to an equation store and bring resulting equations into
 --   normal form again by using unification.
@@ -584,9 +587,9 @@ foreachDisj hnd f =
 -- TODO: create a "unifyLNTermDHFactored" that deals with EqInd pairs. 
 
 addDHEqs :: MonadFresh m
-       => MaudeHandle -> [EqInd LNTerm] -> EqStore -> m (EqStore, Maybe SplitId)
-addDHEqs hnd eqs0 eqStore =
-    case unifyLNTermDHFactored eqs `runReader` hnd of
+       => MaudeHandle -> [EqInd LNTerm LNTerm] -> EqStore -> m (EqStore, Maybe SplitId)
+addDHEqs hnd eqsind0 eqStore =
+    case unifyLNDHTermFactored eqs `runReader` hnd of
         (_, []) ->
             return (set eqsConj falseEqConstrConj eqStore, Nothing)
         (subst, [substFresh]) | substFresh == emptySubstVFresh ->
@@ -596,6 +599,7 @@ addDHEqs hnd eqs0 eqStore =
                                           (S.fromList substs)
             return (eqStore', Just sid)
   where
+    eqs0 = map geteq eqsind0
     eqs = apply (L.get eqsSubst eqStore) $ trace (unlines ["addEqs: ", show eqs0]) $ eqs0
 
 

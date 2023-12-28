@@ -490,6 +490,7 @@ data IntrRuleACInfo =
   | ISendRule
   | PubGConstrRule -- DH rule
   | FreshNZEConstrRule -- DH rule
+  | DirectDHRule -- DH rule
   | CoerceDHRule -- DH rule
   | CoerceDHRuleE -- DH rule
   | PubConstrRule

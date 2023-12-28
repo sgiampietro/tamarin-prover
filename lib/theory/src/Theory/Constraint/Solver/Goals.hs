@@ -438,7 +438,7 @@ solveDHInd rules p faPrem t =
           Nothing ->
               (ru, c, faConc) <- insertFreshNodeConc rules -- should only search for the rules with Out facts
               -- actually maybe we don't need to because, we can solve this via equality of LNFacts instead
-              insertDHEdges (c, faConc, faPrem, p) (rootIndKnown bset nbset x) t 
+              insertDHEdge (c, faConc, faPrem, p) (rootIndKnown bset nbset x) t 
               return $ showRuleCaseName ru
       Nothing -> error "error in prodTerm function"    
 

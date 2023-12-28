@@ -10,6 +10,11 @@ module Term.Rewriting.Definitions (
       Equal (..)
     , evalEqual
 
+    -- * DH Equal Indicators
+    , EqInd (..)
+    , evalDHEqual
+    , geteq
+
     -- * Matching problems
     , Match(..)
     , flattenMatch
@@ -158,3 +163,22 @@ instance Traversable RRule where
 instance Applicative RRule where
     pure x                        = RRule x x
     (RRule fl fr) <*> (RRule l r) = RRule (fl l) (fr r)
+
+
+
+
+
+
+-- | An equality.
+data EqInd a b  = EqInd { facteqs :: Equal a, indTerm :: b, term :: b }
+    deriving (Eq, Show)
+
+-- | True iff the two sides of the equality are equal with respect to their
+-- 'Eq' instance.
+evalDHEqual :: (Eq a, Eq b) => EqInd a b -> Bool
+evalDHEqual (EqInd e indt t) = evalEqual e
+
+geteq :: (Eq a, Eq b) => EqInd a b -> Equal a
+geteq (EqInd e indt t) = e
+
+

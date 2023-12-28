@@ -288,7 +288,7 @@ insertChain c p = insertGoal (ChainG c p) False
 
 -- | Insert an edge constraint. CR-rule *DG1_2* is enforced automatically,
 -- i.e., the fact equalities are enforced.
-insertEdges :: [(NodeConc, LNFact, LNFact, NodePrem)] -> LNTerm -> Reduction ()
+insertEdges :: [(NodeConc, LNFact, LNFact, NodePrem)] -> Reduction ()
 insertEdges edges = do
     void (solveFactEqs SplitNow [ Equal fa1 fa2 | (_, fa1, fa2, _) <- edges ])
     modM sEdges (\es -> foldr S.insert es [ Edge c p | (c,_,_,p) <- edges])
@@ -301,7 +301,7 @@ insertEdge (c, fa1, fa2, p) = do
 -- | TODO: FIX THIS SO THAT IT WORKS. 
 insertDHEdge :: (NodeConc, LNFact, LNFact, NodePrem) -> LNTerm -> LNTerm -> Reduction ()
 insertDHEdge (c, fa1, fa2, p) indt1 t1 = do
-    void (solveFactDHEqs SplitNow [ EqInd fa1 fa2 indt1 t1 ])
+    void (solveFactDHEqs SplitNow [ EqInd (Equal fa1 fa2) indt1 t1 ])
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
 insertBasisElem :: LNTerm -> Reduction ()
@@ -575,7 +575,7 @@ markGoalAsSolved how goal =
                          modM sSolvedFormulas (S.insert $ GDisj disj) >>
                          updateStatus
       SubtermG _      -> updateStatus
-      DHIndG _        -> modM sGoals $ M.delete goal
+      DHIndG _ _ _    -> modM sGoals $ M.delete goal
       NoCancG _       -> modM sGoals $ M.delete goal
       NeededG _       -> modM sGoals $ M.delete goal
   where
@@ -741,6 +741,9 @@ data SplitStrategy = SplitNow | SplitLater
 noContradictoryEqStore :: Reduction ()
 noContradictoryEqStore = (contradictoryIf . eqsIsFalse) =<< getM sEqStore
 
+noContradictoryDHEqStore :: Reduction ()
+noContradictoryDHEqStore = (contradictoryIf . eqsIsFalse) =<< getM sDHEqStore
+
 -- | Add a list of term equalities to the equation store. And
 --  split resulting disjunction of equations according
 --  to given split strategy.
@@ -769,15 +772,15 @@ solveTermEqs splitStrat eqs0 =
         return Changed
 
 
-solveTermDHEqs :: SplitStrategy -> [EqInd LNFact LNTerm LNTerm] -> Reduction ChangeIndicator
+solveTermDHEqs :: SplitStrategy -> [EqInd LNFact LNTerm] -> Reduction ChangeIndicator
 solveTermDHEqs splitStrat eqs0 =
     case filter (not . evalDHEqual) eqs0 of
       []  -> do return Unchanged
       eqs1 -> do
         hnd <- getMaudeHandle
         se  <- gets id
-        (eqs2, maySplitId) <- addDHEqs hnd eqs1 =<< getM sEqStore
-        setM sEqStore
+        (eqs2, maySplitId) <- addDHEqs hnd eqs1 =<< getM sDHEqStore
+        setM sDHEqStore
             =<< simp hnd (substCreatesNonNormalTerms hnd se)
             =<< case (maySplitId, splitStrat) of
                   (Just splitId, SplitNow) -> disjunctionOfList
@@ -787,7 +790,7 @@ solveTermDHEqs splitStrat eqs0 =
                       insertGoal (SplitG splitId) False
                       return eqs2
                   _                        -> return eqs2
-        noContradictoryEqStore
+        noContradictoryDHEqStore
         return Changed        
 
 -- | Add a list of equalities in substitution form to the equation store
@@ -802,14 +805,14 @@ solveNodeIdEqs = solveTermEqs SplitNow . map (fmap varTerm)
 -- | Add a list of fact equalities to the equation store, if possible.
 solveFactEqs :: SplitStrategy -> [Equal LNFact] -> Reduction ChangeIndicator
 solveFactEqs split eqs = do
-    contradictoryIf (not $ all evalDHEqual $ map (fmap factTag) eqs)
-    solveListEqs (solveTermEqs split) $ map (fmap factTerms) eqs
-
-
-solveFactDHEqs :: SplitStrategy -> [EqInd LNFact LNTerm] -> Reduction ChangeIndicator
-solveFactDHEqs split eqs = do
     contradictoryIf (not $ all evalEqual $ map (fmap factTag) eqs)
     solveListEqs (solveTermEqs split) $ map (fmap factTerms) eqs
+
+-- DH: Fix this
+solveFactDHEqs :: SplitStrategy -> [EqInd LNFact LNTerm] -> Reduction ChangeIndicator
+solveFactDHEqs split eqs = do
+    contradictoryIf (not $ all evalDHEqual $ map (fmap factTag) eqs)
+    solveListDHEqs (solveTermDHEqs split) $ map (fmap factTerms) eqs
 
 
 
@@ -830,6 +833,16 @@ solveListEqs solver eqs = do
   where
     flatten (Equal l r) = zipWith Equal l r
 
+-- | Solve a number of equalities between lists interpreted as free terms
+-- using the given solver for solving the entailed per-element equalities.
+solveListDHEqs :: ([EqInd a b] -> Reduction c) -> [(EqInd a b)] -> Reduction c
+solveListDHEqs solver eqs = do
+    contradictoryIf (not $ all evalDHEqual $ map (fmap length) eqs) -- TODO: what is the length doing here?
+    solver $ concatMap flatten eqs
+  where
+    flatten (EqInd eqp indt t) = zipWith (EqInd eqp ind t)
+
+
 -- | Solve the constraints associated with a rule.
 solveRuleConstraints :: Maybe RuleACConstrs -> Reduction ()
 solveRuleConstraints (Just eqConstr) = do
@@ -841,27 +854,3 @@ solveRuleConstraints (Just eqConstr) = do
     noContradictoryEqStore
 solveRuleConstraints Nothing = return ()
 
-
--- | DH: Add a list of term equalities to the equation store, if possible. 
-solveDHTermEqs :: SplitStrategy -> [EqInd LNTerm] -> Reduction ChangeIndicator
-solveDHTermEqs split eqs0 = 
-    --contradictoryIf (not $ all evalEqual $ map (fmap factTag) eqs)
-    --solveListEqs 
-    case filter (not . evalEqual) eqs0 of
-      []  -> do return Unchanged
-      eqs1 -> do
-        hnd <- getMaudeHandle
-        se  <- gets id
-        (eqs2, maySplitId) <- addDHEqs hnd eqs1 =<< getM sEqStore
-        setM sEqStore
-            =<< simp hnd (substCreatesNonNormalTerms hnd se)
-            =<< case (maySplitId, splitStrat) of
-                  (Just splitId, SplitNow) -> disjunctionOfList
-                                                $ fromJustNote "solveTermEqs"
-                                                $ performSplit eqs2 splitId
-                  (Just splitId, SplitLater) -> do
-                      insertGoal (SplitG splitId) False
-                      return eqs2
-                  _                        -> return eqs2
-        noContradictoryEqStore
-        return Changed

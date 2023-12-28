@@ -140,7 +140,7 @@ data Goal =
      | SubtermG (LNTerm, LNTerm)
        -- ^ A split of a Subterm which is in SubtermStore -> _subterms
      | DHIndG NodePrem LNTerm LNTerm -- I think this might be unnecessary.
-     | NoCancG (LNTerm, LNterm)
+     | NoCancG (LNTerm, LNTerm)
      | NeededG LNTerm
      deriving( Eq, Ord, Show, Generic, NFData, Binary )
 
