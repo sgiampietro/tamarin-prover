@@ -182,3 +182,4 @@ geteq :: (Eq a, Eq b) => EqInd a b -> Equal a
 geteq (EqInd e indt t) = e
 
 
+

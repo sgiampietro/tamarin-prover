@@ -145,6 +145,8 @@ module Term.Term (
     , implicitFunSig
     , dhMultFunSig
 
+    , prodTerms
+
     , module Term.Term.Classes
     , module Term.Term.Raw
     ) where
@@ -247,11 +249,6 @@ isProduct (viewTerm2 -> FMult _) = True
 isProduct _                      = False
 
 
--- | 'True' iff the term is a well-formed product.
-prodTerms :: Show a => Term a -> Maybe (Term a,Term a)
-prodTerms (viewTerm2 -> FdhMult x y) = Just (x,y)
-prodTerms _                      = Nothing
-
 -- | 'True' iff the term is a well-formed xor.
 isXor :: Show a => Term a -> Bool
 isXor (viewTerm2 -> FXor _) = True
@@ -280,6 +277,18 @@ isPrivateFunction _                                            = False
 isAC :: Show a => Term a -> Bool
 isAC (viewTerm -> FApp (AC _) _) = True
 isAC _                           = False
+
+
+----------------------------------------------------------------------
+-- DH Multiplication stuff
+----------------------------------------------------------------------
+
+
+-- | 'True' iff the term is a well-formed product.
+prodTerms :: Show a => Term a -> Maybe (Term a,Term a)
+prodTerms (viewTerm2 -> FdhMult x y) = Just (x,y)
+prodTerms _                          = Nothing
+
 
 ----------------------------------------------------------------------
 -- Convert Diff Terms

@@ -51,6 +51,7 @@ import           Theory.Constraint.System
 import           Theory.Tools.IntruderRules (mkDUnionRule, isDExpRule, isDPMultRule, isDEMapRule)
 import           Theory.Model
 import           Term.Builtin.Convenience
+import           Term.DHMultiplication
 
 
 import           Utils.Misc                              (twoPartitions)
@@ -214,9 +215,9 @@ solveGoal goal = do
       SplitG i      -> solveSplit i
       DisjG disj    -> solveDisjunction disj
       SubtermG st   -> solveSubterm st
-      DHIndG p fa -> solveDHInd (get crOut rules) p fa
-      NoCancG t1 t2 -> solveNoCanc t1 t2
-      NeededG x     -> solveNeeded x
+      DHIndG p fa t -> solveDHInd (get crProtocol rules) p fa t
+      NoCancG (t1, t2) -> solveNoCanc t1 t2
+      NeededG x i    -> solveNeeded x i
 
 -- The following functions are internal to 'solveGoal'. Use them with great
 -- care.
@@ -409,33 +410,33 @@ solveDisjunction disj = do
     insertFormula gfm
     return $ "case_" ++ show i
 
+
 -- todo: define a "isNoCanc" function!! Probably in the DHMultiplication file in the term folder. 
 solveNoCanc :: LNTerm -> LNTerm -> Reduction String
 solveNoCanc x y = do
     nocancs <- getM sNoCanc
-    if ( M.member (x,y) nocancs)
-      then markGoalAsSolved "directly" (NoCancG x y)
+    if ( S.member (x,y) nocancs)
+      then (do markGoalAsSolved "directly" (NoCancG x y))
       else (
-        if (isNoCanc x y) then  markGoalAsSolved "directly" (NoCancG x y)
-        else ?? -- TODO: not sure what to do if you don't have this condition? maybe add y and inv(x) to the DH-equation store? 
+        if (isNoCanc x y) then  (do markGoalAsSolved "directly" (NoCancG x y))
+        else return error "NoCanc does not hold"  -- TODO: not sure what to do if you don't have this condition? maybe add y and inv(x) to the DH-equation store? 
       )
 
 solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact containing a boxed term as conclusion. 
              -> NodePrem       -- ^ Premise to solve.
-             -> LNFact -> LNTerm       -- ^ Product term of which we have to find the indicator  
+             ->LNFact -> LNTerm       -- ^ Product term of which we have to find the indicator  
              -> Reduction String -- ^ Case name to use.
 solveDHInd rules p faPrem t = 
-    case prodTerm t of 
+    case prodTerms t of 
       Just (x,y) -> do 
         insertNoCanc x y
         bset <- getM sBasis 
         nbset <- getM sNotBasis
         case neededexponents of 
-          Just es -> do
-            insertNeeded es
+          Just es -> insertNeeded es
             -- the current goal solveDHInd should remain and we should try to solve it again once we
             -- have solved the Needed goals. or do we try it with a variable?
-          Nothing ->
+          Nothing -> do
               (ru, c, faConc) <- insertFreshNodeConc rules -- should only search for the rules with Out facts
               -- actually maybe we don't need to because, we can solve this via equality of LNFacts instead
               insertDHEdge (c, faConc, faPrem, p) (rootIndKnown bset nbset x) t 
@@ -446,11 +447,12 @@ solveDHInd rules p faPrem t =
 
 --how do I make a case distinction _within_ a solve function??
 
+
 solveNeeded ::  LNTerm ->  NodeId ->        -- exponent that is needed.
-             -> Reduction String -- ^ Case name to use.
+                Reduction String -- ^ Case name to use.
 solveNeeded x i = do
-    markGoalAsSolved "case split: basis or not" (Needed G x y)
-    basisornot <- makeSplit -- this should return a list of True and False
+    markGoalAsSolved "case split: basis or not" (NeededG x )
+    basisornot <- disjunctionOfList [True, False] -- this should return a list of True and False
     case basisornot of 
       True -> insertBasisElem x 
               insertGoal (PremiseG (i, PremIdx 0) (kdFact [x])) False

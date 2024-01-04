@@ -15,7 +15,12 @@ module Term.DHMultiplication (
     clean
   , rootSet
   , isRoot
+  , neededexponents
+  , rootIndKnown
+  , rootIndUnknown
   , eTermsOf
+
+
   --, rootIndicator
   --, indicator
    --, clean2
@@ -157,7 +162,6 @@ isRoot o t@(viewTerm3 -> BoxE dht) = isRoot o dht
 isRoot o t@(viewTerm3 -> DH dht ts) = S.size (rootSet o t) == 1
 isRoot o _ = error "rootSet applied on non DH term'"
 
-
 eTermsOf :: LNTerm -> [ LNTerm ]
 eTermsOf t@(LIT l)
   | isEVar t = [t]
@@ -206,6 +210,7 @@ rootIndUnknown :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> (LNTerm, [(LVar, VTe
 rootIndUnknown n nb t = ( LIT (Var newv), [(newv, t)])
     where newv = getNewSimilarVar (LVar "t" LSortG 0) tvars
           tvars =  varsVTerm t
+
 
 {-
 -- instead of just returning the indicator, we also return a list of variables that is unempty only if

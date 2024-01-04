@@ -46,6 +46,12 @@ module Theory.Constraint.Solver.Reduction (
   , insertFormula
   , reducibleFormula
 
+  , insertNoCanc
+  , insertNotBasisElem
+  , insertBasisElem
+  , insertDHEdge
+  , insertNeeded
+
   -- ** Goal management
   , markGoalAsSolved
   , removeSolvedSplitGoals
@@ -204,15 +210,7 @@ insertFreshNodeConc rules = do
     (v, fa) <- disjunctionOfList $ enumConcs ru
     return (ru, (i, v), fa)
 
-{-
--- | Insert a fresh rule node labelled with a fresh instance of one of the
--- rules and return one of the conclusions.
-insertOutConc :: [RuleAC] -> Reduction (RuleACInst, NodeConc, LNFact)
-insertOutConc rules = do
-    (i, ru) <- insertFreshNode rules Nothing
-    (v, fa) <- disjunctionOfList $ enumConcs ru
-    return (ru, (i, v), fa)
--}
+
 
 -- | Insert a fresh rule node labelled with a fresh instance of one of the rules
 -- and solve it's 'Fr', 'In', and 'KU' premises immediately.
@@ -293,30 +291,6 @@ insertEdges edges = do
     void (solveFactEqs SplitNow [ Equal fa1 fa2 | (_, fa1, fa2, _) <- edges ])
     modM sEdges (\es -> foldr S.insert es [ Edge c p | (c,_,_,p) <- edges])
 
-insertEdge :: (NodeConc, LNFact, LNFact, NodePrem) -> Reduction ()
-insertEdge (c, fa1, fa2, p) = do
-    void (solveFactEqs SplitNow [ Equal fa1 fa2 ])
-    modM sEdges (\es -> foldr S.insert es [ Edge c p ])
-
--- | TODO: FIX THIS SO THAT IT WORKS. 
-insertDHEdge :: (NodeConc, LNFact, LNFact, NodePrem) -> LNTerm -> LNTerm -> Reduction ()
-insertDHEdge (c, fa1, fa2, p) indt1 t1 = do
-    void (solveFactDHEqs SplitNow [ EqInd (Equal fa1 fa2) indt1 t1 ])
-    modM sEdges (\es -> foldr S.insert es [ Edge c p ])
-
-insertBasisElem :: LNTerm -> Reduction ()
-insertBasisElem x = do
-    modM sBasis (\es -> S.insert es x)
-
-insertNotBasisElem :: LNTerm -> Reduction ()
-insertNotBasisElem x = do
-    modM sNotBasis (\es -> S.insert es x)
-
-insertDHInd :: NodePrem -> LNFact -> Reduction ()
-insertDHInd nodep fa@(Fact _ ann [t]) = insertGoal (DHIndG nodep t) False
-
-insertNoCanc :: LNTerm -> LNTerm -> Reduction()
-insertNoCanc x y = insertGoal (NoCancG x y) False
 
 -- | Insert an 'Action' atom. Ensures that (almost all) trivial *KU* actions
 -- are solved immediately using rule *S_{at,u,triv}*. We currently avoid
@@ -435,6 +409,11 @@ insertSubterm x y = setM sSubtermStore . addSubterm (x, y) =<< getM sSubtermStor
 -- | Insert the negation of a 'Subterm' atom. *¬ x ⊏ y* is added to the SubtermStore
 insertNegSubterm :: LNTerm -> LNTerm -> Reduction()
 insertNegSubterm x y = setM sSubtermStore . addNegSubterm (x, y) =<< getM sSubtermStore
+
+
+--insertNoCanc :: LNTerm -> LNTerm -> Reduction ()
+--insertNoCanc x y = modM sNoCanc (S. insert (x,y))
+
 
 -- | Insert a 'Last' atom and ensure their uniqueness.
 insertLast :: NodeId -> Reduction ChangeIndicator
@@ -577,7 +556,7 @@ markGoalAsSolved how goal =
       SubtermG _      -> updateStatus
       DHIndG _ _ _    -> modM sGoals $ M.delete goal
       NoCancG _       -> modM sGoals $ M.delete goal
-      NeededG _       -> modM sGoals $ M.delete goal
+      NeededG _ _       -> modM sGoals $ M.delete goal
   where
     updateStatus = do
         mayStatus <- M.lookup goal <$> getM sGoals
@@ -598,6 +577,60 @@ removeSolvedSplitGoals = do
     existent <- splitExists <$> getM sEqStore
     sequence_ [ modM sGoals $ M.delete goal
               | goal@(SplitG i) <- M.keys goals, not (existent i) ]
+
+
+------------------------------------------------------------------------------
+ ---- DH multiplication part
+------------------------------------------------------------------------------
+
+insertEdge :: (NodeConc, LNFact, LNFact, NodePrem) -> Reduction ()
+insertEdge (c, fa1, fa2, p) = do
+    void (solveFactEqs SplitNow [ Equal fa1 fa2 ])
+    modM sEdges (\es -> foldr S.insert es [ Edge c p ])
+
+-- | TODO: FIX THIS SO THAT IT WORKS. 
+insertDHEdge :: (NodeConc, LNFact, LNFact, NodePrem) -> LNTerm -> LNTerm -> Reduction ()
+insertDHEdge (c, fa1, fa2, p) indt1 t1 = do
+    void (solveFactDHEqs SplitNow [ EqInd (Equal fa1 fa2) indt1 t1 ])
+    modM sEdges (\es -> foldr S.insert es [ Edge c p ])
+
+insertBasisElem :: LNTerm -> Reduction ()
+insertBasisElem x = do
+    modM sBasis (\es -> S.insert x es)
+
+insertNotBasisElem :: LNTerm -> Reduction ()
+insertNotBasisElem x = do
+    modM sNotBasis (\es -> S.insert x es)
+
+-- TODO: the following not needed ?
+--insertDHInd :: NodePrem -> LNFact -> Reduction ()
+--insertDHInd nodep fa@(Fact _ ann [t]) = insertGoal (DHIndG nodep t) False
+
+insertNoCanc :: LNTerm -> LNTerm -> Reduction ()
+insertNoCanc x y = insertGoal (NoCancG (x, y)) False
+
+insertNeeded :: LNTerm  -> Reduction ()
+insertNeeded x = do
+    j <- freshLVar "vk" LSortNode
+    insertGoal (NeededG x j) False
+
+
+{-
+-- | Insert a fresh rule node labelled with a fresh instance of one of the
+-- rules and return one of the conclusions.
+insertOutConc :: [RuleAC] -> Reduction (RuleACInst, NodeConc, LNFact)
+insertOutConc rules = do
+    (i, ru) <- insertFreshNode rules Nothing
+    (v, fa) <- disjunctionOfList $ enumConcs ru
+    return (ru, (i, v), fa)
+-}
+
+
+
+
+------------------------------------------------------------------------------
+
+
 
 
 -- Substitution
@@ -772,7 +805,7 @@ solveTermEqs splitStrat eqs0 =
         return Changed
 
 
-solveTermDHEqs :: SplitStrategy -> [EqInd LNFact LNTerm] -> Reduction ChangeIndicator
+solveTermDHEqs :: SplitStrategy -> [EqInd LNTerm LNTerm] -> Reduction ChangeIndicator
 solveTermDHEqs splitStrat eqs0 =
     case filter (not . evalDHEqual) eqs0 of
       []  -> do return Unchanged
@@ -809,10 +842,18 @@ solveFactEqs split eqs = do
     solveListEqs (solveTermEqs split) $ map (fmap factTerms) eqs
 
 -- DH: Fix this
+
+factDHTag ::  EqInd LNFact LNTerm -> Equal FactTag
+factDHTag (EqInd e indt t) =  (fmap factTag) e
+
+factDHTerms :: EqInd LNFact LNTerm -> Equal [LNTerm]
+factDHTerms (EqInd e indt t) = (fmap factTerms) e
+
+
 solveFactDHEqs :: SplitStrategy -> [EqInd LNFact LNTerm] -> Reduction ChangeIndicator
 solveFactDHEqs split eqs = do
-    contradictoryIf (not $ all evalDHEqual $ map (fmap factTag) eqs)
-    solveListDHEqs (solveTermDHEqs split) $ map (fmap factTerms) eqs
+    contradictoryIf (not $ all evalEqual $ map factDHTag eqs)
+    solveListEqs (solveTermEqs split) $ map factDHTerms eqs
 
 
 
@@ -832,16 +873,18 @@ solveListEqs solver eqs = do
     solver $ concatMap flatten eqs
   where
     flatten (Equal l r) = zipWith Equal l r
+    -- on RHS "Equal" is a function that from two lists of terms, returns the list of pair of Equal of terms.
+
 
 -- | Solve a number of equalities between lists interpreted as free terms
 -- using the given solver for solving the entailed per-element equalities.
-solveListDHEqs :: ([EqInd a b] -> Reduction c) -> [(EqInd a b)] -> Reduction c
+{-solveListDHEqs :: ([EqInd a b] -> Reduction c) -> [EqInd [a] [b]] -> Reduction c
 solveListDHEqs solver eqs = do
-    contradictoryIf (not $ all evalDHEqual $ map (fmap length) eqs) -- TODO: what is the length doing here?
-    solver $ concatMap flatten eqs
+    contradictoryIf (not $ all evalEqual $ map (fmap length) (map geteq eqs)) -- TODO: what is the length doing here?
+    solver $ concatMap flatten eqs -- flatten eqs
   where
-    flatten (EqInd eqp indt t) = zipWith (EqInd eqp ind t)
-
+    flatten (EqInd eqp indt t) = zipWith (EqInd eqp indt t)
+-}
 
 -- | Solve the constraints associated with a rule.
 solveRuleConstraints :: Maybe RuleACConstrs -> Reduction ()

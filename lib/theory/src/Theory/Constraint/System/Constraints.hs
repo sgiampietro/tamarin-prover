@@ -25,6 +25,8 @@ module Theory.Constraint.System.Constraints (
   , Reason(..)
   , Less
 
+  , isNoCanc
+
   -- * Goal constraints
   , Goal(..)
   , isActionGoal
@@ -118,6 +120,10 @@ instance HasFrees Edge where
 type NoCanc = (LNTerm, LNTerm)
    -- deriving (Show, Ord, Eq, Data, Typeable, Generic, NFData, Binary)
 
+isNoCanc :: LNTerm -> LNTerm -> Bool
+isNoCanc _ _ = True
+
+
 ------------------------------------------------------------------------------
 -- Goals
 ------------------------------------------------------------------------------
@@ -139,9 +145,9 @@ data Goal =
        -- ^ A case split over a disjunction.
      | SubtermG (LNTerm, LNTerm)
        -- ^ A split of a Subterm which is in SubtermStore -> _subterms
-     | DHIndG NodePrem LNTerm LNTerm -- I think this might be unnecessary.
+     | DHIndG NodePrem LNFact LNTerm -- I think this might be unnecessary.
      | NoCancG (LNTerm, LNTerm)
-     | NeededG LNTerm
+     | NeededG LNTerm NodeId
      deriving( Eq, Ord, Show, Generic, NFData, Binary )
 
 -- Indicators
