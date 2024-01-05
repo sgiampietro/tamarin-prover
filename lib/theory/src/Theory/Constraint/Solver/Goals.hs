@@ -416,10 +416,10 @@ solveNoCanc :: LNTerm -> LNTerm -> Reduction String
 solveNoCanc x y = do
     nocancs <- getM sNoCanc
     if ( S.member (x,y) nocancs)
-      then (do markGoalAsSolved "directly" (NoCancG x y))
+      then  return "NoCancsolved" --(markGoalAsSolved "directly" (NoCancG (x, y)))
       else (
-        if (isNoCanc x y) then  (do markGoalAsSolved "directly" (NoCancG x y))
-        else return error "NoCanc does not hold"  -- TODO: not sure what to do if you don't have this condition? maybe add y and inv(x) to the DH-equation store? 
+        if (isNoCanc x y) then  return "NoCancsolved" --(markGoalAsSolved "directly" (NoCancG (x, y)))
+        else error "NoCanc does not hold"  -- TODO: not sure what to do if you don't have this condition? maybe add y and inv(x) to the DH-equation store? 
       )
 
 solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact containing a boxed term as conclusion. 
@@ -432,14 +432,16 @@ solveDHInd rules p faPrem t =
         insertNoCanc x y
         bset <- getM sBasis 
         nbset <- getM sNotBasis
-        case neededexponents of 
-          Just es -> insertNeeded es
+        case neededexponents bset nbset t of 
+          (Just es) -> do 
+              insertNeededList (S.toList es)
+              return "NeededInserted"
             -- the current goal solveDHInd should remain and we should try to solve it again once we
             -- have solved the Needed goals. or do we try it with a variable?
           Nothing -> do
               (ru, c, faConc) <- insertFreshNodeConc rules -- should only search for the rules with Out facts
               -- actually maybe we don't need to because, we can solve this via equality of LNFacts instead
-              insertDHEdge (c, faConc, faPrem, p) (rootIndKnown bset nbset x) t 
+              insertDHEdge (c, faConc, faPrem, p) (fst (rootIndKnown bset nbset x)) t 
               return $ showRuleCaseName ru
       Nothing -> error "error in prodTerm function"    
 
@@ -451,15 +453,19 @@ solveDHInd rules p faPrem t =
 solveNeeded ::  LNTerm ->  NodeId ->        -- exponent that is needed.
                 Reduction String -- ^ Case name to use.
 solveNeeded x i = do
-    markGoalAsSolved "case split: basis or not" (NeededG x )
+    markGoalAsSolved "case split: basis or not" (NeededG x i )
     basisornot <- disjunctionOfList [True, False] -- this should return a list of True and False
     case basisornot of 
-      True -> insertBasisElem x 
-              insertGoal (PremiseG (i, PremIdx 0) (kdFact [x])) False
+      True -> do
+                insertBasisElem x 
+                insertGoal (PremiseG (i, PremIdx 0) (kdFact x)) False
+                return "caseBasis"
               --let ru = Rule (IntrInfo CoerceRule) [kdFact [x]] [] [] []
               --modM sNodes (M.insert i ru) TODO: check if we need to introduce in nodes?
-      False -> insertNotBasisElem x 
-               insertGoal (PremiseG (i, PremIdx 0) (kdFact [x])) False
+      False -> do
+                insertNotBasisElem x 
+                insertGoal (PremiseG (i, PremIdx 0) (kdFact x)) False
+                return "caseNotBasis"
                 -- TODO: contradict K(x) happening!
 
 

@@ -170,7 +170,7 @@ instance Applicative RRule where
 
 
 -- | An equality.
-data EqInd a b  = EqInd { facteqs :: Equal a, indTerm :: b, term :: b }
+data EqInd a b  = EqInd { facteqs :: Equal a, indTerm :: b, fullTerm :: b }
     deriving (Eq, Show)
 
 -- | True iff the two sides of the equality are equal with respect to their

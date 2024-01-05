@@ -51,6 +51,7 @@ module Theory.Constraint.Solver.Reduction (
   , insertBasisElem
   , insertDHEdge
   , insertNeeded
+  , insertNeededList
 
   -- ** Goal management
   , markGoalAsSolved
@@ -614,6 +615,12 @@ insertNeeded x = do
     j <- freshLVar "vk" LSortNode
     insertGoal (NeededG x j) False
 
+
+insertNeededList :: [LNTerm] -> Reduction ()
+insertNeededList [x] = insertNeeded x
+insertNeededList (x:xs) = do
+    insertNeeded x
+    insertNeededList xs
 
 {-
 -- | Insert a fresh rule node labelled with a fresh instance of one of the
