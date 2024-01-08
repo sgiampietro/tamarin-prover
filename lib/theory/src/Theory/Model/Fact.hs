@@ -426,7 +426,7 @@ factTagArity tag = case  tag of
     ProtoFact _ _ k -> k
     KUFact          -> 1
     KDFact          -> 1
-    KdhFact         -> 2
+    KdhFact         -> 1
     DedFact         -> 1
     FreshFact       -> 1
     InFact          -> 1

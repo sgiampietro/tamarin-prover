@@ -194,6 +194,9 @@ instance HasFrees Goal where
         SplitG i      -> foldFrees f i
         DisjG x       -> foldFrees f x
         SubtermG p    -> foldFrees f p
+        DHIndG i fa ta -> foldFrees f i <> foldFrees f fa <> foldFrees f ta -- I think this might be unnecessary.
+        NoCancG p    -> foldFrees f p
+        NeededG ta p -> foldFrees f ta <> foldFrees f p
 
     foldFreesOcc  f c goal = case goal of
         ActionG i fa -> foldFreesOcc f ("ActionG":c) (i, fa)
@@ -207,6 +210,9 @@ instance HasFrees Goal where
         SplitG i      -> SplitG   <$> mapFrees f i
         DisjG x       -> DisjG    <$> mapFrees f x
         SubtermG p    -> SubtermG <$> mapFrees f p
+        DHIndG i fa ta -> DHIndG <$> mapFrees f i <*> mapFrees f fa <*> mapFrees f ta -- I think this might be unnecessary.
+        NoCancG p    -> NoCancG <$> mapFrees f p
+        NeededG ta p -> NeededG <$> mapFrees f ta <*> mapFrees f p
 
 instance Apply LNSubst Goal where
     apply subst goal = case goal of
@@ -216,6 +222,10 @@ instance Apply LNSubst Goal where
         SplitG i      -> SplitG   (apply subst i)
         DisjG x       -> DisjG    (apply subst x)
         SubtermG p    -> SubtermG (apply subst p)
+        DHIndG i fa ta -> DHIndG (apply subst i) (apply subst fa) (apply subst ta) -- I think this might be unnecessary.
+        NoCancG p    -> NoCancG (apply subst p)
+        NeededG ta p -> NeededG (apply subst ta) (apply subst p)
+
 
 
 ------------------------------------------------------------------------------
@@ -263,4 +273,6 @@ prettyGoal (SplitG x) =
     text "splitEqs" <> parens (text $ show (unSplitId x))
 prettyGoal (SubtermG (l,r)) =
     prettyLNTerm l <-> operator_ "⊏" <-> prettyLNTerm r
-
+prettyGoal (DHIndG i fa ta) =  prettyNodePrem i <-> text "Ind" <-> prettyLNFact fa
+prettyGoal (NoCancG (l,r) ) = prettyLNTerm l <-> text "NoCanc" <-> prettyLNTerm r
+prettyGoal (NeededG ta p ) = prettyLNTerm ta <-> text "Needed" <-> prettyNodeId p

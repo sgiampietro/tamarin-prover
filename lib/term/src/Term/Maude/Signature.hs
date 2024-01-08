@@ -163,12 +163,13 @@ addCtxtStRule str msig =
 -- | Returns all rewriting rules including the rules
 --   for DH, BP, and multiset.
 rrulesForMaudeSig :: MaudeSig -> Set (RRule LNTerm)
-rrulesForMaudeSig (MaudeSig {enableDH, enableBP, enableMSet, enableXor, stRules}) =
+rrulesForMaudeSig (MaudeSig {enableDH, enableBP, enableMSet, enableXor, enableDHMult, stRules}) =
     (S.map ctxtStRuleToRRule stRules)
     `S.union` (if enableDH   then dhRules   else S.empty)
     `S.union` (if enableBP   then bpRules   else S.empty)
     `S.union` (if enableMSet then msetRules else S.empty)
     `S.union` (if enableXor  then xorRules  else S.empty)
+    `S.union` (if enableDHMult then dhMultRules  else S.empty)
 
 ------------------------------------------------------------------------------
 -- Builtin maude signatures

@@ -13,6 +13,7 @@ module Term.Builtin.Rules (
   , msetRules
   , pairRules
   , xorRules
+  , dhMultRules
   , symEncRules
   , asymEncRules
   , signatureRules
@@ -112,3 +113,12 @@ pairDestRules = S.fromList
 symEncDestRules    = S.fromList [ fAppNoEq sdecDestSym [senc (x1,x2), x2]     `CtxtStRule` (StRhs [[0,0]] x1) ]
 asymEncDestRules   = S.fromList [ fAppNoEq adecDestSym [aenc (x1, pk x2), x2] `CtxtStRule` (StRhs [[0,0]] x1) ]
 signatureDestRules = S.fromList [ fAppNoEq verifyDestSym [sign (x1,x2), x1, pk x2] `CtxtStRule` (StRhs [[0,0]] trueC) ]
+
+
+dhMultRules :: Set (RRule LNTerm)
+dhMultRules = S.fromList
+    [ expdh(x1,onedh) `RRule` x1
+    ]
+  where
+    expdh = fAppdhExp
+    onedh  = fAppdhOne

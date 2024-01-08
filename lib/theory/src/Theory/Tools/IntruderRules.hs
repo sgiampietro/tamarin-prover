@@ -315,21 +315,33 @@ normRule' (Rule i ps cs as nvs) = reader $ \hnd ->
 
 dhmultIntruderRules ::  [IntrRuleAC]
 dhmultIntruderRules = [
-      kdhRule PubGConstrRule   []                             (x_pub_var)     [(x_pub_var)]
-      , kdhRule FreshNZEConstrRule [freshFact x_fresh_var] (x_fresh_var)          []
+      kdhRule PubGConstrRule   []                             (x_pub_var) (x_pub_var)  [(x_pub_var)]
+      , kdhRule FreshNZEConstrRule [freshFact x_fresh_var] (fAppdhBox x_fresh_var) (x_fresh_var)         []
       --, Rule IRecvDHRule [outFact x_var] [kdhFact x_var] []
-      , Rule DirectDHRule [kdhFact x_varG]  [] [kLogFact x_box]     [x_varG]
-      , Rule CoerceDHRule  [kdhFact x_varG] [kdFact x_box] []     [x_varG]
-      , Rule CoerceDHRuleE [kdhFact x_varE] [kdFact x_boxE] []     [x_varE]
-    ] 
+      --, Rule DirectDHRule [kdhFact x_varG]  [] [kLogFact x_box]     [x_varG]
+      , Rule CoerceDHRule  [kdhFact x_varG] [kuFact x_box] []     [x_varG]
+      , Rule CoerceDHRuleE [kdhFact x_varE] [kuFact x_boxE] []     [x_varE]
+      , Rule  (ConstrRule (append (pack "_DH") dhOneSymString)) [] [concfact] (return concfact) []
+    ]
+{-dhmultIntruderRules ::  [IntrRuleAC]
+dhmultIntruderRules = [
+      kdhRule ConstrRule   []                             (x_pub_var)     [(x_pub_var)]
+      , kdhRule ConstrRule [freshFact x_fresh_var] (x_fresh_var)          []
+      --, Rule IRecvDHRule [outFact x_var] [kdhFact x_var] []
+      , Rule ConstrRule [kdhFact x_varG]  [] [kLogFact x_box]     [x_varG]
+      , Rule ConstrRule  [kdhFact x_varG] [kdFact x_box] []     [x_varG]
+      , Rule ConstrRule [kdhFact x_varE] [kdFact x_boxE] []     [x_varE]
+    ] -}
   where
-    kdhRule name prems t nvs = Rule name prems [kdhFact t] [kdhFact t] nvs
-    x_pub_var   = varTerm (LVar "x"  LSortPubG   0)
-    x_fresh_var = varTerm (LVar "x"  LSortFrNZE 0)
-    x_varG = varTerm (LVar "x"  LSortG 0)
-    x_varE = varTerm (LVar "x"  LSortE 0)
+    kdhRule name prems t t2 nvs = Rule name prems [kdhFact t] [kdhFact t2] nvs
+    x_pub_var   = varTerm (LVar "x"  LSortG   0) --PubG
+    x_fresh_var = varTerm (LVar "x"  LSortFrNZE 0) --FrNZE
+    x_varG = varTerm (LVar "x"  LSortG 0) --G
+    x_varE = varTerm (LVar "x"  LSortE 0) --E
     x_box = fAppdhBox x_varG
     x_boxE = fAppdhBoxE x_varE
+    conc     = fAppNoEq dhOneSym []
+    concfact = kdhFact conc
 
 ------------------------------------------------------------------------------
 -- Multiset intruder rules

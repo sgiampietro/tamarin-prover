@@ -109,6 +109,9 @@ openGoals sys = do
         -- explicitly if they still exist.
         SplitG idx -> splitExists (get sEqStore sys) idx
         SubtermG st -> st `elem` L.get (posSubterms . sSubtermStore) sys
+        DHIndG _ _ _ -> not solved 
+        NoCancG _ -> not solved
+        NeededG _ _ -> not solved
 
     let
         useful = case goal of

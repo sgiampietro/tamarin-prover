@@ -70,7 +70,7 @@ import           Theory.Text.Parser.Token
 import qualified Theory.Text.Pretty as Pretty
 import           Theory.Tools.AbstractInterpretation (EvaluationStyle(..))
 import           Theory.Tools.IntruderRules          (specialIntruderRules, subtermIntruderRules
-                                                     , multisetIntruderRules, xorIntruderRules)
+                                                     , multisetIntruderRules, xorIntruderRules, dhmultIntruderRules)
 import           Theory.Tools.Wellformedness
 import           Theory.Tools.MessageDerivationChecks
 import           Theory.Module (ModuleType (ModuleSpthy, ModuleMsr))
@@ -526,6 +526,7 @@ addMessageDeductionRuleVariants thy0
     rules        = subtermIntruderRules False msig ++ specialIntruderRules False
                    ++ (if enableMSet msig then multisetIntruderRules else [])
                    ++ (if enableXor msig then xorIntruderRules else [])
+                   ++ (if enableDHMult msig then dhmultIntruderRules else [])
     thy          = addIntrRuleACsAfterTranslate rules thy0
     addIntruderVariants mkRuless = addIntrRuleACsAfterTranslate (concatMap ($ msig) mkRuless) thy
 

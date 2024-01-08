@@ -50,6 +50,7 @@ module Term.Unification (
   , enableMSet
   , enableNat
   , enableXor
+  , enableDHMult
   , enableDiff
   , minimalMaudeSig
   , enableDiffMaudeSig

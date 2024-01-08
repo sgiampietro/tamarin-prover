@@ -642,6 +642,7 @@ isDestrRule :: HasRuleName r => r -> Bool
 isDestrRule ru = case ruleName ru of
   IntrInfo (DestrRule _ _ _ _) -> True
   IntrInfo IEqualityRule   -> True
+  IntrInfo DirectDHRule    -> True
   _                        -> False
 
 -- | True iff the rule is an iequality rule.
@@ -658,6 +659,10 @@ isConstrRule ru = case ruleName ru of
   IntrInfo PubConstrRule   -> True
   IntrInfo NatConstrRule   -> True
   IntrInfo CoerceRule      -> True
+  IntrInfo PubGConstrRule  -> True
+  IntrInfo FreshNZEConstrRule -> True
+  IntrInfo CoerceDHRule    -> True
+  IntrInfo CoerceDHRuleE   -> True
   _                        -> False
 
 -- | True iff the rule is a construction rule.
@@ -746,6 +751,12 @@ getRuleName ru = case ruleName ru of
                                       NatConstrRule     -> "NatConstr"
                                       FreshConstrRule   -> "FreshConstr"
                                       IEqualityRule     -> "Equality"
+                                      PubGConstrRule    -> "PubGConstr"
+                                      FreshNZEConstrRule -> "FreshNZE"
+                                      DirectDHRule       -> "DirectDH"
+                                      CoerceDHRule       -> "CoerceDH"
+                                      CoerceDHRuleE      -> "CoerceDHE"
+
                       ProtoInfo p -> case p of
                                       FreshRule   -> "FreshRule"
                                       StandRule s -> s
@@ -763,6 +774,12 @@ getRuleNameDiff ru = case ruleName ru of
                                       NatConstrRule     -> "NatConstr"
                                       FreshConstrRule   -> "FreshConstr"
                                       IEqualityRule     -> "Equality"
+                                      PubGConstrRule    -> "PubGConstr"
+                                      FreshNZEConstrRule -> "FreshNZE"
+                                      DirectDHRule       -> "DirectDH"
+                                      CoerceDHRule       -> "CoerceDH"
+                                      CoerceDHRuleE      -> "CoerceDHE"
+
                       ProtoInfo p -> "Proto" ++ case p of
                                       FreshRule   -> "FreshRule"
                                       StandRule s -> s
@@ -1162,6 +1179,11 @@ prettyIntrRuleACInfo rn = text $ case rn of
     PubConstrRule        -> "pub"
     NatConstrRule        -> "nat"
     IEqualityRule        -> "iequality"
+    PubGConstrRule    -> "pubGConstr"
+    FreshNZEConstrRule -> "freshNZE"
+    DirectDHRule       -> "directDH"
+    CoerceDHRule       -> "coerceDH"
+    CoerceDHRuleE      -> "coerceDHE"
     ConstrRule name      -> prefixIfReserved ('c' : BC.unpack name)
     DestrRule name _ _ _ -> prefixIfReserved ('d' : BC.unpack name)
 --     DestrRule name i -> prefixIfReserved ('d' : BC.unpack name ++ "_" ++ show i)
