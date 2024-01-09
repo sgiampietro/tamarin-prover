@@ -406,6 +406,10 @@ precomputeSources parameters ctxt restrictions =
     absFact (Fact tag _ ts) = (tag, length ts)
 
     nMsgVars n = [ varTerm (LVar "t" LSortMsg i) | i <- [1..fromIntegral n] ]
+    
+    nDHVars:: NoEqSym -> [VTerm c0 LVar]
+    nDHVars o@(dhBoxSymString,_) = [ varTerm (LVar "g" LSortG 1) ]
+    nDHVars o@(dhBoxESymString,_) = [ varTerm (LVar "e" LSortE 1) ]
 
     someProtoGoal :: (FactTag, Int) -> Goal
     someProtoGoal (tag, arity) =
@@ -435,9 +439,13 @@ precomputeSources parameters ctxt restrictions =
           [ fAppNoEq natOneSym []
           , fAppAC NatPlus [varTerm (LVar "t" LSortNat 1), varTerm (LVar "t" LSortNat 2)] ]
           else []
+      , if enableDHMult msig then 
+         [ fAppNoEq dhBoxSym [varTerm (LVar "g" LSortG 1)]
+        ,  fAppNoEq dhBoxESym [varTerm (LVar "e" LSortE 1)]]
+          else []
       , [ fAppNoEq o $ nMsgVars k
         | o@(_,(k,priv,_)) <- S.toList . noEqFunSyms  $ msig
-        , NoEq o `S.notMember` implicitFunSig, k > 0 || priv==Private]
+        , NoEq o `S.notMember` (implicitFunSig `S.union` dhMultFunSig), k > 0 || priv==Private]
       ]
 
     msig = mhMaudeSig . get pcMaudeHandle $ ctxt

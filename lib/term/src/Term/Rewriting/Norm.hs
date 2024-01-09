@@ -89,6 +89,21 @@ nfViaHaskell t0 = reader $ \hnd -> check hnd
             -- bilinear map
             FEMap _                         (viewTerm2 -> FPMult _ _) -> False
             FEMap (viewTerm2 -> FPMult _ _) _                         -> False
+            -- DH MULTIPLICATION STUFF (todo: almost all Trues should be false)
+            FdhMult _ _ -> True
+            FdhGinv _ -> True
+            FdhMinus _ -> True
+            DHZero  -> True
+            FdhInv _ -> True
+            DHEg -> True
+            FdhTimes2 _ _ -> True
+            FdhExp _ _ -> True
+            DHOne -> True
+            FdhTimes _ _ -> True
+            FdhPlus _ _ -> True
+            FdhMu t -> go t
+            FdhBox t -> go t
+            FdhBoxE t ->  go t
 
             -- topmost position not reducible, check subterms
             FExp       t1 t2 -> go t1 && go t2

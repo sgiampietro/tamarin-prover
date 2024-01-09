@@ -367,6 +367,20 @@ sortOfLTerm sortOfConst t = case viewTerm2 t of
     Lit2 (Var lv) -> lvarSort lv
     FNatPlus _    -> LSortNat
     NatOne        -> LSortNat
+    FdhMult _ _ -> LSortG
+    FdhGinv _ -> LSortG
+    FdhMinus _ -> LSortE
+    DHZero  -> LSortE
+    FdhInv _ -> LSortNZE
+    DHEg -> LSortG
+    FdhTimes2 _ _ -> LSortNZE
+    FdhExp _ _ -> LSortG
+    DHOne -> LSortNZE
+    FdhTimes _ _ -> LSortE
+    FdhPlus _ _ -> LSortE
+    FdhMu _ -> LSortG
+    FdhBox _ -> LSortG
+    FdhBoxE _ -> LSortE
     _             -> LSortMsg
 
 -- | Returns the most precise sort of an 'LNTerm'.
@@ -501,6 +515,8 @@ variableToConst cvar = constTerm (Name (nameOfSort cvar) (NameId ("constVar_" ++
     nameOfSort (LVar _ LSortPub   _) = PubName
     nameOfSort (LVar _ LSortNode  _) = NodeName
     nameOfSort (LVar _ LSortNat   _) = NatName
+    nameOfSort (LVar _ LSortFrNZE   _) = FreshEName
+    nameOfSort (LVar _ LSortPubG   _) = PubGName
     nameOfSort (LVar _ LSortMsg   _) = error "Invalid sort Msg"
 
 
@@ -938,6 +954,8 @@ prettyLNTerm = prettyNTerm
 showLitName :: Lit Name LVar -> String
 showLitName (Con (Name FreshName n)) = "Const_fresh_" ++ show n
 showLitName (Con (Name PubName   n)) = "Const_pub_"   ++ show n
+showLitName (Con (Name FreshEName   n)) = "Const_freshNZE_"   ++ show n
+showLitName (Con (Name PubGName   n)) = "Const_pubG_"   ++ show n
 showLitName (Var (LVar v s i))       = "Var_" ++ sortSuffix s ++ "_" ++ body
       where
         body | null v           = show i

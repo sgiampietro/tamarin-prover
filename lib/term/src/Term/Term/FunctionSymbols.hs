@@ -235,8 +235,8 @@ dhPlusSym = (dhPlusSymString,(2,Public,Constructor))
 dhExpSym = (dhExpSymString,(2,Public,Constructor))
 dhOneSym = (dhOneSymString,(0,Public,Constructor))
 dhMuSym = (dhMuSymString,(1,Public,Constructor))
-dhBoxSym = (dhBoxSymString,(1,Public,Constructor))
-dhBoxESym = (dhBoxESymString,(1,Public,Constructor))
+dhBoxSym = (dhBoxSymString,(1,Private,Constructor))
+dhBoxESym = (dhBoxESymString,(1,Private,Constructor))
 
 mkDestSym :: NoEqSym -> NoEqSym
 mkDestSym (name,(k,p,_)) = (name,(k,p, Destructor))
