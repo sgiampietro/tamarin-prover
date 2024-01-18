@@ -27,6 +27,7 @@ module Term.Maude.Signature (
   , reducibleFunSyms
   , rrulesForMaudeSig
   , noEqFunSyms
+  , dhMultFunSyms
 
   -- * predefined maude signatures
   , dhMaudeSig
@@ -149,6 +150,9 @@ instance Monoid MaudeSig where
 -- | Non-AC function symbols.
 noEqFunSyms :: MaudeSig -> NoEqFunSig
 noEqFunSyms msig = S.fromList [ o | NoEq o <- S.toList (funSyms msig) ]
+
+dhMultFunSyms :: MaudeSig -> DHMultFunSig
+dhMultFunSyms msig = S.fromList [ o | DHMult o <- S.toList (funSyms msig) ]
 
 -- | Add function symbol to given maude signature.
 addFunSym :: NoEqSym -> MaudeSig -> MaudeSig

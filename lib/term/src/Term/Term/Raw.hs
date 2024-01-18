@@ -35,6 +35,7 @@ module Term.Term.Raw (
     , fAppAC
     , fAppC
     , fAppNoEq
+    , fAppDHMult
     , fAppList
     , unsafefApp
 
@@ -108,6 +109,7 @@ fApp (AC acSym)  ts = fAppAC acSym ts
 fApp (C o)       ts = fAppC o ts
 fApp List        ts = FAPP List ts
 fApp s@(NoEq _)  ts = FAPP s ts
+fApp s@(DHMult _)  ts = FAPP s ts
 
 -- | Smart constructor for AC terms.
 fAppAC :: Ord a => ACSym -> [Term a] -> Term a
@@ -130,6 +132,12 @@ fAppC nacsym as = FAPP (C nacsym) (sort as)
 {-# INLINE fAppNoEq #-}
 fAppNoEq :: NoEqSym -> [Term a] -> Term a
 fAppNoEq freesym = FAPP (NoEq freesym)
+
+-- | Smart constructor forDHMult terms.
+{-# INLINE fAppDHMult #-}
+fAppDHMult :: DHMultSym -> [Term a] -> Term a
+fAppDHMult freesym = FAPP (DHMult freesym)
+
 
 -- | Smart constructor for list terms.
 {-# INLINE fAppList #-}
@@ -191,12 +199,21 @@ viewTerm2 t@(FAPP (NoEq o) ts) = case ts of
     [ t1, t2 ] | o == pmultSym  -> FPMult t1 t2
     [ t1, t2 ] | o == pairSym   -> FPair  t1 t2
     [ t1, t2 ] | o == diffSym   -> FDiff  t1 t2
+    [ t1 ]     | o == invSym    -> FInv   t1
+    []         | o == oneSym    -> One
+    []         | o == natOneSym -> NatOne
+    []         | o == dhNeutralSym  -> DHNeutral
+    _          | o `elem` ssyms -> error $ "viewTerm2: malformed term `"++show t++"'"
+    _                           -> FAppNoEq o ts
+  where
+    -- special symbols
+    ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym , dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym, dhTimesSym, dhPlusSym, dhMuSym]
+viewTerm2 t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhMultSym   -> FdhMult  t1 t2
     [ t1, t2 ] | o == dhTimesSym   -> FdhTimes  t1 t2
     [ t1, t2 ] | o == dhTimes2Sym   -> FdhTimes2  t1 t2
     [ t1, t2 ] | o == dhExpSym   -> FdhExp  t1 t2
     [ t1, t2 ] | o == dhPlusSym   -> FdhPlus  t1 t2
-    [ t1 ]     | o == invSym    -> FInv   t1
     [ t1 ]     | o == dhGinvSym    -> FdhGinv   t1
     [ t1 ]     | o == dhInvSym    -> FdhInv   t1
     [ t1 ]     | o == dhMinusSym    -> FdhMinus   t1
@@ -206,11 +223,7 @@ viewTerm2 t@(FAPP (NoEq o) ts) = case ts of
     []         | o == dhZeroSym    -> DHZero
     []         | o == dhEgSym    -> DHEg  
     []         | o == dhOneSym    -> DHOne
-    []         | o == oneSym    -> One
-    []         | o == natOneSym -> NatOne
-    []         | o == dhNeutralSym  -> DHNeutral
     _          | o `elem` ssyms -> error $ "viewTerm2: malformed term `"++show t++"'"
-    _                           -> FAppNoEq o ts
   where
     -- special symbols
     ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym , dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym, dhTimesSym, dhPlusSym, dhMuSym]
@@ -244,12 +257,21 @@ viewTerm3 t@(FAPP (NoEq o) ts) = case ts of
     [ t1, t2 ] | o == pmultSym  -> MsgFApp (NoEq o) ts
     [ t1, t2 ] | o == pairSym   -> MsgFApp (NoEq o) ts
     [ t1, t2 ] | o == diffSym   -> MsgFApp (NoEq o) ts
+    [ t1 ]     | o == invSym    -> MsgFApp (NoEq o) ts
+    []         | o == oneSym    -> MsgFApp (NoEq o) ts
+    []         | o == natOneSym -> MsgFApp (NoEq o) ts
+    []         | o == dhNeutralSym  -> MsgFApp (NoEq o) ts
+    _          | o `elem` ssyms -> error $ "viewTerm2: malformed term `"++show t++"'"
+    _                           -> MsgFApp (NoEq o) ts
+  where
+    -- special symbols
+    ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym , dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym, dhTimesSym, dhPlusSym, dhMuSym]
+viewTerm3 t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhMultSym   -> DH (NoEq o) ts
     [ t1, t2 ] | o == dhTimesSym   -> DH (NoEq o) ts
     [ t1, t2 ] | o == dhTimes2Sym   -> DH (NoEq o) ts
     [ t1, t2 ] | o == dhExpSym   -> DH (NoEq o) ts
     [ t1, t2 ] | o == dhPlusSym   -> DH (NoEq o) ts
-    [ t1 ]     | o == invSym    -> MsgFApp (NoEq o) ts
     [ t1 ]     | o == dhGinvSym    -> DH (NoEq o) ts
     [ t1 ]     | o == dhInvSym    -> DH (NoEq o) ts
     [ t1 ]     | o == dhMinusSym    -> DH (NoEq o) ts
@@ -259,11 +281,8 @@ viewTerm3 t@(FAPP (NoEq o) ts) = case ts of
     []         | o == dhZeroSym    -> DH (NoEq o) ts
     []         | o == dhEgSym    -> DH (NoEq o) ts 
     []         | o == dhOneSym    -> DH (NoEq o) ts
-    []         | o == oneSym    -> MsgFApp (NoEq o) ts
-    []         | o == natOneSym -> MsgFApp (NoEq o) ts
-    []         | o == dhNeutralSym  -> MsgFApp (NoEq o) ts
     _          | o `elem` ssyms -> error $ "viewTerm2: malformed term `"++show t++"'"
-    _                           -> MsgFApp (NoEq o) ts
+    _                           -> MsgFApp (DHMult o) ts
   where
     -- special symbols
     ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym , dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym, dhTimesSym, dhPlusSym, dhMuSym]
@@ -297,6 +316,8 @@ instance Show a => Show (Term a) where
         Lit l                  -> show l
         FApp   (NoEq (s,_)) [] -> BC.unpack s
         FApp   (NoEq (s,_)) as -> BC.unpack s++"("++(intercalate "," (map show as))++")"
+        FApp   (DHMult (s,_)) [] -> BC.unpack s
+        FApp   (DHMult (s,_)) as -> BC.unpack s++"("++(intercalate "," (map show as))++")"
         FApp   (C EMap) as     -> BC.unpack emapSymString++"("++(intercalate "," (map show as))++")"
         FApp   List as         -> "LIST"++"("++(intercalate "," (map show as))++")"
         FApp   (AC o) as       -> show o++"("++(intercalate "," (map show as))++")"

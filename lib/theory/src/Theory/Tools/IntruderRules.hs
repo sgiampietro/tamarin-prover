@@ -313,12 +313,19 @@ normRule' (Rule i ps cs as nvs) = reader $ \hnd ->
 -- I think this is probably where you need to add the rules? or maybe in a separate non-K
 -- related set of rules. Create a DHrules separate file? 
 
+
 dhmultIntruderRules ::  [IntrRuleAC]
 dhmultIntruderRules = [
       kdhRule PubGConstrRule   []                             (x_pub_var) (x_pub_var)  [(x_pub_var)]
       , kdhRule FreshNZEConstrRule [freshFact x_fresh_var] (fAppdhBox x_fresh_var) (x_fresh_var)         []
       --, Rule IRecvDHRule [outFact x_var] [kdhFact x_var] []
       --, Rule DirectDHRule [kdhFact x_varG]  [] [kLogFact x_box]     [x_varG]
+      , Rule IRecvRule [outFact x_box] [kdFact x_box] []  []
+      , Rule ISendRule [kuFact x_varG]  [inFact x_varG] [kLogFact x_varG]        []
+      , Rule IRecvRule [outFact x_varE] [kdFact x_varE] []  []
+      , Rule ISendRule [kuFact x_varE]  [inFact x_varE] [kLogFact x_varE]        []
+      , kuRule CoerceRule      [kdFact x_box]                 (x_box)         [] 
+      , kuRule CoerceRule      [kdFact x_varE]                 (x_varE)         [] 
       , Rule CoerceDHRule  [kdhFact x_varG] [kuFact x_box] [kuFact x_box]     [x_varG]
       , Rule CoerceDHRuleE [kdhFact x_varE] [kuFact x_boxE] []     [x_varE]
       , Rule  (ConstrRule (append (pack "_DH") dhOneSymString)) [] [concfact] (return concfact) []
@@ -340,8 +347,9 @@ dhmultIntruderRules = [
     x_varE = varTerm (LVar "x"  LSortE 0) --E
     x_box = fAppdhBox x_varG
     x_boxE = fAppdhBoxE x_varE
-    conc     = fAppNoEq dhOneSym []
+    conc     = fAppDHMult dhOneSym []
     concfact = kdhFact conc
+    kuRule name prems t nvs = Rule name prems [kuFact t] [kuFact t] nvs
 
 ------------------------------------------------------------------------------
 -- Multiset intruder rules

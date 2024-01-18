@@ -19,10 +19,12 @@ module Term.Term.FunctionSymbols (
     , Privacy(..)
     , Constructability(..)
     , NoEqSym
+    , DHMultSym
 
     -- ** Signatures
     , FunSig
     , NoEqFunSig
+    , DHMultFunSig
 
     -- ** concrete symbols strings
     , diffSymString
@@ -137,12 +139,16 @@ data Constructability = Constructor | Destructor
 -- | NoEq function symbols (with respect to the background theory).
 type NoEqSym = (ByteString, (Int, Privacy,Constructability)) -- ^ operator name, arity, private, destructor
 
+type DHMultSym = (ByteString, (Int, Privacy,Constructability)) -- ^ operator name, arity, private, destructor
+
+
 -- | C(ommutative) function symbols
 data CSym = EMap
   deriving (Eq, Ord, Typeable, Data, Show, Generic, NFData, Binary)
 
 -- | Function symbols
 data FunSym = NoEq  NoEqSym   -- ^ a free function function symbol of a given arity
+            | DHMult DHMultSym
             | AC    ACSym     -- ^ an AC function symbol, can be used n-ary
             | C     CSym      -- ^ a C function symbol of a given arity
             | List            -- ^ a free n-ary function symbol of TOP sort
@@ -153,6 +159,10 @@ type FunSig = Set FunSym
 
 -- | NoEq function signatures.
 type NoEqFunSig = Set NoEqSym
+
+-- | NoEq function signatures.
+type DHMultFunSig = Set DHMultSym
+
 
 ----------------------------------------------------------------------
 -- Fixed function symbols
@@ -222,7 +232,7 @@ zeroSym  = (zeroSymString,(0,Public,Constructor))
 -- | One for natural numbers.
 natOneSym = (natOneSymString, (0,Public,Constructor))
 
-dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym,dhInvSym,dhEgSym,dhTimes2Sym, dhTimesSym, dhPlusSym,dhExpSym,dhOneSym, dhMuSym, dhBoxSym, dhBoxESym :: NoEqSym
+dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym,dhInvSym,dhEgSym,dhTimes2Sym, dhTimesSym, dhPlusSym,dhExpSym,dhOneSym, dhMuSym, dhBoxSym, dhBoxESym :: DHMultSym
 dhMultSym = (dhMultSymString,(2,Public,Constructor))
 dhGinvSym = (dhGinvSymString,(1,Public,Constructor))
 dhZeroSym = (dhZeroSymString,(0,Public,Constructor))
@@ -255,8 +265,12 @@ sndDestSym   = mkDestSym sndSym
 dhFunSig :: FunSig
 dhFunSig = S.fromList [ AC Mult, NoEq expSym, NoEq oneSym, NoEq invSym, NoEq dhNeutralSym ]
 
+dhMultFunSigDH :: DHMultFunSig
+dhMultFunSigDH = S.fromList [dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym, dhInvSym, dhEgSym, dhTimes2Sym, dhExpSym, dhOneSym, dhTimesSym, dhPlusSym, dhMuSym, dhBoxSym, dhBoxESym] 
+
 dhMultFunSig :: FunSig
-dhMultFunSig = S.fromList [ NoEq dhMultSym, NoEq dhGinvSym, NoEq dhZeroSym, NoEq dhMinusSym, NoEq dhInvSym, NoEq dhEgSym, NoEq dhTimes2Sym, NoEq dhExpSym, NoEq dhOneSym, NoEq dhTimesSym, NoEq dhPlusSym, NoEq dhMuSym, NoEq dhBoxSym, NoEq dhBoxESym] 
+dhMultFunSig = S.fromList [DHMult dhMultSym, DHMult dhGinvSym, DHMult dhZeroSym, DHMult dhMinusSym, DHMult dhInvSym, DHMult dhEgSym, DHMult dhTimes2Sym, DHMult dhExpSym, DHMult dhOneSym, DHMult dhTimesSym, DHMult dhPlusSym, DHMult dhMuSym, DHMult dhBoxSym, DHMult dhBoxESym] 
+
 
 -- | The signature for Xor function symbols.
 xorFunSig :: FunSig

@@ -59,7 +59,7 @@ llitNoPub = asum [freshTerm <$> freshName, varTerm <$> msgvar]
 lookupArity :: String -> Parser (Int, Privacy,Constructability)
 lookupArity op = do
     maudeSig <- sig <$> getState
-    case lookup (BC.pack op) (S.toList (noEqFunSyms maudeSig) ++ [(emapSymString, (2,Public,Constructor))]) of
+    case lookup (BC.pack op) (S.toList (noEqFunSyms maudeSig) ++ S.toList (dhMultFunSyms maudeSig) ++ [(emapSymString, (2,Public,Constructor))]) of
         Nothing    -> fail $ "unknown operator `" ++ op ++ "'"
         Just (k,priv,cnstr) -> return (k,priv,cnstr)
 
@@ -89,6 +89,24 @@ reservedBuiltins =  map unpackChars [
   , dhBoxSymString
   , dhBoxESymString  
   ]
+
+dhMultBuiltins :: [[Char]]
+dhMultBuiltins =  map unpackChars [
+  dhMultSymString -- g1.g2
+  , dhGinvSymString -- g^-1
+  , dhZeroSymString
+  , dhMinusSymString
+  , dhInvSymString
+  , dhEgSymString 
+  , dhTimesSymString
+  , dhTimes2SymString -- e1*e2 for E (not necessarily NZE) elements
+  , dhPlusSymString -- e1+e2
+  , dhExpSymString
+  , dhOneSymString
+  , dhMuSymString
+  , dhBoxSymString
+  , dhBoxESymString  
+  ] 
 
 -- | Parse an n-ary operator application for arbitrary n.
 naryOpApp :: Ord l => Bool -> Parser (Term l) -> Parser (Term l)

@@ -78,6 +78,7 @@ module Term.Unification (
   , irreducibleFunSyms
   , reducibleFunSyms
   , noEqFunSyms
+  , dhMultFunSyms
   , addFunSym
   , addCtxtStRule
 

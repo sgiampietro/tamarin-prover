@@ -50,6 +50,12 @@ ppLSort s = case s of
     LSortMsg       -> "Msg"
     LSortNat       -> "TamNat"
     LSortNode      -> "Node"
+    LSortDH         -> "DH"
+    LSortG         -> "G"
+    LSortE         -> "E"
+    LSortNZE       -> "NZE"
+    LSortPubG       -> "PubG"
+    LSortFrNZE     -> "FrNZE"
 
 ppLSortSym :: LSort -> ByteString
 ppLSortSym lsort = case lsort of
@@ -58,6 +64,12 @@ ppLSortSym lsort = case lsort of
     LSortMsg       -> "c"
     LSortNode      -> "n"
     LSortNat       -> "t"
+    LSortDH         -> "dh"
+    LSortG         -> "g"
+    LSortE         -> "e"
+    LSortNZE       -> "nze"
+    LSortPubG       -> "pubg"
+    LSortFrNZE     -> "fnze"
 
 parseLSortSym :: ByteString -> Maybe LSort
 parseLSortSym s = case s of
@@ -66,6 +78,12 @@ parseLSortSym s = case s of
     "c"  -> Just LSortMsg
     "n"  -> Just LSortNode
     "t"  -> Just LSortNat
+    "dh"  ->  Just LSortDH        
+    "g"   -> Just LSortG     
+    "e"  ->  Just LSortE        
+    "nze"  -> Just LSortNZE   
+    "pubg"   -> Just  LSortPubG    
+    "fnze"  -> Just LSortFrNZE   
     _    -> Nothing
 
 -- | Used to prevent clashes with predefined Maude function symbols
@@ -133,6 +151,10 @@ ppMaudeACSym o =
 ppMaudeNoEqSym :: NoEqSym -> ByteString
 ppMaudeNoEqSym (o,(_,prv,cnstr))  = funSymPrefix <> funSymEncodeAttr prv cnstr <> replaceUnderscore o
 
+ppMaudeDHMultSym :: NoEqSym -> ByteString
+ppMaudeDHMultSym (o,(_,prv,cnstr))  = funSymPrefix <> funSymEncodeAttr prv cnstr <> replaceUnderscore o
+
+
 -- | Pretty print a C symbol for Maude.
 ppMaudeCSym :: CSym -> ByteString
 ppMaudeCSym EMap = funSymPrefix <> emapSymString
@@ -146,6 +168,8 @@ ppMaude t = case viewTerm t of
     Lit (FreshVar _ _)       -> error "Term.Maude.Types.ppMaude: FreshVar not allowed"
     FApp (NoEq fsym) []      -> ppMaudeNoEqSym fsym
     FApp (NoEq fsym) as      -> ppMaudeNoEqSym fsym <> ppArgs as
+    FApp (DHMult fsym) []      -> ppMaudeDHMultSym fsym
+    FApp (DHMult fsym) as      -> ppMaudeDHMultSym fsym <> ppArgs as
     FApp (C fsym) as         -> ppMaudeCSym fsym    <> ppArgs as
     FApp (AC op) as          -> ppMaudeACSym op     <> ppArgs as
     FApp List as             -> "list(" <> ppList as <> ")"
@@ -164,10 +188,16 @@ ppTheory :: MaudeSig -> ByteString
 ppTheory msig = BC.unlines $
     [ "fmod MSG is"
     , "  protecting NAT ."
-    , "  sort Pub Fresh Msg Node TamNat TOP ."
+    , "  sort Pub Fresh Msg Node TamNat DH G E NZE PubG FrNZE TOP ."
     , "  subsort Pub < Msg ."
     , "  subsort Fresh < Msg ."
     , "  subsort TamNat < Msg ."
+    , "  subsort G < DH ."
+    , "  subsort E < DH ."
+    , "  subsort NZE < E ."
+    , "  subsort FrNZE < NZE ."
+    , "  subsort PubG < G ."
+    , "  subsort DH < TOP ."
     , "  subsort Msg < TOP ."
     , "  subsort Node < TOP ."
     -- constants
@@ -176,6 +206,12 @@ ppTheory msig = BC.unlines $
     , "  op c : Nat -> Msg ."
     , "  op n : Nat -> Node ."
     , "  op t : Nat -> TamNat ."
+    , "  op dh: Nat -> DH ."
+    , "  op g: Nat -> G ."
+    , "  op e: Nat -> E ."
+    , "  op nze: Nat -> NZE ."
+    , "  op pubg: Nat -> PubG ."
+    , "  op fnze: Nat -> FrNZE ."
     -- used for encoding FApp List [t1,..,tk]
     -- list(cons(t1,cons(t2,..,cons(tk,nil)..)))
     , "  op list : TOP -> TOP ."
@@ -207,11 +243,12 @@ ppTheory msig = BC.unlines $
        [ theoryOpEq "zero : -> Msg"
        , theoryOpAC "xor : Msg Msg -> Msg [comm assoc]" ]
        else [])
-   -- ++
+  --  ++
    -- (if enableDHMult msig
    --   then
-   --   [ theoryOpEq "dhmult : G G -> G"
-   --   ]
+   --    map theoryDHmultFunSym (S.toList $ stFunSyms msig)
+          -- where theoryFunSym (s,(ar,priv,cnstr)) =
+              --     theoryOp  (Just(priv,cnstr)) (replaceUnderscore s <> " : " <> (B.concat $ replicate ar "Msg ") <> " -> Msg")
    --   else [])
     ++    
     (if enableNat msig

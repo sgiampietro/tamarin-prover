@@ -75,6 +75,7 @@ module Term.Term (
     -- ** Signatures
     , FunSig
     , NoEqFunSig
+    , DHMultFunSig
 
     -- ** concrete symbols strings
     , diffSymString
@@ -195,24 +196,24 @@ fAppUnion (x,y) = fAppAC    Union     [x, y]
 
 -- | Smart constructors for DH multiplication symbols.
 fAppdhMult, fAppdhTimes, fAppdhTimes2, fAppdhPlus, fAppdhExp :: (Term a, Term a) -> Term a
-fAppdhMult (x,y)  = fAppNoEq dhMultSym  [x, y]
-fAppdhTimes (x,y)  = fAppNoEq dhTimesSym  [x, y]
-fAppdhTimes2  (b,e)  = fAppNoEq dhTimes2Sym   [b, e]
-fAppdhPlus (s,p) = fAppNoEq dhPlusSym [s, p]
-fAppdhExp (s,p) = fAppNoEq dhExpSym [s, p]
+fAppdhMult (x,y)  = fAppDHMult dhMultSym  [x, y]
+fAppdhTimes (x,y)  = fAppDHMult dhTimesSym  [x, y]
+fAppdhTimes2  (b,e)  = fAppDHMult dhTimes2Sym   [b, e]
+fAppdhPlus (s,p) = fAppDHMult dhPlusSym [s, p]
+fAppdhExp (s,p) = fAppDHMult dhExpSym [s, p]
 
 fAppdhGinv, fAppdhMinus, fAppdhInv, fAppdhMu, fAppdhBox, fAppdhBoxE :: Term a -> Term a
-fAppdhGinv e = fAppNoEq dhGinvSym [e]
-fAppdhMinus e = fAppNoEq dhMinusSym [e]
-fAppdhInv e = fAppNoEq dhInvSym [e]
-fAppdhMu e = fAppNoEq dhMuSym [e]
-fAppdhBox e = fAppNoEq dhBoxSym [e]
-fAppdhBoxE e = fAppNoEq dhBoxESym [e]
+fAppdhGinv e = fAppDHMult dhGinvSym [e]
+fAppdhMinus e = fAppDHMult dhMinusSym [e]
+fAppdhInv e = fAppDHMult dhInvSym [e]
+fAppdhMu e = fAppDHMult dhMuSym [e]
+fAppdhBox e = fAppDHMult dhBoxSym [e]
+fAppdhBoxE e = fAppDHMult dhBoxESym [e]
 
 fAppdhZero, fAppdhEg, fAppdhOne :: Term a
-fAppdhOne = fAppNoEq dhOneSym []
-fAppdhEg = fAppNoEq dhEgSym []
-fAppdhZero = fAppNoEq dhZeroSym []
+fAppdhOne = fAppDHMult dhOneSym []
+fAppdhEg = fAppDHMult dhEgSym []
+fAppdhZero = fAppDHMult dhZeroSym []
 
 -- | Smart constructors for inv, fst, and snd.
 fAppInv, fAppFst, fAppSnd :: Term a -> Term a
@@ -358,6 +359,8 @@ prettyTerm ppLit = ppTerm
         FApp (NoEq s)   _       | s == pairSym    -> ppTerms ", " 1 "<" ">" (split t)
         FApp (NoEq (f, _)) []                     -> text (BC.unpack f)
         FApp (NoEq (f, _)) ts                     -> ppFun f ts
+        FApp (DHMult (f, _)) []                     -> text (BC.unpack f)
+        FApp (DHMult (f, _)) ts                     -> ppFun f ts
         FApp (C EMap)      ts                     -> ppFun emapSymString ts
         FApp List          ts                     -> ppFun "LIST" ts
 

@@ -406,6 +406,7 @@ precomputeSources parameters ctxt restrictions =
     absFact (Fact tag _ ts) = (tag, length ts)
 
     nMsgVars n = [ varTerm (LVar "t" LSortMsg i) | i <- [1..fromIntegral n] ]
+    nGEVars n =  [ varTerm (LVar "t" LSortDH i) | i <- [1..fromIntegral n] ]
     
     nDHVars:: NoEqSym -> [VTerm c0 LVar]
     nDHVars o@(dhBoxSymString,_) = [ varTerm (LVar "g" LSortG 1) ]
