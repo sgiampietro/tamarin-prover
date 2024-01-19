@@ -71,6 +71,7 @@ module Term.Term (
     , Privacy(..)
     , Constructability(..)
     , NoEqSym
+    , DHMultSym
 
     -- ** Signatures
     , FunSig

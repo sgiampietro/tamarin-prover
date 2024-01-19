@@ -151,7 +151,7 @@ ppMaudeACSym o =
 ppMaudeNoEqSym :: NoEqSym -> ByteString
 ppMaudeNoEqSym (o,(_,prv,cnstr))  = funSymPrefix <> funSymEncodeAttr prv cnstr <> replaceUnderscore o
 
-ppMaudeDHMultSym :: NoEqSym -> ByteString
+ppMaudeDHMultSym :: DHMultSym -> ByteString
 ppMaudeDHMultSym (o,(_,prv,cnstr))  = funSymPrefix <> funSymEncodeAttr prv cnstr <> replaceUnderscore o
 
 
@@ -188,16 +188,10 @@ ppTheory :: MaudeSig -> ByteString
 ppTheory msig = BC.unlines $
     [ "fmod MSG is"
     , "  protecting NAT ."
-    , "  sort Pub Fresh Msg Node TamNat DH G E NZE PubG FrNZE TOP ."
+    , "  sort Pub Fresh Msg Node TamNat  TOP ." -- DH G E NZE PubG FrNZE 
     , "  subsort Pub < Msg ."
     , "  subsort Fresh < Msg ."
     , "  subsort TamNat < Msg ."
-    , "  subsort G < DH ."
-    , "  subsort E < DH ."
-    , "  subsort NZE < E ."
-    , "  subsort FrNZE < NZE ."
-    , "  subsort PubG < G ."
-    , "  subsort DH < TOP ."
     , "  subsort Msg < TOP ."
     , "  subsort Node < TOP ."
     -- constants
@@ -206,12 +200,6 @@ ppTheory msig = BC.unlines $
     , "  op c : Nat -> Msg ."
     , "  op n : Nat -> Node ."
     , "  op t : Nat -> TamNat ."
-    , "  op dh: Nat -> DH ."
-    , "  op g: Nat -> G ."
-    , "  op e: Nat -> E ."
-    , "  op nze: Nat -> NZE ."
-    , "  op pubg: Nat -> PubG ."
-    , "  op fnze: Nat -> FrNZE ."
     -- used for encoding FApp List [t1,..,tk]
     -- list(cons(t1,cons(t2,..,cons(tk,nil)..)))
     , "  op list : TOP -> TOP ."
@@ -243,13 +231,57 @@ ppTheory msig = BC.unlines $
        [ theoryOpEq "zero : -> Msg"
        , theoryOpAC "xor : Msg Msg -> Msg [comm assoc]" ]
        else [])
-  --  ++
-   -- (if enableDHMult msig
-   --   then
-   --    map theoryDHmultFunSym (S.toList $ stFunSyms msig)
-          -- where theoryFunSym (s,(ar,priv,cnstr)) =
-              --     theoryOp  (Just(priv,cnstr)) (replaceUnderscore s <> " : " <> (B.concat $ replicate ar "Msg ") <> " -> Msg")
-   --   else [])
+    ++
+    (if enableDHMult msig
+       then
+        [ "sort DH G E NZE PubG FrNZE ."
+        , "  subsort G < DH ."
+        , "  subsort E < DH ."
+        , "  subsort NZE < E ."
+        , "  subsort FrNZE < NZE ."
+        , "  subsort PubG < G ."
+        , "  subsort DH < TOP ."
+        , "  op dh : Nat -> DH ."
+        , "  op g : Nat -> G ."
+        , "  op e : Nat -> E ."
+        , "  op nze : Nat -> NZE ."
+        , "  op pubg : Nat -> PubG ."
+        , "  op fnze : Nat -> FrNZE ."
+        , theoryOpEq "dhMult : G G -> G"
+        , theoryOpEq "dhGinv : G -> G"
+        , theoryOpEq "dhZero : -> E"
+        , theoryOpEq "dhMinus : E -> E"
+        , theoryOpEq "dhInv : NZE -> NZE"
+        , theoryOpEq "dhEg : -> G"
+        , theoryOpEq "dhTimes2 : E E -> E"
+        , theoryOpEq "dhTimes : NZE NZE -> NZE"
+        , theoryOpEq "dhPlus : E E -> E"
+        , theoryOpEq "dhExp : G E -> G"
+        , theoryOpEq "dhOne : -> E"
+        , theoryOpEq "dhMu : G -> E"
+        , theoryOpEq "dhBox : G -> Msg"
+        , theoryOpEq "dhBoxE : E -> Msg"
+        ]
+       else [])
+   {- ++
+    (if enableDHMult msig
+       then
+        [" op dhMult : G G -> G"
+        , " op dhGinv : G -> G"
+        , " op dhZero : -> E"
+        , " op dhMinus : E -> E"
+        , " op dhInv : NZE -> NZE"
+        , " op dhEg : -> G"
+        , " op dhTimes2 : E E -> E"
+        , " op dhTimes : NZE NZE -> NZE"
+        , " op dhPlus : E E -> E"
+        , " op dhExp : G E -> G"
+        , " op dhOne : E"
+        , " op dhMu : G -> E"
+        , " op dhBox : G -> Msg"
+        , " op dhBoxE : E -> Msg" ]
+       else [])
+       -}
     ++    
     (if enableNat msig
        then
@@ -334,8 +366,15 @@ parseSort =  string "Pub"      *> return LSortPub
          <|> string "Fresh"    *> return LSortFresh
          <|> string "Node"     *> return LSortNode
          <|> string "TamNat"   *> return LSortNat
+         <|> string "DH"       *> return LSortDH
+         <|> string "G"       *> return LSortG
+         <|> string "E"       *> return LSortE
+         <|> string "NZE"       *> return LSortNZE
+         <|> string "Pubg"       *> return LSortPubG
+         <|> string "FrNZE"       *> return LSortFrNZE
          <|> string "M"        *> -- FIXME: why?
                (    string "sg"  *> return LSortMsg )
+
 
 -- | @parseTerm@ is a parser for Maude terms.
 parseTerm :: MaudeSig -> Parser MTerm
@@ -368,7 +407,7 @@ parseTerm msig = choice
                                         (ident , (length args,Public,Constructor))
                                   else  (ident', (length args, priv, cnstr))
             allowedfunSyms = [consSym, nilSym, natOneSym]
-                ++ (map replaceUnderscoreFun $ S.toList $ noEqFunSyms msig)
+                ++ (map replaceUnderscoreFun $ S.toList $ noEqFunSyms msig) ++ (map replaceUnderscoreFun $ S.toList $ dhMultFunSyms msig)
 
     parseConst s = lit <$> (flip MaudeConst s <$> decimal) <* string ")"
 
@@ -381,11 +420,15 @@ parseTerm msig = choice
                        | ident == ppMaudeACSym Xor        = fAppAC Xor   args
                        | ident == ppMaudeCSym  EMap       = fAppC  EMap  args
         appIdent [arg] | ident == "list"                  = fAppList (flattenCons arg)
+        appIdent args  | op `elem` (map replaceUnderscoreFun $ S.toList $ dhMultFunSyms msig) = error "you got here "-- fAppDHMult op args
+          where op = parseFunSym ident args
         appIdent args                                     = fAppNoEq op args
           where op = parseFunSym ident args
 
         flattenCons (viewTerm -> FApp (NoEq s) [x,xs]) | s == consSym = x:flattenCons xs
         flattenCons (viewTerm -> FApp (NoEq s)  [])    | s == nilSym  = []
+        flattenCons (viewTerm -> FApp (DHMult s) [x,xs]) | s == consSym = x:flattenCons xs
+        flattenCons (viewTerm -> FApp (DHMult s)  [])    | s == nilSym  = []
         flattenCons t                                                 = [t]
 
     parseFAppConst ident = return $ fAppNoEq (parseFunSym ident []) []
