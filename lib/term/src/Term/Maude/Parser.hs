@@ -154,7 +154,6 @@ ppMaudeNoEqSym (o,(_,prv,cnstr))  = funSymPrefix <> funSymEncodeAttr prv cnstr <
 ppMaudeDHMultSym :: DHMultSym -> ByteString
 ppMaudeDHMultSym (o,(_,prv,cnstr))  = funSymPrefix <> funSymEncodeAttr prv cnstr <> replaceUnderscore o
 
-
 -- | Pretty print a C symbol for Maude.
 ppMaudeCSym :: CSym -> ByteString
 ppMaudeCSym EMap = funSymPrefix <> emapSymString
@@ -247,6 +246,20 @@ ppTheory msig = BC.unlines $
         , "  op nze : Nat -> NZE ."
         , "  op pubg : Nat -> PubG ."
         , "  op fnze : Nat -> FrNZE ."
+        {-, " op dhMult : G G -> G ."
+        , " op dhGinv : G -> G ."
+        , " op dhZero : -> E ."
+        , " op dhMinus : E -> E ."
+        , " op dhInv : NZE -> NZE ."
+        , " op dhEg : -> G ."
+        , " op dhTimes2 : E E -> E ."
+        , " op dhTimes : NZE NZE -> NZE ."
+        , " op dhPlus : E E -> E ."
+        , " op dhExp : G E -> G ."
+        , " op dhOne : E ."
+        , " op dhMu : G -> E ."
+        , " op dhBox : G -> Msg ."
+        , " op dhBoxE : E -> Msg ." ] -}
         , theoryOpEq "dhMult : G G -> G"
         , theoryOpEq "dhGinv : G -> G"
         , theoryOpEq "dhZero : -> E"
@@ -263,25 +276,6 @@ ppTheory msig = BC.unlines $
         , theoryOpEq "dhBoxE : E -> Msg"
         ]
        else [])
-   {- ++
-    (if enableDHMult msig
-       then
-        [" op dhMult : G G -> G"
-        , " op dhGinv : G -> G"
-        , " op dhZero : -> E"
-        , " op dhMinus : E -> E"
-        , " op dhInv : NZE -> NZE"
-        , " op dhEg : -> G"
-        , " op dhTimes2 : E E -> E"
-        , " op dhTimes : NZE NZE -> NZE"
-        , " op dhPlus : E E -> E"
-        , " op dhExp : G E -> G"
-        , " op dhOne : E"
-        , " op dhMu : G -> E"
-        , " op dhBox : G -> Msg"
-        , " op dhBoxE : E -> Msg" ]
-       else [])
-       -}
     ++    
     (if enableNat msig
        then

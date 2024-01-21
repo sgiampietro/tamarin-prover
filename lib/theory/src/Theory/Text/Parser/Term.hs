@@ -90,8 +90,8 @@ reservedBuiltins =  map unpackChars [
   , dhBoxESymString  
   ]
 
-dhMultBuiltins :: [[Char]]
-dhMultBuiltins =  map unpackChars [
+--dhMultBuiltins :: [[Char]]
+dhMultBuiltins =  [
   dhMultSymString -- g1.g2
   , dhGinvSymString -- g^-1
   , dhZeroSymString
@@ -123,7 +123,8 @@ naryOpApp eqn plit = do
     when (k /= k') $
         fail $ "operator `" ++ op ++"' has arity " ++ show k ++
                ", but here it is used with arity " ++ show k'
-    let app o = if BC.pack op == emapSymString then fAppC EMap else fAppNoEq o
+    let app o = if BC.pack op == emapSymString then fAppC EMap else
+                    (if BC.pack op `elem` dhMultBuiltins then fAppDHMult o else fAppNoEq o)
     return $ app (BC.pack op, ar) ts
 
 -- | Parse a binary operator written as @op{arg1}arg2@.
