@@ -317,7 +317,7 @@ joinAllRules (ClassifiedRules a b c) = a ++ b ++ c
 
 -- | Extract all non-silent rules.
 nonSilentRules :: ClassifiedRules -> [RuleAC]
-nonSilentRules = filter (not . null . L.get rActs) . joinAllRules
+nonSilentRules =  filter (not . null . L.get rActs) . joinAllRules
 
 ------------------------------------------------------------------------------
 -- Types

@@ -346,6 +346,8 @@ auxppTerm ppLit t = (ppTerm t, getHdTerm t)
       FApp (NoEq _) [t1, t2] | isPair tm -> text "(" <> ppTerm t1 <> text ", " <> ppTerm t2 <> text ")"
       FApp (NoEq (f, _)) [] -> text $ ppFunSym f
       FApp (NoEq (f, _)) ts -> ppFun f ts
+      FApp (DHMult (f, _)) [] -> text $ ppFunSym f
+      FApp (DHMult (f, _)) ts -> ppFun f ts
       FApp (C EMap) ts -> ppFun emapSymString ts
       FApp List ts -> ppFun (BC.pack "LIST") ts
 

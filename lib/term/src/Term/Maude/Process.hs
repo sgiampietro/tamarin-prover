@@ -59,7 +59,7 @@ import System.IO
 import Utils.Misc
 -- import Extension.Data.Monoid
 
--- import Debug.Trace
+import Debug.Trace
 
 
 -- Unification using a persistent Maude process
@@ -169,6 +169,8 @@ callMaude hnd updateStatistics cmd = do
         hFlush  inp
         mp' <- evaluate (updateStatistics mp)
         res <- getToDelim out
+        print "DEBUG result"
+        print res
         return (mp', res)
 
 -- | Compute a result via Maude.

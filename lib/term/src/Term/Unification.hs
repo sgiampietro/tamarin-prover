@@ -135,13 +135,13 @@ unifyLDHTermFactored :: (IsConst c)
                    => (c -> LSort)
                    -> [Equal (LTerm c)]
                    -> WithMaude (LSubst c, [SubstVFresh c LVar])
-unifyLDHTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTerm: "++ show eqs, "result = "++  show res]) res) $ do
+unifyLDHTermFactored sortOf eqs = unifyLTermFactored sortOf eqs{-reader $ \h -> (\res -> trace (unlines $ ["unifyLTerm: "++ show eqs, "result = "++  show res]) res) $ do
     solve h $ execRWST unif sortOf M.empty
   where
     unif = sequence [ unifyRaw t p | (Equal t p) <- eqs ]
     solve _ Nothing         = (emptySubst, [])
     solve _ (Just (m, _))  = (emptySubst, [])
-
+-}
 unifyLNDHTermFactored :: [Equal LNTerm]
                     -> WithMaude (LNSubst, [SubstVFresh Name LVar])
 unifyLNDHTermFactored = unifyLDHTermFactored sortOfName             
@@ -274,15 +274,13 @@ unifyRaw l0 r0 = do
     r <- gets ((`applyVTerm` r0) . substFromMap)
     guard (trace (show ("unifyRaw", mappings, l ,r)) True)
     case (viewTerm l, viewTerm r) of
-       (Lit (Var vl), Lit (Var vr))
+       (Lit (Var vl), Lit (Var vr)) 
          | vl == vr  -> return ()
          | otherwise -> case (lvarSort vl, lvarSort vr) of
              (sl, sr) | sl == sr                 -> if vl < vr then elim vr l
-                                                    else elim vl r
+                                                    else elim vl r 
              _        | sortGeqLTerm sortOf vl r -> elim vl r
-             -- If unification can succeed here, then it must work by
-             -- elimating the right-hand variable with the left-hand side.
-             _                                   -> elim vr l
+             _                                   -> elim vr l 
 
        (Lit (Var vl),  _            ) -> elim vl r
        (_,             Lit (Var vr) ) -> elim vr l
@@ -296,17 +294,21 @@ unifyRaw l0 r0 = do
        -- General cases / function application
        (FApp (NoEq lfsym) largs, FApp (NoEq rfsym) rargs) ->
            guard (lfsym == rfsym && length largs == length rargs)
-           >> sequence_ (zipWith unifyRaw largs rargs)
+           >>  (sequence_ (zipWith unifyRaw largs rargs))
        (FApp List largs, FApp List rargs) ->
            guard (length largs == length rargs)
            >> sequence_ (zipWith unifyRaw largs rargs)
        -- NOTE: We assume here that terms of the form mult(t) never occur.
        (FApp (AC lacsym) _, FApp (AC racsym) _) ->
-           guard (lacsym == racsym) >> tell [Equal l r]  -- delay unification
+           guard (lacsym == racsym) >> (tell [Equal l r])  -- delay unification
 
        (FApp (C lsym) largs, FApp (C rsym) rargs) ->
            guard (lsym == rsym && length largs == length rargs)
-           >> tell [Equal l r]  -- delay unification
+           >> (tell [Equal l r])  -- delay unification
+
+       (FApp (DHMult lfsym) largs, FApp (DHMult rfsym) rargs) ->
+           guard (lfsym == rfsym && length largs == length rargs)
+           >>  (sequence_ (zipWith unifyRaw largs rargs))
 
        -- all unifiable pairs of term constructors have been enumerated
        _                      -> mzero -- no unifier
@@ -351,6 +353,9 @@ matchRaw sortOf t p = do
       (FApp (NoEq tfsym) targs, FApp (NoEq pfsym) pargs) ->
            guard (tfsym == pfsym && length targs == length pargs)
            >> sequence_ (zipWith (matchRaw sortOf) targs pargs)
+      (FApp (DHMult tfsym) targs, FApp (DHMult pfsym) pargs) ->
+           guard (tfsym == pfsym && length targs == length pargs)
+           >>  sequence_ (zipWith (matchRaw sortOf) targs pargs)
       (FApp List targs, FApp List pargs) ->
            guard (length targs == length pargs)
            >> sequence_ (zipWith (matchRaw sortOf) targs pargs)

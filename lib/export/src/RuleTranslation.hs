@@ -138,6 +138,7 @@ incorrectTermTypes :: (Show l) => OpenTheory -> Term l -> [String]
 incorrectTermTypes thy t = case viewTerm t of
     Lit _                 -> []
     FApp (NoEq (f, _)) ts -> checkFun (BC.unpack f) ++ foldMap (incorrectTermTypes thy) ts
+    FApp (DHMult (f, _)) ts -> checkFun (BC.unpack f) ++ foldMap (incorrectTermTypes thy) ts
     FApp _             ts -> foldMap (incorrectTermTypes thy) ts
     where
       functionInfo = theoryFunctionTypingInfos thy
@@ -349,6 +350,8 @@ printTerm sanitizeAtoms vars checkEq t = case viewTerm t of
     FApp (AC Xor)      ts                           -> printFuncApp "xor" ts
     FApp (NoEq (f, _)) ts | BC.unpack f == "pair"   -> printFuncApp "" ts
     FApp (NoEq (f, _)) ts                           -> ppFunSym f ++ printTermsList ts
+    FApp (DHMult (f, _)) ts | BC.unpack f == "pair"   -> printFuncApp "" ts
+    FApp (DHMult (f, _)) ts                           -> ppFunSym f ++ printTermsList ts
     FApp (C EMap)      ts                           -> "em" ++ printTermsList ts
     FApp List          ts                           -> printTermsList ts
     where

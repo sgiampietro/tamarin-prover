@@ -90,7 +90,7 @@ reservedBuiltins =  map unpackChars [
   , dhBoxESymString  
   ]
 
---dhMultBuiltins :: [[Char]]
+dhMultBuiltins :: [BC.ByteString]
 dhMultBuiltins =  [
   dhMultSymString -- g1.g2
   , dhGinvSymString -- g^-1
