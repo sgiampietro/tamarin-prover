@@ -822,6 +822,7 @@ instance (HasFrees l, Ord l) => HasFrees (Term l) where
     foldFreesOcc f c t = case viewTerm t of
         Lit  l             -> foldFreesOcc f c l
         FApp (NoEq o) as -> foldFreesOcc f ((BC.unpack . fst $ o):c) as
+        FApp (DHMult o) as -> foldFreesOcc f ((BC.unpack . fst $ o):c) as
         FApp o        as -> mconcat $ map (foldFreesOcc f (show o:c)) as
           -- AC or C symbols
 

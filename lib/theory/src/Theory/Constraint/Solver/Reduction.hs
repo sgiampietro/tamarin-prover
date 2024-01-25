@@ -808,6 +808,7 @@ solveTermEqs splitStrat eqs0 =
                       insertGoal (SplitG splitId) False
                       return eqs2
                   _                        -> return eqs2
+        --trace ("DEBUG-EQ-TERMS" ++ show eqs2)
         noContradictoryEqStore
         return Changed
 
@@ -846,7 +847,8 @@ solveNodeIdEqs = solveTermEqs SplitNow . map (fmap varTerm)
 solveFactEqs :: SplitStrategy -> [Equal LNFact] -> Reduction ChangeIndicator
 solveFactEqs split eqs = do
     contradictoryIf (not $ all evalEqual $ map (fmap factTag) eqs)
-    solveListEqs (solveTermEqs split) $ map (fmap factTerms) eqs
+    --trace ("DEBUG-EQ-FACTS" ++ show eqs) 
+    (solveListEqs (solveTermEqs split) $ map (fmap factTerms) eqs)
 
 -- DH: Fix this
 

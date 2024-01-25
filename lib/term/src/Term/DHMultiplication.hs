@@ -134,10 +134,10 @@ clean t@(viewTerm3 -> MsgFApp f ts) vars=  case ts of
   [t1] -> (FAPP f [myFirst ts1], mySecond ts1, vars `union` (myThird ts1) )
                 where   ts1 = clean t1 vars
   [] -> (FAPP f [], [], vars)
-clean t@(viewTerm3 -> Box dht) vars = (FAPP (NoEq dhBoxSym) [LIT (Var vg )], [(vg, dht)], vg:dhtvars )
+clean t@(viewTerm3 -> Box dht) vars = (FAPP (DHMult dhBoxSym) [LIT (Var vg )], [(vg, dht)], vg:dhtvars )
   where vg = (getVarGAvoid dhtvars vars)
         dhtvars = (varsVTerm dht)
-clean t@(viewTerm3 -> BoxE dht) vars = (FAPP (NoEq dhBoxESym) [LIT (Var ve)], [(ve, dht)], ve:dhtvars )
+clean t@(viewTerm3 -> BoxE dht) vars = (FAPP (DHMult dhBoxESym) [LIT (Var ve)], [(ve, dht)], ve:dhtvars )
   where ve = (getVarEAvoid dhtvars vars)
         dhtvars = (varsVTerm dht)
 clean t@(viewTerm3 -> DH f dht) vars = (FAPP f dht, [], vars )
@@ -146,7 +146,7 @@ clean t@(viewTerm3 -> DH f dht) vars = (FAPP f dht, [], vars )
 
 rootSet :: (Show a, Ord a ) => NoEqSym -> Term a -> S.Set (Term a)
 rootSet operator t@(LIT l) = S.singleton t
-rootSet operator t@(FAPP (NoEq o) ts) = case ts of
+rootSet operator t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == operator    -> S.union (rootSet operator t1) (rootSet operator t2)
     [ t1, t2 ] | o /= operator    -> S.singleton t
     [ t1 ]                        -> S.singleton t
@@ -155,7 +155,7 @@ rootSet operator t@(FAPP (NoEq o) ts) = case ts of
 rootSet operator _ = error "rootSet applied on non DH term'"
 
 
-isRoot :: (Show a, Ord a ) => NoEqSym -> Term a -> Bool
+isRoot :: (Show a, Ord a ) => DHMultSym -> Term a -> Bool
 isRoot o (LIT l) = True
 isRoot o t@(viewTerm3 -> Box dht) = isRoot o dht
 isRoot o t@(viewTerm3 -> BoxE dht) = isRoot o dht
@@ -189,18 +189,18 @@ rootIndicator b nb t
   | otherwise = rootIndUnknown b nb t
 
 rootIndKnown :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> (LNTerm, [(LVar, VTerm Name LVar)])
-rootIndKnown b nb t@(viewTerm2 -> FdhExp t1 t2) = (FAPP (NoEq dhExpSym) [fst $ rootIndKnown b nb t1, fst $ rootIndKnown b nb t2], [] )
-rootIndKnown b nb t@(viewTerm2 -> FdhGinv dht) = (FAPP (NoEq dhGinvSym) [fst $ rootIndKnown b nb dht], [])
-rootIndKnown b nb t@(viewTerm2 -> FdhTimes t1 t2) = (FAPP (NoEq dhTimesSym) [fst $ rootIndKnown b nb t1, fst $ rootIndKnown b nb t2], [] )
-rootIndKnown b nb t@(viewTerm2 -> FdhTimes2 t1 t2) = (FAPP (NoEq dhTimes2Sym) [fst $ rootIndKnown b nb t1, fst $ rootIndKnown b nb t2], [] )
-rootIndKnown b nb t@(viewTerm2 -> FdhMu t1) = (FAPP (NoEq dhOneSym) [], [])
+rootIndKnown b nb t@(viewTerm2 -> FdhExp t1 t2) = (FAPP (DHMult dhExpSym) [fst $ rootIndKnown b nb t1, fst $ rootIndKnown b nb t2], [] )
+rootIndKnown b nb t@(viewTerm2 -> FdhGinv dht) = (FAPP (DHMult dhGinvSym) [fst $ rootIndKnown b nb dht], [])
+rootIndKnown b nb t@(viewTerm2 -> FdhTimes t1 t2) = (FAPP (DHMult dhTimesSym) [fst $ rootIndKnown b nb t1, fst $ rootIndKnown b nb t2], [] )
+rootIndKnown b nb t@(viewTerm2 -> FdhTimes2 t1 t2) = (FAPP (DHMult dhTimes2Sym) [fst $ rootIndKnown b nb t1, fst $ rootIndKnown b nb t2], [] )
+rootIndKnown b nb t@(viewTerm2 -> FdhMu t1) = (FAPP (DHMult dhOneSym) [], [])
 rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Var t1)))
-  | S.member t nb = (FAPP (NoEq dhOneSym) [], [])
+  | S.member t nb = (FAPP (DHMult dhOneSym) [], [])
   | S.member t b = (t, [])
   | otherwise = error "not computable indicator"
 rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Con t1))) = (t, [])
 rootIndKnown b nb t@(viewTerm2 -> Lit2 (Var t1))
-  | S.member t nb = (FAPP (NoEq dhOneSym) [], [])
+  | S.member t nb = (FAPP (DHMult dhOneSym) [], [])
   | S.member t b = (t, [])
   | otherwise = error "not computable indicator"
 rootIndKnown b nb t@(viewTerm2 -> Lit2 (Con c)) = (t, [])

@@ -114,8 +114,8 @@ unifyLTermFactored :: (IsConst c)
                    => (c -> LSort)
                    -> [Equal (LTerm c)]
                    -> WithMaude (LSubst c, [SubstVFresh c LVar])
-unifyLTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTerm: "++ show eqs, "result = "++  show res]) res) $ do
-    solve h $ execRWST unif sortOf M.empty
+unifyLTermFactored sortOf eqs =  (reader $ \h -> (\res -> trace (unlines $ ["unifyLTerm: "++ show eqs, "result = "++  show res]) res) $ do
+    (solve h $ execRWST unif sortOf M.empty) )
   where
     unif = sequence [ unifyRaw t p | Equal t p <- eqs ]
     solve _ Nothing         = (emptySubst, [])
@@ -267,20 +267,20 @@ type UnifyRaw c = RWST (c -> LSort) [Equal (LTerm c)] (Map LVar (VTerm c LVar)) 
 
 -- | Unify two 'LTerm's with delayed AC-unification.
 unifyRaw :: IsConst c => LTerm c -> LTerm c -> UnifyRaw c ()
-unifyRaw l0 r0 = do
+unifyRaw l0 r0 =  trace ("DEBUG-UNIFYRAW:"++ show l0 ++ show r0) (do
     mappings <- get
     sortOf <- ask
     l <- gets ((`applyVTerm` l0) . substFromMap)
     r <- gets ((`applyVTerm` r0) . substFromMap)
-    guard (trace (show ("unifyRaw", mappings, l ,r)) True)
+    guard (trace (show ("unifyRaw", mappings, viewTerm l ,viewTerm r)) True)
     case (viewTerm l, viewTerm r) of
        (Lit (Var vl), Lit (Var vr)) 
          | vl == vr  -> return ()
-         | otherwise -> case (lvarSort vl, lvarSort vr) of
+         | otherwise -> (case (lvarSort vl, lvarSort vr) of
              (sl, sr) | sl == sr                 -> if vl < vr then elim vr l
                                                     else elim vl r 
              _        | sortGeqLTerm sortOf vl r -> elim vl r
-             _                                   -> elim vr l 
+             _                                   -> elim vr l )
 
        (Lit (Var vl),  _            ) -> elim vl r
        (_,             Lit (Var vr) ) -> elim vr l
@@ -307,18 +307,18 @@ unifyRaw l0 r0 = do
            >> (tell [Equal l r])  -- delay unification
 
        (FApp (DHMult lfsym) largs, FApp (DHMult rfsym) rargs) ->
-           guard (lfsym == rfsym && length largs == length rargs)
+           trace (show ("WEAREHERE", largs ,rargs)) (guard (lfsym == rfsym && length largs == length rargs))
            >>  (sequence_ (zipWith unifyRaw largs rargs))
 
        -- all unifiable pairs of term constructors have been enumerated
-       _                      -> mzero -- no unifier
+       _                      -> mzero )-- no unifier
   where
     elim v t
       | v `occurs` t = mzero -- no unifier
       | otherwise    = do
           sortOf <- ask
           guard  (sortGeqLTerm sortOf v t)
-          modify (M.insert v t . M.map (applyVTerm (substFromList [(v,t)])))
+          (modify (M.insert v t . M.map (applyVTerm (substFromList [(v,t)]))))
 
 
 data MatchFailure = NoMatcher | ACProblem

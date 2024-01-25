@@ -99,8 +99,10 @@ initialSource
     -> Goal
     -> Source
 initialSource ctxt restrictions goal =
-    Source goal cases
+    --trace ("DEBUG1"++ show rules) (Source goal cases)
+    (Source goal cases)
   where
+    --rules = _pcRules ctxt
     polish ((name, se), _) = ([name], se)
     se0   = insertLemmas restrictions $ emptySystem RawSource $ get pcDiffContext ctxt
     cases = fmap polish $
@@ -441,8 +443,8 @@ precomputeSources parameters ctxt restrictions =
           , fAppAC NatPlus [varTerm (LVar "t" LSortNat 1), varTerm (LVar "t" LSortNat 2)] ]
           else []
       , if enableDHMult msig then 
-         [ fAppNoEq dhBoxSym [varTerm (LVar "g" LSortG 1)]
-        ,  fAppNoEq dhBoxESym [varTerm (LVar "e" LSortE 1)]]
+         [ fAppDHMult dhBoxSym [varTerm (LVar "g" LSortG 1)]
+        ,  fAppDHMult dhBoxESym [varTerm (LVar "e" LSortE 1)]]
           else []
       , [ fAppNoEq o $ nMsgVars k
         | o@(_,(k,priv,_)) <- S.toList . noEqFunSyms  $ msig

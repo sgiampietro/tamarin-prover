@@ -225,9 +225,10 @@ performSplit eqStore idx =
 addEqs :: MonadFresh m
        => MaudeHandle -> [Equal LNTerm] -> EqStore -> m (EqStore, Maybe SplitId)
 addEqs hnd eqs0 eqStore =
+    trace ("DEBUG-ADDEQS:"++ show eqs) (
     case unifyLNTermFactored eqs `runReader` hnd of
         (_, []) ->
-            return (set eqsConj falseEqConstrConj eqStore, Nothing)
+            (return (set eqsConj falseEqConstrConj eqStore, Nothing))
         (subst, [substFresh]) | substFresh == emptySubstVFresh ->
             return (applyEqStore hnd subst eqStore, Nothing)
         (subst, substs) -> do
@@ -241,7 +242,7 @@ addEqs hnd eqs0 eqStore =
                 SplitNow ->
                     addEqsAC (modify eqsSubst (compose subst) eqStore)
                         <$> simpDisjunction hnd (const False) (Disj substs)
-            -}
+            -})
   where
     eqs = apply (L.get eqsSubst eqStore) $ trace (unlines ["addEqs: ", show eqs0]) $ eqs0
     {-

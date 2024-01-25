@@ -16,9 +16,30 @@ import qualified Data.ByteString            as B
 
 type Macro = (B.ByteString, [LVar], Term (Lit Name LVar))
 
+
+dhMultBuiltins :: [B.ByteString]
+dhMultBuiltins =  [
+  dhMultSymString -- g1.g2
+  , dhGinvSymString -- g^-1
+  , dhZeroSymString
+  , dhMinusSymString
+  , dhInvSymString
+  , dhEgSymString 
+  , dhTimesSymString
+  , dhTimes2SymString -- e1*e2 for E (not necessarily NZE) elements
+  , dhPlusSymString -- e1+e2
+  , dhExpSymString
+  , dhOneSymString
+  , dhMuSymString
+  , dhBoxSymString
+  , dhBoxESymString  
+  ] 
+
+
 -- | Change a Macro to a FunSym
 macroToFunSym :: Macro -> FunSym
-macroToFunSym (op, args, _) = NoEq (op, (length args, Private, Destructor))      
+macroToFunSym (op, args, _) = if op  `elem`  dhMultBuiltins then DHMult (op, (length args, Private, Destructor))  
+    else NoEq (op, (length args, Private, Destructor))      
 
 -- | Apply and substitute the macro on a LNTerm
 applyMacro :: FunSym -> [LVar] -> LNTerm -> LNTerm -> LNTerm

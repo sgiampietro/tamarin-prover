@@ -36,6 +36,8 @@ import qualified Data.ByteString.Char8 as BC
 
 import Data.Attoparsec.ByteString.Char8
 
+--import Debug.Trace
+
 -- import Extension.Data.Monoid
 
 ------------------------------------------------------------------------------
@@ -126,6 +128,10 @@ replaceUnderscore s = BC.map f s
 replaceUnderscoreFun :: NoEqSym -> NoEqSym
 replaceUnderscoreFun (s, p) = (replaceUnderscore s, p)
 
+replaceUnderscoreFunDH :: DHMultSym -> DHMultSym
+replaceUnderscoreFunDH (s, p) = (replaceUnderscore s, p)
+
+
 -- | Replace minus "-" with underscores "_" when parsing back from Maude.
 replaceMinus :: ByteString -> ByteString
 replaceMinus s = BC.map f s
@@ -136,6 +142,9 @@ replaceMinus s = BC.map f s
 -- | Replace minus "-" with underscores "_" when parsing back from Maude.
 replaceMinusFun :: NoEqSym -> NoEqSym
 replaceMinusFun (s, p) = (replaceMinus s, p)
+
+replaceMinusFunDH :: DHMultSym -> DHMultSym
+replaceMinusFunDH (s, p) = (replaceMinus s, p)
 
 
 -- | Pretty print an AC symbol for Maude.
@@ -389,7 +398,8 @@ parseTerm msig = choice
     nilSym  = ("nil",(0,Public,Constructor))
 
     parseFunSym ident args
-      | op `elem` allowedfunSyms = replaceMinusFun op
+      | op `elem` allowedfunSyms =  replaceMinusFun op
+      | op `elem` allowedfunSymsDH = replaceMinusFunDH op
       | otherwise                =
           error $ "Maude.Parser.parseTerm: unknown function "
                   ++ "symbol `"++ show op ++"', not in "
@@ -401,7 +411,8 @@ parseTerm msig = choice
                                         (ident , (length args,Public,Constructor))
                                   else  (ident', (length args, priv, cnstr))
             allowedfunSyms = [consSym, nilSym, natOneSym]
-                ++ (map replaceUnderscoreFun $ S.toList $ noEqFunSyms msig) ++ (map replaceUnderscoreFun $ S.toList $ dhMultFunSyms msig)
+                ++ (map replaceUnderscoreFun $ S.toList $ noEqFunSyms msig)
+            allowedfunSymsDH = (map replaceUnderscoreFunDH $ S.toList $ dhMultFunSyms msig)
 
     parseConst s = lit <$> (flip MaudeConst s <$> decimal) <* string ")"
 
@@ -414,7 +425,7 @@ parseTerm msig = choice
                        | ident == ppMaudeACSym Xor        = fAppAC Xor   args
                        | ident == ppMaudeCSym  EMap       = fAppC  EMap  args
         appIdent [arg] | ident == "list"                  = fAppList (flattenCons arg)
-        appIdent args  | op `elem` (map replaceUnderscoreFun $ S.toList $ dhMultFunSyms msig) = error "you got here "-- fAppDHMult op args
+        appIdent args  | op `elem` (map replaceUnderscoreFunDH $ S.toList $ dhMultFunSyms msig) = error "you got here "-- fAppDHMult op args
           where op = parseFunSym ident args
         appIdent args                                     = fAppNoEq op args
           where op = parseFunSym ident args

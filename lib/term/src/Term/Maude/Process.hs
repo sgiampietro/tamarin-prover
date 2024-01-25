@@ -169,8 +169,6 @@ callMaude hnd updateStatistics cmd = do
         hFlush  inp
         mp' <- evaluate (updateStatistics mp)
         res <- getToDelim out
-        print "DEBUG result"
-        print res
         return (mp', res)
 
 -- | Compute a result via Maude.
