@@ -317,26 +317,25 @@ normRule' (Rule i ps cs as nvs) = reader $ \hnd ->
 
 dhmultIntruderRules ::  [IntrRuleAC]
 dhmultIntruderRules = [
-      Rule PubGConstrRule   [] [kuFact x_box] [kuFact x_box]  []
+      Rule PubGConstrRule   [] [kuFact x_pub_var] [kuFact x_pub_var]  []
       , kdhRule FreshNZEConstrRule [freshFact x_fresh_var] (fAppdhBox x_fresh_var) (x_fresh_var)         []
-      {-, Rule IRecvRule [outFact x_box] [kuFact x_box] [kuFact x_box]  []
-      , Rule ISendRule [kuFact x_varG]  [inFact x_varG] [kLogFact x_varG]        []
-      , Rule IRecvRule [outFact x_boxE] [kuFact x_boxE] []  []
-      , Rule ISendRule [kuFact x_varE]  [inFact x_varE] [kLogFact x_varE]        []
-      , kuRule CoerceRule      [kdFact x_box]                 (x_box)         [] 
-      , kuRule CoerceRule      [kdFact x_varE]                 (x_varE)         [] -}
-      , Rule CoerceDHRule  [kdhFact x_varY] [kuFact x_box] [kuFact x_box]  [x_varY]
-      , Rule CoerceDHRuleE [kdhFact x_varE] [kuFact x_boxE] []     [x_varE]
+      , Rule ISendRule [kuFact x_box]  [kdhFact x_varG] [kLogFact x_box]        []
+      , Rule IRecvRule [outFact x_box] [kdhFact x_varG] []  []
+      , Rule IRecvRule [outFact x_boxE] [kdhFact x_varE] []  []
+      , Rule ISendRule [kuFact x_boxE]  [kdhFact x_varE] [kLogFact x_varE]        []
+      -- , kuRule CoerceRule      [kdFact x_box]                 (x_box)         [] 
+      --  , kuRule CoerceRule      [kdFact x_varE]                 (x_varE)         [] 
+      , Rule CoerceDHRule  [kdhFact x_varG] [kuFact x_box] [kuFact x_box]  []
+      , Rule CoerceDHRuleE [kdhFact x_varE] [kuFact x_boxE] [kuFact x_box]     []
       --, Rule  (ConstrRule (append (pack "_DH") dhOneSymString)) [] [concfact] (return concfact) []
     ]
   where
     kdhRule name prems t t2 nvs = Rule name prems [kuFact t] [kuFact t2] nvs
     x_pub_var   = varTerm (LVar "x"  LSortPubG  0) --PubG (if we replace this with "LSortMsg" seems to work better - probably need to solve the unification problem)
     x_fresh_var = varTerm (LVar "x"  LSortFrNZE 0) --FrNZE
-    x_varG = varTerm (LVar "x"  LSortMsg 0) --G (if we replace this with "LSortMsg" seems to work better - probably need to solve the unification problem)
+    x_varG = varTerm (LVar "x"  LSortG 0) --G (if we replace this with "LSortMsg" seems to work better - probably need to solve the unification problem)
     x_varE = varTerm (LVar "x"  LSortE 0) --E
-    x_varY = (varTerm (LVar "y"  LSortG 0))
-    x_box = fAppdhBox x_pub_var
+    x_box = fAppdhBox x_varG
     x_boxE = fAppdhBoxE x_varE
     conc     = fAppDHMult dhOneSym []
     concfact = kdhFact conc
