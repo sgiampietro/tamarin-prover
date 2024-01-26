@@ -373,7 +373,7 @@ parseSort =  string "Pub"      *> return LSortPub
          <|> string "G"       *> return LSortG
          <|> string "E"       *> return LSortE
          <|> string "NZE"       *> return LSortNZE
-         <|> string "Pubg"       *> return LSortPubG
+         <|> string "PubG"       *> return LSortPubG
          <|> string "FrNZE"       *> return LSortFrNZE
          <|> string "M"        *> -- FIXME: why?
                (    string "sg"  *> return LSortMsg )

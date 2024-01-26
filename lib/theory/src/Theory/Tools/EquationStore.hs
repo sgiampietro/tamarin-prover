@@ -68,7 +68,7 @@ import           Control.Monad.Reader
 import           Extension.Prelude
 import           Utils.Misc
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Control.Basics
 import           Control.DeepSeq
@@ -135,7 +135,7 @@ emptyEqStore = EqStore emptySubst (Conj []) (SplitId 0)
 
 -- | @True@ iff the 'EqStore' is contradictory.
 eqsIsFalse :: EqStore -> Bool
-eqsIsFalse = any ((S.empty == ) . snd) . getConj . L.get eqsConj
+eqsIsFalse = (any ((S.empty == ) . snd) . getConj . L.get eqsConj)
 
 -- | The false conjunction. It is always identified with split number -1.
 falseEqConstrConj :: Conj (SplitId, S.Set LNSubstVFresh)
@@ -228,9 +228,9 @@ addEqs hnd eqs0 eqStore =
     --trace ("DEBUG-ADDEQS:"++ show eqs) 
     (case unifyLNTermFactored eqs `runReader` hnd of
         (_, []) ->
-            (return (set eqsConj falseEqConstrConj eqStore, Nothing))
+            trace ("NOT UNIFIABLE:"++ show eqs)  (return (set eqsConj falseEqConstrConj eqStore, Nothing))
         (subst, [substFresh]) | substFresh == emptySubstVFresh ->
-            trace (show ("DEBUG2", eqs0, eqStore')) (return (eqStore', Nothing))
+            trace (show ("UNIFIABLE", eqs)) (return (eqStore', Nothing))
               where eqStore' =(applyEqStore hnd subst eqStore)
             --return (applyEqStore hnd subst eqStore, Nothing)
         (subst, substs) -> do

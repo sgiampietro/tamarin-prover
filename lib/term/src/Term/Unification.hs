@@ -104,7 +104,7 @@ import qualified Term.Maude.Process as UM
 import           Term.Maude.Process
                    (MaudeHandle, WithMaude, startMaude, getMaudeStats, mhMaudeSig, mhFilePath)
 import           Term.Maude.Signature
-import           Debug.Trace.Ignore
+import           Debug.Trace-- .Ignore
 
 -- Unification modulo AC
 ----------------------------------------------------------------------
@@ -117,7 +117,7 @@ unifyLTermFactored :: (IsConst c)
 unifyLTermFactored sortOf eqs =  (reader $ \h -> (\res -> trace (unlines $ ["unifyLTerm: "++ show eqs, "result = "++  show res]) res) $ do
     (solve h $ execRWST unif sortOf M.empty) )
   where
-    unif = sequence [ unifyRaw t p | Equal t p <- eqs ]
+    unif = sequence [ trace (show ("PARSING", t , p)) (unifyRaw t p) | Equal t p <- eqs ]
     solve _ Nothing         = (emptySubst, [])
     solve _ (Just (m, []))  = (substFromMap m, [emptySubstVFresh])
     solve h (Just (m, leqs)) =
@@ -267,7 +267,7 @@ type UnifyRaw c = RWST (c -> LSort) [Equal (LTerm c)] (Map LVar (VTerm c LVar)) 
 
 -- | Unify two 'LTerm's with delayed AC-unification.
 unifyRaw :: IsConst c => LTerm c -> LTerm c -> UnifyRaw c ()
-unifyRaw l0 r0 =  trace ("DEBUG-UNIFYRAW:"++ show l0 ++ show r0) (do
+unifyRaw l0 r0 =  (do
     mappings <- get
     sortOf <- ask
     l <- gets ((`applyVTerm` l0) . substFromMap)
@@ -276,11 +276,11 @@ unifyRaw l0 r0 =  trace ("DEBUG-UNIFYRAW:"++ show l0 ++ show r0) (do
     case (viewTerm l, viewTerm r) of
        (Lit (Var vl), Lit (Var vr)) 
          | vl == vr  -> return ()
-         | otherwise -> (case (lvarSort vl, lvarSort vr) of
-             (sl, sr) | sl == sr                 -> if vl < vr then elim vr l
-                                                    else elim vl r 
-             _        | sortGeqLTerm sortOf vl r -> elim vl r
-             _                                   -> elim vr l )
+         | otherwise -> trace (show ("SORTS ARE",l,r, lvarSort vl, lvarSort vr)) (case (lvarSort vl, lvarSort vr) of
+             (sl, sr) | sl == sr                 -> if vl < vr then (elim vr l)
+                                                    else (elim vl r) 
+             _        | sortGeqLTerm sortOf vl r -> (elim vl r)
+             _                                   -> (elim vr l) )
 
        (Lit (Var vl),  _            ) -> elim vl r
        (_,             Lit (Var vr) ) -> elim vr l
@@ -314,7 +314,7 @@ unifyRaw l0 r0 =  trace ("DEBUG-UNIFYRAW:"++ show l0 ++ show r0) (do
        _                      -> mzero )-- no unifier
   where
     elim v t
-      | v `occurs` t = mzero -- no unifier
+      | v `occurs` t = trace (show ("impossible", v, t)) mzero -- no unifier
       | otherwise    = do
           sortOf <- ask
           guard  (sortGeqLTerm sortOf v t)

@@ -808,8 +808,7 @@ solveTermEqs splitStrat eqs0 =
                       insertGoal (SplitG splitId) False
                       return eqs2
                   _                        -> return eqs2
-        --trace ("DEBUG-EQ-TERMS" ++ show eqs2)
-        noContradictoryEqStore
+        trace ("DEBUG-EQ-TERMS" ++ show eqs2) noContradictoryEqStore
         return Changed
 
 

@@ -229,7 +229,7 @@ solveGoal goal = do
 solveAction :: [RuleAC]          -- ^ All rules labelled with an action
             -> (NodeId, LNFact)  -- ^ The action we are looking for.
             -> Reduction String  -- ^ A sensible case name.
-solveAction rules (i, fa@(Fact _ ann _)) = do
+solveAction rules (i, fa@(Fact _ ann _)) =trace (show ("SEARCHING", fa, "END")) ( do
     mayRu <- M.lookup i <$> getM sNodes
     showRuleCaseName <$> case mayRu of
         Nothing -> case fa of
@@ -250,13 +250,13 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
             _                                        -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList $ get rActs ru
-                   void (solveFactEqs SplitNow [Equal fa act])
+                   trace (show ("CANDIDATE", act, "END", "RULES:", ru)) (void (solveFactEqs SplitNow [Equal fa act]))
                    return ru
 
         Just ru -> do unless (fa `elem` get rActs ru) $ do
                           act <- disjunctionOfList $ get rActs ru
-                          void (solveFactEqs SplitNow [Equal fa act])
-                      return ru
+                          trace (show ("CANDIDATE2", act, "END2", "RULES2:", ru)) (void (solveFactEqs SplitNow [Equal fa act]))
+                      return ru)
   where
     -- If the fact in the action goal has annotations, then consider annotated
     -- versions of intruder rules (this allows high or low priority intruder knowledge
@@ -442,11 +442,11 @@ solveDHInd rules p faPrem t =
             -- the current goal solveDHInd should remain and we should try to solve it again once we
             -- have solved the Needed goals. or do we try it with a variable?
           Nothing -> do
-              return "TODO"
-              --(ru, c, faConc) <- insertFreshNodeConc rules -- should only search for the rules with Out facts
+              --return "TODO"
+              (ru, c, faConc) <- insertFreshNodeConc rules -- should only search for the rules with Out facts
               -- actually maybe we don't need to because, we can solve this via equality of LNFacts instead
-              --insertDHEdge (c, faConc, faPrem, p) (fst (rootIndKnown bset nbset x)) t 
-              --return $ showRuleCaseName ru
+              insertDHEdge (c, faConc, faPrem, p) (fst (rootIndKnown bset nbset x)) t 
+              return $ showRuleCaseName ru
       Nothing -> error "error in prodTerm function"    
 
 

@@ -668,7 +668,7 @@ isConstrRule ru = case ruleName ru of
 -- | True iff the rule is a construction rule.
 isPubConstrRule :: HasRuleName r => r -> Bool
 isPubConstrRule ru = case ruleName ru of
-  IntrInfo PubConstrRule   -> True
+  IntrInfo PubGConstrRule   -> True
   _                        -> False
   
 -- | True iff the rule is a construction rule.
