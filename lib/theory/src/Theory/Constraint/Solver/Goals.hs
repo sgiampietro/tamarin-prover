@@ -23,7 +23,7 @@ module Theory.Constraint.Solver.Goals (
   , plainOpenGoals
   ) where
 
--- import           Debug.Trace
+import           Debug.Trace
 
 import           Prelude                                 hiding (id, (.))
 
@@ -284,7 +284,7 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
 solvePremise rules p faPrem
   | isKdhFact faPrem = do  
       case factTerms faPrem of
-          [t1] -> solveDHInd rules p faPrem t1
+          [t1] -> (solveDHInd rules p faPrem t1)
           _ -> error "malformed KdhFact"
   | isKDFact faPrem = do
       iLearn    <- freshLVar "vl" LSortNode
@@ -442,10 +442,11 @@ solveDHInd rules p faPrem t =
             -- the current goal solveDHInd should remain and we should try to solve it again once we
             -- have solved the Needed goals. or do we try it with a variable?
           Nothing -> do
-              (ru, c, faConc) <- insertFreshNodeConc rules -- should only search for the rules with Out facts
+              return "TODO"
+              --(ru, c, faConc) <- insertFreshNodeConc rules -- should only search for the rules with Out facts
               -- actually maybe we don't need to because, we can solve this via equality of LNFacts instead
-              insertDHEdge (c, faConc, faPrem, p) (fst (rootIndKnown bset nbset x)) t 
-              return $ showRuleCaseName ru
+              --insertDHEdge (c, faConc, faPrem, p) (fst (rootIndKnown bset nbset x)) t 
+              --return $ showRuleCaseName ru
       Nothing -> error "error in prodTerm function"    
 
 

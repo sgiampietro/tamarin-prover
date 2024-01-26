@@ -99,8 +99,7 @@ initialSource
     -> Goal
     -> Source
 initialSource ctxt restrictions goal =
-    --trace ("DEBUG1"++ show rules) (Source goal cases)
-    (Source goal cases)
+    Source goal cases
   where
     --rules = _pcRules ctxt
     polish ((name, se), _) = ([name], se)
@@ -387,8 +386,10 @@ precomputeSources
     -> [LNGuarded]       -- ^ Restrictions.
     -> [Source]
 precomputeSources parameters ctxt restrictions =
-    map cleanupCaseNames (saturateSources parameters ctxt rawSources)
+    --trace (show ("DEBUGG", rawSources, "DEBUGGAFTER", sources')) 
+    (map cleanupCaseNames (sources'))
   where
+    sources' = saturateSources parameters ctxt rawSources
     cleanupCaseNames = modify cdCases $ fmap $ first $
         filter (not . null)
       . map (filter (`elem` '_' : ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9']))
@@ -408,11 +409,11 @@ precomputeSources parameters ctxt restrictions =
     absFact (Fact tag _ ts) = (tag, length ts)
 
     nMsgVars n = [ varTerm (LVar "t" LSortMsg i) | i <- [1..fromIntegral n] ]
-    nGEVars n =  [ varTerm (LVar "t" LSortDH i) | i <- [1..fromIntegral n] ]
+    --nGEVars n =  [ varTerm (LVar "t" LSortDH i) | i <- [1..fromIntegral n] ]
     
-    nDHVars:: NoEqSym -> [VTerm c0 LVar]
-    nDHVars o@(dhBoxSymString,_) = [ varTerm (LVar "g" LSortG 1) ]
-    nDHVars o@(dhBoxESymString,_) = [ varTerm (LVar "e" LSortE 1) ]
+    --nDHVars:: NoEqSym -> [VTerm c0 LVar]
+    --nDHVars o@(dhBoxSymString,_) = [ varTerm (LVar "g" LSortG 1) ]
+    --nDHVars o@(dhBoxESymString,_) = [ varTerm (LVar "e" LSortE 1) ]
 
     someProtoGoal :: (FactTag, Int) -> Goal
     someProtoGoal (tag, arity) =
@@ -443,8 +444,8 @@ precomputeSources parameters ctxt restrictions =
           , fAppAC NatPlus [varTerm (LVar "t" LSortNat 1), varTerm (LVar "t" LSortNat 2)] ]
           else []
       , if enableDHMult msig then 
-         [ fAppDHMult dhBoxSym [varTerm (LVar "g" LSortG 1)]
-        ,  fAppDHMult dhBoxESym [varTerm (LVar "e" LSortE 1)]]
+         [  fAppDHMult dhBoxSym [varTerm (LVar "y" LSortG 1)]
+          , fAppDHMult dhBoxESym [varTerm (LVar "e" LSortE 1)]]
           else []
       , [ fAppNoEq o $ nMsgVars k
         | o@(_,(k,priv,_)) <- S.toList . noEqFunSyms  $ msig

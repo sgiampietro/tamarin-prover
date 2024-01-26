@@ -225,12 +225,14 @@ performSplit eqStore idx =
 addEqs :: MonadFresh m
        => MaudeHandle -> [Equal LNTerm] -> EqStore -> m (EqStore, Maybe SplitId)
 addEqs hnd eqs0 eqStore =
-    trace ("DEBUG-ADDEQS:"++ show eqs) (
-    case unifyLNTermFactored eqs `runReader` hnd of
+    --trace ("DEBUG-ADDEQS:"++ show eqs) 
+    (case unifyLNTermFactored eqs `runReader` hnd of
         (_, []) ->
             (return (set eqsConj falseEqConstrConj eqStore, Nothing))
         (subst, [substFresh]) | substFresh == emptySubstVFresh ->
-            return (applyEqStore hnd subst eqStore, Nothing)
+            trace (show ("DEBUG2", eqs0, eqStore')) (return (eqStore', Nothing))
+              where eqStore' =(applyEqStore hnd subst eqStore)
+            --return (applyEqStore hnd subst eqStore, Nothing)
         (subst, substs) -> do
             let (eqStore', sid) = addDisj (applyEqStore hnd subst eqStore)
                                           (S.fromList substs)
@@ -430,6 +432,11 @@ simpAbstractFun []             = return Nothing
 simpAbstractFun (subst:others) = case commonOperators of
     [] -> return Nothing
     -- abstract all arguments
+    (v, o@(DHMult _ ), argss@(args:_)):_ | all ((==length args) . length) argss -> do
+        fvars <- mapM (\_ -> freshLVar "x" LSortDH) args
+        let substs' = zipWith (abstractAll v fvars) (subst:others) argss
+            fsubst  = substFromList [(v, fApp o (map varTerm fvars))]
+        return $ Just (Just fsubst, [S.fromList substs'])
     (v, o, argss@(args:_)):_ | all ((==length args) . length) argss -> do
         fvars <- mapM (\_ -> freshLVar "x" LSortMsg) args
         let substs' = zipWith (abstractAll v fvars) (subst:others) argss
@@ -594,11 +601,12 @@ addDHEqs hnd eqsind0 eqStore =
         (_, []) ->
             return (set eqsConj falseEqConstrConj eqStore, Nothing)
         (subst, [substFresh]) | substFresh == emptySubstVFresh ->
-            return (applyEqStore hnd subst eqStore, Nothing)
+            trace (show ("DEBUG2", eqs0, eqStore')) (return (eqStore', Nothing))
+              where eqStore' =(applyEqStore hnd subst eqStore)
         (subst, substs) -> do
             let (eqStore', sid) = addDisj (applyEqStore hnd subst eqStore)
                                           (S.fromList substs)
-            return (eqStore', Just sid)
+            (return (eqStore', Just sid))
   where
     eqs0 = map geteq eqsind0
     eqs = apply (L.get eqsSubst eqStore) $ trace (unlines ["addEqs: ", show eqs0]) $ eqs0
@@ -611,7 +619,7 @@ addDHEqs hnd eqsind0 eqStore =
 -- | Pretty print an 'EqStore'.
 prettyEqStore :: HighlightDocument d => EqStore -> d
 prettyEqStore eqs@(EqStore substFree (Conj disjs) _nextSplitId) = vcat $
-  [if eqsIsFalse eqs then text "CONTRADICTORY" else emptyDoc] ++
+  [if eqsIsFalse eqs then (text "CONTRADICTORY") else emptyDoc] ++
   map combine
     [ ("subst", vcat $ prettySubst (text . show) (text . show) substFree)
     , ("conj",  vcat $ map ppDisj disjs)

@@ -317,17 +317,17 @@ normRule' (Rule i ps cs as nvs) = reader $ \hnd ->
 
 dhmultIntruderRules ::  [IntrRuleAC]
 dhmultIntruderRules = [
-      Rule PubGConstrRule   [] [kuFact x_pub_var] [kuFact x_pub_var]  []
-      , kdhRule FreshNZEConstrRule [freshFact x_fresh_var] (fAppdhBox x_fresh_var) (x_fresh_var)         []
-      , Rule ISendRule [kuFact x_box]  [kdhFact x_varG] [kLogFact x_box]        []
+      --Rule PubGConstrRule   [] [kuFact x_pub_var] [kuFact x_pub_var]  []
+      --, kdhRule FreshNZEConstrRule [freshFact x_fresh_var] (fAppdhBox x_fresh_var) (x_fresh_var)         []
+       Rule ISendRule [kuFact x_box]  [kdhFact x_varG] [kLogFact x_varG]        []
       , Rule IRecvRule [outFact x_box] [kdhFact x_varG] []  []
       , Rule IRecvRule [outFact x_boxE] [kdhFact x_varE] []  []
-      , Rule ISendRule [kuFact x_boxE]  [kdhFact x_varE] [kLogFact x_varE]        []
-      -- , kuRule CoerceRule      [kdFact x_box]                 (x_box)         [] 
-      --  , kuRule CoerceRule      [kdFact x_varE]                 (x_varE)         [] 
+      , Rule ISendRule [kuFact x_boxE]  [kdhFact x_varE] [kLogFact x_varE]        [] 
       , Rule CoerceDHRule  [kdhFact x_varG] [kuFact x_box] [kuFact x_box]  []
-      , Rule CoerceDHRuleE [kdhFact x_varE] [kuFact x_boxE] [kuFact x_box]     []
+      , Rule CoerceDHRuleE [kdhFact x_varE] [kuFact x_boxE] [kuFact x_boxE]     []
       --, Rule  (ConstrRule (append (pack "_DH") dhOneSymString)) [] [concfact] (return concfact) []
+      -- , kuRule CoerceRule      [kdFact x_box]                 (x_box)         [] 
+      --  , kuRule CoerceRule      [kdFact x_varE]                 (x_varE)         []
     ]
   where
     kdhRule name prems t t2 nvs = Rule name prems [kuFact t] [kuFact t2] nvs

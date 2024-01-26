@@ -289,7 +289,7 @@ isAC _                           = False
 -- | 'True' iff the term is a well-formed product.
 prodTerms :: Show a => Term a -> Maybe (Term a,Term a)
 prodTerms (viewTerm2 -> FdhMult x y) = Just (x,y)
-prodTerms t                         = Just ( (FAPP (NoEq dhOneSym) []), t)
+prodTerms t                         = Just ( (FAPP (DHMult dhOneSym) []), t)
 
 
 ----------------------------------------------------------------------
