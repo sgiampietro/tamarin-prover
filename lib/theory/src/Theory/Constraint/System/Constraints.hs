@@ -121,8 +121,9 @@ type NoCanc = (LNTerm, LNTerm)
    -- deriving (Show, Ord, Eq, Data, Typeable, Generic, NFData, Binary)
 
 isNoCanc :: LNTerm -> LNTerm -> Bool
-isNoCanc _ _ = True
-
+isNoCanc t1 t2 = case viewTerm2 t1 of 
+        DHOne -> True
+        _ -> False --TODO: fix this case. 
 
 ------------------------------------------------------------------------------
 -- Goals

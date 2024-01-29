@@ -419,9 +419,13 @@ solveNoCanc :: LNTerm -> LNTerm -> Reduction String
 solveNoCanc x y = do
     nocancs <- getM sNoCanc
     if ( S.member (x,y) nocancs)
-      then  return "NoCancsolved" --(markGoalAsSolved "directly" (NoCancG (x, y)))
+      then  (do
+        markGoalAsSolved "directly" (NoCancG (x, y))
+        return "NoCancsolved")
       else (
-        if (isNoCanc x y) then  return "NoCancsolved" --(markGoalAsSolved "directly" (NoCancG (x, y)))
+        if (isNoCanc x y) then (do
+          markGoalAsSolved "directly" (NoCancG (x, y))
+          return "NoCancsolved" )
         else error "NoCanc does not hold"  -- TODO: not sure what to do if you don't have this condition? maybe add y and inv(x) to the DH-equation store? 
       )
 
@@ -429,7 +433,7 @@ solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact containing a
              -> NodePrem       -- ^ Premise to solve.
              ->LNFact -> LNTerm       -- ^ Product term of which we have to find the indicator  
              -> Reduction String -- ^ Case name to use.
-solveDHInd rules p faPrem t = 
+solveDHInd rules p faPrem t =  -- recall that t is
     case prodTerms t of 
       Just (x,y) -> do 
         insertNoCanc x y
@@ -444,7 +448,7 @@ solveDHInd rules p faPrem t =
           Nothing -> do
               --return "TODO"
               (ru, c, faConc) <- insertFreshNodeConc rules -- should only search for the rules with Out facts
-              -- actually maybe we don't need to because, we can solve this via equality of LNFacts instead
+              -- question here: we are storing faConc and faPrem, while the indicator is of the TERM inside faPrem. Solve this?
               insertDHEdge (c, faConc, faPrem, p) (fst (rootIndKnown bset nbset x)) t 
               return $ showRuleCaseName ru
       Nothing -> error "error in prodTerm function"    

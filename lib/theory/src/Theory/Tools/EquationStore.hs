@@ -68,7 +68,7 @@ import           Control.Monad.Reader
 import           Extension.Prelude
 import           Utils.Misc
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 
 import           Control.Basics
 import           Control.DeepSeq
@@ -592,24 +592,24 @@ foreachDisj hnd f =
 -- DH multiplication functions
 ------------------------------------------------------------------------------
 
--- TODO: create a "unifyLNTermDHFactored" that deals with EqInd pairs. 
+-- TODO: write the "unifyLNTermDHFactored" that deals with EqInd pairs.
+-- this should probably call Maude.  
 
 addDHEqs :: MonadFresh m
-       => MaudeHandle -> [EqInd LNTerm LNTerm] -> EqStore -> m (EqStore, Maybe SplitId)
-addDHEqs hnd eqsind0 eqStore =
+       => MaudeHandle -> LNTerm -> LNTerm -> EqStore -> m (EqStore, Maybe SplitId)
+addDHEqs hnd t1 indt eqdhstore =
     case unifyLNDHTermFactored eqs `runReader` hnd of
         (_, []) ->
-            return (set eqsConj falseEqConstrConj eqStore, Nothing)
+            return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
         (subst, [substFresh]) | substFresh == emptySubstVFresh ->
-            trace (show ("DEBUG2", eqs0, eqStore')) (return (eqStore', Nothing))
-              where eqStore' =(applyEqStore hnd subst eqStore)
+            (return (eqdhStore', Nothing)) -- TODO!! here you should add the ContainsIndicator stuff. 
+              where eqdhStore' =(applyEqStore hnd subst eqdhstore)
         (subst, substs) -> do
-            let (eqStore', sid) = addDisj (applyEqStore hnd subst eqStore)
+            let (eqStore', sid) = addDisj (applyEqStore hnd subst eqdhstore)
                                           (S.fromList substs)
             (return (eqStore', Just sid))
   where
-    eqs0 = map geteq eqsind0
-    eqs = apply (L.get eqsSubst eqStore) $ trace (unlines ["addEqs: ", show eqs0]) $ eqs0
+    eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
 
 
 ------------------------------------------------------------------------------

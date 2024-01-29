@@ -589,10 +589,11 @@ insertEdge (c, fa1, fa2, p) = do
     void (solveFactEqs SplitNow [ Equal fa1 fa2 ])
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
+
 -- | TODO: FIX THIS SO THAT IT WORKS. 
 insertDHEdge :: (NodeConc, LNFact, LNFact, NodePrem) -> LNTerm -> LNTerm -> Reduction ()
 insertDHEdge (c, fa1, fa2, p) indt1 t1 = do
-    void (solveFactDHEqs SplitNow [ EqInd (Equal fa1 fa2) indt1 t1 ])
+    void (solveFactDHEqs SplitNow ( EqInd (Equal fa1 fa2) indt1 t1 )) -- t1 here is the result of factTerms fa2, and indt1 the indicator of one product term of t1. 
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
 insertBasisElem :: LNTerm -> Reduction ()
@@ -812,26 +813,29 @@ solveTermEqs splitStrat eqs0 =
         return Changed
 
 
-solveTermDHEqs :: SplitStrategy -> [EqInd LNTerm LNTerm] -> Reduction ChangeIndicator
-solveTermDHEqs splitStrat eqs0 =
-    case filter (not . evalDHEqual) eqs0 of
-      []  -> do return Unchanged
-      eqs1 -> do
-        hnd <- getMaudeHandle
-        se  <- gets id
-        (eqs2, maySplitId) <- addDHEqs hnd eqs1 =<< getM sDHEqStore
-        setM sDHEqStore
-            =<< simp hnd (substCreatesNonNormalTerms hnd se)
-            =<< case (maySplitId, splitStrat) of
-                  (Just splitId, SplitNow) -> disjunctionOfList
-                                                $ fromJustNote "solveTermEqs"
-                                                $ performSplit eqs2 splitId
-                  (Just splitId, SplitLater) -> do
-                      insertGoal (SplitG splitId) False
-                      return eqs2
-                  _                        -> return eqs2
-        noContradictoryDHEqStore
-        return Changed        
+solveTermDHEqs :: SplitStrategy -> LNFact -> LNTerm -> Reduction ChangeIndicator
+solveTermDHEqs splitStrat fa1 indt =
+    case factTerms fa1 of 
+        [fat] -> case (fat == indt) of
+                    True  -> do return Unchanged
+                    False -> do
+                            hnd <- getMaudeHandle -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
+                            se  <- gets id
+                            (eqs2, maySplitId) <- addDHEqs hnd fat indt =<< getM sDHEqStore -- check if here you want to add only the equation containing terms, or the entire EqInd facts. 
+                            setM sDHEqStore
+                                =<< simp hnd (substCreatesNonNormalTerms hnd se)
+                                =<< case (maySplitId, splitStrat) of
+                                        (Just splitId, SplitNow) -> disjunctionOfList
+                                                                        $ fromJustNote "solveTermEqs"
+                                                                        $ performSplit eqs2 splitId
+                                        (Just splitId, SplitLater) -> do
+                                                    insertGoal (SplitG splitId) False
+                                                    return eqs2
+                                        _                        -> return eqs2
+                            noContradictoryDHEqStore
+                            return Changed   
+        _ -> error "you shouldn't get here"     
+
 
 -- | Add a list of equalities in substitution form to the equation store
 solveSubstEqs :: SplitStrategy -> LNSubst -> Reduction ChangeIndicator
@@ -857,11 +861,11 @@ factDHTag (EqInd e indt t) =  (fmap factTag) e
 factDHTerms :: EqInd LNFact LNTerm -> Equal [LNTerm]
 factDHTerms (EqInd e indt t) = (fmap factTerms) e
 
-
-solveFactDHEqs :: SplitStrategy -> [EqInd LNFact LNTerm] -> Reduction ChangeIndicator
-solveFactDHEqs split eqs = do
-    contradictoryIf (not $ all evalEqual $ map factDHTag eqs)
-    solveListEqs (solveTermEqs split) $ map factDHTerms eqs
+-- t1 here is the result of factTerms fa2, and indt1 the indicator of one product term of t1. 
+solveFactDHEqs :: SplitStrategy -> EqInd LNFact LNTerm -> Reduction ChangeIndicator
+solveFactDHEqs split eq@(EqInd (Equal fa1 fa2) indt1 t1) = do
+    contradictoryIf (not (factTag fa1 == factTag fa2) )
+    (solveTermDHEqs split fa1 indt1)
 
 
 
