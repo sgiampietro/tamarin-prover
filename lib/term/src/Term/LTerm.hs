@@ -34,6 +34,8 @@ module Term.LTerm (
   , freshTerm
   , pubTerm
   , natTerm
+  , freshNZETerm
+  , pubGTerm
 
   -- * LVar
   , LSort(..)
@@ -241,9 +243,9 @@ sortPrefix LSortNode  = "#"
 sortPrefix LSortNat   = "%"
 sortPrefix LSortG   = "G"
 sortPrefix LSortE   = "E"
-sortPrefix LSortNZE   = "NZE"
-sortPrefix LSortFrNZE   = "~E"
-sortPrefix LSortPubG   = "$G"
+sortPrefix LSortNZE   = "N"
+sortPrefix LSortFrNZE   = "F"
+sortPrefix LSortPubG   = "P"
 
 -- | @sortSuffix s@ is the suffix we use for annotating variables of sort @s@.
 sortSuffix :: LSort -> String
@@ -289,8 +291,8 @@ instance Show Name where
   show (Name PubName    n) = "'"  ++ show n ++ "'"
   show (Name NodeName   n) = "#'" ++ show n ++ "'"
   show (Name NatName   n) = "%'" ++ show n ++ "'"
-  show (Name FreshEName   n) = "~E'" ++ show n ++ "'"
-  show (Name PubGName    n) = "G'"  ++ show n ++ "'"
+  show (Name FreshEName   n) = "F'" ++ show n ++ "'"
+  show (Name PubGName    n) = "P'"  ++ show n ++ "'"
 
 instance Show NameId where
   show = getNameId
@@ -309,6 +311,12 @@ pubTerm = lit . Con . Name PubName . NameId
 -- | @natTerm f@ represents the nat name @f@.
 natTerm :: String -> NTerm v
 natTerm = lit . Con . Name NatName . NameId
+
+freshNZETerm :: String -> NTerm v
+freshNZETerm = lit . Con . Name FreshEName . NameId
+
+pubGTerm :: String -> NTerm v
+pubGTerm = lit . Con . Name PubGName . NameId
 
 -- | Return 'LSort' for given 'Name'.
 sortOfName :: Name -> LSort

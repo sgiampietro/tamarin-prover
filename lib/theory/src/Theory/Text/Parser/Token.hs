@@ -35,7 +35,8 @@ module Theory.Text.Parser.Token (
   , freshName
   , pubName
   , natName
-
+  , freshNZEName
+  , pubGName
 
   , typep
   , sortedLVar
@@ -367,8 +368,8 @@ sortedLVar ss =
           LSortG       -> void $ char 'G'
           LSortE     -> void $ char 'E'
           LSortNZE     -> void $ char 'N'
-          LSortPubG      -> void $ char 'p'
-          LSortFrNZE       -> void $ char 'f'
+          LSortPubG      -> void $ char 'P'
+          LSortFrNZE       -> void $ char 'F'
         (n, i) <- indexedIdentifier
         return (LVar n s i)
 
@@ -378,7 +379,7 @@ lvar = sortedLVar [minBound..]
 
 -- | Parse a non-node variable.
 msgvar :: Parser LVar
-msgvar = sortedLVar [LSortFresh, LSortPub, LSortNat, LSortMsg]
+msgvar = sortedLVar [LSortFresh, LSortPub, LSortNat,LSortG, LSortE, LSortNZE, LSortPubG, LSortFrNZE, LSortMsg, LSortDH ]
 
 dhvar :: Parser LVar
 dhvar = sortedLVar [LSortDH, LSortG, LSortE, LSortNZE, LSortPubG, LSortFrNZE]
@@ -401,6 +402,13 @@ pubName = singleQuoted identifier
 -- | Parse a literal nat name, e.g. @%'n'@.
 natName :: Parser String
 natName = try (symbol "%" *> singleQuoted identifier)
+
+freshNZEName :: Parser String
+freshNZEName = try (symbol "F" *> singleQuoted identifier)
+
+pubGName :: Parser String
+pubGName = try (symbol "P" *> singleQuoted identifier)
+
 
 -- | Parse a Sapic Type
 typep :: Parser SapicType
@@ -433,8 +441,8 @@ sortedLVarNoSuffix ss =
           LSortG       -> void $ char 'G'
           LSortE     -> void $ char 'E'
           LSortNZE     -> void $ char 'N'
-          LSortPubG      -> void $ char 'p'
-          LSortFrNZE       -> void $ char 'f'
+          LSortPubG      -> void $ char 'P'
+          LSortFrNZE       -> void $ char 'F'
         (n, i) <- indexedIdentifier
         return (LVar n s i)
 

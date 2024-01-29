@@ -37,7 +37,7 @@ import Data.Functor (($>))
 
 -- | Parse a lit with logical variables parsed by @varp@
 vlit :: Parser v -> Parser (NTerm v)
-vlit varp = asum [freshTerm <$> freshName, pubTerm <$> pubName, natTerm <$> natName, varTerm <$> varp]
+vlit varp = asum [freshTerm <$> freshName, pubTerm <$> pubName, natTerm <$> natName, freshNZETerm <$> freshNZEName, pubGTerm <$> pubGName, varTerm <$> varp]
 
 -- | Parse a lit with logical variables.
 llit :: Parser LNTerm
