@@ -447,15 +447,15 @@ solveDHInd rules p faPrem t =  -- recall that t is
             -- have solved the Needed goals. or do we try it with a variable?
           Nothing -> do
               --return "TODO"
-              (ru, c, faConc) <- insertFreshNodeConc rules -- should only search for the rules with Out facts
+              --(ru, c, faConc) <- insertFreshNodeConc rules -- should only search for the rules with Out facts
               -- question here: we are storing faConc and faPrem, while the indicator is of the TERM inside faPrem. Solve this?
-              insertDHEdge (c, faConc, faPrem, p) (fst (rootIndKnown bset nbset x)) t 
-              return $ showRuleCaseName ru
+              --insertDHEdge (c, faConc, faPrem, p) (fst (rootIndKnown bset nbset x)) t 
+              return "done"-- $ showRuleCaseName ru
       Nothing -> error "error in prodTerm function"    
 
 
 
---how do I make a case distinction _within_ a solve function??
+--how do I make a case distinction _within_ a solve function?? use disjunction monad!
 
 
 solveNeeded ::  LNTerm ->  NodeId ->        -- exponent that is needed.
@@ -466,13 +466,12 @@ solveNeeded x i = do
     case basisornot of 
       True -> do
                 insertBasisElem x 
-                insertGoal (PremiseG (i, PremIdx 0) (kdFact x)) False
+                --insertGoal (PremiseG (i, PremIdx 0) (kdFact x)) False !!(adversary shouldn't know x? check if we actually _need_ to prove it CANNOT)
+                -- TODO: insertSecret x
                 return "caseBasis"
-              --let ru = Rule (IntrInfo CoerceRule) [kdFact [x]] [] [] []
-              --modM sNodes (M.insert i ru) TODO: check if we need to introduce in nodes?
       False -> do
                 insertNotBasisElem x 
-                insertGoal (PremiseG (i, PremIdx 0) (kdFact x)) False
+                insertGoal (PremiseG (i, PremIdx 0) (kdFact x)) False -- check if kdFact or kuFact!
                 return "caseNotBasis"
                 -- TODO: contradict K(x) happening!
 

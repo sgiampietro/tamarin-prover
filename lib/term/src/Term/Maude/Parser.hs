@@ -255,20 +255,6 @@ ppTheory msig = BC.unlines $
         , "  op nze : Nat -> NZE ."
         , "  op pubg : Nat -> PubG ."
         , "  op fnze : Nat -> FrNZE ."
-        {-, " op dhMult : G G -> G ."
-        , " op dhGinv : G -> G ."
-        , " op dhZero : -> E ."
-        , " op dhMinus : E -> E ."
-        , " op dhInv : NZE -> NZE ."
-        , " op dhEg : -> G ."
-        , " op dhTimes2 : E E -> E ."
-        , " op dhTimes : NZE NZE -> NZE ."
-        , " op dhPlus : E E -> E ."
-        , " op dhExp : G E -> G ."
-        , " op dhOne : E ."
-        , " op dhMu : G -> E ."
-        , " op dhBox : G -> Msg ."
-        , " op dhBoxE : E -> Msg ." ] -}
         , theoryOpEq "dhMult : G G -> G"
         , theoryOpEq "dhGinv : G -> G"
         , theoryOpEq "dhZero : -> E"
@@ -442,3 +428,46 @@ parseTerm msig = choice
         case BC.uncons ident of
             Just ('x', num) -> lit <$> (MaudeVar (read (BC.unpack num)) <$> parseSort)
             _               -> fail "invalid variable"
+
+
+
+
+------------------------------------------------------------------------------
+-- simplified DH Maude theory
+------------------------------------------------------------------------------
+
+ppTheoryDHsimp ::  ByteString
+ppTheoryDHsimp = BC.unlines $
+      [ "fmod DHsimp is"
+      , "sort DH G E NZE PubG FrNZE ."
+      , "subsort G < DH ."
+      , "subsort E < DH ."
+      , "subsort NZE < E ."
+      , "subsort FrNZE < NZE ."
+      , "subsort PubG < G ."
+      , "op dhGinv : G -> G ."
+      , "op dhZero : -> E ."
+      , "op dhInv : NZE -> NZE ."
+      , "op dhEg : -> G ."
+      , "op dhTimes2 : E E -> E ."
+      , "op dhTimes : NZE NZE -> NZE ."
+      , "op dhExp : G E -> G ."
+      , "op dhOne : -> E ."
+      , "op dhMu : G -> E ."
+      , "vars A B : G . "
+      , "vars X Y : E ."
+      , "vars U V W : NZE ."
+      , "eq dhExp(dhExp(A, X), Y) = dhExp(A, dhTimes2(X, Y)) [variant] ."
+      , "eq dhExp(A, dhOne ) = A [variant] ."
+      , "eq dhExp(dhEg, X) = dhEg [variant] ."
+      , "eq dhTimes2(X, dhOne) = X [variant] ."
+      , "eq dhInv (dhInv(U) ) = U [variant] ."
+      , "eq dhInv(dhOne) = dhOne [variant] ."
+      , "eq dhTimes(U, dhInv(U)) = dhOne [variant] ."
+      , "eq dhTimes( dhInv(U) , dhInv(V)) = dhInv( dhTimes(U, V)) [variant] ."
+      , "eq dhTimes( dhInv(dhTimes(U,V)), V) = dhInv( U) [variant] ."
+      , "eq dhInv( dhTimes(dhInv(U),V)) = dhTimes(U, dhInv(V)) [variant] ."
+      , "eq dhTimes( U, dhTimes(dhInv(U),V)) = V [variant] ."
+      , "eq dhTimes( dhInv(U), dhTimes(dhInv(V),W)) = dhTimes( dhInv(dhTimes(U,V)),W) [variant] ."
+      , "eq dhTimes( dhInv(dhTimes(U,V)), dhTimes(V,W)) = dhTimes( dhInv(U),W) [variant] ."
+      "endfm"] 

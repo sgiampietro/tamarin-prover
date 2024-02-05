@@ -77,6 +77,7 @@ data Contradiction =
   | FormulasFalse                  -- ^ False in formulas
   | SuperfluousLearn LNTerm NodeId -- ^ A term is derived both before and after a learn
   | NodeAfterLast (NodeId, NodeId) -- ^ There is a node after the last node.
+  -- | KnowsBasisEl LNTerm NodeId     -- ^ The adversary learns a term that is in the basis set. 
   deriving( Eq, Ord, Show, Generic, NFData, Binary )
 
 

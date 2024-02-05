@@ -305,3 +305,74 @@ normViaMaude hnd sortOf t =
 
 -- | Values that depend on a 'MaudeHandle'.
 type WithMaude = Reader MaudeHandle
+
+
+
+
+------------------------------------------------------------------------------
+-- DH Maude processes
+------------------------------------------------------------------------------
+
+
+-- | @startMaude@ starts a new instance of Maude and returns a Handle to it.
+startMaudeDH :: FilePath -> MaudeSig -> IO MaudeHandle
+startMaude maudePath maudeSig = do
+    mv <- newMVar =<< startMaudeProcess maudePath
+    -- Add a finalizer to the MVar that stops maude.
+    _  <- mkWeakMVar mv $ withMVar mv $ \mp -> do
+        terminateProcess (mProc mp) <* waitForProcess (mProc mp)
+    -- return the maude handle
+    return (MaudeHandle maudePath maudeSig mv)
+
+-- | Start a Maude process.
+startMaudeProcessDH :: FilePath -- ^ Path to Maude
+                  -> IO (MaudeProcess)
+startMaudeProcess maudePath = do
+    (hin,hout,herr,hproc) <- runInteractiveCommand maudeCmd
+    _ <- getToDelim hout
+    -- set maude flags
+    mapM_ (executeMaudeCommand hin hout) setupCmds
+    -- input the maude theory
+    executeMaudeCommand hin hout ppTheoryDHsimp
+    return (MP hin hout herr hproc 0 0 0 0)
+  where
+    maudeCmd
+      | dEBUGMAUDE = "sh -c \"tee /tmp/maude.input | "
+                     ++ maudePath ++ " -interactive -no-tecla -no-banner -no-wrap -batch "
+                     ++ "\" | tee /tmp/maude.output"
+      | otherwise  =
+          maudePath ++ " -interactive -no-tecla -no-banner -no-wrap -batch "
+    executeMaudeCommand hin hout cmd =
+        B.hPutStr hin cmd >> hFlush hin >> getToDelim hout >> return ()
+    setupCmds = [ "set show command off .\n"
+                , "set show timing off .\n"
+                , "set show stats off .\n" ]
+    dEBUGMAUDE = envIsSet "DEBUG_MAUDE"
+
+
+    -- | @unifyCmd eqs@ returns the Maude command to solve the unification problem @eqs@.
+--   Expects a nonempty list of equations
+unifyCmdDH :: [Equal MTerm] -> ByteString
+unifyCmdDH []  = error "unifyCmd: cannot create cmd for empty list of equations."
+unifyCmdDH eqs =
+    "variant unify in DHsimp : " <> seqs <> " .\n"
+  where
+    ppEq (Equal t1 t2) = ppMaude t1 <> " =? " <> ppMaude t2
+    seqs = B.intercalate " /\\ " $ map ppEq eqs
+
+
+-- | @unifyViaMaude hnd eqs@ computes all AC unifiers of @eqs@ using the
+--   Maude process @hnd@.
+unifyViaMaudeDH
+    :: (IsConst c)
+    => MaudeHandle
+    -> (c -> LSort) -> [Equal (VTerm c LVar)] -> IO [SubstVFresh c LVar]
+unifyViaMaudeDH _   _      []  = return [emptySubstVFresh]
+unifyViaMaudeDH hnd sortOf eqs =
+    computeViaMaude hnd incUnifCount toMaude fromMaude eqs
+  where
+    msig = mhMaudeSig hnd
+    toMaude          = fmap unifyCmdDH . mapM (traverse (lTermToMTerm sortOf))
+    fromMaude bindings reply =
+        map (msubstToLSubstVFresh bindings) <$> parseUnifyReply msig reply
+    incUnifCount mp  = mp { unifCount = 1 + unifCount mp }
