@@ -14,6 +14,7 @@
 module Term.DHMultiplication (
     clean
   , rootSet
+  , multRootList
   , isRoot
   , neededexponents
   , rootIndKnown
@@ -144,7 +145,7 @@ clean t@(viewTerm3 -> DH f dht) vars = (FAPP f dht, [], vars )
 
 
 
-rootSet :: (Show a, Ord a ) => NoEqSym -> Term a -> S.Set (Term a)
+rootSet :: (Show a, Ord a ) => DHMultSym -> Term a -> S.Set (Term a)
 rootSet operator t@(LIT l) = S.singleton t
 rootSet operator t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == operator    -> S.union (rootSet operator t1) (rootSet operator t2)
@@ -154,6 +155,8 @@ rootSet operator t@(FAPP (DHMult o) ts) = case ts of
     _         -> error $ "malformed term `"++show t++"'"
 rootSet operator _ = error "rootSet applied on non DH term'"
 
+multRootList :: (Show a, Ord a ) => Term a ->  [(Term a)]
+multRootList a = S.toList (rootSet dhMultSym a)
 
 isRoot :: (Show a, Ord a ) => DHMultSym -> Term a -> Bool
 isRoot o (LIT l) = True

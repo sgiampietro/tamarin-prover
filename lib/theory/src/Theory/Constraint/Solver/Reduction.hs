@@ -115,6 +115,7 @@ import           Theory.Constraint.Solver.Contradictions
 import           Theory.Constraint.System
 import           Theory.Model
 import           Utils.Misc
+import           Term.DHMultiplication
 
 ------------------------------------------------------------------------------
 -- The constraint reduction monad
@@ -602,7 +603,7 @@ insertEdge (c, fa1, fa2, p) = do
 
 -- | TODO: FIX THIS SO THAT IT WORKS. 
 insertDHEdge :: (NodeConc, LNFact, LNFact, NodePrem) -> LNTerm -> LNTerm -> Reduction ()
-insertDHEdge (c, fa1, fa2, p) indt1 t1 = do
+insertDHEdge (c, fa1, fa2, p) indt1 t1 = do --fa1 should be an Out fact
     void (solveFactDHEqs SplitNow ( EqInd (Equal fa1 fa2) indt1 t1 )) -- t1 here is the result of factTerms fa2, and indt1 the indicator of one product term of t1. 
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
@@ -792,8 +793,8 @@ data SplitStrategy = SplitNow | SplitLater
 noContradictoryEqStore :: Reduction ()
 noContradictoryEqStore = (contradictoryIf . eqsIsFalse) =<< getM sEqStore
 
-noContradictoryDHEqStore :: Reduction ()
-noContradictoryDHEqStore = (contradictoryIf . eqsIsFalse) =<< getM sDHEqStore
+--noContradictoryDHEqStore :: Reduction ()
+--noContradictoryDHEqStore = (contradictoryIf . eqsIsFalse) =<< getM sDHEqStore
 
 -- | Add a list of term equalities to the equation store. And
 --  split resulting disjunction of equations according
@@ -823,16 +824,15 @@ solveTermEqs splitStrat eqs0 =
         return Changed
 
 
-solveTermDHEqs :: SplitStrategy -> LNFact -> LNTerm -> Reduction ChangeIndicator
+solveTermDHEqs :: SplitStrategy -> LNTerm -> LNTerm -> Reduction ChangeIndicator
 solveTermDHEqs splitStrat fa1 indt =
-    case factTerms fa1 of 
-        [fat] -> case (fat == indt) of
+        case (fa1 == indt) of
                     True  -> do return Unchanged
                     False -> do
                             hnd <- getMaudeHandleDH -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
                             se  <- gets id
-                            (eqs2, maySplitId) <- addDHEqs hnd fat indt =<< getM sDHEqStore -- check if here you want to add only the equation containing terms, or the entire EqInd facts. 
-                            setM sDHEqStore
+                            (eqs2, maySplitId) <- addDHEqs hnd fa1 indt =<< getM sEqStore -- check if here you want to add only the equation containing terms, or the entire EqInd facts. 
+                            setM sEqStore
                                 =<< simp hnd (substCreatesNonNormalTerms hnd se)
                                 =<< case (maySplitId, splitStrat) of
                                         (Just splitId, SplitNow) -> disjunctionOfList
@@ -842,9 +842,8 @@ solveTermDHEqs splitStrat fa1 indt =
                                                     insertGoal (SplitG splitId) False
                                                     return eqs2
                                         _                        -> return eqs2
-                            noContradictoryDHEqStore
-                            return Changed   
-        _ -> error "you shouldn't get here"     
+                            noContradictoryEqStore
+                            return Changed    
 
 
 -- | Add a list of equalities in substitution form to the equation store
@@ -874,8 +873,12 @@ factDHTerms (EqInd e indt t) = (fmap factTerms) e
 -- t1 here is the result of factTerms fa2, and indt1 the indicator of one product term of t1. 
 solveFactDHEqs :: SplitStrategy -> EqInd LNFact LNTerm -> Reduction ChangeIndicator
 solveFactDHEqs split eq@(EqInd (Equal fa1 fa2) indt1 t1) = do
-    contradictoryIf (not (factTag fa1 == factTag fa2) )
-    (solveTermDHEqs split fa1 indt1)
+    contradictoryIf (not (factTag fa1 == OutFact) && (factTag fa2 == KdhFact) )
+    case factTerms fa1 of 
+        [t] -> do
+            outterm <- disjunctionOfList (multRootList t)
+            (solveTermDHEqs split outterm indt1)
+        _ -> error "incorrect factTerm called"
 
 
 

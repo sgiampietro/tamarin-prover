@@ -27,6 +27,7 @@ module Term.Maude.Process (
 
   -- * Normalization using Maude
   , normViaMaude
+  , normViaMaudeDH
 
   -- * Managing the persistent Maude process
   , WithMaude
@@ -377,3 +378,23 @@ unifyViaMaudeDH hnd sortOf eqs =
     fromMaude bindings reply =
         map (msubstToLSubstVFresh bindings) <$> parseUnifyReply msig reply
     incUnifCount mp  = mp { unifCount = 1 + unifCount mp }
+
+normCmdDH :: MTerm -> ByteString
+normCmdDH tm = "reduce in DHsimp : " <> ppMaude tm <> " .\n"
+
+-- | @normViaMaude t@ normalizes the term t via Maude.
+normViaMaudeDH :: (IsConst c)
+             => MaudeHandle
+             -> (c -> LSort)
+             -> VTerm c LVar
+             -> IO (VTerm c LVar)
+normViaMaudeDH hnd sortOf t =
+    computeViaMaude hnd incNormCount toMaude fromMaude t
+  where
+    msig = mhMaudeSig hnd
+    toMaude = fmap normCmdDH . (lTermToMTerm sortOf)
+    fromMaude bindings reply =
+        (\mt -> (mTermToLNTerm "z" mt `evalBindT` bindings) `evalFresh` nothingUsed)
+            <$> parseReduceReply msig reply
+    incNormCount mp = mp { normCount = 1 + normCount mp }
+
