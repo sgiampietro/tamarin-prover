@@ -311,9 +311,8 @@ unifyRaw l0 r0 =  (do
            guard (lsym == rsym && length largs == length rargs)
            >> (tell [Equal l r])  -- delay unification
 
-       (FApp (DHMult lfsym) largs, FApp (DHMult rfsym) rargs) ->
-           trace (show ("WEAREHERE", largs ,rargs)) (guard (lfsym == rfsym && length largs == length rargs))
-           >>  (sequence_ (zipWith unifyRaw largs rargs))
+       (FApp (DHMult lfsym) largs, FApp (DHMult rfsym) rargs) -> (tell [Equal l r])  -- DOUBLE check here: if you need to unifyRaw them or not. 
+           -- (guard (lfsym == rfsym)) >> (sequence_ (zipWith unifyRaw largs rargs))
 
        -- all unifiable pairs of term constructors have been enumerated
        _                      -> mzero )-- no unifier

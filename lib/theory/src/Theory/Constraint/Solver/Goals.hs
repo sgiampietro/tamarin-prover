@@ -447,9 +447,9 @@ solveDHInd rules p faPrem t =  -- recall that t is
             -- have solved the Needed goals. or do we try it with a variable?
           Nothing -> do
               --return "TODO"
-              --(ru, c, faConc) <- insertFreshNodeConc rules -- should only search for the rules with Out facts
-              -- question here: we are storing faConc and faPrem, while the indicator is of the TERM inside faPrem. Solve this?
-              --insertDHEdge (c, faConc, faPrem, p) (fst (rootIndKnown bset nbset x)) t 
+              (ru, c, faConc) <- insertFreshNodeConcOut rules -- should only search for the rules with Out facts
+              -- question here: we are stor ing faConc and faPrem, while the indicator is of the TERM inside faPrem. Solve this?
+              insertDHEdge (c, faConc, faPrem, p) (fst (rootIndKnown bset nbset x)) t 
               return "done"-- $ showRuleCaseName ru
       Nothing -> error "error in prodTerm function"    
 

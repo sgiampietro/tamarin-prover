@@ -37,6 +37,7 @@ module Theory.Constraint.Solver.Reduction (
   , labelNodeId
   , insertFreshNode
   , insertFreshNodeConc
+  , insertFreshNodeConcOut
 
   , insertGoal
   , insertAtom
@@ -196,7 +197,7 @@ getProofContext = ask
 getMaudeHandle :: Reduction MaudeHandle
 getMaudeHandle = askM pcMaudeHandle
 
--- | Retrieve the 'MaudeHandle' from the 'ProofContext'.
+-- | Retrieve the 'MaudeHandleDH' from the 'ProofContext'.
 getMaudeHandleDH :: Reduction MaudeHandle
 getMaudeHandleDH = askM pcMaudeHandleDH
 
@@ -216,7 +217,11 @@ insertFreshNodeConc rules = do
     (v, fa) <- disjunctionOfList $ enumConcs ru
     return (ru, (i, v), fa)
 
-
+insertFreshNodeConcOut :: [RuleAC] -> Reduction (RuleACInst, NodeConc, LNFact)
+insertFreshNodeConcOut rules = do
+    (i, ru) <- insertFreshNode rules Nothing
+    (v, fa) <- disjunctionOfList $ enumConcs ru
+    guard (factTag fa == OutFact) (return (ru, (i, v), fa))
 
 -- | Insert a fresh rule node labelled with a fresh instance of one of the rules
 -- and solve it's 'Fr', 'In', and 'KU' premises immediately.
