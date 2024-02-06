@@ -71,6 +71,7 @@ module Theory.Constraint.System (
   , InductionHint(..)
 
   , pcSignature
+  --, pcSignatureDH
   , pcRules
   , pcInjectiveFactInsts
   , pcSources
@@ -82,6 +83,7 @@ module Theory.Constraint.System (
   , pcLemmaName
   , pcHiddenLemmas
   , pcMaudeHandle
+  , pcMaudeHandleDH
   , pcDiffContext
   , pcTrueSubterm
   , pcVerbose
@@ -725,6 +727,7 @@ data InductionHint = UseInduction | AvoidInduction
 -- rules and the corresponding precomputed premise source theorems.
 data ProofContext = ProofContext
        { _pcSignature          :: SignatureWithMaude
+       --, _pcSignatureDH        :: SignatureWithMaude
        , _pcRules              :: ClassifiedRules
        , _pcInjectiveFactInsts :: S.Set (FactTag, [[MonotonicBehaviour]])
        , _pcSourceKind         :: SourceKind
@@ -764,6 +767,9 @@ $(mkLabels [''ProofContext, ''DiffProofContext, ''Source])
 -- | The 'MaudeHandle' of a proof-context.
 pcMaudeHandle :: ProofContext :-> MaudeHandle
 pcMaudeHandle = sigmMaudeHandle . pcSignature
+
+pcMaudeHandleDH :: ProofContext :-> MaudeHandle
+pcMaudeHandleDH = sigmMaudeHandleDH . pcSignature
 
 -- | Returns the LHS or RHS proof-context of a diff proof context.
 eitherProofContext :: DiffProofContext -> Side -> ProofContext

@@ -29,6 +29,7 @@ module Theory.Model.Signature (
   , toSignatureWithMaude
   , toSignaturePure
   , sigmMaudeHandle
+  , sigmMaudeHandleDH
 
   -- ** Pretty-printing
   , prettySignaturePure
@@ -46,8 +47,8 @@ import           Control.DeepSeq
 
 import           System.IO.Unsafe     (unsafePerformIO)
 
-import           Term.Maude.Process   (MaudeHandle, mhFilePath, mhMaudeSig, startMaude)
-import           Term.Maude.Signature (MaudeSig, minimalMaudeSig, prettyMaudeSig, prettyMaudeSigExcept)
+import           Term.Maude.Process   (MaudeHandle, mhFilePath, mhMaudeSig, startMaude, startMaudeDH)
+import           Term.Maude.Signature (MaudeSig, minimalMaudeSig, emptyMaudeSig, prettyMaudeSig, prettyMaudeSigExcept)
 import           Theory.Text.Pretty
 
 import Term.LTerm
@@ -57,6 +58,7 @@ import Term.LTerm
 data Signature a = Signature
        { -- The signature of the message algebra
          _sigMaudeInfo  :: a
+        ,_sigMaudeInfoDH :: a
        }
 
 $(L.mkLabels [''Signature])
@@ -75,7 +77,11 @@ sigpMaudeSig = sigMaudeInfo
 
 -- | The empty pure signature.
 emptySignaturePure :: Bool -> SignaturePure
-emptySignaturePure flag = Signature (minimalMaudeSig flag)
+emptySignaturePure flag = Signature (minimalMaudeSig flag) emptyMaudeSig
+
+emptyDHSignaturePure :: SignaturePure
+emptyDHSignaturePure  = Signature emptyMaudeSig emptyMaudeSig
+
 
 -- Instances
 ------------
@@ -86,10 +92,13 @@ deriving instance Show     SignaturePure
 
 instance Binary SignaturePure where
     put sig =  put (L.get sigMaudeInfo sig)
-    get     = Signature <$> get
+    get = do
+      gy <- get
+      gz <- get
+      return (Signature gy gz)
 
 instance NFData SignaturePure where
-  rnf (Signature y) = rnf y
+  rnf (Signature y z) = rnf y
 
 ------------------------------------------------------------------------------
 -- Signatures with an attached Maude process
@@ -102,18 +111,31 @@ type SignatureWithMaude = Signature MaudeHandle
 sigmMaudeHandle :: SignatureWithMaude L.:-> MaudeHandle
 sigmMaudeHandle = sigMaudeInfo
 
+sigmMaudeHandleDH :: SignatureWithMaude L.:-> MaudeHandle
+sigmMaudeHandleDH = sigMaudeInfoDH
+
 -- | Ensure that maude is running and configured with the current signature.
 toSignatureWithMaude :: FilePath            -- ^ Path to Maude executable.
                      -> SignaturePure
                      -> IO (SignatureWithMaude)
 toSignatureWithMaude maudePath sig = do
     hnd <- startMaude maudePath (L.get sigMaudeInfo sig)
-    return $ sig { _sigMaudeInfo = hnd }
+    hndDH <- startMaudeDH maudePath
+    return $ sig { _sigMaudeInfo = hnd, _sigMaudeInfoDH = hndDH }
+
+{-
+toSignatureWithMaudeDH :: FilePath            -- ^ Path to Maude executable.
+                     -> IO (SignatureWithMaude)
+toSignatureWithMaudeDH maudePath = do
+    hnd <- startMaudeDH maudePath
+    return $ emptyDHSignaturePure { _sigMaudeInfo = hnd }
+-}
+
 
 
 -- | The pure signature of a 'SignatureWithMaude'.
 toSignaturePure :: SignatureWithMaude -> SignaturePure
-toSignaturePure sig = sig { _sigMaudeInfo = mhMaudeSig $ L.get sigMaudeInfo sig }
+toSignaturePure sig = sig { _sigMaudeInfo = mhMaudeSig $ L.get sigMaudeInfo sig , _sigMaudeInfoDH = emptyMaudeSig }
 
 {- TODO: There should be a finalizer in place such that as soon as the
    MaudeHandle is garbage collected, the appropriate command is sent to Maude
@@ -150,14 +172,14 @@ instance Show SignatureWithMaude where
   show = show . toSignaturePure
 
 instance Binary SignatureWithMaude where
-    put sig@(Signature maude) = do
+    put sig@(Signature maude maudedh) = do
         put (mhFilePath maude)
         put (toSignaturePure sig)
     -- FIXME: reload the right signature
     get = unsafePerformIO <$> (toSignatureWithMaude <$> get <*> get)
 
 instance NFData SignatureWithMaude where
-  rnf (Signature _maude) = ()
+  rnf (Signature _maude _maudeDH) = ()
 
 ------------------------------------------------------------------------------
 -- Pretty-printing

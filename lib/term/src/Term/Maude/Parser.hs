@@ -11,6 +11,7 @@ module Term.Maude.Parser (
   -- * pretty printing of terms for Maude
     ppMaude
   , ppTheory
+  , ppTheoryDHsimp
 
   -- * parsing of Maude replies
   , parseUnifyReply
@@ -470,4 +471,4 @@ ppTheoryDHsimp = BC.unlines $
       , "eq dhTimes( U, dhTimes(dhInv(U),V)) = V [variant] ."
       , "eq dhTimes( dhInv(U), dhTimes(dhInv(V),W)) = dhTimes( dhInv(dhTimes(U,V)),W) [variant] ."
       , "eq dhTimes( dhInv(dhTimes(U,V)), dhTimes(V,W)) = dhTimes( dhInv(U),W) [variant] ."
-      "endfm"] 
+      , "endfm"] 

@@ -39,6 +39,7 @@ module Term.Unification (
   , MaudeHandle
   , WithMaude
   , startMaude
+  , startMaudeDH
   , getMaudeStats
   , mhMaudeSig
   , mhFilePath
@@ -102,7 +103,7 @@ import           Term.Rewriting.Definitions
 import           Term.Substitution
 import qualified Term.Maude.Process as UM
 import           Term.Maude.Process
-                   (MaudeHandle, WithMaude, startMaude, getMaudeStats, mhMaudeSig, mhFilePath)
+                   (MaudeHandle, WithMaude, startMaude, startMaudeDH, getMaudeStats, mhMaudeSig, mhFilePath)
 import           Term.Maude.Signature
 import           Debug.Trace-- .Ignore
 
@@ -135,13 +136,17 @@ unifyLDHTermFactored :: (IsConst c)
                    => (c -> LSort)
                    -> [Equal (LTerm c)]
                    -> WithMaude (LSubst c, [SubstVFresh c LVar])
-unifyLDHTermFactored sortOf eqs = unifyLTermFactored sortOf eqs{-reader $ \h -> (\res -> trace (unlines $ ["unifyLTerm: "++ show eqs, "result = "++  show res]) res) $ do
+unifyLDHTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTermDH: "++ show eqs, "result = "++  show res]) res) $ do
     solve h $ execRWST unif sortOf M.empty
   where
     unif = sequence [ unifyRaw t p | (Equal t p) <- eqs ]
     solve _ Nothing         = (emptySubst, [])
-    solve _ (Just (m, _))  = (emptySubst, [])
--}
+    solve _ (Just (m, []))  = (substFromMap m, [emptySubstVFresh])
+    solve h (Just (m, leqs)) =
+        (subst, unsafePerformIO (UM.unifyViaMaudeDH h sortOf $
+                                     map (applyVTerm subst <$>) leqs))
+      where subst = substFromMap m
+
 unifyLNDHTermFactored :: [Equal LNTerm]
                     -> WithMaude (LNSubst, [SubstVFresh Name LVar])
 unifyLNDHTermFactored = unifyLDHTermFactored sortOfName             

@@ -12,10 +12,12 @@ module Term.Maude.Process (
   -- * Handle to a maude process
     MaudeHandle(..)
   , startMaude
+  , startMaudeDH
   , getMaudeStats
 
   -- * Unification using Maude
   , unifyViaMaude
+  , unifyViaMaudeDH
 
   -- * Matching using Maude
   , matchViaMaude
@@ -315,19 +317,19 @@ type WithMaude = Reader MaudeHandle
 
 
 -- | @startMaude@ starts a new instance of Maude and returns a Handle to it.
-startMaudeDH :: FilePath -> MaudeSig -> IO MaudeHandle
-startMaude maudePath maudeSig = do
-    mv <- newMVar =<< startMaudeProcess maudePath
+startMaudeDH :: FilePath -> IO MaudeHandle
+startMaudeDH maudePath = do
+    mv <- newMVar =<< startMaudeProcessDH maudePath
     -- Add a finalizer to the MVar that stops maude.
     _  <- mkWeakMVar mv $ withMVar mv $ \mp -> do
         terminateProcess (mProc mp) <* waitForProcess (mProc mp)
     -- return the maude handle
-    return (MaudeHandle maudePath maudeSig mv)
+    return (MaudeHandle maudePath emptyMaudeSig mv)
 
 -- | Start a Maude process.
 startMaudeProcessDH :: FilePath -- ^ Path to Maude
                   -> IO (MaudeProcess)
-startMaudeProcess maudePath = do
+startMaudeProcessDH maudePath = do
     (hin,hout,herr,hproc) <- runInteractiveCommand maudeCmd
     _ <- getToDelim hout
     -- set maude flags
@@ -363,8 +365,7 @@ unifyCmdDH eqs =
 
 -- | @unifyViaMaude hnd eqs@ computes all AC unifiers of @eqs@ using the
 --   Maude process @hnd@.
-unifyViaMaudeDH
-    :: (IsConst c)
+unifyViaMaudeDH :: (IsConst c)
     => MaudeHandle
     -> (c -> LSort) -> [Equal (VTerm c LVar)] -> IO [SubstVFresh c LVar]
 unifyViaMaudeDH _   _      []  = return [emptySubstVFresh]

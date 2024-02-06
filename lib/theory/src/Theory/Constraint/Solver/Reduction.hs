@@ -30,6 +30,7 @@ module Theory.Constraint.Solver.Reduction (
   -- ** Accessing the 'ProofContext'
   , getProofContext
   , getMaudeHandle
+  , getMaudeHandleDH
   , getVerbose
 
   -- ** Inserting nodes, edges, and atoms
@@ -194,6 +195,10 @@ getProofContext = ask
 -- | Retrieve the 'MaudeHandle' from the 'ProofContext'.
 getMaudeHandle :: Reduction MaudeHandle
 getMaudeHandle = askM pcMaudeHandle
+
+-- | Retrieve the 'MaudeHandle' from the 'ProofContext'.
+getMaudeHandleDH :: Reduction MaudeHandle
+getMaudeHandleDH = askM pcMaudeHandleDH
 
 -- | Retrieve the verbose parameter from the 'ProofContext'.
 getVerbose :: Reduction Bool
@@ -819,7 +824,7 @@ solveTermDHEqs splitStrat fa1 indt =
         [fat] -> case (fat == indt) of
                     True  -> do return Unchanged
                     False -> do
-                            hnd <- getMaudeHandle -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
+                            hnd <- getMaudeHandleDH -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
                             se  <- gets id
                             (eqs2, maySplitId) <- addDHEqs hnd fat indt =<< getM sDHEqStore -- check if here you want to add only the equation containing terms, or the entire EqInd facts. 
                             setM sDHEqStore
