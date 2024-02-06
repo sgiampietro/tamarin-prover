@@ -28,6 +28,7 @@ module Theory.Model.Signature (
   , SignatureWithMaude
   , toSignatureWithMaude
   , toSignaturePure
+  , makeSigPureDH
   , sigmMaudeHandle
   , sigmMaudeHandleDH
 
@@ -136,6 +137,11 @@ toSignatureWithMaudeDH maudePath = do
 -- | The pure signature of a 'SignatureWithMaude'.
 toSignaturePure :: SignatureWithMaude -> SignaturePure
 toSignaturePure sig = sig { _sigMaudeInfo = mhMaudeSig $ L.get sigMaudeInfo sig , _sigMaudeInfoDH = emptyMaudeSig }
+
+makeSigPureDH :: MaudeSig -> SignaturePure
+makeSigPureDH sig = Signature sig emptyMaudeSig
+
+
 
 {- TODO: There should be a finalizer in place such that as soon as the
    MaudeHandle is garbage collected, the appropriate command is sent to Maude

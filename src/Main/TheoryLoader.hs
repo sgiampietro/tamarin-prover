@@ -420,7 +420,7 @@ closeTheory version thyOpts sign srcThy = do
 
     defaultProver = replaceSorryProver $ runAutoProver $ constructAutoProver defaultTheoryLoadOptions
     defaultDiffProver = replaceDiffSorryProver $ runAutoDiffProver $ constructAutoProver defaultTheoryLoadOptions
-    maudePublicSig s = Signature $ (getSignature s)
+    maudePublicSig s = makeSigPureDH $ (getSignature s)
       {stFunSyms = makepublic (stFunSyms (getSignature s))
       , funSyms = makepublicsym (funSyms (getSignature s))
       , irreducibleFunSyms = makepublicsym (irreducibleFunSyms (getSignature s))
