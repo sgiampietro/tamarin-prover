@@ -458,7 +458,7 @@ solveDHInd rules p faPrem t =  -- recall that t is
         insertNoCanc x y
         bset <- getM sBasis 
         nbset <- getM sNotBasis
-        case neededexponents bset nbset t of 
+        case neededexponents bset nbset x of 
           (Just es) -> do 
               insertNeededList (S.toList es)
               return "NeededInserted"

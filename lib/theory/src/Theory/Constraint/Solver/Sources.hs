@@ -443,10 +443,10 @@ precomputeSources parameters ctxt restrictions =
           [ fAppNoEq natOneSym []
           , fAppAC NatPlus [varTerm (LVar "t" LSortNat 1), varTerm (LVar "t" LSortNat 2)] ]
           else []
-      {-, if enableDHMult msig then 
+      , if enableDHMult msig then 
          [  fAppDHMult dhBoxSym [varTerm (LVar "y" LSortG 1)]
           , fAppDHMult dhBoxESym [varTerm (LVar "e" LSortE 1)]]
-          else [] -}
+          else [] 
       , [ fAppNoEq o $ nMsgVars k
         | o@(_,(k,priv,_)) <- S.toList . noEqFunSyms  $ msig
         , NoEq o `S.notMember` (implicitFunSig `S.union` dhMultFunSig), k > 0 || priv==Private]

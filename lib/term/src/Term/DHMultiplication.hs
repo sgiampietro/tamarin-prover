@@ -198,6 +198,7 @@ rootIndKnown b nb t@(viewTerm2 -> FdhGinv dht) = (FAPP (DHMult dhGinvSym) [fst $
 rootIndKnown b nb t@(viewTerm2 -> FdhTimes t1 t2) = (FAPP (DHMult dhTimesSym) [fst $ rootIndKnown b nb t1, fst $ rootIndKnown b nb t2], [] )
 rootIndKnown b nb t@(viewTerm2 -> FdhTimes2 t1 t2) = (FAPP (DHMult dhTimes2Sym) [fst $ rootIndKnown b nb t1, fst $ rootIndKnown b nb t2], [] )
 rootIndKnown b nb t@(viewTerm2 -> FdhMu t1) = (FAPP (DHMult dhOneSym) [], [])
+rootIndKnown b nb t@(viewTerm2 -> FdhBox (LIT a)) = (t, [])
 rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Var t1)))
   | S.member t nb = (FAPP (DHMult dhOneSym) [], [])
   | S.member t b = (t, [])
@@ -206,7 +207,7 @@ rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Con t1))) = (t, [])
 rootIndKnown b nb t@(viewTerm2 -> Lit2 (Var t1))
   | S.member t nb = (FAPP (DHMult dhOneSym) [], [])
   | S.member t b = (t, [])
-  | otherwise = error "not computable indicator"
+  | otherwise  = (t, [])
 rootIndKnown b nb t@(viewTerm2 -> DHZero) = (FAPP (DHMult dhOneSym) [], [])
 rootIndKnown b nb t@(viewTerm2 -> DHOne) = (FAPP (DHMult dhOneSym) [], [])
 rootIndKnown b nb _ = error "rootSet applied on non DH term'"

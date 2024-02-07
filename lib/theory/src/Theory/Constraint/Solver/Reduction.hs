@@ -222,7 +222,7 @@ insertFreshNodeConc rules = do
 insertFreshNodeConcOut :: [RuleAC] -> Reduction (RuleACInst, NodeConc, LNFact)
 insertFreshNodeConcOut rules = do
     (i, ru) <- insertFreshNode rules Nothing
-    (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru, factTag f == OutFact]
+    (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru, (factTag f == OutFact || factTag f == KdhFact) ]
     return (ru, (i, v), fa)
 
 -- | Insert a fresh rule node labelled with a fresh instance of one of the rules
