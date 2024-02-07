@@ -376,7 +376,7 @@ unifyViaMaudeDH hnd sortOf eqs =
     msig = mhMaudeSig hnd
     toMaude          = fmap unifyCmdDH . mapM (traverse (lTermToMTerm sortOf))
     fromMaude bindings reply =
-        map (msubstToLSubstVFresh bindings) <$> parseUnifyReply msig reply
+        map (msubstToLSubstVFresh bindings) <$> parseUnifyDHReply msig reply
     incUnifCount mp  = mp { unifCount = 1 + unifCount mp }
 
 normCmdDH :: MTerm -> ByteString

@@ -18,6 +18,7 @@ module Term.Maude.Parser (
   , parseMatchReply
   , parseVariantsReply
   , parseReduceReply
+  , parseUnifyDHReply
   ) where
 
 import Term.LTerm
@@ -57,7 +58,7 @@ ppLSort s = case s of
     LSortG         -> "G"
     LSortE         -> "E"
     LSortNZE       -> "NZE"
-    LSortPubG       -> "PubG"
+    LSortPubG       -> "BG"
     LSortFrNZE     -> "FrNZE"
 
 ppLSortSym :: LSort -> ByteString
@@ -71,7 +72,7 @@ ppLSortSym lsort = case lsort of
     LSortG         -> "g"
     LSortE         -> "e"
     LSortNZE       -> "nze"
-    LSortPubG       -> "pubg"
+    LSortPubG       -> "bg"
     LSortFrNZE     -> "fnze"
 
 parseLSortSym :: ByteString -> Maybe LSort
@@ -85,7 +86,7 @@ parseLSortSym s = case s of
     "g"   -> Just LSortG     
     "e"  ->  Just LSortE        
     "nze"  -> Just LSortNZE   
-    "pubg"   -> Just  LSortPubG    
+    "bg"   -> Just  LSortPubG    
     "fnze"  -> Just LSortFrNZE   
     _    -> Nothing
 
@@ -162,7 +163,9 @@ ppMaudeNoEqSym :: NoEqSym -> ByteString
 ppMaudeNoEqSym (o,(_,prv,cnstr))  = funSymPrefix <> funSymEncodeAttr prv cnstr <> replaceUnderscore o
 
 ppMaudeDHMultSym :: DHMultSym -> ByteString
-ppMaudeDHMultSym (o,(_,prv,cnstr))  = funSymPrefix <> funSymEncodeAttr prv cnstr <> replaceUnderscore o
+ppMaudeDHMultSym (o,(_,prv,cnstr))  = replaceUnderscore o
+--ppMaudeDHMultSym (o,(_,prv,cnstr))  = funSymPrefix <> funSymEncodeAttr prv cnstr <> replaceUnderscore o
+
 
 -- | Pretty print a C symbol for Maude.
 ppMaudeCSym :: CSym -> ByteString
@@ -243,18 +246,18 @@ ppTheory msig = BC.unlines $
     ++
     (if enableDHMult msig
        then
-        [ "sort DH G E NZE PubG FrNZE ."
+        [ "sort DH G E NZE BG FrNZE ."
         , "  subsort G < DH ."
         , "  subsort E < DH ."
         , "  subsort NZE < E ."
         , "  subsort FrNZE < NZE ."
-        , "  subsort PubG < G ."
+        , "  subsort BG < G ."
         , "  subsort DH < TOP ."
         , "  op dh : Nat -> DH ."
         , "  op g : Nat -> G ."
         , "  op e : Nat -> E ."
         , "  op nze : Nat -> NZE ."
-        , "  op pubg : Nat -> PubG ."
+        , "  op Bg : Nat -> BG ."
         , "  op fnze : Nat -> FrNZE ."
         , theoryOpEq "dhMult : G G -> G"
         , theoryOpEq "dhGinv : G -> G"
@@ -334,6 +337,36 @@ parseVariantsReply msig reply = flip parseOnly reply $ do
     parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
                      <*> (string " --> " *> parseTerm msig <* endOfLine)
 
+
+parseUnifyDHReply :: MaudeSig -> ByteString -> Either String [MSubst]
+parseUnifyDHReply msig reply = flip parseOnly reply $
+     endOfLine *> choice [ string "No unifiers." <* endOfLine <* string "rewrites: "
+              <* takeWhile1 isDigit <* endOfLine *> pure []
+           , many1 (parseUnifier) <* (string "No more unifiers.")
+            <* endOfLine <* string "rewrites: "
+            <* takeWhile1 isDigit <* endOfLine ] 
+      <* endOfInput
+              where
+                    parseUnifier = string "Unifier " *> optional (char '#') *> takeWhile1 isDigit *> endOfLine *>
+                                    string "rewrites: " *> takeWhile1 isDigit *> endOfLine *>
+                                    manyTill parseEntry endOfLine
+                    parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
+                                    <*> (string " --> " *> parseTerm msig <* endOfLine)
+
+
+parseUnifyDHReplyY :: MaudeSig -> ByteString -> Either String [MSubst]
+parseUnifyDHReplyY msig reply = flip parseOnly reply $ do
+            endOfLine *> many1 parseUnifier <* (string "No more unifiers.")
+            <* endOfLine <* string "rewrites: "
+            <* takeWhile1 isDigit <* endOfLine <* endOfInput
+                where
+                    parseUnifier = string "Unifier " *> optional (char '#') *> takeWhile1 isDigit *> endOfLine *>
+                                    string "rewrites: " *> takeWhile1 isDigit *> endOfLine *>
+                                    manyTill parseEntry endOfLine
+                    parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
+                                    <*> (string " --> " *> parseTerm msig <* endOfLine)
+
+
 -- | @parseSubstitution l@ parses a single substitution returned by Maude.
 parseSubstitution :: MaudeSig -> Parser MSubst
 parseSubstitution msig = do
@@ -360,7 +393,7 @@ parseSort =  string "Pub"      *> return LSortPub
          <|> string "G"       *> return LSortG
          <|> string "E"       *> return LSortE
          <|> string "NZE"       *> return LSortNZE
-         <|> string "PubG"       *> return LSortPubG
+         <|> string "BG"       *> return LSortPubG
          <|> string "FrNZE"       *> return LSortFrNZE
          <|> string "M"        *> -- FIXME: why?
                (    string "sg"  *> return LSortMsg )
@@ -440,12 +473,12 @@ parseTerm msig = choice
 ppTheoryDHsimp ::  ByteString
 ppTheoryDHsimp = BC.unlines $
       [ "fmod DHsimp is"
-      , "sort DH G E NZE PubG FrNZE ."
+      , "sort DH G E NZE BG FrNZE ."
       , "subsort G < DH ."
       , "subsort E < DH ."
       , "subsort NZE < E ."
       , "subsort FrNZE < NZE ."
-      , "subsort PubG < G ."
+      , "subsort BG < G ."
       , "op dhGinv : G -> G ."
       , "op dhZero : -> E ."
       , "op dhInv : NZE -> NZE ."
@@ -455,6 +488,8 @@ ppTheoryDHsimp = BC.unlines $
       , "op dhExp : G E -> G ."
       , "op dhOne : -> E ."
       , "op dhMu : G -> E ."
+      , "op dhBox : G -> G ." 
+      , "op dhBoxE : E -> E ."
       , "vars A B : G . "
       , "vars X Y : E ."
       , "vars U V W : NZE ."

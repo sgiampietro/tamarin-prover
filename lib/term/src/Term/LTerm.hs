@@ -387,8 +387,8 @@ sortOfLTerm sortOfConst t = case viewTerm2 t of
     FdhTimes _ _ -> LSortE
     FdhPlus _ _ -> LSortE
     FdhMu _ -> LSortG
-    FdhBox _ -> LSortMsg
-    FdhBoxE _ -> LSortMsg
+    FdhBox _ -> LSortG
+    FdhBoxE _ -> LSortE
     _             -> LSortMsg
 
 -- | Returns the most precise sort of an 'LNTerm'.

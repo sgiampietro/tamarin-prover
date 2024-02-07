@@ -247,16 +247,35 @@ solveAction rules (i, fa@(Fact _ ann _)) =trace (show ("SEARCHING", fa, "END")) 
                             let ru = Rule (IntrInfo (ConstrRule $ BC.pack "_xor")) [(kuFact a),(kuFact b)] [fa] [fa] []
                             modM sNodes (M.insert i ru)
                             mapM_ requiresKU [a, b] *> return ru
+            (Fact _ _ [m@(viewTerm3 -> Box ts)]) -> do
+                   ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
+                   act <- disjunctionOfList $ get rActs ru
+                   (void (solveActionFactDHEqs SplitNow (Equal fa act)))
+                   return ru
+            (Fact _ _ [m@(viewTerm3 -> BoxE ts)]) -> do
+                   ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
+                   act <- disjunctionOfList $ get rActs ru
+                   (void (solveActionFactDHEqs SplitNow (Equal fa act)))
+                   return ru 
             _                                        -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList $ get rActs ru
-                   trace (show ("CANDIDATE", act, "END", "RULES:", ru)) (void (solveFactEqs SplitNow [Equal fa act]))
+                   (void (solveFactEqs SplitNow [Equal fa act]))
                    return ru
 
-        Just ru -> do unless (fa `elem` get rActs ru) $ do
-                          act <- disjunctionOfList $ get rActs ru
-                          trace (show ("CANDIDATE2", act, "END2", "RULES2:", ru)) (void (solveFactEqs SplitNow [Equal fa act]))
-                      return ru)
+        Just ru ->  case fa of 
+            (Fact _ _ [m@(viewTerm3 -> Box ts)]) -> do  unless (fa `elem` get rActs ru) $ do
+                                                          act <- disjunctionOfList $ get rActs ru
+                                                          (void (solveActionFactDHEqs SplitNow (Equal fa act)))
+                                                        return ru
+            (Fact _ _ [m@(viewTerm3 -> BoxE ts)]) -> do unless (fa `elem` get rActs ru) $ do
+                                                          act <- disjunctionOfList $ get rActs ru
+                                                          (void (solveActionFactDHEqs SplitNow (Equal fa act)))
+                                                        return ru  
+            _                                     -> do unless (fa `elem` get rActs ru) $ do 
+                                                          act <- disjunctionOfList $ get rActs ru
+                                                          (void (solveFactEqs SplitNow [Equal fa act]))
+                                                        return ru)
   where
     -- If the fact in the action goal has annotations, then consider annotated
     -- versions of intruder rules (this allows high or low priority intruder knowledge

@@ -20,6 +20,7 @@ module Term.DHMultiplication (
   , rootIndKnown
   , rootIndUnknown
   , eTermsOf
+  , isNoCanc
 
 
   --, rootIndicator
@@ -206,13 +207,20 @@ rootIndKnown b nb t@(viewTerm2 -> Lit2 (Var t1))
   | S.member t nb = (FAPP (DHMult dhOneSym) [], [])
   | S.member t b = (t, [])
   | otherwise = error "not computable indicator"
-rootIndKnown b nb t@(viewTerm2 -> Lit2 (Con c)) = (t, [])
+rootIndKnown b nb t@(viewTerm2 -> DHZero) = (FAPP (DHMult dhOneSym) [], [])
+rootIndKnown b nb t@(viewTerm2 -> DHOne) = (FAPP (DHMult dhOneSym) [], [])
 rootIndKnown b nb _ = error "rootSet applied on non DH term'"
 
 rootIndUnknown :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> (LNTerm, [(LVar, VTerm Name LVar)])
 rootIndUnknown n nb t = ( LIT (Var newv), [(newv, t)])
     where newv = getNewSimilarVar (LVar "t" LSortG 0) tvars
           tvars =  varsVTerm t
+
+
+isNoCanc :: LNTerm -> LNTerm -> Bool
+isNoCanc t1 t2 = case viewTerm2 t1 of 
+        DHOne -> True
+        _ -> False --TODO: fix this case. 
 
 
 {-

@@ -76,6 +76,7 @@ module Theory.Constraint.Solver.Reduction (
   , solveFactEqs
   , solveRuleEqs
   , solveSubstEqs
+  , solveActionFactDHEqs
 
   -- ** Conjunction with another constraint 'System'
   , conjoinSystem
@@ -215,14 +216,14 @@ getVerbose = askM pcVerbose
 insertFreshNodeConc :: [RuleAC] -> Reduction (RuleACInst, NodeConc, LNFact)
 insertFreshNodeConc rules = do
     (i, ru) <- insertFreshNode rules Nothing
-    (v, fa) <- disjunctionOfList $ enumConcs ru
+    (v, fa) <- disjunctionOfList $  enumConcs ru
     return (ru, (i, v), fa)
 
 insertFreshNodeConcOut :: [RuleAC] -> Reduction (RuleACInst, NodeConc, LNFact)
 insertFreshNodeConcOut rules = do
     (i, ru) <- insertFreshNode rules Nothing
-    (v, fa) <- disjunctionOfList $ enumConcs ru
-    guard (factTag fa == OutFact) (return (ru, (i, v), fa))
+    (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru, factTag f == OutFact]
+    return (ru, (i, v), fa)
 
 -- | Insert a fresh rule node labelled with a fresh instance of one of the rules
 -- and solve it's 'Fr', 'In', and 'KU' premises immediately.
@@ -845,6 +846,8 @@ solveTermDHEqs splitStrat fa1 indt =
                             noContradictoryEqStore
                             return Changed    
 
+solveEqTermDHEqs :: SplitStrategy -> Equal LNTerm -> Reduction ChangeIndicator
+solveEqTermDHEqs split eq@(Equal l r) = solveTermDHEqs split l r
 
 -- | Add a list of equalities in substitution form to the equation store
 solveSubstEqs :: SplitStrategy -> LNSubst -> Reduction ChangeIndicator
@@ -880,7 +883,15 @@ solveFactDHEqs split eq@(EqInd (Equal fa1 fa2) indt1 t1) = do
             (solveTermDHEqs split outterm indt1)
         _ -> error "incorrect factTerm called"
 
-
+-- t1 here is the result of factTerms fa2, and indt1 the indicator of one product term of t1. 
+solveActionFactDHEqs :: SplitStrategy -> Equal LNFact -> Reduction ChangeIndicator
+solveActionFactDHEqs split eq@(Equal fa1 fa2) = do
+    contradictoryIf (not (factTag fa1 == factTag fa2) )
+    contradictoryIf (not $ evalEqual $ (fmap length) eq1)
+    (solveListDHEqs (solveEqTermDHEqs split) $ flatten eq1)
+        where 
+            eq1 = ((fmap factTerms) eq)
+            flatten (Equal l r) = zipWith Equal l r
 
 -- | Add a list of rule equalities to the equation store, if possible.
 solveRuleEqs :: SplitStrategy -> [Equal RuleACInst] -> Reduction ChangeIndicator
@@ -900,6 +911,14 @@ solveListEqs solver eqs = do
     flatten (Equal l r) = zipWith Equal l r
     -- on RHS "Equal" is a function that from two lists of terms, returns the list of pair of Equal of terms.
 
+solveListDHEqs :: (Equal a -> Reduction b) -> [(Equal a)] -> Reduction b
+solveListDHEqs solver eqs = do
+    case eqs of 
+        [a] -> solver a
+        (a : as) -> do
+            solver a
+            solveListDHEqs solver as 
+    -- on RHS "Equal" 
 
 -- | Solve a number of equalities between lists interpreted as free terms
 -- using the given solver for solving the entailed per-element equalities.

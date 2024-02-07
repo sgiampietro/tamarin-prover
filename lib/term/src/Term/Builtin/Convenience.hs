@@ -81,6 +81,8 @@ y9 = var "y" 9
 freshVar :: String -> Integer -> LNTerm
 freshVar s i = varTerm $ LVar s LSortFresh i
 
+
+
 fx0,fx1,fx2,fx3,fx4,fx5,fx6,fx7,fx8,fx9,fx10 :: LNTerm
 fx0  = freshVar "fx" 0
 fx1  = freshVar "fx" 1

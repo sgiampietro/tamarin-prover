@@ -68,7 +68,7 @@ import           Control.Monad.Reader
 import           Extension.Prelude
 import           Utils.Misc
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Control.Basics
 import           Control.DeepSeq
@@ -228,9 +228,9 @@ addEqs hnd eqs0 eqStore =
     --trace ("DEBUG-ADDEQS:"++ show eqs) 
     (case unifyLNTermFactored eqs `runReader` hnd of
         (_, []) ->
-            trace ("NOT UNIFIABLE:"++ show eqs)  (return (set eqsConj falseEqConstrConj eqStore, Nothing))
+            (return (set eqsConj falseEqConstrConj eqStore, Nothing))
         (subst, [substFresh]) | substFresh == emptySubstVFresh ->
-            trace (show ("UNIFIABLE", eqs)) (return (eqStore', Nothing))
+            (return (eqStore', Nothing))
               where eqStore' =(applyEqStore hnd subst eqStore)
             --return (applyEqStore hnd subst eqStore, Nothing)
         (subst, substs) -> do
@@ -600,9 +600,9 @@ addDHEqs :: MonadFresh m
 addDHEqs hnd t1 indt eqdhstore =
     case unifyLNDHTermFactored eqs `runReader` hnd of
         (_, []) ->
-            return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
+            trace (show ("NOTUNIFIABLEDH",eqs)) (return (set eqsConj falseEqConstrConj eqdhstore, Nothing))
         (subst, [substFresh]) | substFresh == emptySubstVFresh ->
-            (return (eqdhStore', Nothing)) -- TODO!! here you should add the ContainsIndicator stuff. 
+            trace (show ("UNIFIABLEDH",eqs)) (return (eqdhStore', Nothing)) -- TODO!! here you should add the ContainsIndicator stuff. 
               where eqdhStore' =(applyEqStore hnd subst eqdhstore)
         (subst, substs) -> do
             let (eqStore', sid) = addDisj (applyEqStore hnd subst eqdhstore)
