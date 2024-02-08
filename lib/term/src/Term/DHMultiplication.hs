@@ -202,12 +202,12 @@ rootIndKnown b nb t@(viewTerm2 -> FdhBox (LIT a)) = (t, [])
 rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Var t1)))
   | S.member t nb = (FAPP (DHMult dhOneSym) [], [])
   | S.member t b = (t, [])
-  | otherwise = error "not computable indicator"
+  | otherwise = "this shouldn't happen"
 rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Con t1))) = (t, [])
 rootIndKnown b nb t@(viewTerm2 -> Lit2 (Var t1))
   | S.member t nb = (FAPP (DHMult dhOneSym) [], [])
   | S.member t b = (t, [])
-  | otherwise  = (t, [])
+  | otherwise  = (t, []) -- this is a G variable
 rootIndKnown b nb t@(viewTerm2 -> DHZero) = (FAPP (DHMult dhOneSym) [], [])
 rootIndKnown b nb t@(viewTerm2 -> DHOne) = (FAPP (DHMult dhOneSym) [], [])
 rootIndKnown b nb _ = error "rootSet applied on non DH term'"

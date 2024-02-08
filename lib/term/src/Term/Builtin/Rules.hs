@@ -117,3 +117,4 @@ signatureDestRules = S.fromList [ fAppNoEq verifyDestSym [sign (x1,x2), x1, pk x
 
 dhMultRules :: Set (RRule LNTerm)
 dhMultRules = S.empty
+

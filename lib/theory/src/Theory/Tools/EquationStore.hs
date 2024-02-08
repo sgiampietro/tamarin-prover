@@ -68,7 +68,7 @@ import           Control.Monad.Reader
 import           Extension.Prelude
 import           Utils.Misc
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 
 import           Control.Basics
 import           Control.DeepSeq

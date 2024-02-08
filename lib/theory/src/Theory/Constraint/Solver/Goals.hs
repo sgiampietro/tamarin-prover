@@ -469,7 +469,7 @@ solveDHInd rules p faPrem t =  -- recall that t is
               (ru, c, faConc) <- insertFreshNodeConcOut rules -- should only search for the rules with Out facts
               -- question here: we are stor ing faConc and faPrem, while the indicator is of the TERM inside faPrem. Solve this?
               insertDHEdge (c, faConc, faPrem, p) (fst (rootIndKnown bset nbset x)) t 
-              return "done"-- $ showRuleCaseName ru
+              trace (show ("indicator of",x)) (return $ showRuleCaseName ru) -- (return "done")
       Nothing -> error "error in prodTerm function"    
 
 
