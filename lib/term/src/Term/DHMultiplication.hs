@@ -180,7 +180,7 @@ indComputable bs t = S.fromList( eTermsOf t ) `S.isSubsetOf` bs
 
 
 -- TODO: this function should actually return which indicators are needed too in the 
--- case its not computable. 
+-- case it's not computable. 
 neededexponents:: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> Maybe (S.Set LNTerm)
 neededexponents b nb t 
   | null es = Nothing
@@ -189,27 +189,27 @@ neededexponents b nb t
 
 rootIndicator :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> (LNTerm, [(LVar, VTerm Name LVar)])
 rootIndicator b nb t
-  | indComputable (b `S.union` nb) t = rootIndKnown b nb t
+  | indComputable (b `S.union` nb) t = (rootIndKnown b nb t,[])
   | otherwise = rootIndUnknown b nb t
 
-rootIndKnown :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> (LNTerm, [(LVar, VTerm Name LVar)])
-rootIndKnown b nb t@(viewTerm2 -> FdhExp t1 t2) = (FAPP (DHMult dhExpSym) [fst $ rootIndKnown b nb t1, fst $ rootIndKnown b nb t2], [] )
-rootIndKnown b nb t@(viewTerm2 -> FdhGinv dht) = (FAPP (DHMult dhGinvSym) [fst $ rootIndKnown b nb dht], [])
-rootIndKnown b nb t@(viewTerm2 -> FdhTimes t1 t2) = (FAPP (DHMult dhTimesSym) [fst $ rootIndKnown b nb t1, fst $ rootIndKnown b nb t2], [] )
-rootIndKnown b nb t@(viewTerm2 -> FdhTimes2 t1 t2) = (FAPP (DHMult dhTimes2Sym) [fst $ rootIndKnown b nb t1, fst $ rootIndKnown b nb t2], [] )
-rootIndKnown b nb t@(viewTerm2 -> FdhMu t1) = (FAPP (DHMult dhOneSym) [], [])
-rootIndKnown b nb t@(viewTerm2 -> FdhBox (LIT a)) = (t, [])
+rootIndKnown :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> LNTerm
+rootIndKnown b nb t@(viewTerm2 -> FdhExp t1 t2) = (FAPP (DHMult dhExpSym) [ rootIndKnown b nb t1, rootIndKnown b nb t2])
+rootIndKnown b nb t@(viewTerm2 -> FdhGinv dht) = (FAPP (DHMult dhGinvSym) [rootIndKnown b nb dht])
+rootIndKnown b nb t@(viewTerm2 -> FdhTimes t1 t2) = (FAPP (DHMult dhTimesSym) [rootIndKnown b nb t1, rootIndKnown b nb t2] )
+rootIndKnown b nb t@(viewTerm2 -> FdhTimes2 t1 t2) = (FAPP (DHMult dhTimes2Sym) [rootIndKnown b nb t1, rootIndKnown b nb t2])
+rootIndKnown b nb t@(viewTerm2 -> FdhMu t1) = (FAPP (DHMult dhOneSym) [])
+rootIndKnown b nb t@(viewTerm2 -> FdhBox (LIT a)) = (t)
 rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Var t1)))
-  | S.member t nb = (FAPP (DHMult dhOneSym) [], [])
-  | S.member t b = (t, [])
-  | otherwise = "this shouldn't happen"
-rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Con t1))) = (t, [])
+  | S.member t nb = (FAPP (DHMult dhOneSym) [])
+  | S.member t b = (t)
+  | otherwise = error "this shouldn't happen"
+rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Con t1))) = (t)
 rootIndKnown b nb t@(viewTerm2 -> Lit2 (Var t1))
-  | S.member t nb = (FAPP (DHMult dhOneSym) [], [])
-  | S.member t b = (t, [])
-  | otherwise  = (t, []) -- this is a G variable
-rootIndKnown b nb t@(viewTerm2 -> DHZero) = (FAPP (DHMult dhOneSym) [], [])
-rootIndKnown b nb t@(viewTerm2 -> DHOne) = (FAPP (DHMult dhOneSym) [], [])
+  | S.member t nb = (FAPP (DHMult dhOneSym) [])
+  | S.member t b = (t)
+  | otherwise  = (t) -- this is a G variable
+rootIndKnown b nb t@(viewTerm2 -> DHZero) = (FAPP (DHMult dhOneSym) [])
+rootIndKnown b nb t@(viewTerm2 -> DHOne) = (FAPP (DHMult dhOneSym) [])
 rootIndKnown b nb _ = error "rootSet applied on non DH term'"
 
 rootIndUnknown :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> (LNTerm, [(LVar, VTerm Name LVar)])

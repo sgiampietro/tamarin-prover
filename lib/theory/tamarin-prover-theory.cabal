@@ -128,6 +128,7 @@ library
       Theory.Tools.RuleVariants
       Theory.Tools.SubtermStore
       Theory.Tools.Wellformedness
+      Theory.Tools.DHActionFacts
       TheoryObject
       Lemma
       OpenTheory

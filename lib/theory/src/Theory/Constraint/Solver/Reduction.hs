@@ -117,6 +117,7 @@ import           Theory.Constraint.System
 import           Theory.Model
 import           Utils.Misc
 import           Term.DHMultiplication
+import           Theory.Tools.DHActionFacts
 
 ------------------------------------------------------------------------------
 -- The constraint reduction monad
@@ -846,8 +847,14 @@ solveTermDHEqs splitStrat fa1 indt =
                             noContradictoryEqStore
                             return Changed    
 
-solveEqTermDHEqs :: SplitStrategy -> Equal LNTerm -> Reduction ChangeIndicator
-solveEqTermDHEqs split eq@(Equal l r) = solveTermDHEqs split l r
+solveIndEqTermDHEqs :: SplitStrategy-> (S.Set LNTerm) -> (S.Set LNTerm) -> Equal LNTerm  -> Reduction ChangeIndicator
+solveIndEqTermDHEqs split b nb  eq@(Equal l r) = case prodTerms r of
+    Just (rx,ry) -> do
+        insertNoCanc rx ry
+        targetterm <- disjunctionOfList (multRootList l)
+        solveTermDHEqs split targetterm (rootIndKnown b nb rx)
+    Nothing -> error "shouldn't happen"
+        
 
 -- | Add a list of equalities in substitution form to the equation store
 solveSubstEqs :: SplitStrategy -> LNSubst -> Reduction ChangeIndicator
@@ -884,14 +891,16 @@ solveFactDHEqs split eq@(EqInd (Equal fa1 fa2) indt1 t1) = do
         _ -> error "incorrect factTerm called"
 
 -- t1 here is the result of factTerms fa2, and indt1 the indicator of one product term of t1. 
-solveActionFactDHEqs :: SplitStrategy -> Equal LNFact -> Reduction ChangeIndicator
-solveActionFactDHEqs split eq@(Equal fa1 fa2) = do
+solveActionFactDHEqs :: SplitStrategy -> Equal LNFact -> RuleACInst -> Reduction ChangeIndicator
+solveActionFactDHEqs split eq@(Equal fa1 fa2) ru = do
     contradictoryIf (not (factTag fa1 == factTag fa2) )
     contradictoryIf (not $ evalEqual $ (fmap length) eq1)
-    (solveListDHEqs (solveEqTermDHEqs split) $ flatten eq1)
+    (solveListDHEqs (solveIndEqTermDHEqs split b nb) $ flatten eq1)
         where 
             eq1 = ((fmap factTerms) eq)
             flatten (Equal l r) = zipWith Equal l r
+            b = S.fromList $ basisOfRule ru
+            nb = S.fromList $ notBasisOfRule ru
 
 -- | Add a list of rule equalities to the equation store, if possible.
 solveRuleEqs :: SplitStrategy -> [Equal RuleACInst] -> Reduction ChangeIndicator

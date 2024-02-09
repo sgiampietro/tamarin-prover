@@ -225,6 +225,9 @@ solveGoal goal = do
 -- The following functions are internal to 'solveGoal'. Use them with great
 -- care.
 
+solveProtoAction :: RuleACInst ->  Reduction String 
+solveProtoAction ru (i, fa) = return "TODO"
+
 -- | CR-rule *S_at*: solve an action goal.
 solveAction :: [RuleAC]          -- ^ All rules labelled with an action
             -> (NodeId, LNFact)  -- ^ The action we are looking for.
@@ -247,16 +250,10 @@ solveAction rules (i, fa@(Fact _ ann _)) =trace (show ("SEARCHING", fa, "END")) 
                             let ru = Rule (IntrInfo (ConstrRule $ BC.pack "_xor")) [(kuFact a),(kuFact b)] [fa] [fa] []
                             modM sNodes (M.insert i ru)
                             mapM_ requiresKU [a, b] *> return ru
-            (Fact _ _ [m@(viewTerm3 -> Box ts)]) -> do
-                   ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
-                   act <- disjunctionOfList $ get rActs ru
-                   (void (solveActionFactDHEqs SplitNow (Equal fa act)))
-                   return ru
-            (Fact _ _ [m@(viewTerm3 -> BoxE ts)]) -> do
-                   ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
-                   act <- disjunctionOfList $ get rActs ru
-                   (void (solveActionFactDHEqs SplitNow (Equal fa act)))
-                   return ru 
+            (Fact (ProtoFact n s i) _ [m@(viewTerm3 -> Box ts)]) -> solveProto
+            (Fact (ProtoFact n s i) _ [m@(viewTerm3 -> BoxE ts)]) -> solveProto
+            (Fact _ _ [m@(viewTerm3 -> Box ts)]) -> solveKUAction
+            (Fact _ _ [m@(viewTerm3 -> BoxE ts)]) -> solveKUAction
             _                                        -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList $ get rActs ru
@@ -264,14 +261,10 @@ solveAction rules (i, fa@(Fact _ ann _)) =trace (show ("SEARCHING", fa, "END")) 
                    return ru
 
         Just ru ->  case fa of 
-            (Fact _ _ [m@(viewTerm3 -> Box ts)]) -> do  unless (fa `elem` get rActs ru) $ do
-                                                          act <- disjunctionOfList $ get rActs ru
-                                                          (void (solveActionFactDHEqs SplitNow (Equal fa act)))
-                                                        return ru
-            (Fact _ _ [m@(viewTerm3 -> BoxE ts)]) -> do unless (fa `elem` get rActs ru) $ do
-                                                          act <- disjunctionOfList $ get rActs ru
-                                                          (void (solveActionFactDHEqs SplitNow (Equal fa act)))
-                                                        return ru  
+            (Fact (ProtoFact n s i) _ [m@(viewTerm3 -> Box ts)]) -> solveProtoAction ru
+            (Fact (ProtoFact n s i) _ [m@(viewTerm3 -> BoxE ts)]) -> solveProtoAction ru
+            (Fact _ _ [m@(viewTerm3 -> Box ts)]) -> solveKU ru
+            (Fact _ _ [m@(viewTerm3 -> BoxE ts)]) -> solveKU ru
             _                                     -> do unless (fa `elem` get rActs ru) $ do 
                                                           act <- disjunctionOfList $ get rActs ru
                                                           (void (solveFactEqs SplitNow [Equal fa act]))
@@ -289,6 +282,19 @@ solveAction rules (i, fa@(Fact _ ann _)) =trace (show ("SEARCHING", fa, "END")) 
         let faKU = kuFact t
         insertLess j i Adversary
         void (insertAction j faKU)
+    solveKUAction = do
+                   ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
+                   act <- disjunctionOfList $ get rActs ru
+                   (void (solveActionFactDHEqs SplitNow (Equal fa act) ru)) -- TODO: this is not dealing with indicators for now!!
+                   return ru
+    solveKU ruk =  do unless (fa `elem` get rActs ruk) $ do
+                            act <- disjunctionOfList $ get rActs ruk
+                            (void (solveActionFactDHEqs SplitNow (Equal fa act) ruk)) -- TODO: this is not dealing with indicators for now!!
+                      return ruk
+    solveProto = do
+                   ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
+                   act <- disjunctionOfList $ get rActs ru
+                   solveProtoAction ru
 
 -- | CR-rules *DG_{2,P}* and *DG_{2,d}*: solve a premise with a direct edge
 -- from a unifying conclusion or using a destruction chain.
@@ -468,7 +474,7 @@ solveDHInd rules p faPrem t =  -- recall that t is
               --return "TODO"
               (ru, c, faConc) <- insertFreshNodeConcOut rules -- should only search for the rules with Out facts
               -- question here: we are stor ing faConc and faPrem, while the indicator is of the TERM inside faPrem. Solve this?
-              insertDHEdge (c, faConc, faPrem, p) (fst (rootIndKnown bset nbset x)) t 
+              insertDHEdge (c, faConc, faPrem, p) (rootIndKnown bset nbset x) t 
               trace (show ("indicator of",x)) (return $ showRuleCaseName ru) -- (return "done")
       Nothing -> error "error in prodTerm function"    
 

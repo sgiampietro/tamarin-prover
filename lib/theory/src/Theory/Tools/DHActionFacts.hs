@@ -18,14 +18,14 @@
 --
 -- Support for reasoning with and about disjunctions of substitutions.
 module Theory.Tools.DHActionFacts (
-
-  , basisOfRule
+  basisOfRule
   , notBasisOfRule
  
 ) where
 
 import           Term.Unification
 import           Term.LTerm
+import           Term.DHMultiplication
 import           Theory.Text.Pretty
 import           Theory.Model.Rule
 import           Theory.Model
@@ -59,7 +59,7 @@ basisOfRule :: Rule i -> [LNTerm]
 basisOfRule ru = concatMap eTermsOf (enumInTerms ru)
 
 notBasisOfRule :: Rule i -> [LNTerm]
-notbasisOfRule ru = concatMap eTermsOf (enumNotInTerms ru)
+notBasisOfRule ru = concatMap eTermsOf (enumNotInTerms ru)
 
 enumInTerms :: Rule i -> [LNTerm]
 enumInTerms ru = concat [ factTerms fa  | (i,fa) <- enumPrems ru, factTag fa == InFact ]
