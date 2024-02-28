@@ -225,8 +225,8 @@ solveGoal goal = do
 -- The following functions are internal to 'solveGoal'. Use them with great
 -- care.
 
-solveProtoAction :: RuleACInst ->  Reduction String 
-solveProtoAction ru (i, fa) = return "TODO"
+solveProtoAction :: RuleACInst ->  Reduction RuleACInst 
+solveProtoAction ru = return ru
 
 -- | CR-rule *S_at*: solve an action goal.
 solveAction :: [RuleAC]          -- ^ All rules labelled with an action
@@ -285,11 +285,11 @@ solveAction rules (i, fa@(Fact _ ann _)) =trace (show ("SEARCHING", fa, "END")) 
     solveKUAction = do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList $ get rActs ru
-                   (void (solveActionFactDHEqs SplitNow (Equal fa act) ru)) -- TODO: this is not dealing with indicators for now!!
+                   (void (solveActionFactDHEqs SplitNow (Equal fa act) ru)) 
                    return ru
     solveKU ruk =  do unless (fa `elem` get rActs ruk) $ do
                             act <- disjunctionOfList $ get rActs ruk
-                            (void (solveActionFactDHEqs SplitNow (Equal fa act) ruk)) -- TODO: this is not dealing with indicators for now!!
+                            (void (solveActionFactDHEqs SplitNow (Equal fa act) ruk)) 
                       return ruk
     solveProto = do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing

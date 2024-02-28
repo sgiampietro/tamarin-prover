@@ -22,6 +22,7 @@ module Theory.Constraint.System.Constraints (
   , NodeConc
   , Edge(..)
   , NoCanc(..)
+  , ContInd(..)
   , Reason(..)
   , Less
 
@@ -118,6 +119,9 @@ instance HasFrees Edge where
 ------------------------------------------------------------------------------
 
 type NoCanc = (LNTerm, LNTerm)
+   -- deriving (Show, Ord, Eq, Data, Typeable, Generic, NFData, Binary)
+
+type ContInd = (LNTerm, LNTerm)
    -- deriving (Show, Ord, Eq, Data, Typeable, Generic, NFData, Binary)
 
 

@@ -847,13 +847,38 @@ solveTermDHEqs splitStrat fa1 indt =
                             noContradictoryEqStore
                             return Changed    
 
+
+solveActionTermDHEqs :: SplitStrategy -> LNTerm -> LNTerm -> LNTerm -> Reduction ChangeIndicator
+solveActionTermDHEqs splitStrat fa1 indt targetterm=
+        case (fa1 == indt) of
+                    True  -> do return Unchanged
+                    False -> do
+                            hnd <- getMaudeHandleDH 
+                            se  <- gets id
+                            (eqs2, maySplitId) <- addDHEqs hnd fa1 indt =<< getM sEqStore -- check if here you want to add only the equation containing terms, or the entire EqInd facts. 
+                            setM sEqStore
+                                =<< simp hnd (substCreatesNonNormalTerms hnd se)
+                                =<< case (maySplitId, splitStrat) of
+                                        (Just splitId, SplitNow) -> disjunctionOfList
+                                                                        $ fromJustNote "solveTermEqs"
+                                                                        $ performSplit eqs2 splitId
+                                        (Just splitId, SplitLater) -> do
+                                                    insertGoal (SplitG splitId) False
+                                                    return eqs2
+                                        _                        -> return eqs2
+                            insertContainsIndicator fa1 indt targetterm
+                            noContradictoryEqStore
+                            return Changed                                
+
 solveIndEqTermDHEqs :: SplitStrategy-> (S.Set LNTerm) -> (S.Set LNTerm) -> Equal LNTerm  -> Reduction ChangeIndicator
-solveIndEqTermDHEqs split b nb  eq@(Equal l r) = case prodTerms r of
-    Just (rx,ry) -> do
-        insertNoCanc rx ry
-        targetterm <- disjunctionOfList (multRootList l)
-        solveTermDHEqs split targetterm (rootIndKnown b nb rx)
-    Nothing -> error "shouldn't happen"
+solveIndEqTermDHEqs split b nb  eq@(Equal l r) = do
+    lhs <- disjunctionOfList (multRootList l) -- TODO: this should actually be a CONJUNCTION!
+        case prodTerms lhs of
+        Just (lx,ly) -> do
+            insertNoCanc lx ly
+            targetterm <- disjunctionOfList (multRootList r)
+            solveActionTermDHEqs split (rootIndKnown b nb targetterm) (rootIndKnown b nb lx) r
+        Nothing -> error "shouldn't happen"
         
 
 -- | Add a list of equalities in substitution form to the equation store
@@ -890,7 +915,7 @@ solveFactDHEqs split eq@(EqInd (Equal fa1 fa2) indt1 t1) = do
             (solveTermDHEqs split outterm indt1)
         _ -> error "incorrect factTerm called"
 
--- t1 here is the result of factTerms fa2, and indt1 the indicator of one product term of t1. 
+-- need to take care of indicators here. Trying to do this in the "solveIndEqTermDHEqs" function. 
 solveActionFactDHEqs :: SplitStrategy -> Equal LNFact -> RuleACInst -> Reduction ChangeIndicator
 solveActionFactDHEqs split eq@(Equal fa1 fa2) ru = do
     contradictoryIf (not (factTag fa1 == factTag fa2) )

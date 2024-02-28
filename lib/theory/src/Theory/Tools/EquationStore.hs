@@ -600,9 +600,9 @@ addDHEqs :: MonadFresh m
 addDHEqs hnd t1 indt eqdhstore =
     case unifyLNDHTermFactored eqs `runReader` hnd of
         (_, []) ->
-            trace (show ("NOTUNIFIABLEDH",eqs)) (return (set eqsConj falseEqConstrConj eqdhstore, Nothing))
+            (return (set eqsConj falseEqConstrConj eqdhstore, Nothing))
         (subst, [substFresh]) | substFresh == emptySubstVFresh ->
-            trace (show ("UNIFIABLEDH",eqs)) (return (eqdhStore', Nothing)) -- TODO!! here you should add the ContainsIndicator stuff. 
+            (return (eqdhStore', Nothing)) -- TODO!! here you should add the ContainsIndicator stuff. 
               where eqdhStore' =(applyEqStore hnd subst eqdhstore)
         (subst, substs) -> do
             let (eqStore', sid) = addDisj (applyEqStore hnd subst eqdhstore)

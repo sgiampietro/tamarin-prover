@@ -398,6 +398,7 @@ data System = System
     , _sNextGoalNr     :: Integer
     , _sSourceKind     :: SourceKind
     , _sDiffSystem     :: Bool
+    , _sContainsInd    :: S.Set ContInd
     }
     -- NOTE: Don't forget to update 'substSystem' in
     -- "Constraint.Solver.Reduction" when adding further fields to the
