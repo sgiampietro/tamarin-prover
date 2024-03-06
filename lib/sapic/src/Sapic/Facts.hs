@@ -276,6 +276,10 @@ isFrFact :: Fact t -> Bool
 isFrFact (Fact FreshFact _ _) = True
 isFrFact _                 = False
 
+isFrDHFact :: Fact t -> Bool
+isFrDHFact (Fact FreshDHFact _ _) = True
+isFrDHFact _                 = False
+
 
 isLetFact :: Fact LNTerm -> Bool
 isLetFact (Fact (ProtoFact _ name _) _ _) =

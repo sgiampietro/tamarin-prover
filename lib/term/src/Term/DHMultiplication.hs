@@ -219,9 +219,11 @@ rootIndUnknown n nb t = ( LIT (Var newv), [(newv, t)])
 
 
 isNoCanc :: LNTerm -> LNTerm -> Bool
-isNoCanc t1 t2 = case viewTerm2 t1 of 
+isNoCanc t1 t2 = case viewTerm2 t2 of 
         DHOne -> True
-        _ -> False --TODO: fix this case. 
+        _ -> (case viewTerm2 t1 of --TODO: fix this case. 
+              DHOne -> True
+              _ -> False) 
 
 
 {-

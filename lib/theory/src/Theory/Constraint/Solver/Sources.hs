@@ -395,10 +395,11 @@ precomputeSources parameters ctxt restrictions =
       . map (filter (`elem` '_' : ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9']))
 
     rawSources =
-        (initialSource ctxt restrictions <$> (protoGoals ++ msgGoals))
+        (initialSource ctxt restrictions <$> (protoGoals ++ msgGoals ++ protoDHGoals))
 
     -- construct source starting from facts from non-special rules
     protoGoals = someProtoGoal <$> absProtoFacts
+    protoDHGoals = someProtoDHGoal <$> absProtoFacts
     msgGoals   = someKUGoal <$> absMsgFacts
 
     getProtoFact (Fact KUFact _ _ ) = mzero
@@ -409,7 +410,7 @@ precomputeSources parameters ctxt restrictions =
     absFact (Fact tag _ ts) = (tag, length ts)
 
     nMsgVars n = [ varTerm (LVar "t" LSortMsg i) | i <- [1..fromIntegral n] ]
-    --nGEVars n =  [ varTerm (LVar "t" LSortDH i) | i <- [1..fromIntegral n] ]
+    nGEVars n =  [ varTerm (LVar "t" LSortDH i) | i <- [1..fromIntegral n] ]
     
     --nDHVars:: NoEqSym -> [VTerm c0 LVar]
     --nDHVars o@(dhBoxSymString,_) = [ varTerm (LVar "g" LSortG 1) ]
@@ -418,6 +419,12 @@ precomputeSources parameters ctxt restrictions =
     someProtoGoal :: (FactTag, Int) -> Goal
     someProtoGoal (tag, arity) =
         PremiseG (someNodeId, PremIdx 0) (Fact tag S.empty (nMsgVars arity))
+
+
+    someProtoDHGoal :: (FactTag, Int) -> Goal
+    someProtoDHGoal (tag, arity) =
+        PremiseG (someNodeId, PremIdx 0) (Fact tag S.empty (nGEVars arity))
+
 
     someKUGoal :: LNTerm -> Goal
     someKUGoal m = ActionG someNodeId (kuFact m)
@@ -430,7 +437,7 @@ precomputeSources parameters ctxt restrictions =
         ru <- joinAllRules rules
         fa@(tag,_) <- absFact <$> (getProtoFact =<< (get rConcs ru ++ get rPrems ru))
         -- exclude facts handled specially by the prover
-        guard (not $ tag `elem` [OutFact, InFact, FreshFact])
+        guard (not $ tag `elem` [OutFact, InFact, FreshFact, FreshDHFact, KdhFact])
         return fa
 
     absMsgFacts :: [LNTerm]

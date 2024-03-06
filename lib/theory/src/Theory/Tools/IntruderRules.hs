@@ -318,7 +318,7 @@ normRule' (Rule i ps cs as nvs) = reader $ \hnd ->
 dhmultIntruderRules ::  [IntrRuleAC]
 dhmultIntruderRules = [
       Rule PubGConstrRule   [] [ kdhFact (x_pub_var)] [kLogFact (fAppdhBox x_pub_var)]  []
-      , kdhRule FreshNZEConstrRule [freshFact x_fresh_var] (x_fresh_var) (x_fresh_var)         []
+      , kdhRule FreshNZEConstrRule [freshDHFact x_fresh_var] (x_fresh_var) (x_fresh_var)         []
       --, Rule ISendRule [kuFact x_box]  [kdhFact x_varG] [kLogFact x_box]        []
       --, Rule IRecvRule [outFact x_box] [kdhFact x_varG] []  []
       --, Rule IRecvRule [outFact x_boxE] [kdhFact x_varE] []  []

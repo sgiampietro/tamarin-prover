@@ -86,6 +86,7 @@ module Theory.Model.Fact (
 
   -- ** Construction
   , freshFact
+  , freshDHFact
   , outFact
   , inFact
   , inFactAnn
@@ -162,6 +163,7 @@ data DHFact =
 data FactTag = ProtoFact Multiplicity String Int
                -- ^ A protocol fact together with its arity and multiplicity.
              | FreshFact  -- ^ Freshly generated value.
+             | FreshDHFact  -- ^ Freshly generated DH exponent value.
              | OutFact    -- ^ Sent by the protocol
              | InFact     -- ^ Officially known by the intruder/network.
              | KUFact     -- ^ Up-knowledge fact in messsage deduction.
@@ -331,6 +333,11 @@ outFact = Fact OutFact S.empty . return
 freshFact :: t -> Fact t
 freshFact = Fact FreshFact S.empty . return
 
+
+freshDHFact :: t -> Fact t
+freshDHFact = Fact FreshDHFact S.empty . return
+
+
 -- | A fact denoting that the intruder sent a message to the protocol.
 inFact :: t -> Fact t
 inFact = Fact InFact S.empty . return
@@ -429,6 +436,7 @@ factTagArity tag = case  tag of
     KdhFact         -> 1
     DedFact         -> 1
     FreshFact       -> 1
+    FreshDHFact     -> 1
     InFact          -> 1
     OutFact         -> 1
     TermFact        -> 1
@@ -576,6 +584,7 @@ factTagName tag = case tag of
     InFact            -> "In"
     OutFact           -> "Out"
     FreshFact         -> "Fr"
+    FreshDHFact         -> "FrDH"
     (ProtoFact _ n _) -> n
     TermFact          -> "Term"
 

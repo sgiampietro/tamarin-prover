@@ -364,7 +364,7 @@ sortedLVar ss =
           LSortFresh     -> void $ char '~'
           LSortNode      -> void $ char '#'
           LSortNat       -> void $ char '%'
-          LSortDH       -> pure()
+          LSortDH       -> pure ()
           LSortG       -> void $ char 'G'
           LSortE     -> void $ char 'E'
           LSortNZE     -> void $ char 'N'

@@ -38,7 +38,7 @@ import qualified Data.ByteString.Char8 as BC
 
 import Data.Attoparsec.ByteString.Char8
 
---import Debug.Trace
+import Debug.Trace
 
 -- import Extension.Data.Monoid
 
@@ -163,8 +163,8 @@ ppMaudeNoEqSym :: NoEqSym -> ByteString
 ppMaudeNoEqSym (o,(_,prv,cnstr))  = funSymPrefix <> funSymEncodeAttr prv cnstr <> replaceUnderscore o
 
 ppMaudeDHMultSym :: DHMultSym -> ByteString
-ppMaudeDHMultSym (o,(_,prv,cnstr))  = replaceUnderscore o
---ppMaudeDHMultSym (o,(_,prv,cnstr))  = funSymPrefix <> funSymEncodeAttr prv cnstr <> replaceUnderscore o
+--ppMaudeDHMultSym (o,(_,prv,cnstr))  = replaceUnderscore o
+ppMaudeDHMultSym (o,(_,prv,cnstr))  = funSymPrefix <> funSymEncodeAttr prv cnstr <> replaceUnderscore o
 
 
 -- | Pretty print a C symbol for Maude.
@@ -271,8 +271,8 @@ ppTheory msig = BC.unlines $
         , theoryOpEq "dhExp : G E -> G"
         , theoryOpEq "dhOne : -> E"
         , theoryOpEq "dhMu : G -> E"
-        , theoryOpEq "dhBox : G -> Msg"
-        , theoryOpEq "dhBoxE : E -> Msg"
+        , theoryDH "dhBox : G -> G"
+        , theoryDH "dhBoxE : E -> E"
         ]
        else [])
     ++    
@@ -292,6 +292,8 @@ ppTheory msig = BC.unlines $
     maybeEncode Nothing             = ""
     theoryOp attr fsort =
         "  op " <> funSymPrefix <> maybeEncode attr <> fsort <>" ."
+    --theoryDH fsort = "  op " <> fsort <>" ."
+    theoryDH = theoryOp (Just (Private,Constructor))
     theoryOpEq = theoryOp (Just (Public,Constructor))
     theoryOpAC = theoryOp Nothing
     theoryOpC  = theoryOp Nothing
@@ -419,7 +421,7 @@ parseTerm msig = choice
 
     parseFunSym ident args
       | op `elem` allowedfunSyms =  replaceMinusFun op
-      | op `elem` allowedfunSymsDH = replaceMinusFunDH op
+      | op `elem` allowedfunSymsDH = (replaceMinusFunDH op)
       | otherwise                =
           error $ "Maude.Parser.parseTerm: unknown function "
                   ++ "symbol `"++ show op ++"', not in "
@@ -445,7 +447,10 @@ parseTerm msig = choice
                        | ident == ppMaudeACSym Xor        = fAppAC Xor   args
                        | ident == ppMaudeCSym  EMap       = fAppC  EMap  args
         appIdent [arg] | ident == "list"                  = fAppList (flattenCons arg)
-        appIdent args  | op `elem` (map replaceUnderscoreFunDH $ S.toList $ dhMultFunSyms msig) = error "you got here "-- fAppDHMult op args
+        --appIdent args  | op `elem` (map replaceUnderscoreFunDH $ S.toList $ dhMultFunSyms msig) = error "you got here "-- fAppDHMult op args
+        --  where op = parseFunSym ident args
+        appIdent args  | ident `elem` (map ppMaudeDHMultSym $ S.toList $ dhMultFunSyms msig) = fAppDHMult op args
+        --appIdent args  | op `elem` (map replaceMinusFunDH (map replaceUnderscoreFunDH $ S.toList $ dhMultFunSyms msig)) = fAppDHMult op args
           where op = parseFunSym ident args
         appIdent args                                     = fAppNoEq op args
           where op = parseFunSym ident args
@@ -479,31 +484,88 @@ ppTheoryDHsimp = BC.unlines $
       , "subsort NZE < E ."
       , "subsort FrNZE < NZE ."
       , "subsort BG < G ."
-      , "op dhGinv : G -> G ."
-      , "op dhZero : -> E ."
-      , "op dhInv : NZE -> NZE ."
-      , "op dhEg : -> G ."
-      , "op dhTimes2 : E E -> E ."
-      , "op dhTimes : NZE NZE -> NZE ."
-      , "op dhExp : G E -> G ."
-      , "op dhOne : -> E ."
-      , "op dhMu : G -> E ."
-      , "op dhBox : G -> G ." 
-      , "op dhBoxE : E -> E ."
+      , "op tamXCdhGinv : G -> G ."
+      , "op tamXCdhZero : -> E ."
+      , "op tamXCdhInv : NZE -> NZE ."
+      , "op tamXCdhEg : -> G ."
+      , "op tamXCdhTimes2 : E E -> E ."
+      , "op tamXCdhTimes : NZE NZE -> NZE ."
+      , "op tamXCdhExp : G E -> G ."
+      , "op tamXCdhOne : -> NZE ."
+      , "op tamXCdhMu : G -> E ."
+      , "op tamPCdhBox : G -> G ." 
+      , "op tamPCdhBoxE : E -> E ."
       , "vars A B : G . "
       , "vars X Y : E ."
       , "vars U V W : NZE ."
-      , "eq dhExp(dhExp(A, X), Y) = dhExp(A, dhTimes2(X, Y)) [variant] ."
-      , "eq dhExp(A, dhOne ) = A [variant] ."
-      , "eq dhExp(dhEg, X) = dhEg [variant] ."
-      , "eq dhTimes2(X, dhOne) = X [variant] ."
-      , "eq dhInv (dhInv(U) ) = U [variant] ."
-      , "eq dhInv(dhOne) = dhOne [variant] ."
-      , "eq dhTimes(U, dhInv(U)) = dhOne [variant] ."
-      , "eq dhTimes( dhInv(U) , dhInv(V)) = dhInv( dhTimes(U, V)) [variant] ."
-      , "eq dhTimes( dhInv(dhTimes(U,V)), V) = dhInv( U) [variant] ."
-      , "eq dhInv( dhTimes(dhInv(U),V)) = dhTimes(U, dhInv(V)) [variant] ."
-      , "eq dhTimes( U, dhTimes(dhInv(U),V)) = V [variant] ."
-      , "eq dhTimes( dhInv(U), dhTimes(dhInv(V),W)) = dhTimes( dhInv(dhTimes(U,V)),W) [variant] ."
-      , "eq dhTimes( dhInv(dhTimes(U,V)), dhTimes(V,W)) = dhTimes( dhInv(U),W) [variant] ."
+      , "eq tamXCdhExp(tamXCdhExp(A, X), Y) = tamXCdhExp(A, tamXCdhTimes2(X, Y)) [variant] ."
+      , "eq tamXCdhExp(A, tamXCdhOne ) = A [variant] ."
+      , "eq tamXCdhExp(tamXCdhEg, X) = tamXCdhEg [variant] ."
+      , "eq tamXCdhTimes2(X, tamXCdhOne) = X [variant] ."
+      , "eq tamXCdhInv (tamXCdhInv(U) ) = U [variant] ."
+      , "eq tamXCdhInv(tamXCdhOne) = tamXCdhOne [variant] ."
+      , "eq tamXCdhTimes(U, tamXCdhInv(U)) = tamXCdhOne [variant] ."
+      , "eq tamXCdhTimes( tamXCdhInv(U) , tamXCdhInv(V)) = tamXCdhInv( tamXCdhTimes(U, V)) [variant] ."
+      , "eq tamXCdhTimes( tamXCdhInv(tamXCdhTimes(U,V)), V) = tamXCdhInv( U) [variant] ."
+      , "eq tamXCdhInv( tamXCdhTimes(tamXCdhInv(U),V)) = tamXCdhTimes(U, tamXCdhInv(V)) [variant] ."
+      , "eq tamXCdhTimes( U, tamXCdhTimes(tamXCdhInv(U),V)) = V [variant] ."
+      , "eq tamXCdhTimes( tamXCdhInv(U), tamXCdhTimes(tamXCdhInv(V),W)) = tamXCdhTimes( tamXCdhInv(tamXCdhTimes(U,V)),W) [variant] ."
+      , "eq tamXCdhTimes( tamXCdhInv(tamXCdhTimes(U,V)), tamXCdhTimes(V,W)) = tamXCdhTimes( tamXCdhInv(U),W) [variant] ."
       , "endfm"] 
+
+
+
+
+ppTheoryDHfull ::  ByteString
+ppTheoryDHfull = BC.unlines $
+      [ "fmod DHsimp is"
+      , "sort DH G E NZE BG FrNZE ."
+      , "subsort G < DH ."
+      , "subsort E < DH ."
+      , "subsort NZE < E ."
+      , "subsort FrNZE < NZE ."
+      , "subsort BG < G ."
+      , "op tamXC dhMult : G G -> G [assoc comm id: tamXCdhEg] ."
+      , "op tamXCdhGinv : G -> G ."
+      , "op tamXCdhZero : -> E ."
+      , "op tamXCdhMinus : E -> E"
+      , "op tamXCdhInv : NZE -> NZE ."
+      , "op tamXCdhEg : -> G ."
+      , "op tamXCdhTimes2 : E E -> E [assoc comm id: tamXCdhOne] ."
+      , "op tamXCdhTimes : NZE NZE -> NZE [assoc comm id: tamXCdhOne] ."
+      , "op tamXCdhPlus : E E -> E [assoc comm id: tamXCdhZero] ."
+      , "op tamXCdhExp : G E -> G ."
+      , "op tamXCdhOne : -> NZE ."
+      , "op tamXCdhMu : G -> E ."
+      , "op tamPCdhBox : G -> G ." 
+      , "op tamPCdhBoxE : E -> E ."
+      , "vars A B : G . "
+      , "vars X Y Z : E ."
+      , "vars U V : NZE ."
+      , "eq tamXCdhPlus(X , tamXCdhMinus(- X)) = tamXCdhZero [variant] ."
+      , "eq tamXCdhTimes2(X, tamXCdhPlus(Y, Z)) = tamXCdhPlus(tamXCdhTimes2(X, Y), tamXCdhTimes2(X, Z)) [variant] ."
+      , "eq tamXCdhExp(tamXCdhExp(A, X), Y) = tamXCdhExp(A, tamXCdhTimes2(X, Y)) [variant] ."
+      , "eq tamXCdhExp(tamXCdhMult(A, B), X) = tamXCdhMult(tamXCdhExp(A, X), tamXCdhExp(B, X)) [variant] ."
+      , "eq tamXCdhExp(A, tamXCdhOne) = A [variant] ."
+      , "eq tamXCdhExp(tamXCdhEg, X) = tamXCdhEg [variant] ."
+      , "eq tamXCdhExp(A, tamXCdhPlus(X, Y)) = tamXCdhMult(tamXCdhExp(A, X), tamXCdhExp(A, Y)) [variant] ."
+      , "eq tamXCdhTimes(U, V) = tamXCdhTimes2(U, V) [variant] ."
+      , "eq tamXCdhInv(tamXCdhTimes(U,V)) = tamXCdhTimes(tamXCdhInv(U) , tamXCdhInv(V)) [variant] ."
+      , "eq tamXCdhTimes(U, tamXCdhInd(U)) = tamXCdhOne [variant] ."
+      , "eq tamXCdhInv(tamXCdhOne) = tamXCdhOne [variant] ."
+      , "eq tamXCdhInv(tamXCdhMinus(U)) = tamXCdhMinus(tamXCdhInv(U)) [variant] ."
+      , "eq tamXCdhInv(tamXCdhInv(U)) = U [variant] ."
+      , "eq tamXCdhGinv(tamXCdhMult(A, B)) = tamXCdhMult(tamXCdhGinv(A), tamXCdhGinv(B)) [variant] ."
+      , "eq tamXCdhGinv(tamXCdhGinv(B)) = B [variant] . "
+      , "eq tamXCdhExp(tamXCdhGinv(A), X) = tamXCdhGinv(tamXCdhExp(A, X)) [variant] ."
+      , "eq tamXCdhExp(A, tamXCdhZero) = tamXCdhOne [variant] ."
+      , "eq tamXCdhExp(A, (tamXCdhMinus X)) = tamXCdhGinv(tamXCdhExp(A, X)) [variant] ."
+      , "eq tamXCdhGinv (tamXCdhEg) = tamXCdhEg [variant] ."
+      , "eq tamXCdhMinus(tamXCdhZero) = tamXCdhZero [variant] ."
+      , "eq tamXCdhMinus (X + Y) = (tamXCdhMinus X) + (tamXCdhMinus Y) [variant] ."
+      , "eq tamXCdhMinus (tamXCdhMinus X) = X [variant] ."
+      , "eq tamXCdhMult(tamXCdhZero, X) = tamXCdhZero [variant] ."
+      , "eq tamXCdhMult((tamXCdhMinus X), Y) = tamXCdhMinus (tamXCdhMult(X, Y)) [variant] .
+      
+      
+      "endfm"] 

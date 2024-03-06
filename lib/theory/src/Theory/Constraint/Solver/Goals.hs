@@ -225,8 +225,9 @@ solveGoal goal = do
 -- The following functions are internal to 'solveGoal'. Use them with great
 -- care.
 
-solveProtoAction :: RuleACInst ->  Reduction RuleACInst 
-solveProtoAction ru = return ru
+
+--solveProtoAction :: RuleACInst ->  Reduction RuleACInst 
+--solveProtoAction ru = return ru
 
 -- | CR-rule *S_at*: solve an action goal.
 solveAction :: [RuleAC]          -- ^ All rules labelled with an action
@@ -250,10 +251,10 @@ solveAction rules (i, fa@(Fact _ ann _)) =trace (show ("SEARCHING", fa, "END")) 
                             let ru = Rule (IntrInfo (ConstrRule $ BC.pack "_xor")) [(kuFact a),(kuFact b)] [fa] [fa] []
                             modM sNodes (M.insert i ru)
                             mapM_ requiresKU [a, b] *> return ru
-            (Fact (ProtoFact n s i) _ [m@(viewTerm3 -> Box ts)]) -> solveProto
-            (Fact (ProtoFact n s i) _ [m@(viewTerm3 -> BoxE ts)]) -> solveProto
-            (Fact _ _ [m@(viewTerm3 -> Box ts)]) -> solveKUAction
-            (Fact _ _ [m@(viewTerm3 -> BoxE ts)]) -> solveKUAction
+            --(Fact (ProtoFact n s i) _ [m@(viewTerm3 -> Box ts)]) -> solveProto
+            --(Fact (ProtoFact n s i) _ [m@(viewTerm3 -> BoxE ts)]) -> solveProto
+            --(Fact _ _ [m@(viewTerm3 -> Box ts)]) -> solveKUAction
+            --(Fact _ _ [m@(viewTerm3 -> BoxE ts)]) -> solveKUAction
             _                                        -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList $ get rActs ru
@@ -261,10 +262,10 @@ solveAction rules (i, fa@(Fact _ ann _)) =trace (show ("SEARCHING", fa, "END")) 
                    return ru
 
         Just ru ->  case fa of 
-            (Fact (ProtoFact n s i) _ [m@(viewTerm3 -> Box ts)]) -> solveProtoAction ru
-            (Fact (ProtoFact n s i) _ [m@(viewTerm3 -> BoxE ts)]) -> solveProtoAction ru
-            (Fact _ _ [m@(viewTerm3 -> Box ts)]) -> solveKU ru
-            (Fact _ _ [m@(viewTerm3 -> BoxE ts)]) -> solveKU ru
+            --(Fact (ProtoFact n s i) _ [m@(viewTerm3 -> Box ts)]) -> solveProtoAction ru
+            --(Fact (ProtoFact n s i) _ [m@(viewTerm3 -> BoxE ts)]) -> solveProtoAction ru
+            --(Fact _ _ [m@(viewTerm3 -> Box ts)]) -> solveKU ru
+            --(Fact _ _ [m@(viewTerm3 -> BoxE ts)]) -> solveKU ru
             _                                     -> do unless (fa `elem` get rActs ru) $ do 
                                                           act <- disjunctionOfList $ get rActs ru
                                                           (void (solveFactEqs SplitNow [Equal fa act]))
@@ -282,7 +283,7 @@ solveAction rules (i, fa@(Fact _ ann _)) =trace (show ("SEARCHING", fa, "END")) 
         let faKU = kuFact t
         insertLess j i Adversary
         void (insertAction j faKU)
-    solveKUAction = do
+    {-solveKUAction = do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList $ get rActs ru
                    (void (solveActionFactDHEqs SplitNow (Equal fa act) ru)) 
@@ -294,7 +295,7 @@ solveAction rules (i, fa@(Fact _ ann _)) =trace (show ("SEARCHING", fa, "END")) 
     solveProto = do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList $ get rActs ru
-                   solveProtoAction ru
+                   solveProtoAction ru -}
 
 -- | CR-rules *DG_{2,P}* and *DG_{2,d}*: solve a premise with a direct edge
 -- from a unifying conclusion or using a destruction chain.
@@ -309,7 +310,7 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
 solvePremise rules p faPrem
   | isKdhFact faPrem = do  
       case factTerms faPrem of
-          [t1] -> (solveDHInd rules p faPrem t1)
+          [t1] -> trace (show ("HERE: solving", t1) ) (solveDHInd rules p faPrem t1)
           _ -> error "malformed KdhFact"
   | isKDFact faPrem = do
       iLearn    <- freshLVar "vl" LSortNode
@@ -445,11 +446,11 @@ solveNoCanc x y = do
     nocancs <- getM sNoCanc
     if ( S.member (x,y) nocancs)
       then  (do
-        markGoalAsSolved "directly" (NoCancG (x, y))
+        --markGoalAsSolved "directly" (NoCancG (x, y))
         return "NoCancsolved")
       else (
         if (isNoCanc x y) then (do
-          markGoalAsSolved "directly" (NoCancG (x, y))
+          --markGoalAsSolved "directly" (NoCancG (x, y))
           return "NoCancsolved" )
         else error "NoCanc does not hold"  -- TODO: not sure what to do if you don't have this condition? maybe add y and inv(x) to the DH-equation store? 
       )
@@ -458,24 +459,23 @@ solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact containing a
              -> NodePrem       -- ^ Premise to solve.
              ->LNFact -> LNTerm       -- ^ Product term of which we have to find the indicator  
              -> Reduction String -- ^ Case name to use.
-solveDHInd rules p faPrem t =  -- recall that t is
+solveDHInd rules p faPrem t =  do-- recall that t is
     case prodTerms t of 
       Just (x,y) -> do 
-        insertNoCanc x y
         bset <- getM sBasis 
         nbset <- getM sNotBasis
+        trace (show ("NOCANC", x, y, bset, nbset)) insertNoCanc x y
         case neededexponents bset nbset x of 
           (Just es) -> do 
-              insertNeededList (S.toList es)
+              trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es)
               return "NeededInserted"
             -- the current goal solveDHInd should remain and we should try to solve it again once we
             -- have solved the Needed goals. or do we try it with a variable?
           Nothing -> do
               --return "TODO"
-              (ru, c, faConc) <- insertFreshNodeConcOut rules -- should only search for the rules with Out facts
-              -- question here: we are stor ing faConc and faPrem, while the indicator is of the TERM inside faPrem. Solve this?
-              insertDHEdge (c, faConc, faPrem, p) (rootIndKnown bset nbset x) t 
-              trace (show ("indicator of",x)) (return $ showRuleCaseName ru) -- (return "done")
+              (ru, c, faConc) <- (insertFreshNodeConcOut rules) 
+              (insertDHEdge (c, faConc, faPrem, p) (rootIndKnown bset nbset x) t )
+              (return $ showRuleCaseName ru) -- (return "done")
       Nothing -> error "error in prodTerm function"    
 
 
@@ -486,7 +486,7 @@ solveDHInd rules p faPrem t =  -- recall that t is
 solveNeeded ::  LNTerm ->  NodeId ->        -- exponent that is needed.
                 Reduction String -- ^ Case name to use.
 solveNeeded x i = do
-    markGoalAsSolved "case split: basis or not" (NeededG x i )
+    -- markGoalAsSolved "case split: basis or not" (NeededG x i )
     basisornot <- disjunctionOfList [True, False] -- this should return a list of True and False
     case basisornot of 
       True -> do
@@ -496,9 +496,12 @@ solveNeeded x i = do
                 return "caseBasis"
       False -> do
                 insertNotBasisElem x 
-                insertGoal (PremiseG (i, PremIdx 0) (kdFact x)) False -- check if kdFact or kuFact!
+                insertGoal (PremiseG (i, PremIdx 0) (kdhFact x)) False -- check if kdFact or kuFact!
                 return "caseNotBasis"
                 -- TODO: contradict K(x) happening!
+
+--TOOD: turn above disjunction in conjunction!!
+
 
 
 -- | remove from subterms

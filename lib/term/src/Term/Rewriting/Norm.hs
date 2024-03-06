@@ -43,6 +43,8 @@ norm :: (IsConst c)
 norm _      t@(viewTerm -> Lit _) = return t
 norm sortOf t         = reader $ \hnd -> unsafePerformIO $ normViaMaude hnd sortOf t
 
+
+
 -- | @norm' t@ normalizes the term @t@ using Maude.
 norm' :: LNTerm -> WithMaude LNTerm
 norm' = norm sortOfName

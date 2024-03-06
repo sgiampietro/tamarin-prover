@@ -246,6 +246,7 @@ sortPrefix LSortE   = "E"
 sortPrefix LSortNZE   = "N"
 sortPrefix LSortFrNZE   = "F"
 sortPrefix LSortPubG   = "P"
+sortPrefix LSortDH   = "D"
 
 -- | @sortSuffix s@ is the suffix we use for annotating variables of sort @s@.
 sortSuffix :: LSort -> String
@@ -259,6 +260,7 @@ sortSuffix LSortE     = "exp"
 sortSuffix LSortNZE   = "nexp"
 sortSuffix LSortFrNZE = "freshNZE"
 sortSuffix LSortPubG  = "pubG"
+sortSuffix LSortDH  = "dd"
 
 
 ------------------------------------------------------------------------------

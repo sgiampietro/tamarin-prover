@@ -61,6 +61,7 @@ fact' pterm = try (
       "KD"  -> singleTerm f kdFact
       "DED" -> singleTerm f dedLogFact
       "FR"  -> singleTerm f freshFact
+      "FRDH"  -> singleTerm f freshDHFact
       _     -> return . protoFactAnn multi f ann
 
 -- | Parse a fact.

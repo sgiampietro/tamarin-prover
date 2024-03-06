@@ -76,7 +76,7 @@ module Theory.Constraint.Solver.Reduction (
   , solveFactEqs
   , solveRuleEqs
   , solveSubstEqs
-  , solveActionFactDHEqs
+  --, solveActionFactDHEqs
 
   -- ** Conjunction with another constraint 'System'
   , conjoinSystem
@@ -86,7 +86,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace
+import           Debug.Trace -- .Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -260,6 +260,9 @@ labelNodeId = \i rules parent -> do
 
     mkFreshRuleAC m = Rule (ProtoInfo (ProtoRuleACInstInfo FreshRule [] []))
                            [] [freshFact m] [] [m]
+        
+    mkFreshDHRuleAC m = Rule (ProtoInfo (ProtoRuleACInstInfo FreshRule [] []))
+                           [] [freshDHFact m] [] [m]
 
     exploitPrems i ru = mapM_ (exploitPrem i ru) (enumPrems ru)
 
@@ -282,6 +285,15 @@ labelNodeId = \i rules parent -> do
                 void (solveTermEqs SplitNow [Equal m n])
             modM sEdges (S.insert $ Edge (j, ConcIdx 0) (i,v))
 
+        Fact FreshDHFact _ [m] -> do
+            j <- freshLVar "vf" LSortNode
+            modM sNodes (M.insert j (mkFreshDHRuleAC m))
+            unless (isFrNZEVar m) $ do
+                -- 'm' must be of sort fresh ==> enforce via unification
+                n <- varTerm <$> freshLVar "n" LSortFrNZE
+                void (solveTermEqs SplitNow [Equal m n])
+            modM sEdges (S.insert $ Edge (j, ConcIdx 0) (i,v))    
+
           -- CR-rule *DG2_{2,u}*: solve a KU-premise by inserting the
           -- corresponding KU-actions before this node.
         _ | isKUFact fa -> do
@@ -290,7 +302,7 @@ labelNodeId = \i rules parent -> do
               void (insertAction j fa)
 
           -- Store premise goal for later processing using CR-rule *DG2_2*
-          | otherwise -> insertGoal (PremiseG (i,v) fa) (v `elem` breakers)
+          | otherwise -> trace (show ("inserting premise", fa)) (insertGoal (PremiseG (i,v) fa) (v `elem` breakers))
       where
         breakers = ruleInfo (get praciLoopBreakers) (const []) $ get rInfo ru
 
@@ -621,20 +633,24 @@ insertNotBasisElem x = do
 --insertDHInd :: NodePrem -> LNFact -> Reduction ()
 --insertDHInd nodep fa@(Fact _ ann [t]) = insertGoal (DHIndG nodep t) False
 
-insertNoCanc :: LNTerm -> LNTerm -> Reduction ()
-insertNoCanc x y = insertGoal (NoCancG (x, y)) False
+insertNoCanc :: LNTerm -> LNTerm -> Reduction ChangeIndicator
+insertNoCanc x y = do 
+        insertGoal (NoCancG (x, y)) False
+        return Changed
 
-insertNeeded :: LNTerm  -> Reduction ()
+insertNeeded :: LNTerm  -> Reduction ChangeIndicator
 insertNeeded x = do
     j <- freshLVar "vk" LSortNode
     insertGoal (NeededG x j) False
+    return Changed
 
 
-insertNeededList :: [LNTerm] -> Reduction ()
+insertNeededList :: [LNTerm] -> Reduction ChangeIndicator
 insertNeededList [x] = insertNeeded x
 insertNeededList (x:xs) = do
     insertNeeded x
-    insertNeededList xs
+    _ <- insertNeededList xs
+    return Changed
 
 {-
 -- | Insert a fresh rule node labelled with a fresh instance of one of the
@@ -847,9 +863,9 @@ solveTermDHEqs splitStrat fa1 indt =
                             noContradictoryEqStore
                             return Changed    
 
-
+{-
 solveActionTermDHEqs :: SplitStrategy -> LNTerm -> LNTerm -> LNTerm -> Reduction ChangeIndicator
-solveActionTermDHEqs splitStrat fa1 indt targetterm=
+solveActionTermDHEqs splitStrat fa1 indt targetterm= -- targetterm is added here to be able to add "ContainsIndicator facts."
         case (fa1 == indt) of
                     True  -> do return Unchanged
                     False -> do
@@ -869,8 +885,9 @@ solveActionTermDHEqs splitStrat fa1 indt targetterm=
                             insertContainsIndicator fa1 indt targetterm
                             noContradictoryEqStore
                             return Changed                                
+-}
 
-solveIndEqTermDHEqs :: SplitStrategy-> (S.Set LNTerm) -> (S.Set LNTerm) -> Equal LNTerm  -> Reduction ChangeIndicator
+{-solveIndEqTermDHEqs :: SplitStrategy-> (S.Set LNTerm) -> (S.Set LNTerm) -> Equal LNTerm  -> Reduction ChangeIndicator
 solveIndEqTermDHEqs split b nb  eq@(Equal l r) = do
     lhs <- disjunctionOfList (multRootList l) -- TODO: this should actually be a CONJUNCTION!
         case prodTerms lhs of
@@ -879,7 +896,7 @@ solveIndEqTermDHEqs split b nb  eq@(Equal l r) = do
             targetterm <- disjunctionOfList (multRootList r)
             solveActionTermDHEqs split (rootIndKnown b nb targetterm) (rootIndKnown b nb lx) r
         Nothing -> error "shouldn't happen"
-        
+  -}      
 
 -- | Add a list of equalities in substitution form to the equation store
 solveSubstEqs :: SplitStrategy -> LNSubst -> Reduction ChangeIndicator
@@ -916,7 +933,7 @@ solveFactDHEqs split eq@(EqInd (Equal fa1 fa2) indt1 t1) = do
         _ -> error "incorrect factTerm called"
 
 -- need to take care of indicators here. Trying to do this in the "solveIndEqTermDHEqs" function. 
-solveActionFactDHEqs :: SplitStrategy -> Equal LNFact -> RuleACInst -> Reduction ChangeIndicator
+{-solveActionFactDHEqs :: SplitStrategy -> Equal LNFact -> RuleACInst -> Reduction ChangeIndicator
 solveActionFactDHEqs split eq@(Equal fa1 fa2) ru = do
     contradictoryIf (not (factTag fa1 == factTag fa2) )
     contradictoryIf (not $ evalEqual $ (fmap length) eq1)
@@ -926,6 +943,7 @@ solveActionFactDHEqs split eq@(Equal fa1 fa2) ru = do
             flatten (Equal l r) = zipWith Equal l r
             b = S.fromList $ basisOfRule ru
             nb = S.fromList $ notBasisOfRule ru
+-}
 
 -- | Add a list of rule equalities to the equation store, if possible.
 solveRuleEqs :: SplitStrategy -> [Equal RuleACInst] -> Reduction ChangeIndicator
