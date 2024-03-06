@@ -92,17 +92,18 @@ nfViaHaskell t0 = reader $ \hnd -> check hnd
             FEMap _                         (viewTerm2 -> FPMult _ _) -> False
             FEMap (viewTerm2 -> FPMult _ _) _                         -> False
             -- DH MULTIPLICATION STUFF (todo: almost all Trues should be false)
-            FdhMult _ _ -> True
+            FdhMult t1 t2 -> go t1 && go t2
             FdhGinv _ -> True
             FdhMinus _ -> True
             DHZero  -> True
-            FdhInv _ -> True
+            FdhInv (viewTerm2 -> Lit2) -> True
+            FdhInv _ -> False
             DHEg -> True
-            FdhTimes2 _ _ -> True
+            FdhTimes2 t1 t2 -> go t1 && go t2
             FdhExp _ _ -> True
             DHOne -> True
-            FdhTimes _ _ -> True
-            FdhPlus _ _ -> True
+            FdhTimes _ _ -> False
+            FdhPlus t1 t2 -> go t1 && go t2
             FdhMu t -> go t
             FdhBox t -> go t
             FdhBoxE t ->  go t
