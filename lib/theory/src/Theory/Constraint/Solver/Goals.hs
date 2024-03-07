@@ -496,7 +496,7 @@ solveNeeded x i = do
                 return "caseBasis"
       False -> do
                 insertNotBasisElem x 
-                insertGoal (PremiseG (i, PremIdx 0) (kdhFact x)) False -- check if kdFact or kuFact!
+                insertGoal (PremiseG (i, PremIdx 0) (kIFact x)) False -- check if kdFact or kuFact!
                 return "caseNotBasis"
                 -- TODO: contradict K(x) happening!
 

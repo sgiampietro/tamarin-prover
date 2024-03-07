@@ -96,7 +96,7 @@ nfViaHaskell t0 = reader $ \hnd -> check hnd
             FdhGinv _ -> True
             FdhMinus _ -> True
             DHZero  -> True
-            FdhInv (viewTerm2 -> Lit2) -> True
+            FdhInv (viewTerm2 -> Lit2 _ ) -> True
             FdhInv _ -> False
             DHEg -> True
             FdhTimes2 t1 t2 -> go t1 && go t2
@@ -107,6 +107,8 @@ nfViaHaskell t0 = reader $ \hnd -> check hnd
             FdhMu t -> go t
             FdhBox t -> go t
             FdhBoxE t ->  go t
+            --- Just put false on every DH term so they get normalized just in case anyway. 
+            --- initial, fixme!!
 
             -- topmost position not reducible, check subterms
             FExp       t1 t2 -> go t1 && go t2

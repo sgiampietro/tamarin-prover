@@ -68,6 +68,7 @@ module Theory.Model.Fact (
   , protoOrOutFactView
 
   , kdhFact
+  , kIFact
   --, bFact
   --, nbFact
   --, indEqFact
@@ -78,6 +79,7 @@ module Theory.Model.Fact (
   , isKUFact
   , isKDFact
   , isKdhFact
+  , isKIFact
   --, isKdhIndFact
   , isKDXorFact
 
@@ -169,6 +171,7 @@ data FactTag = ProtoFact Multiplicity String Int
              | KUFact     -- ^ Up-knowledge fact in messsage deduction.
              | KDFact     -- ^ Down-knowledge fact in message deduction.
              | KdhFact    -- ^ DH Corresponding KUFact for Diffie-Hellman terms.
+             | KIFact
              -- | KdhIndFact    -- ^ DH (now put directly as a type of goal to solve)
              -- | BFact      -- ^ DH (now put directly in the constraint system instead)
              -- | NBFact     -- ^ DH (now put directly in the constraint system instead)
@@ -246,6 +249,9 @@ termFact = Fact TermFact S.empty . return
 kdhFact :: t -> Fact t
 kdhFact = Fact KdhFact S.empty . return
 
+kIFact :: t -> Fact t
+kIFact = Fact KIFact S.empty . return
+
 --neededFact :: t -> Fact t
 --neededFact x = Fact NeededFact S.empty [x]
 
@@ -294,6 +300,10 @@ isKDFact _                 = False
 isKdhFact :: LNFact -> Bool
 isKdhFact (Fact KdhFact _ _) = True
 isKdhFact _                 = False
+
+isKIFact :: LNFact -> Bool
+isKIFact (Fact KIFact _ _) = True
+isKIFact _                 = False
 
 
 -- | True if the fact is a KD-fact.
@@ -434,6 +444,7 @@ factTagArity tag = case  tag of
     KUFact          -> 1
     KDFact          -> 1
     KdhFact         -> 1
+    KIFact         -> 1
     DedFact         -> 1
     FreshFact       -> 1
     FreshDHFact     -> 1
@@ -580,6 +591,7 @@ factTagName tag = case tag of
     KUFact            -> "KU"
     KDFact            -> "KD"
     KdhFact           -> "Kdh"
+    KIFact           -> "KI"
     DedFact           -> "Ded"
     InFact            -> "In"
     OutFact           -> "Out"

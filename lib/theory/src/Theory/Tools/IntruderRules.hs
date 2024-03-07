@@ -321,7 +321,8 @@ dhmultIntruderRules = [
       , kdhRule FreshNZEConstrRule [freshDHFact x_fresh_var] (x_fresh_var) (x_fresh_var)         []
       --, Rule ISendRule [kuFact x_box]  [kdhFact x_varG] [kLogFact x_box]        []
       --, Rule IRecvRule [outFact x_box] [kdhFact x_varG] []  []
-      --, Rule IRecvRule [outFact x_boxE] [kdhFact x_varE] []  []
+      , Rule IRecvRule [outFact x_boxE] [kIFact x_varE] []  []
+      , Rule IRecvRule [freshDHFact x_fresh_var] [kIFact x_varfnE] []  []
       --, Rule ISendRule [kuFact x_boxE]  [kdhFact x_varE] [kLogFact x_boxE]        [] 
       , Rule CoerceDHRule  [kdhFact x_varG] [kuFact x_box] [kuFact x_box, kLogFact x_box]  []
       , Rule CoerceDHRuleE [kdhFact x_varE] [kuFact x_boxE] [kuFact x_boxE, kLogFact x_boxE]     []
@@ -335,6 +336,7 @@ dhmultIntruderRules = [
     x_fresh_var = varTerm (LVar "x"  LSortFrNZE 0) --FrNZE
     x_varG = varTerm (LVar "x"  LSortG 0) --G (if we replace this with "LSortMsg" seems to work better - probably need to solve the unification problem)
     x_varE = varTerm (LVar "x"  LSortE 0) --E
+    x_varfnE = varTerm (LVar "x"  LSortFrNZE 0) --E
     x_box = fAppdhBox x_varG
     x_boxE = fAppdhBoxE x_varE
     conc     = fAppDHMult dhOneSym []
