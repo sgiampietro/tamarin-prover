@@ -468,6 +468,7 @@ solveDHInd rules p faPrem t =  do-- recall that t is
         case neededexponents bset nbset x of 
           (Just es) -> do 
               trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es)
+              insertDHInd p faPrem t
               return "NeededInserted"
             -- the current goal solveDHInd should remain and we should try to solve it again once we
             -- have solved the Needed goals. or do we try it with a variable?

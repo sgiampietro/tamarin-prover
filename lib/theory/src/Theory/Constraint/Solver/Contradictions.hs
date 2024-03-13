@@ -77,7 +77,7 @@ data Contradiction =
   | FormulasFalse                  -- ^ False in formulas
   | SuperfluousLearn LNTerm NodeId -- ^ A term is derived both before and after a learn
   | NodeAfterLast (NodeId, NodeId) -- ^ There is a node after the last node.
-  -- | KnowsBasisEl LNTerm NodeId     -- ^ The adversary learns a term that is in the basis set. 
+  | KnowsBasisEl      -- ^ The adversary learns a term that is in the basis set. 
   deriving( Eq, Ord, Show, Generic, NFData, Binary )
 
 
@@ -111,6 +111,8 @@ contradictions ctxt sys = F.asum
     , guard (eqsIsFalse $ L.get sEqStore sys)                      *> pure IncompatibleEqs
     -- CR-rules *S_⟂*, *S_{¬,last,1}*, *S_{¬,≐}*, *S_{¬,≈}*
     , guard (S.member gfalse $ L.get sFormulas sys)                *> pure FormulasFalse
+    -- DH: Adversary shouldn't know Basis terms
+    , guard (enableDHMult msig && hasAdvKnowsBasis sys)            *> pure KnowsBasisEl
     ]
     ++
     -- This rule is not yet documented. It removes constraint systems that
@@ -429,6 +431,20 @@ isForbiddenDEMapOrder sys (i, ruDEMap) = fromMaybe False $ do
     isStandRule ru = ruleInfo (isStandName . L.get praciName) (const False) $ L.get rInfo ru
     isStandName (StandRule _) = True
     isStandName _             = False
+
+
+
+-- adversary cannot know terms that are supposed to be secret
+hasAdvKnowsBasis :: System -> Bool
+hasAdvKnowsBasis sys = (any isKnown $ M.elems $ L.get sNodes sys)
+  where
+    isKnown ru = fromMaybe False $ do
+        [actru] <- return $ L.get rActs ru
+        guard (isKLogFact actru)
+        case factTerms actru of 
+          [t] -> return (S.member t (L.get sBasis sys)) 
+          _   -> Nothing
+
 
 
 -- Pretty printing

@@ -54,6 +54,7 @@ module Theory.Constraint.Solver.Reduction (
   , insertDHEdge
   , insertNeeded
   , insertNeededList
+  , insertDHInd
 
   -- ** Goal management
   , markGoalAsSolved
@@ -630,8 +631,8 @@ insertNotBasisElem x = do
     modM sNotBasis (\es -> S.insert x es)
 
 -- TODO: the following not needed ?
---insertDHInd :: NodePrem -> LNFact -> Reduction ()
---insertDHInd nodep fa@(Fact _ ann [t]) = insertGoal (DHIndG nodep t) False
+insertDHInd :: NodePrem -> LNFact -> LNTerm -> Reduction ()
+insertDHInd nodep fa t = insertGoal (DHIndG nodep fa t) False
 
 insertNoCanc :: LNTerm -> LNTerm -> Reduction ChangeIndicator
 insertNoCanc x y = do 

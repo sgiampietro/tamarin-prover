@@ -61,6 +61,7 @@ module Theory.Model.Fact (
   , termFact
   , kFactView
   , dedFactView
+  --, kLogFactView
   , inFactView
   , outFactView
   , protoFactView
@@ -281,6 +282,14 @@ dedFactView fa = case fa of
     Fact DedFact _ [m] -> Just m
     Fact DedFact _ _   -> errMalformed "dedFactView" fa
     _                  -> Nothing
+
+{-
+kLogFactView :: LNFact -> Maybe LNTerm
+kLogFactView fa = case fa of
+    Fact ProtoFact Linear "K" _ [m] -> Just m
+    _                  -> Nothing -}
+
+
 
 -- | True if the fact is a message-deduction fact.
 isKFact :: LNFact -> Bool

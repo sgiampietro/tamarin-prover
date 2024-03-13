@@ -272,7 +272,7 @@ ppTheory msig = BC.unlines $
         , theoryOpEq "dhOne : -> E"
         , theoryOpEq "dhMu : G -> E"
         , theoryDH "dhBox : G -> G"
-        , theoryDH "dhBoxE : E -> E"
+        , theoryDH "dhBoxE : E -> E" 
         , "vars A B : G . "
         , "vars X Y Z : E ."
         , "vars U V : NZE ."
@@ -303,7 +303,7 @@ ppTheory msig = BC.unlines $
         , "eq tamXCdhMinus (tamXCdhPlus(X,Y)) = tamXCdhPlus((tamXCdhMinus(X)), (tamXCdhMinus(Y))) ."
         , "eq tamXCdhMinus( tamXCdhMinus(X)) = X ."
         , "eq tamXCdhMult(tamXCdhZero, X) = tamXCdhZero ."
-        , "eq tamXCdhMult((tamXCdhMinus(X)), Y) = tamXCdhMinus( tamXCdhMult(X, Y)) ."
+        , "eq tamXCdhMult((tamXCdhMinus(X)), Y) = tamXCdhMinus( tamXCdhMult(X, Y)) ." 
         ]
        else [])
     ++    
@@ -383,19 +383,6 @@ parseUnifyDHReply msig reply = flip parseOnly reply $
             <* takeWhile1 isDigit <* endOfLine ] 
       <* endOfInput
               where
-                    parseUnifier = string "Unifier " *> optional (char '#') *> takeWhile1 isDigit *> endOfLine *>
-                                    string "rewrites: " *> takeWhile1 isDigit *> endOfLine *>
-                                    manyTill parseEntry endOfLine
-                    parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
-                                    <*> (string " --> " *> parseTerm msig <* endOfLine)
-
-
-parseUnifyDHReplyY :: MaudeSig -> ByteString -> Either String [MSubst]
-parseUnifyDHReplyY msig reply = flip parseOnly reply $ do
-            endOfLine *> many1 parseUnifier <* (string "No more unifiers.")
-            <* endOfLine <* string "rewrites: "
-            <* takeWhile1 isDigit <* endOfLine <* endOfInput
-                where
                     parseUnifier = string "Unifier " *> optional (char '#') *> takeWhile1 isDigit *> endOfLine *>
                                     string "rewrites: " *> takeWhile1 isDigit *> endOfLine *>
                                     manyTill parseEntry endOfLine
@@ -547,9 +534,7 @@ ppTheoryDHsimp = BC.unlines $
       , "eq tamXCdhTimes( tamXCdhInv(tamXCdhTimes(U,V)), tamXCdhTimes(V,W)) = tamXCdhTimes( tamXCdhInv(U),W) [variant] ."
       , "endfm"] 
 
-
-
-
+{-
 ppTheoryDHfull ::  ByteString
 ppTheoryDHfull = BC.unlines $
       [ "fmod DHsimp is"
@@ -605,5 +590,5 @@ ppTheoryDHfull = BC.unlines $
       , "eq tamXCdhMult(tamXCdhZero, X) = tamXCdhZero ."
       , "eq tamXCdhMult((tamXCdhMinus(X)), Y) = tamXCdhMinus (tamXCdhMult(X, Y)) ."
       , "endfm"] 
-
+-}
       --todo: remove [variant].
