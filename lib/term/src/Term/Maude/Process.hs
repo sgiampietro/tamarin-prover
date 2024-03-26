@@ -186,7 +186,7 @@ computeViaMaude hnd updateStats toMaude fromMaude inp = do
     let (cmd, bindings) = runConversion $ toMaude inp
     reply <- callMaude hnd updateStats cmd
     case fromMaude bindings reply of
-        Right res -> return res
+        Right res -> trace ( show ("DEUBGGG:", BC.unpack reply , BC.unpack cmd)) (return res)
         Left    e -> fail $ "\ncomputeViaMaude:\nParse error: `" ++ e ++"'"++
                             "\nFor Maude Output: `" ++ BC.unpack reply ++"'"++
                             "\nFor query: `" ++ BC.unpack cmd++"'"
@@ -293,7 +293,7 @@ normViaMaude :: (IsConst c)
              -> VTerm c LVar
              -> IO (VTerm c LVar)
 normViaMaude hnd sortOf t =
-    computeViaMaude hnd incNormCount toMaude fromMaude t
+    (computeViaMaude hnd incNormCount toMaude fromMaude t)
   where
     msig = mhMaudeSig hnd
     toMaude = fmap normCmd . (lTermToMTerm sortOf)
@@ -301,6 +301,7 @@ normViaMaude hnd sortOf t =
         (\mt -> (mTermToLNTerm "z" mt `evalBindT` bindings) `evalFresh` nothingUsed)
             <$> parseReduceReply msig reply
     incNormCount mp = mp { normCount = 1 + normCount mp }
+
 
 
 -- Passing the Handle to Maude via a Reader monad

@@ -28,7 +28,7 @@ import Control.Basics
 import Control.Monad.Reader
 import Data.List             (delete)
 
-import Debug.Trace.Ignore
+import Debug.Trace -- .Ignore
 
 -- Variant Order
 ----------------------------------------------------------------------

@@ -44,7 +44,6 @@ norm _      t@(viewTerm -> Lit _) = return t
 norm sortOf t         = reader $ \hnd -> unsafePerformIO $ normViaMaude hnd sortOf t
 
 
-
 -- | @norm' t@ normalizes the term @t@ using Maude.
 norm' :: LNTerm -> WithMaude LNTerm
 norm' = norm sortOfName
@@ -54,9 +53,18 @@ norm' = norm sortOfName
 -- Normal-form check using Maude and Haskell
 ----------------------------------------------------------------------
 
+-- | @nfViaMaude t@ returns @True@ if the term @t@ is in normal form.
+nfViaMaude :: (Ord c, IsConst c)
+           => (c -> LSort) -> LTerm c -> WithMaude Bool
+nfViaMaude sortOf t = (t ==) <$> norm sortOf t
+
+
+
+
 -- | @nfViaHaskell t@ returns @True@ if the term @t@ is in normal form.
 nfViaHaskell :: LNTerm -> WithMaude Bool
-nfViaHaskell t0 = reader $ \hnd -> check hnd
+nfViaHaskell = nfViaMaude sortOfName
+{-nfViaHaskell t0 = reader $ \hnd -> check hnd
   where
     check hnd = go t0
       where
@@ -93,11 +101,11 @@ nfViaHaskell t0 = reader $ \hnd -> check hnd
             FEMap (viewTerm2 -> FPMult _ _) _                         -> False
             -- DH MULTIPLICATION STUFF (todo: almost all Trues should be false)
             FdhMult t1 t2 -> go t1 && go t2
-            FdhGinv _ -> True --False
+            FdhGinv _ -> True -- False
             FdhMinus _ -> True --False
-            DHZero  -> True
+            DHZero  -> True --True
             FdhInv (viewTerm2 -> Lit2 _ ) -> True
-            FdhInv _ -> True --False
+            FdhInv _ -> True -- False
             DHEg -> True
             FdhTimes2 t1 t2 -> go t1 && go t2
             FdhExp _ _ -> True --False
@@ -146,15 +154,12 @@ nfViaHaskell t0 = reader $ \hnd -> check hnd
         msig        = mhMaudeSig hnd
         strules     = stRules msig
         irreducible = irreducibleFunSyms msig
+-}
+
 
 -- | @nf' t@ returns @True@ if the term @t@ is in normal form.
 nf' :: LNTerm -> WithMaude Bool
 nf' = nfViaHaskell
-
--- | @nfViaMaude t@ returns @True@ if the term @t@ is in normal form.
-nfViaMaude :: (Ord c, IsConst c)
-           => (c -> LSort) -> LTerm c -> WithMaude Bool
-nfViaMaude sortOf t = (t ==) <$> norm sortOf t
 
 
 -- | @nfCompare t@ performs normal-form checks using maude and the haskell function

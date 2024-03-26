@@ -18,6 +18,7 @@ module Term.DHMultiplication (
   , isRoot
   , neededexponents
   , rootIndKnown
+  , rootIndKnownMaude
   , rootIndUnknown
   , eTermsOf
   , isNoCanc
@@ -53,6 +54,7 @@ import           Term.LTerm
 import           Term.Maude.Signature
 import           Term.Narrowing.Variants.Compute
 import           Term.Rewriting.Norm
+import Term.Maude.Process
 import           Term.SubtermRule
 --import           Term.Subsumption
 import           Term.Substitution
@@ -192,12 +194,13 @@ rootIndicator b nb t
   | indComputable (b `S.union` nb) t = (rootIndKnown b nb t,[])
   | otherwise = rootIndUnknown b nb t
 
+
 rootIndKnown :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> LNTerm
 rootIndKnown b nb t@(viewTerm2 -> FdhExp t1 t2) = (FAPP (DHMult dhExpSym) [ rootIndKnown b nb t1, rootIndKnown b nb t2])
 rootIndKnown b nb t@(viewTerm2 -> FdhGinv dht) = (FAPP (DHMult dhGinvSym) [rootIndKnown b nb dht])
 rootIndKnown b nb t@(viewTerm2 -> FdhTimes t1 t2) = (FAPP (DHMult dhTimesSym) [rootIndKnown b nb t1, rootIndKnown b nb t2] )
-rootIndKnown b nb t@(viewTerm2 -> FdhTimes2 t1 t2) = (FAPP (DHMult dhTimes2Sym) [rootIndKnown b nb t1, rootIndKnown b nb t2])
-rootIndKnown b nb t@(viewTerm2 -> FdhMu t1) = (FAPP (DHMult dhOneSym) [])
+rootIndKnown b nb t@(viewTerm2 -> FdhTimes2 t1 t2) =  (FAPP (DHMult dhTimes2Sym) [rootIndKnown b nb t1, rootIndKnown b nb t2])
+rootIndKnown b nb t@(viewTerm2 -> FdhMu t1) =  (FAPP (DHMult dhOneSym) [])
 rootIndKnown b nb t@(viewTerm2 -> FdhBox (LIT a)) = (t)
 rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Var t1)))
   | S.member t nb = (FAPP (DHMult dhOneSym) [])
@@ -207,10 +210,13 @@ rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Con t1))) = (t)
 rootIndKnown b nb t@(viewTerm2 -> Lit2 (Var t1))
   | S.member t nb = (FAPP (DHMult dhOneSym) [])
   | S.member t b = (t)
-  | otherwise  = (t) -- this is a G variable
+  | otherwise  = t -- (if isPubGVar t then (FAPP (DHMult dhEgSym) []) else t) -- this is a G variable
 rootIndKnown b nb t@(viewTerm2 -> DHZero) = (FAPP (DHMult dhOneSym) [])
 rootIndKnown b nb t@(viewTerm2 -> DHOne) = (FAPP (DHMult dhOneSym) [])
 rootIndKnown b nb _ = error "rootSet applied on non DH term'"
+
+rootIndKnownMaude::  S.Set LNTerm -> S.Set LNTerm -> LNTerm -> WithMaude LNTerm
+rootIndKnownMaude b nb t = norm' (rootIndKnown b nb t)
 
 rootIndUnknown :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> (LNTerm, [(LVar, VTerm Name LVar)])
 rootIndUnknown n nb t = ( LIT (Var newv), [(newv, t)])

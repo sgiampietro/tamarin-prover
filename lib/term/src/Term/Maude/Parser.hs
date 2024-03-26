@@ -423,6 +423,7 @@ parseSort =  string "Pub"      *> return LSortPub
 
 
 -- | @parseTerm@ is a parser for Maude terms.
+-- TODO: make sure fresh NZE variables also get interpreted as fresh variables!
 parseTerm :: MaudeSig -> Parser MTerm
 parseTerm msig = choice
    [ string "#" *> (lit <$> (FreshVar <$> (decimal <* string ":") <*> parseSort))
@@ -482,7 +483,8 @@ parseTerm msig = choice
         flattenCons (viewTerm -> FApp (DHMult s)  [])    | s == nilSym  = []
         flattenCons t                                                 = [t]
 
-    parseFAppConst ident = return $ fAppNoEq (parseFunSym ident []) []
+    parseFAppConst ident | ident `elem` (map ppMaudeDHMultSym $ S.toList $ dhMultFunSyms msig) = return $ fAppDHMult (parseFunSym ident []) []
+    parseFAppConst ident  = return $ fAppNoEq (parseFunSym ident []) []
 
     parseMaudeVariable ident =
         case BC.uncons ident of

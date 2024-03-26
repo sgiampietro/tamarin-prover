@@ -87,7 +87,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -680,6 +680,9 @@ substSystem :: Reduction ChangeIndicator
 substSystem = do
     c1 <- substNodes
     substEdges
+    substNoCanc
+    substBasis
+    subsNotBasis
     substLastAtom
     substLessAtoms
     substSubtermStore
@@ -695,6 +698,9 @@ substEdges, substLessAtoms, substSubtermStore, substLastAtom, substFormulas,
   substSolvedFormulas, substLemmas, substNextGoalNr :: Reduction ()
 
 substEdges          = substPart sEdges
+substNoCanc         = substPart sNoCanc
+substBasis          = substPart sBasis
+subsNotBasis        = substPart sNotBasis
 substLessAtoms      = substPart sLessAtoms
 substSubtermStore   = substPart sSubtermStore
 substLastAtom       = substPart sLastAtom

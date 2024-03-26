@@ -292,6 +292,13 @@ allMaudeSig = mconcat
     [ bpMaudeSig, msetMaudeSig
     , pairMaudeSig, symEncMaudeSig, asymEncMaudeSig, signatureMaudeSig, revealSignatureMaudeSig, hashMaudeSig ]
 
+allMaudeSigDH :: MaudeSig
+allMaudeSigDH = mconcat
+    [ bpMaudeSig, msetMaudeSig, dhMultMaudeSig
+    , pairMaudeSig, symEncMaudeSig, asymEncMaudeSig, signatureMaudeSig, revealSignatureMaudeSig, hashMaudeSig ]
+
+
+
 
 ----------------------------------------------------------------------
 ----------------------------------------------------------------------
@@ -330,6 +337,8 @@ testsRoot = TestLabel "Tests for Root Set" $
       , testEqual "b" (rootSet dhMultSym gvar ) (S.singleton gg)
       , testEqual "c" (isRoot dhMultSym gvar ) True
       , testEqual "d" (isRoot dhMultSym gh ) False]
+
+
 
 testseTerms :: Test
 testseTerms = TestLabel "Tests for e-Terms" $

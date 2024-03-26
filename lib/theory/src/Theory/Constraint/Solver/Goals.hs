@@ -462,6 +462,7 @@ solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact containing a
 solveDHInd rules p faPrem t =  do-- recall that t is
     case prodTerms t of 
       Just (x,y) -> do 
+        hnd  <- getMaudeHandle
         bset <- getM sBasis 
         nbset <- getM sNotBasis
         trace (show ("NOCANC", x, y, bset, nbset)) insertNoCanc x y
@@ -472,11 +473,21 @@ solveDHInd rules p faPrem t =  do-- recall that t is
               return "NeededInserted"
             -- the current goal solveDHInd should remain and we should try to solve it again once we
             -- have solved the Needed goals. or do we try it with a variable?
-          Nothing -> do
-              --return "TODO"
-              (ru, c, faConc) <- (insertFreshNodeConcOut rules) 
-              (insertDHEdge (c, faConc, faPrem, p) (rootIndKnown bset nbset x) t )
-              (return $ showRuleCaseName ru) -- (return "done")
+          Nothing -> case viewTerm2 (runReader (rootIndKnownMaude bset nbset x) hnd) of
+              (DHOne) -> trace (show ("GotHERE")) return "attack" 
+              (DHEg) -> trace (show ("GotHERE")) return "attack"
+              (Lit2 t) | (isPubGVar (LIT t))  -> trace (show ("GotHERE")) return "attack"
+              _ -> do
+                (ru, c, faConc) <- trace (show ("gotHERE2", sortOfLNTerm (runReader (rootIndKnownMaude bset nbset x) hnd))) (insertFreshNodeConcOut rules) 
+                (insertDHEdge (c, faConc, faPrem, p) (runReader (rootIndKnownMaude bset nbset x) hnd)) t 
+                (return $ showRuleCaseName ru) -- (return "done") 
+          {-Nothing -> case (rootIndKnown bset nbset x) of
+              --(FAPP dhEgSym []) -> trace (show ("GotHERE")) return "attack" 
+              --(FAPP dhOneSym []) -> trace (show ("GotHERE")) return "attack" 
+              indterm -> do
+                (ru, c, faConc) <- trace (show ("gotHERE2", sortOfLNTerm indterm, indterm)) (insertFreshNodeConcOut rules) 
+                (insertDHEdge (c, faConc, faPrem, p) (runReader (rootIndKnownMaude bset nbset x) hnd)) t 
+                (return $ showRuleCaseName ru) -- (return "done") -}
       Nothing -> error "error in prodTerm function"    
 
 
