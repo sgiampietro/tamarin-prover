@@ -459,7 +459,7 @@ solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact containing a
              -> NodePrem       -- ^ Premise to solve.
              ->LNFact -> LNTerm       -- ^ Product term of which we have to find the indicator  
              -> Reduction String -- ^ Case name to use.
-solveDHInd rules p faPrem t =  do-- recall that t is
+solveDHInd rules p faPrem t =  do-- TODO: does this ensure that x is actually a root term?
     case prodTerms t of 
       Just (x,y) -> do 
         hnd  <- getMaudeHandle
@@ -512,7 +512,11 @@ solveNeeded x i = do
                 return "caseNotBasis"
                 -- TODO: contradict K(x) happening!
 
---TOOD: turn above disjunction in conjunction!!
+-- TOOD: turn above disjunction in conjunction!!
+-- The problem I think there is, when we are in the case where we the adversary
+-- knows the exponent set, (so we are in the first case), but cannot deduce the rest. 
+-- Then the property should already be declared as proven, instead of going to the other
+-- case. 
 
 
 

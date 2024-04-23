@@ -602,7 +602,7 @@ addDHEqs hnd t1 indt eqdhstore =
         (_, []) ->
             (return (set eqsConj falseEqConstrConj eqdhstore, Nothing))
         (subst, [substFresh]) | substFresh == emptySubstVFresh ->
-            (return (eqdhStore', Nothing)) -- TODO!! here you should add the ContainsIndicator stuff. 
+            (return (eqdhStore', Nothing))
               where eqdhStore' =(applyEqStore hnd subst eqdhstore)
         (subst, substs) -> do
             let (eqStore', sid) = addDisj (applyEqStore hnd subst eqdhstore)

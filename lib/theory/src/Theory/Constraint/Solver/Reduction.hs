@@ -49,6 +49,7 @@ module Theory.Constraint.Solver.Reduction (
   , reducibleFormula
 
   , insertNoCanc
+  , insertContInd
   , insertNotBasisElem
   , insertBasisElem
   , insertDHEdge
@@ -442,6 +443,7 @@ insertNegSubterm x y = setM sSubtermStore . addNegSubterm (x, y) =<< getM sSubte
 --insertNoCanc x y = modM sNoCanc (S. insert (x,y))
 
 
+
 -- | Insert a 'Last' atom and ensure their uniqueness.
 insertLast :: NodeId -> Reduction ChangeIndicator
 insertLast i = do
@@ -630,6 +632,9 @@ insertNotBasisElem :: LNTerm -> Reduction ()
 insertNotBasisElem x = do
     modM sNotBasis (\es -> S.insert x es)
 
+insertContInd :: LNTerm -> LNTerm -> Reduction ()
+insertContInd x y = modM sContInd (S.insert (x,y))
+
 -- TODO: the following not needed ?
 insertDHInd :: NodePrem -> LNFact -> LNTerm -> Reduction ()
 insertDHInd nodep fa t = insertGoal (DHIndG nodep fa t) False
@@ -682,7 +687,8 @@ substSystem = do
     substEdges
     substNoCanc
     substBasis
-    subsNotBasis
+    substNotBasis
+    substContInd
     substLastAtom
     substLessAtoms
     substSubtermStore
@@ -700,7 +706,8 @@ substEdges, substLessAtoms, substSubtermStore, substLastAtom, substFormulas,
 substEdges          = substPart sEdges
 substNoCanc         = substPart sNoCanc
 substBasis          = substPart sBasis
-subsNotBasis        = substPart sNotBasis
+substNotBasis       = substPart sNotBasis
+substContInd        = substPart sContInd
 substLessAtoms      = substPart sLessAtoms
 substSubtermStore   = substPart sSubtermStore
 substLastAtom       = substPart sLastAtom
@@ -857,6 +864,7 @@ solveTermDHEqs splitStrat fa1 indt =
                             hnd <- getMaudeHandleDH -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
                             se  <- gets id
                             (eqs2, maySplitId) <- addDHEqs hnd fa1 indt =<< getM sEqStore -- check if here you want to add only the equation containing terms, or the entire EqInd facts. 
+                            insertContInd fa1 indt
                             setM sEqStore
                                 =<< simp hnd (substCreatesNonNormalTerms hnd se)
                                 =<< case (maySplitId, splitStrat) of
