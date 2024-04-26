@@ -321,7 +321,7 @@ dhmultIntruderRules = [
       , kdhRule FreshNZEConstrRule [freshDHFact x_fresh_var] (x_fresh_var) (x_fresh_var)         []
       --, Rule ISendRule [kuFact x_box]  [kdhFact x_varG] [kLogFact x_box]        []
       --, Rule IRecvRule [outFact x_box] [kdhFact x_varG] []  []
-      , Rule IRecvRule [outFact x_boxE] [kIFact x_varE] []  []
+      --, Rule IRecvRule [outFact x_boxE] [kIFact x_varE] []  [] --Actually not using this rule anymore, check if you can remove.  
       , Rule IRecvRule [freshDHFact x_fresh_var] [kIFact x_varfnE] []  []
       --, Rule ISendRule [kuFact x_boxE]  [kdhFact x_varE] [kLogFact x_boxE]        [] 
       , Rule CoerceDHRule  [kdhFact x_varG] [kuFact x_box] [kuFact x_box, kLogFact x_box]  []

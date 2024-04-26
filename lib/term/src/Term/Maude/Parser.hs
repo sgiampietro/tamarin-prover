@@ -82,12 +82,12 @@ parseLSortSym s = case s of
     "c"  -> Just LSortMsg
     "n"  -> Just LSortNode
     "t"  -> Just LSortNat
-    "dh"  ->  Just LSortDH        
-    "g"   -> Just LSortG     
-    "e"  ->  Just LSortE        
-    "nze"  -> Just LSortNZE   
-    "bg"   -> Just  LSortPubG    
-    "fnze"  -> Just LSortFrNZE   
+    "dh"  ->  Just LSortDH
+    "g"   -> Just LSortG
+    "e"  ->  Just LSortE
+    "nze"  -> Just LSortNZE
+    "bg"   -> Just  LSortPubG
+    "fnze"  -> Just LSortFrNZE
     _    -> Nothing
 
 -- | Used to prevent clashes with predefined Maude function symbols
@@ -110,14 +110,14 @@ funSymDecode :: ByteString -> (ByteString, Privacy, Constructability)
 funSymDecode s = (ident,priv,constr)
     where
         prefixLen      = BC.length funSymPrefix
-        (eAttr,ident)  = BC.splitAt 2 (BC.drop prefixLen s) 
+        (eAttr,ident)  = BC.splitAt 2 (BC.drop prefixLen s)
         (priv,constr)  = case eAttr of
                             "PD" -> (Private,Destructor)
                             "PC" -> (Private,Constructor)
                             "XD" -> (Public,Destructor)
                             _    -> (Public,Constructor)
 
-         
+
 
 -- | Replace underscores "_" with minus "-" for Maude.
 replaceUnderscore :: ByteString -> ByteString
@@ -153,7 +153,7 @@ replaceMinusFunDH (s, p) = (replaceMinus s, p)
 ppMaudeACSym :: ACSym -> ByteString
 ppMaudeACSym o =
     funSymPrefix <> case o of
-                      Mult    -> multSymString 
+                      Mult    -> multSymString
                       Union   -> munSymString
                       Xor     -> xorSymString
                       NatPlus -> natPlusSymString
@@ -226,7 +226,7 @@ ppTheory msig = BC.unlines $
     (if enableDH msig
        then
        [ theoryOpEq "one : -> Msg"
-       , theoryOpEq "DH-neutral  : -> Msg"       
+       , theoryOpEq "DH-neutral  : -> Msg"
        , theoryOpEq "exp : Msg Msg -> Msg"
        , theoryOpAC "mult : Msg Msg -> Msg [comm assoc]"
        , theoryOpEq "inv : Msg -> Msg" ]
@@ -272,7 +272,7 @@ ppTheory msig = BC.unlines $
         , theoryOpEq "dhOne : -> E"
         , theoryOpEq "dhMu : G -> E"
         , theoryDH "dhBox : G -> G"
-        , theoryDH "dhBoxE : E -> E" 
+        , theoryDH "dhBoxE : E -> E"
         , "vars A B : G . "
         , "vars X Y Z : E ."
         , "vars U V : NZE ."
@@ -303,10 +303,10 @@ ppTheory msig = BC.unlines $
         , "eq tamXCdhMinus (tamXCdhPlus(X,Y)) = tamXCdhPlus((tamXCdhMinus(X)), (tamXCdhMinus(Y))) ."
         , "eq tamXCdhMinus( tamXCdhMinus(X)) = X ."
         , "eq tamXCdhMult(tamXCdhZero, X) = tamXCdhZero ."
-        , "eq tamXCdhMult((tamXCdhMinus(X)), Y) = tamXCdhMinus( tamXCdhMult(X, Y)) ." 
+        , "eq tamXCdhMult((tamXCdhMinus(X)), Y) = tamXCdhMinus( tamXCdhMult(X, Y)) ."
         ]
        else [])
-    ++    
+    ++
     (if enableNat msig
        then
        [ theoryOpEq "tone : -> TamNat"
@@ -325,14 +325,14 @@ ppTheory msig = BC.unlines $
         "  op " <> funSymPrefix <> maybeEncode attr <> fsort <>" ."
     --theoryDH fsort = "  op " <> fsort <>" ."
     theoryOpDH fsort =
-        "  op " <> funSymPrefix <> maybeEncode (Just (Private,Constructor)) <> fsort <>" [comm assoc] ."
+        "  op " <> funSymPrefix <> maybeEncode (Just (Public,Constructor)) <> fsort <>" [comm assoc] ."
     --theoryDH fsort = "  op " <> fsort <>" ."
     theoryDH = theoryOp (Just (Private,Constructor))
     theoryOpEq = theoryOp (Just (Public,Constructor))
     theoryOpAC = theoryOp Nothing
     theoryOpC  = theoryOp Nothing
     theoryFunSym (s,(ar,priv,cnstr)) =
-        theoryOp  (Just(priv,cnstr)) (replaceUnderscore s <> " : " <> (B.concat $ replicate ar "Msg ") <> " -> Msg")
+        theoryOp  (Just (priv,cnstr)) (replaceUnderscore s <> " : " <> (B.concat $ replicate ar "Msg ") <> " -> Msg")
     theoryRule (l `RRule` r) =
         "  eq " <> ppMaude lm <> " = " <> ppMaude rm <> " [variant] ."
       where (lm,rm) = evalBindT ((,) <$>  lTermToMTerm' l <*> lTermToMTerm' r) noBindings
@@ -380,7 +380,7 @@ parseUnifyDHReply msig reply = flip parseOnly reply $
               <* takeWhile1 isDigit <* endOfLine *> pure []
            , many1 (parseUnifier) <* (string "No more unifiers.")
             <* endOfLine <* string "rewrites: "
-            <* takeWhile1 isDigit <* endOfLine ] 
+            <* takeWhile1 isDigit <* endOfLine ]
       <* endOfInput
               where
                     parseUnifier = string "Unifier " *> optional (char '#') *> takeWhile1 isDigit *> endOfLine *>
@@ -396,7 +396,7 @@ parseSubstitution msig = do
     endOfLine *> choice [string "Solution ", string "Unifier ", string "Matcher "] *> takeWhile1 isDigit *> endOfLine
     choice [ string "empty substitution" *> endOfLine *> pure []
            , many1 parseEntry]
-  where 
+  where
     parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
                      <*> (string " --> " *> parseTerm msig <* endOfLine)
 
@@ -443,19 +443,18 @@ parseTerm msig = choice
 
     parseFunSym ident args
       | op `elem` allowedfunSyms =  replaceMinusFun op
-      | op `elem` allowedfunSymsDH = (replaceMinusFunDH op)
+      | op `elem` allowedfunSymsDH = replaceMinusFunDH op
       | otherwise                =
           error $ "Maude.Parser.parseTerm: unknown function "
                   ++ "symbol `"++ show op ++"', not in "
-                  ++ show allowedfunSyms
-      where 
+                  ++ show allowedfunSyms ++ show allowedfunSymsDH ++ show msig ++ "edn"
+      where
             special             = ident `elem` ["list", "cons", "nil" ]
             (ident',priv,cnstr) = funSymDecode ident
-            op                  = if special then 
+            op                  = if special then
                                         (ident , (length args,Public,Constructor))
                                   else  (ident', (length args, priv, cnstr))
-            allowedfunSyms = [consSym, nilSym, natOneSym]
-                ++ (map replaceUnderscoreFun $ S.toList $ noEqFunSyms msig)
+            allowedfunSyms = [consSym, nilSym, natOneSym] ++ (map replaceUnderscoreFun $ S.toList $ noEqFunSyms msig)
             allowedfunSymsDH = (map replaceUnderscoreFunDH $ S.toList $ dhMultFunSyms msig)
 
     parseConst s = lit <$> (flip MaudeConst s <$> decimal) <* string ")"
@@ -516,7 +515,7 @@ ppTheoryDHsimp = BC.unlines $
       , "op tamXCdhExp : G E -> G ."
       , "op tamXCdhOne : -> NZE ."
       , "op tamXCdhMu : G -> E ."
-      , "op tamPCdhBox : G -> G ." 
+      , "op tamPCdhBox : G -> G ."
       , "op tamPCdhBoxE : E -> E ."
       , "vars A B : G . "
       , "vars X Y : E ."
@@ -534,7 +533,7 @@ ppTheoryDHsimp = BC.unlines $
       , "eq tamXCdhTimes( U, tamXCdhTimes(tamXCdhInv(U),V)) = V [variant] ."
       , "eq tamXCdhTimes( tamXCdhInv(U), tamXCdhTimes(tamXCdhInv(V),W)) = tamXCdhTimes( tamXCdhInv(tamXCdhTimes(U,V)),W) [variant] ."
       , "eq tamXCdhTimes( tamXCdhInv(tamXCdhTimes(U,V)), tamXCdhTimes(V,W)) = tamXCdhTimes( tamXCdhInv(U),W) [variant] ."
-      , "endfm"] 
+      , "endfm"]
 
 {-
 ppTheoryDHfull ::  ByteString

@@ -68,7 +68,7 @@ import           Control.Monad.Reader
 import           Extension.Prelude
 import           Utils.Misc
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Control.Basics
 import           Control.DeepSeq
@@ -600,14 +600,14 @@ addDHEqs :: MonadFresh m
 addDHEqs hnd t1 indt eqdhstore =
     case unifyLNDHTermFactored eqs `runReader` hnd of
         (_, []) ->
-            (return (set eqsConj falseEqConstrConj eqdhstore, Nothing))
+            trace (show ("NO UNIFIER", indt, t1, eqs, sortOfLNTerm indt, sortOfLNTerm t1)) (return (set eqsConj falseEqConstrConj eqdhstore, Nothing))
         (subst, [substFresh]) | substFresh == emptySubstVFresh ->
-            (return (eqdhStore', Nothing))
+            trace (show ("SOME UNIFIER?", indt, t1)) (return (eqdhStore', Nothing))
               where eqdhStore' =(applyEqStore hnd subst eqdhstore)
         (subst, substs) -> do
             let (eqStore', sid) = addDisj (applyEqStore hnd subst eqdhstore)
                                           (S.fromList substs)
-            (return (eqStore', Just sid))
+            trace (show ("SOME UNIFIER2?", indt, t1)) (return (eqStore', Just sid))
   where
     eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
 

@@ -105,7 +105,7 @@ import qualified Term.Maude.Process as UM
 import           Term.Maude.Process
                    (MaudeHandle, WithMaude, startMaude, startMaudeDH, getMaudeStats, mhMaudeSig, mhFilePath)
 import           Term.Maude.Signature
-import           Debug.Trace.Ignore
+import           Debug.Trace-- .Ignore
 
 -- Unification modulo AC
 ----------------------------------------------------------------------
@@ -137,15 +137,15 @@ unifyLDHTermFactored :: (IsConst c)
                    -> [Equal (LTerm c)]
                    -> WithMaude (LSubst c, [SubstVFresh c LVar])
 unifyLDHTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTermDH: "++ show eqs, "result = "++  show res]) res) $ do
-    solve h $ execRWST unif sortOf M.empty
+    solve h -- $ execRWST unif sortOf M.empty
   where
-    unif = sequence [ unifyRaw t p | (Equal t p) <- eqs ]
-    solve _ Nothing         = (emptySubst, [])
-    solve _ (Just (m, []))  = (substFromMap m, [emptySubstVFresh])
-    solve h (Just (m, leqs)) =
-        (subst, unsafePerformIO (UM.unifyViaMaudeDH h sortOf $
-                                     map (applyVTerm subst <$>) leqs))
-      where subst = substFromMap m
+    -- unif = sequence [ unifyRaw t p | (Equal t p) <- eqs ]
+    -- solve _ Nothing         = (emptySubst, [])
+    --solve _ (Just (m, []))  = (substFromMap m, [emptySubstVFresh])
+    solve h = -- (Just (m, leqs)) =
+        (emptySubst, unsafePerformIO (UM.unifyViaMaudeDH h sortOf 
+                                      eqs))
+      --where subst = substFromMap m
 
 unifyLNDHTermFactored :: [Equal LNTerm]
                     -> WithMaude (LNSubst, [SubstVFresh Name LVar])

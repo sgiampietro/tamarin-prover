@@ -151,12 +151,14 @@ clean t@(viewTerm3 -> DH f dht) vars = (FAPP f dht, [], vars )
 rootSet :: (Show a, Ord a ) => DHMultSym -> Term a -> S.Set (Term a)
 rootSet operator t@(LIT l) = S.singleton t
 rootSet operator t@(FAPP (DHMult o) ts) = case ts of
+    [t1]       | o == dhBoxSym    -> rootSet operator t1
+    [t1]       | o == dhBoxESym    -> rootSet operator t1
     [ t1, t2 ] | o == operator    -> S.union (rootSet operator t1) (rootSet operator t2)
     [ t1, t2 ] | o /= operator    -> S.singleton t
     [ t1 ]                        -> S.singleton t
     []                            -> S.singleton t
     _         -> error $ "malformed term `"++show t++"'"
-rootSet operator _ = error "rootSet applied on non DH term'"
+rootSet operator t = error ("rootSet applied on non DH term'"++show t++"'")
 
 multRootList :: (Show a, Ord a ) => Term a ->  [(Term a)]
 multRootList a = S.toList (rootSet dhMultSym a)
@@ -203,10 +205,10 @@ rootIndKnown b nb t@(viewTerm2 -> FdhTimes2 t1 t2) =  (FAPP (DHMult dhTimes2Sym)
 rootIndKnown b nb t@(viewTerm2 -> FdhMu t1) =  (FAPP (DHMult dhOneSym) [])
 rootIndKnown b nb t@(viewTerm2 -> FdhBox (LIT a)) = (t)
 rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Var t1)))
-  | S.member t nb = (FAPP (DHMult dhOneSym) [])
-  | S.member t b = (t)
-  | otherwise = error "this shouldn't happen"
-rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Con t1))) = (t)
+  | S.member (LIT (Var t1)) nb = (FAPP (DHMult dhOneSym) [])
+  | S.member (LIT (Var t1)) b = (t)
+  | otherwise = error ("this shouldn't happen" ++ show (t, b, nb) ++ "ops")
+rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Con t1))) = (LIT (Con t1))
 rootIndKnown b nb t@(viewTerm2 -> Lit2 (Var t1))
   | S.member t nb = (FAPP (DHMult dhOneSym) [])
   | S.member t b = (t)

@@ -326,7 +326,7 @@ startMaudeDH maudePath = do
     _  <- mkWeakMVar mv $ withMVar mv $ \mp -> do
         terminateProcess (mProc mp) <* waitForProcess (mProc mp)
     -- return the maude handle
-    return (MaudeHandle maudePath emptyMaudeSig mv)
+    return (MaudeHandle maudePath dhMultMaudeSig mv)
 
 -- | Start a Maude process.
 startMaudeProcessDH :: FilePath -- ^ Path to Maude

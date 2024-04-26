@@ -586,6 +586,7 @@ markGoalAsSolved how goal =
       DHIndG _ _ _    -> modM sGoals $ M.delete goal
       NoCancG _       -> modM sGoals $ M.delete goal
       NeededG _ _       -> modM sGoals $ M.delete goal
+      IndicatorG _       -> modM sGoals $ M.delete goal
   where
     updateStatus = do
         mayStatus <- M.lookup goal <$> getM sGoals
@@ -865,6 +866,7 @@ solveTermDHEqs splitStrat fa1 indt =
                             se  <- gets id
                             (eqs2, maySplitId) <- addDHEqs hnd fa1 indt =<< getM sEqStore -- check if here you want to add only the equation containing terms, or the entire EqInd facts. 
                             insertContInd fa1 indt
+                            insertGoal (IndicatorG (fa1,indt)) False
                             setM sEqStore
                                 =<< simp hnd (substCreatesNonNormalTerms hnd se)
                                 =<< case (maySplitId, splitStrat) of
@@ -944,7 +946,8 @@ solveFactDHEqs split eq@(EqInd (Equal fa1 fa2) indt1 t1) = do
     case factTerms fa1 of 
         [t] -> do
             outterm <- disjunctionOfList (multRootList t)
-            (solveTermDHEqs split outterm indt1)
+            (solveTermDHEqs split outterm indt1) --to do, this indt1 should probs be Y.indt1^Z, with Y,Z known by adversary.
+            -- but be careful because that should hold only for G terms. E terms should be handled differrently.
         _ -> error "incorrect factTerm called"
 
 -- need to take care of indicators here. Trying to do this in the "solveIndEqTermDHEqs" function. 

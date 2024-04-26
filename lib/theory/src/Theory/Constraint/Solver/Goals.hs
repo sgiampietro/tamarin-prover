@@ -1,6 +1,8 @@
 {-# LANGUAGE TupleSections    #-}
 {-# LANGUAGE ViewPatterns     #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use if" #-}
 -- |
 -- Copyright   : (c) 2010-2012 Benedikt Schmidt & Simon Meier
 -- License     : GPL v3 (see LICENSE)
@@ -17,7 +19,7 @@
 -- "Theory.Constraint.Solver.ProofMethod" for the public interface to solving
 -- goals and the implementation of heuristics.
 module Theory.Constraint.Solver.Goals (
-    
+
   openGoals
   , solveGoal
   , plainOpenGoals
@@ -109,9 +111,10 @@ openGoals sys = do
         -- explicitly if they still exist.
         SplitG idx -> splitExists (get sEqStore sys) idx
         SubtermG st -> st `elem` L.get (posSubterms . sSubtermStore) sys
-        DHIndG _ _ _ -> not solved 
+        DHIndG _ _ _ -> not solved
         NoCancG _ -> not solved
         NeededG _ _ -> not solved
+        IndicatorG _ -> not solved
 
     let
         useful = case goal of
@@ -220,7 +223,8 @@ solveGoal goal = do
       SubtermG st   -> solveSubterm st
       DHIndG p fa t -> solveDHInd (get crProtocol rules) p fa t
       NoCancG (t1, t2) -> solveNoCanc t1 t2
-      NeededG x i    -> solveNeeded x i
+      NeededG x i    -> solveNeeded (get crProtocol rules) x i
+      IndicatorG (t1, t2) -> solveIndicator t1 t2
 
 -- The following functions are internal to 'solveGoal'. Use them with great
 -- care.
@@ -261,12 +265,12 @@ solveAction rules (i, fa@(Fact _ ann _)) =trace (show ("SEARCHING", fa, "END")) 
                    (void (solveFactEqs SplitNow [Equal fa act]))
                    return ru
 
-        Just ru ->  case fa of 
+        Just ru ->  case fa of
             --(Fact (ProtoFact n s i) _ [m@(viewTerm3 -> Box ts)]) -> solveProtoAction ru
             --(Fact (ProtoFact n s i) _ [m@(viewTerm3 -> BoxE ts)]) -> solveProtoAction ru
             --(Fact _ _ [m@(viewTerm3 -> Box ts)]) -> solveKU ru
             --(Fact _ _ [m@(viewTerm3 -> BoxE ts)]) -> solveKU ru
-            _                                     -> do unless (fa `elem` get rActs ru) $ do 
+            _                                     -> do unless (fa `elem` get rActs ru) $ do
                                                           act <- disjunctionOfList $ get rActs ru
                                                           (void (solveFactEqs SplitNow [Equal fa act]))
                                                         return ru)
@@ -308,7 +312,7 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
              -> LNFact         -- ^ Fact required at this premise.
              -> Reduction String -- ^ Case name to use.
 solvePremise rules p faPrem
-  | isKdhFact faPrem = do  
+  | isKdhFact faPrem = do
       case factTerms faPrem of
           [t1] -> trace (show ("HERE: solving", t1) ) (solveDHInd rules p faPrem t1)
           _ -> error "malformed KdhFact"
@@ -324,7 +328,13 @@ solvePremise rules p faPrem
       modM sNodes  (M.insert iLearn ruLearn)
       insertChain cLearn p
       solvePremise rules pLearn premLearn
-
+{-
+  | isOutFact fa Prem = do
+      case factTerms faPrem of 
+        t@(viewTerm2 -> FdhBox _) ->  (ru, c, faConc) <- trace (show ("gotHERE2", sortOfLNTerm (runReader (rootIndKnownMaude bset nbset x) hnd))) (insertFreshNodeConcOut rules) 
+                                      (insertDHEdge (c, faConc, faPrem, p) (runReader (rootIndKnownMaude bset nbset x) hnd)) t 
+                              (return $ showRuleCaseName ru) -- (return "done") 
+-}
   | otherwise = do
       (ru, c, faConc) <- insertFreshNodeConc rules
       insertEdges [(c, faConc, faPrem, p)]
@@ -457,29 +467,33 @@ solveNoCanc x y = do
 
 solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact containing a boxed term as conclusion. 
              -> NodePrem       -- ^ Premise to solve.
-             ->LNFact -> LNTerm       -- ^ Product term of which we have to find the indicator  
+             ->LNFact
+             -> LNTerm       -- ^ Product term of which we have to find the indicator  
              -> Reduction String -- ^ Case name to use.
 solveDHInd rules p faPrem t =  do-- TODO: does this ensure that x is actually a root term?
-    case prodTerms t of 
-      Just (x,y) -> do 
+    case prodTerms t of
+      Just (x,y) -> do
         hnd  <- getMaudeHandle
-        bset <- getM sBasis 
+        bset <- getM sBasis
         nbset <- getM sNotBasis
         trace (show ("NOCANC", x, y, bset, nbset)) insertNoCanc x y
-        case neededexponents bset nbset x of 
-          (Just es) -> do 
+        case neededexponents bset nbset x of
+          (Just es) -> do
               trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es)
               insertDHInd p faPrem t
               return "NeededInserted"
             -- the current goal solveDHInd should remain and we should try to solve it again once we
             -- have solved the Needed goals. or do we try it with a variable?
           Nothing -> case viewTerm2 (runReader (rootIndKnownMaude bset nbset x) hnd) of
-              (DHOne) -> trace (show ("GotHERE")) return "attack" 
+              (DHOne) -> trace (show ("GotHERE")) return "attack"
               (DHEg) -> trace (show ("GotHERE")) return "attack"
               (Lit2 t) | (isPubGVar (LIT t))  -> trace (show ("GotHERE")) return "attack"
               _ -> do
-                (ru, c, faConc) <- trace (show ("gotHERE2", sortOfLNTerm (runReader (rootIndKnownMaude bset nbset x) hnd))) (insertFreshNodeConcOut rules) 
-                (insertDHEdge (c, faConc, faPrem, p) (runReader (rootIndKnownMaude bset nbset x) hnd)) t 
+                (ru, c, faConc) <- trace (show ("gotHERE2", sortOfLNTerm (runReader (rootIndKnownMaude bset nbset x) hnd))) (insertFreshNodeConcOut rules)
+                z1 <- freshLVar "Z1" LSortE
+                let indt = (runReader (rootIndKnownMaude bset nbset x) hnd)
+                    indtexp = fAppdhExp (indt, LIT (Var z1) )
+                (insertDHEdge (c, faConc, faPrem, p) indtexp) t -- instead of root indicator this should be Y.ind^Z.
                 (return $ showRuleCaseName ru) -- (return "done") 
           {-Nothing -> case (rootIndKnown bset nbset x) of
               --(FAPP dhEgSym []) -> trace (show ("GotHERE")) return "attack" 
@@ -488,35 +502,37 @@ solveDHInd rules p faPrem t =  do-- TODO: does this ensure that x is actually a 
                 (ru, c, faConc) <- trace (show ("gotHERE2", sortOfLNTerm indterm, indterm)) (insertFreshNodeConcOut rules) 
                 (insertDHEdge (c, faConc, faPrem, p) (runReader (rootIndKnownMaude bset nbset x) hnd)) t 
                 (return $ showRuleCaseName ru) -- (return "done") -}
-      Nothing -> error "error in prodTerm function"    
+      Nothing -> error "error in prodTerm function"
 
 
+solveIndicator :: LNTerm -> LNTerm -> Reduction String
+solveIndicator t1 t2 = return "Found indicators! possible attack. "
 
 --how do I make a case distinction _within_ a solve function?? use disjunction monad!
 
 
-solveNeeded ::  LNTerm ->  NodeId ->        -- exponent that is needed.
+solveNeeded ::  [RuleAC] -> LNTerm ->  NodeId ->        -- exponent that is needed.
                 Reduction String -- ^ Case name to use.
-solveNeeded x i = do
+solveNeeded rules x i = do
     -- markGoalAsSolved "case split: basis or not" (NeededG x i )
     basisornot <- disjunctionOfList [True, False] -- this should return a list of True and False
-    case basisornot of 
+    case basisornot of
       True -> do
-                insertBasisElem x 
+                insertBasisElem x
                 --insertGoal (PremiseG (i, PremIdx 0) (kdFact x)) False !!(adversary shouldn't know x? check if we actually _need_ to prove it CANNOT)
                 -- TODO: insertSecret x
                 return "caseBasis"
       False -> do
-                insertNotBasisElem x 
-                insertGoal (PremiseG (i, PremIdx 0) (kIFact x)) False -- check if kdFact or kuFact!
-                return "caseNotBasis"
-                -- TODO: contradict K(x) happening!
-
--- TOOD: turn above disjunction in conjunction!!
--- The problem I think there is, when we are in the case where we the adversary
--- knows the exponent set, (so we are in the first case), but cannot deduce the rest. 
--- Then the property should already be declared as proven, instead of going to the other
--- case. 
+                trace "IAMHEREYES" (insertNotBasisElem x)
+                --                
+                (ru, c, faConc) <- insertFreshNodeConcOut rules
+                z1 <- freshLVar "Z1" LSortE
+                let indx = fAppdhTimes2 (x, LIT (Var z1) )
+                trace (show ("WORKING", indx, x)) (insertDHEdge (c, faConc, kdhFact x,(i, PremIdx 0)) indx x)  --TODO: this should not be x, but x*Z1+Z2 (with adversary knowing Z1 and Z2). 
+                -- return $ showRuleCaseName ru
+                --
+                --insertGoal (PremiseG (i, PremIdx 0) (kIFact x)) False 
+                return "caseNotBasis" -- TODO: make this appear somehow, maybe with an extra case. 
 
 
 
@@ -533,12 +549,12 @@ solveSubterm st = do
       -- mark subterm as solved
       modM (posSubterms . sSubtermStore) (st `S.delete`)
       modM (solvedSubterms . sSubtermStore) (st `S.insert`)
-      
+
       -- find all splits
       reducible <- reducibleFunSyms . mhMaudeSig <$> getMaudeHandle
       splitList <- splitSubterm reducible True st
       (i, split) <- disjunctionOfList $ zip [(1::Int)..] splitList  -- make disjunction over all splits
-      
+
       -- from here on: only look at a single split
       case split of
         TrueD -> return ()
@@ -551,5 +567,5 @@ solveSubterm st = do
                                     else modM sSubtermStore (addSubterm st1)
         EqualD (l, r) -> insertFormula $ GAto $ EqE (lTermToBTerm l) (lTermToBTerm r)
         ACNewVarD ((smallPlus, big), newVar) -> insertFormula $ closeGuarded Ex [newVar] [EqE smallPlus big] gtrue
-        
+
       return $ "SubtermSplit" ++ show i
