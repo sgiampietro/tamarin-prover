@@ -417,7 +417,7 @@ solveChain rules (c, p) = do
     -- No coerce of a pair of inverse.
     illegalCoerce pRule mPrem = isCoerceRule pRule && isPair    mPrem ||
                                 isCoerceRule pRule && isInverse mPrem ||
-    -- Also: Coercing of products is unnecessary, since the protocol is *-restricted.
+      -- Also: Coercing of products is unnecessary, since the protocol is *-restricted.
                                 isCoerceRule pRule && isProduct mPrem
 
 
@@ -465,6 +465,28 @@ solveNoCanc x y = do
         else error "NoCanc does not hold"  -- TODO: not sure what to do if you don't have this condition? maybe add y and inv(x) to the DH-equation store? 
       )
 
+
+solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> MaudeHandle -> NodePrem -> LNFact -> LNTerm -> [RuleAC] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
+solveDHIndaux bset nbset x hnd p faPrem t rules =
+  case neededexponents bset nbset x of
+      (Just es) -> do
+          trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es)
+          insertDHInd p faPrem t
+          return "NeededInserted"
+      -- the current goal solveDHInd should remain and we should try to solve it again once we
+      -- have solved the Needed goals. or do we try it with a variable?
+      Nothing -> case viewTerm2 (runReader (rootIndKnownMaude bset nbset x) hnd) of
+          (DHOne) -> trace (show ("GotHERE")) return "attack"
+          (DHEg) -> trace (show ("GotHERE")) return "attack"
+          (Lit2 t) | (isPubGVar (LIT t))  -> trace (show ("GotHERE")) return "attack"
+          _ -> do
+            (ru, c, faConc) <- trace (show ("gotHERE2", sortOfLNTerm (runReader (rootIndKnownMaude bset nbset x) hnd))) (insertFreshNodeConcOut rules)
+            z1 <- freshLVar "Z1" LSortE
+            let indt = (runReader (rootIndKnownMaude bset nbset x) hnd)
+                indtexp = fAppdhExp (indt, LIT (Var z1) )
+            (insertDHEdge (c, faConc, faPrem, p) indtexp) t -- instead of root indicator this should be Y.ind^Z.
+            (return $ showRuleCaseName ru) -- (return "done") 
+
 solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact containing a boxed term as conclusion. 
              -> NodePrem       -- ^ Premise to solve.
              ->LNFact
@@ -476,25 +498,13 @@ solveDHInd rules p faPrem t =  do-- TODO: does this ensure that x is actually a 
         hnd  <- getMaudeHandle
         bset <- getM sBasis
         nbset <- getM sNotBasis
-        trace (show ("NOCANC", x, y, bset, nbset)) insertNoCanc x y
-        case neededexponents bset nbset x of
-          (Just es) -> do
-              trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es)
-              insertDHInd p faPrem t
-              return "NeededInserted"
-            -- the current goal solveDHInd should remain and we should try to solve it again once we
-            -- have solved the Needed goals. or do we try it with a variable?
-          Nothing -> case viewTerm2 (runReader (rootIndKnownMaude bset nbset x) hnd) of
-              (DHOne) -> trace (show ("GotHERE")) return "attack"
-              (DHEg) -> trace (show ("GotHERE")) return "attack"
-              (Lit2 t) | (isPubGVar (LIT t))  -> trace (show ("GotHERE")) return "attack"
-              _ -> do
-                (ru, c, faConc) <- trace (show ("gotHERE2", sortOfLNTerm (runReader (rootIndKnownMaude bset nbset x) hnd))) (insertFreshNodeConcOut rules)
-                z1 <- freshLVar "Z1" LSortE
-                let indt = (runReader (rootIndKnownMaude bset nbset x) hnd)
-                    indtexp = fAppdhExp (indt, LIT (Var z1) )
-                (insertDHEdge (c, faConc, faPrem, p) indtexp) t -- instead of root indicator this should be Y.ind^Z.
-                (return $ showRuleCaseName ru) -- (return "done") 
+        nocancs <- getM sNoCanc
+        -- trace (show ("NOCANC", x, y, bset, nbset)) insertNoCanc x y
+        if not (S.member (x,y) nocancs  || isNoCanc x y) then
+              (do
+              insertNoCanc x y
+              solveDHIndaux bset nbset x hnd p faPrem t rules)
+             else (solveDHIndaux bset nbset x hnd p faPrem t rules)
           {-Nothing -> case (rootIndKnown bset nbset x) of
               --(FAPP dhEgSym []) -> trace (show ("GotHERE")) return "attack" 
               --(FAPP dhOneSym []) -> trace (show ("GotHERE")) return "attack" 

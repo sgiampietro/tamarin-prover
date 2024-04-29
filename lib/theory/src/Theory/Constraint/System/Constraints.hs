@@ -278,7 +278,7 @@ prettyGoal (SplitG x) =
     text "splitEqs" <> parens (text $ show (unSplitId x))
 prettyGoal (SubtermG (l,r)) =
     prettyLNTerm l <-> operator_ "⊏" <-> prettyLNTerm r
-prettyGoal (DHIndG i fa ta) =  prettyNodePrem i <-> text "Ind" <-> prettyLNFact fa
+prettyGoal (DHIndG i fa ta) =  text "SearchForIndicator" <-> prettyLNTerm ta
 prettyGoal (NoCancG (l,r) ) = prettyLNTerm l <-> text "NoCanc" <-> prettyLNTerm r
 prettyGoal (NeededG ta p ) = prettyLNTerm ta <-> text "Needed" <-> prettyNodeId p
 prettyGoal (IndicatorG (l,r) ) = prettyLNTerm l <-> text "IndicatorFound" <-> prettyLNTerm r
