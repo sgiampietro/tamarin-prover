@@ -16,9 +16,12 @@ where
 import GHC.Real
 import qualified Data.Set                          as S
 import Data.List ( (\\), intersect )
+import qualified Data.Map                          as Map
+-- we use maps to construct the linear system of equation we will need to solve. 
 
 import qualified Data.Vector                       as V
 import qualified Data.Matrix                       as Mx
+
 
 import Term.DHMultiplication
 import Term.LTerm -- (LNTerm)
@@ -98,27 +101,74 @@ createMatrix terms target = Mx.indentity $ length terms
 
 -- polynomials, how should we represent them? maps? vectors?
 
+combineMaps :: LNTerm -> LNTerm -> LNTerm -> LNTerm
+combineMaps key oldvalue newvalue = fAppdhPlus (oldvalue,newvalue)
 
-{-
-parseToPoly ::  [LNTerm] -> LNTerm  -> Polynomial
-parseToPoly nb t@(LIT l) = if (member t nb) then (CONSTANT) else (VARIABLE) 
-parseToPoly nb (FAPP (DHMult o) ts) = case ts of
+Map.insertWithKey
+
+-- THIS FUNCTION ASSUMES THAT THE INPUT TERMS ARE IN NORMAL FORM, i.e. 
+-- EACH MONOMIAL (which we assume of type E) is of the form 
+-- "(m1+m2+...+mk)" where mi = (e1*e2*...*el), and ei are either literals or inv(lit).
+
+-- make sure the vars do not contain any inverse, but only pure LIT terms. 
+getkeyfromProd :: [LNTerm] -> LNTerm -> LNTerm 
+getkeyfromProd vars t@(LIT l) = if (member t vars) then t else fAppdhOne
+getkeyfromProd vars t@(FAPP (DHMult o) ts) = case ts of
+    [ t1, t2 ] | o == dhTimesSym   -> (case t1 of
+        (LIT l) -> if (member t1 vars) then fAppdhTimes (t1, getkeyfromProd vars t2) else getkeyfromProd vars t2
+        _       -> fAppdhTimes (getkeyfromProd vars t1, getkeyfromProd vars t2))
+    [ t1, t2 ] | o == dhTimesESym   -> (case t1 of
+        (LIT l) -> if (member t1 vars) then fAppdhTimes (t1, getkeyfromProd vars t2) else getkeyfromProd vars t2
+        _       -> fAppdhTimes (getkeyfromProd vars t1, getkeyfromProd vars t2))
+    [ t1 ]     | o == dhInvSym    -> if (member t1 vars) then t else fAppdhOne
+    [ t1 ]     | o == dhMinusSym    -> getkeyfromProd vars t1
+    [ t1 ]     | o == dhMuSym    -> if (member t1 vars) then fAppdhMu t1 else fAppdhOne --TODO: not sure what to do here? t1 is actually a G term??
+    []         | o == dhZeroSym    -> fAppdhOne
+    []         | o == dhOneSym    -> fAppdhOne
+    _                               -> error $ "this shouldn't have happened: `"++show t++"'"
+
+
+getcoefromProd :: [LNTerm] -> LNTerm -> LNTerm 
+getcoefromProd vars t@(LIT l) = if (member t vars) then fAppdhOne else t
+getcoefromProd vars t@(FAPP (DHMult o) ts) = case ts of
+    [ t1, t2 ] | o == dhTimesSym   -> (case t1 of
+        (LIT l) -> if (member t1 vars) then getcoefromProd vars t2 else fAppdhTimes (t1, getcoefromProd vars t2) 
+        _       -> fAppdhTimes (getcoefromProd vars t1, getcoefromProd vars t2))
+    [ t1, t2 ] | o == dhTimesESym   -> (case t1 of
+        (LIT l) -> if (member t1 vars) then getcoefromProd vars t2 else fAppdhTimes (t1, getcoefromProd vars t2) 
+        _       -> fAppdhTimes (getcoefromProd vars t1, getcoefromProd vars t2))
+    [ t1 ]     | o == dhInvSym    -> if (member t1 vars) then fAppdhOne else t -- check how to deal with inverse!
+    [ t1 ]     | o == dhMinusSym    -> fAppdhMinus (getcoefromProd vars t1)
+    [ t1 ]     | o == dhMuSym    -> if (member t1 vars) then fAppdhOne else fAppdhMu t1  --TODO: not sure what to do here? t1 is actually a G term??
+    []         | o == dhZeroSym    -> t
+    []         | o == dhOneSym    -> t
+    _                               -> error $ "this shouldn't have happened: `"++show t++"'"
+
+
+
+addToMap ::  Map.Map LNTerm LNTerm -> [LNTerm] -> LNTerm  -> Map.Map LNTerm LNTerm 
+addToMap currmap vars t@(LIT l) = if (member t vars) then (Map.insertWithKey combineMaps t fAppdhOne currmap) else (Map.insertWithKey combineMaps fAppdhOne t currmap) 
+addToMap currmap vars t@(FAPP (DHMult o) ts) = case ts of
     -- [ t1, t2 ] | o == dhMultSym   -> this shouldn't happen. only root terms. 
-    [ t1, t2 ] | o == dhTimesSym   -> polymult (parseToPoly t1) (parseToPoly t2)
-    [ t1, t2 ] | o == dhTimesESym   -> polymult (parseToPoly t1) (parseToPoly t2)
+    [ t1, t2 ] | o == dhTimesSym   -> Map.insertWithKey combineMaps (getkeyfromProd vars t) (getcoefromProd vars t) currmap
+    [ t1, t2 ] | o == dhTimesESym   -> Map.insertWithKey combineMaps (getkeyfromProd vars t) (getcoefromProd vars t) currmap
     -- [ t1, t2 ] | o == dhExpSym   -> this shouldn't happen. only root terms. 
-    [ t1, t2 ] | o == dhPlusSym   -> polyadd (parseToPoly t1) (parseToPoly t2)
+    [ t1, t2 ] | o == dhPlusSym   -> addToMap (addToMap currmap vars t1) vars t2
     -- [ t1 ]     | o == dhGinvSym    -> this shouldn't happen. only root terms.
-    [ t1 ]     | o == dhInvSym    -> -- TODO. not sure how to deal with this case. 
-    [ t1 ]     | o == dhMinusSym    -> polyminus (parseToPoly t1) (parseToPoly t2)
-    [ t1 ]     | o == dhMuSym    -> FdhMu  t1
-    [ t1 ]     | o == dhBoxSym    -> FdhBox  t1
-    [ t1 ]     | o == dhBoxESym    -> FdhBoxE  t1
-    []         | o == dhZeroSym    -> polyzero
-    []         | o == dhEgSym    -> polyzero  
-    []         | o == dhOneSym    -> polyone (CONSTANT one)
+    [ t1 ]     | o == dhInvSym    -> Map.insertWithKey combineMaps (getkeyfromProd vars t) (getcoefromProd vars t) currmap
+    [ t1 ]     | o == dhMinusSym    -> Map.insertWithKey combineMaps (getkeyfromProd vars t1) (fAppdhMinus $ getcoefromProd vars t1) currmap
+    [ t1 ]     | o == dhMuSym    -> Map.insertWithKey combineMaps (getkeyfromProd vars t) (getcoefromProd vars t) currmap
+    --[ t1 ]     | o == dhBoxSym    -> FdhBox t1 (this function should be called on UN-boxed term)
+    --[ t1 ]     | o == dhBoxESym    -> FdhBoxE t1 (this function should be called on UN-boxed term)
+    []         | o == dhZeroSym    -> Map.empty
+    []         | o == dhOneSym    -> (Map.insertWithKey combineMaps fAppdhOne fAppdhOne currmap)
     _                               -> error $ "unexpected term form: `"++show t++"'"
 
+
+parseToMap ::  [LNTerm] -> LNTerm  -> Map.Map LNTerm LNTerm 
+parseToMap = addToMap Map.empty
+
+{-
 getPolynomial::  [LNTerm] -> LNTerm -> Polynomial
 getPolynomial nb = parseToPoly nb
 
