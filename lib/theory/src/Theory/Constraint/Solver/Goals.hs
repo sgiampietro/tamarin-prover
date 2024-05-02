@@ -54,7 +54,7 @@ import           Theory.Tools.IntruderRules (mkDUnionRule, isDExpRule, isDPMultR
 import           Theory.Model
 import           Term.Builtin.Convenience
 import           Term.DHMultiplication
-
+import           Theory.Constraint.Solver.Combination
 
 import           Utils.Misc                              (twoPartitions)
 
@@ -537,7 +537,7 @@ solveNeeded rules x i = do
                 --                
                 (ru, c, faConc) <- insertFreshNodeConcOut rules
                 z1 <- freshLVar "Z1" LSortE
-                let indx = fAppdhTimes2 (x, LIT (Var z1) )
+                let indx = fAppdhTimesE (x, LIT (Var z1) )
                 trace (show ("WORKING", indx, x)) (insertDHEdge (c, faConc, kdhFact x,(i, PremIdx 0)) indx x)  --TODO: this should not be x, but x*Z1+Z2 (with adversary knowing Z1 and Z2). 
                 -- return $ showRuleCaseName ru
                 --

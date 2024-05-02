@@ -160,7 +160,7 @@ data TermView2 a = FExp (Term a) (Term a)   | FInv (Term a) | FMult [Term a] | O
                  | FPMult (Term a) (Term a) | FEMap (Term a) (Term a)
                  -- SOFIA: added DH options
                  | FdhMult (Term a) (Term a)| FdhGinv (Term a) | FdhMinus (Term a) | DHZero 
-                 | FdhInv (Term a) | DHEg | FdhTimes2 (Term a) (Term a) | FdhExp (Term a) (Term a) | DHOne
+                 | FdhInv (Term a) | DHEg | FdhTimesE (Term a) (Term a) | FdhExp (Term a) (Term a) | DHOne
                  | FdhTimes (Term a) (Term a) | FdhPlus (Term a) (Term a) | FdhMu (Term a) | FdhBox (Term a) | FdhBoxE (Term a)
                  -- | LitG a | LitE a
                  -- SOFIA: end of modified part
@@ -211,7 +211,7 @@ viewTerm2 t@(FAPP (NoEq o) ts) = case ts of
 viewTerm2 t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhMultSym   -> FdhMult  t1 t2
     [ t1, t2 ] | o == dhTimesSym   -> FdhTimes  t1 t2
-    [ t1, t2 ] | o == dhTimes2Sym   -> FdhTimes2  t1 t2
+    [ t1, t2 ] | o == dhTimesESym   -> FdhTimesE  t1 t2
     [ t1, t2 ] | o == dhExpSym   -> FdhExp  t1 t2
     [ t1, t2 ] | o == dhPlusSym   -> FdhPlus  t1 t2
     [ t1 ]     | o == dhGinvSym    -> FdhGinv   t1
@@ -269,7 +269,7 @@ viewTerm3 t@(FAPP (NoEq o) ts) = case ts of
 viewTerm3 t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhMultSym   -> DH (NoEq o) ts
     [ t1, t2 ] | o == dhTimesSym   -> DH (NoEq o) ts
-    [ t1, t2 ] | o == dhTimes2Sym   -> DH (NoEq o) ts
+    [ t1, t2 ] | o == dhTimesESym   -> DH (NoEq o) ts
     [ t1, t2 ] | o == dhExpSym   -> DH (NoEq o) ts
     [ t1, t2 ] | o == dhPlusSym   -> DH (NoEq o) ts
     [ t1 ]     | o == dhGinvSym    -> DH (NoEq o) ts

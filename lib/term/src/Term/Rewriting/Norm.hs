@@ -107,7 +107,7 @@ nfViaHaskell = nfViaMaude sortOfName
             FdhInv (viewTerm2 -> Lit2 _ ) -> True
             FdhInv _ -> True -- False
             DHEg -> True
-            FdhTimes2 t1 t2 -> go t1 && go t2
+            FdhTimesE t1 t2 -> go t1 && go t2
             FdhExp _ _ -> True --False
             DHOne -> True
             FdhTimes _ _ -> True --False

@@ -87,6 +87,7 @@ library
       Theory.Constraint.Solver.ProofMethod
       Theory.Constraint.Solver.Reduction
       Theory.Constraint.Solver.Simplify
+      Theory.Constraint.Solver.Combination
 
       Theory.Constraint.System
       Theory.Constraint.System.Constraints

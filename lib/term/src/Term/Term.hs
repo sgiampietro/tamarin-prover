@@ -38,7 +38,7 @@ module Term.Term (
     , fAppdhInv
     , fAppdhEg
     , fAppdhTimes
-    , fAppdhTimes2 -- e1*e2 for E (not necessarily NZE) elements
+    , fAppdhTimesE -- e1*e2 for E (not necessarily NZE) elements
     , fAppdhPlus -- e1+e2
     , fAppdhExp
     , fAppdhOne 
@@ -101,7 +101,7 @@ module Term.Term (
     , dhInvSymString
     , dhEgSymString 
     , dhTimesSymString
-    , dhTimes2SymString -- e1*e2 for E (not necessarily NZE) elements
+    , dhTimesESymString -- e1*e2 for E (not necessarily NZE) elements
     , dhPlusSymString -- e1+e2
     , dhExpSymString
     , dhOneSymString
@@ -125,7 +125,7 @@ module Term.Term (
     , dhInvSym
     , dhEgSym
     , dhTimesSym
-    , dhTimes2Sym -- e1*e2 for E (not necessarily NZE) elements
+    , dhTimesESym -- e1*e2 for E (not necessarily NZE) elements
     , dhPlusSym -- e1+e2
     , dhExpSym
     , dhOneSym  
@@ -196,10 +196,10 @@ fAppUnion (x,y) = fAppAC    Union     [x, y]
 
 
 -- | Smart constructors for DH multiplication symbols.
-fAppdhMult, fAppdhTimes, fAppdhTimes2, fAppdhPlus, fAppdhExp :: (Term a, Term a) -> Term a
+fAppdhMult, fAppdhTimes, fAppdhTimesE, fAppdhPlus, fAppdhExp :: (Term a, Term a) -> Term a
 fAppdhMult (x,y)  = fAppDHMult dhMultSym  [x, y]
 fAppdhTimes (x,y)  = fAppDHMult dhTimesSym  [x, y]
-fAppdhTimes2  (b,e)  = fAppDHMult dhTimes2Sym   [b, e]
+fAppdhTimesE  (b,e)  = fAppDHMult dhTimesESym   [b, e]
 fAppdhPlus (s,p) = fAppDHMult dhPlusSym [s, p]
 fAppdhExp (s,p) = fAppDHMult dhExpSym [s, p]
 

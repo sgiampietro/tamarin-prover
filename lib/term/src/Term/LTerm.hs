@@ -383,10 +383,10 @@ sortOfLTerm sortOfConst t = case viewTerm2 t of
     DHZero  -> LSortE
     FdhInv _ -> LSortNZE
     DHEg -> LSortG
-    FdhTimes2 _ _ -> LSortNZE
+    FdhTimes _ _ -> LSortNZE
     FdhExp _ _ -> LSortG
     DHOne -> LSortNZE
-    FdhTimes _ _ -> LSortE
+    FdhTimesE _ _ -> LSortE
     FdhPlus _ _ -> LSortE
     FdhMu _ -> LSortG
     FdhBox _ -> LSortG
