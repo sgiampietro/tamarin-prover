@@ -54,10 +54,12 @@ library
       , dlist
       , fclabels
       , filepath
+      , loop
       , mtl
       , parallel
       , parsec
       , pretty
+      , primitive
       , process
       , regex-pcre-builtin
       , regex-posix
@@ -70,6 +72,8 @@ library
 
       , tamarin-prover-utils
       , tamarin-prover-term
+
+      , vector
 
 
     hs-source-dirs: src
@@ -130,6 +134,8 @@ library
       Theory.Tools.SubtermStore
       Theory.Tools.Wellformedness
       Theory.Tools.DHActionFacts
+      Theory.Tools.Gauss
+      Theory.Tools.Matrix
       TheoryObject
       Lemma
       OpenTheory
