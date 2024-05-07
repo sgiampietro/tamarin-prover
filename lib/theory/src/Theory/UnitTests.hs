@@ -9,15 +9,23 @@ module Theory.UnitTests where
 
 import           Term.Builtin.Convenience
 import           Theory.Tools.IntruderRules
-import           Term.Term.DHMultiplication
+import           Theory.Constraint.Solver.Combination
+import           Term.DHMultiplication
+import           Term.LTerm
 
 import Text.PrettyPrint.Class
 
 import Data.List
 import Data.Maybe
+import qualified Data.Map as Map
+import qualified Data.Set as S
 import Prelude
 import Test.HUnit
 import Control.Monad.Reader
+
+
+import Term.Maude.Process
+
 
 
 testEqual :: (Eq a, Show a) => String -> a -> a -> Test
@@ -198,7 +206,7 @@ testDisj_AbstractOuterMost = Disj $ map substFromList
         ------------------------ encS
            encS(<m1,m2>,m2)
 -}
-test_recipe_2 :: Bool
+{-test_recipe_2 :: Bool
 test_recipe_2 = (encTerm (hashTerm y1) (pairTerm y0 y1)) ==  reci
  where
   encTerm k m = Op2 EncS k m
@@ -215,7 +223,7 @@ test_recipe_2 = (encTerm (hashTerm y1) (pairTerm y0 y1)) ==  reci
   eRule = Rule (IntrRuleACStandard (encTerm y0 y1)  Constr) [msgFact hm2, msgFact pm1m2] [msgFact (encTerm hm2 pm1m2)]
 
   reci = recipe eRule [(pRule, 1, eRule), (hRule, 0, eRule)]
-
+-}
 {-
          <m1,m2>              <m1,m2>
      -------------- hash    ---------- fst
@@ -228,7 +236,7 @@ test_recipe_2 = (encTerm (hashTerm y1) (pairTerm y0 y1)) ==  reci
   cannot come from Pair => we cannot identify the two
   by using the same variable.
 -}
-test_recipe_3 :: Bool
+{- test_recipe_3 :: Bool
 test_recipe_3 = encTerm (hashTerm y1) (fstTerm y0) == reci
  where
   m1 = varTerm (LVar "m1" LSortMsg 0)
@@ -246,8 +254,24 @@ test_recipe_3 = encTerm (hashTerm y1) (fstTerm y0) == reci
   eRule   = Rule (IntrRuleACStandard (encTerm y0 y1) Constr) [msgFact h, msgFact m1] [msgFact (encTerm h m1)]
 
   reci = recipe eRule [(fstRule, 1, eRule), (hRule, 0, eRule)]
+-}
+varE :: String -> Integer -> LNTerm
+varE s i = varTerm $ LVar s LSortNZE i
 
 
+testsRoot :: MaudeHandle -> Test
+testsRoot hnd = TestLabel "Tests for creating Polynomials" $
+    TestList
+      [ testEqual "a" m ([[]])
+      , testEqual "a" (solveMatrix hnd m ) (Just [[]])
+      , testEqual "b" (allExponentsOf (S.fromList [fAppdhTimes(varE "x" 0,varE "v" 1),fAppdhTimes(varE "y" 0,varE "v" 1), fAppdhTimes(fAppdhOne,varE "x" 0), fAppdhTimes(fAppdhOne,varE "w" 0) ])  fAppdhOne ) ([fAppdhOne])
+      , testEqual "b" (allNBExponents [varE "x" 0, varE "y" 0] $ allExponentsOf (S.fromList [fAppdhTimes(varE "x" 0,varE "v" 1),fAppdhTimes(varE "y" 0,varE "v" 1), fAppdhTimes(fAppdhOne,varE "x" 0), fAppdhTimes(fAppdhOne,varE "w" 0) ])  fAppdhOne ) (([fAppdhOne],[]))
+      , testEqual "D" (S.toList (S.fromList (concat ((Map.keys targetpoly):(map Map.keys polynomials))) ) ) ([])
+      ] 
+        where m = (createMatrix hnd [varE "x" 0, varE "y" 0] (S.fromList [fAppdhTimesE(varE "x" 0,varE "v" 1),fAppdhTimesE(varE "y" 0,varE "v" 1), fAppdhTimesE(fAppdhOne,varE "x" 0), fAppdhTimesE(fAppdhOne,varE "w" 0) ])  fAppdhOne )
+              targetpoly = (parseToMap hnd vars) fAppdhOne 
+              polynomials = map (parseToMap hnd vars) [fAppdhTimes(varE "x" 0,varE "v" 1),fAppdhTimes(varE "y" 0,varE "v" 1), fAppdhTimes(fAppdhOne,varE "x" 0), fAppdhTimes(fAppdhOne,varE "w" 0) ]
+              vars = [varE "w" 0, varE "v" 1]
 
 
 

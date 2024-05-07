@@ -172,8 +172,8 @@ isRoot o _ = error "rootSet applied on non DH term'"
 
 eTermsOf :: LNTerm -> [ LNTerm ]
 eTermsOf t@(LIT l)
-  -- | isEVar t = [t]
-  -- | isNZEVar t = [t]
+  | isEVar t = [t]
+  | isNZEVar t = [t]
   | isFrNZEVar t = [t]
   | otherwise = []
 eTermsOf t@(FAPP f ts) = concatMap eTermsOf ts

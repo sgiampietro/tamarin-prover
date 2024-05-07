@@ -54,6 +54,7 @@ library
       , dlist
       , fclabels
       , filepath
+      , HUnit
       , loop
       , mtl
       , parallel
@@ -82,6 +83,7 @@ library
       Theory
       Theory.Proof
       Theory.ProofSkeleton
+      Theory.UnitTests
 
       Theory.Constraint.Solver
       Theory.Constraint.Solver.Sources

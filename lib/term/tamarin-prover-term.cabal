@@ -89,11 +89,12 @@ library
       Term.UnitTests
       Term.DHMultiplication
 
+      Term.Term.Raw
+      
     other-modules:
       Term.Term
       Term.Term.Classes
       Term.Term.FunctionSymbols
-      Term.Term.Raw
       Term.Narrowing.Narrow
 
       Term.Substitution.SubstVFree
