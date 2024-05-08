@@ -55,7 +55,7 @@ library
       , fclabels
       , filepath
       , HUnit
-      , loop
+      -- , loop
       , mtl
       , parallel
       , parsec
@@ -74,7 +74,7 @@ library
       , tamarin-prover-utils
       , tamarin-prover-term
 
-      , vector
+      --, vector
 
 
     hs-source-dirs: src
@@ -137,7 +137,7 @@ library
       Theory.Tools.Wellformedness
       Theory.Tools.DHActionFacts
       Theory.Tools.Gauss
-      Theory.Tools.Matrix
+      -- Theory.Tools.Matrix
       TheoryObject
       Lemma
       OpenTheory

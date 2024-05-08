@@ -14,7 +14,7 @@ module Theory.Constraint.Solver.Combination
     getkeyfromProd,
     allNBExponents,
     createMatrix,
-    solveMatrix,
+    -- solveMatrix,
     parseToMap
   )
 where
@@ -26,7 +26,7 @@ import qualified Data.Map                          as Map
 -- we use maps to construct the linear system of equation we will need to solve. 
 
 --import qualified Data.Vector                       as V
-import qualified Theory.Tools.Matrix                       as Mx
+-- import qualified Theory.Tools.Matrix                       as Mx
 import Theory.Tools.Gauss                 
 
 import           Control.Monad.Trans.Reader   
@@ -183,10 +183,11 @@ createMatrix hnd nb terms target =
 simplifymatrix :: MaudeHandle -> Matrix LNTerm -> Matrix LNTerm
 simplifymatrix hnd m = m -- map (\row -> map (\el -> simplify hnd el) row ) m
 
+{-
 solveMatrix :: MaudeHandle -> Matrix LNTerm -> Maybe (Matrix LNTerm)
 solveMatrix hnd m = case (gaussSolveMatrix hnd fAppdhZero m) of 
   Simple mat -> Just (simplifymatrix hnd mat)
   Infinite mat -> Just (simplifymatrix hnd mat)
   Inconsistent -> Nothing
-
+-}
 -- to solve the system of equations: G.gaussSolveMatrix

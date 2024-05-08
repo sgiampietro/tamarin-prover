@@ -9,7 +9,10 @@ module Theory.Tools.Gauss (
     Matrix, 
     Solution(..),
     simplify,
-    gaussSolveMatrix
+    gaussEliminationFromMatrix,
+    gaussReduction,
+    solveMatrix,
+    removeZeroRows
   ) where
 
 
@@ -23,6 +26,8 @@ import Term.Rewriting.Norm
 
 import Term.LTerm -- (LNTerm)
 import Term.Term.Raw
+
+import Debug.Trace
 
 int2LNTerm :: Integer -> LNTerm
 int2LNTerm 0 = fAppdhZero
@@ -48,9 +53,8 @@ instance Fractional (Term (Lit Name LVar)) where
   fromRational (n:%d) = rationalLNTerm n d
 
 
-
+type Vector a = [a]
 type Row a = [a]
-
 type Matrix a = [ Row a ]
 
 data Solution a = Simple (Matrix a) | Infinite (Matrix a) | Inconsistent
@@ -66,18 +70,22 @@ simplifyraw :: LNTerm -> LNTerm
 simplifyraw t= case viewTerm2 t of 
   Lit2 l -> t
   FdhTimes t1 t2 -> (case (viewTerm2 t1, viewTerm2 t2) of
-    (DHOne, DHOne) -> fAppdhOne
-    (DHOne, _ )    -> simplifyraw t2
-    (_    , DHOne) -> simplifyraw t1
+    (DHOne, DHOne)  -> fAppdhOne
+    (DHOne, _ )     -> simplifyraw t2
+    (_    , DHOne)  -> simplifyraw t1
     (DHZero, _ )    -> fAppdhZero
     (_    , DHZero) -> fAppdhZero
-    (_    , _ )    -> t )
+    (FdhInv t3, _) ->  if (t2 == t3) then fAppdhOne else t
+    (_, FdhInv t3) ->  if (t1 == t3) then fAppdhOne else t
+    (_    , _ )     -> t )
   FdhTimesE t1 t2 -> (case (viewTerm2 t1, viewTerm2 t2) of
     (DHOne, DHOne) -> fAppdhOne
     (DHOne, _ )    -> simplifyraw t2
     (_    , DHOne) -> simplifyraw t1
     (DHZero, _ )    -> fAppdhZero
     (_    , DHZero) -> fAppdhZero
+    (FdhInv t3, _) ->  if (t2 == t3) then fAppdhOne else t
+    (_, FdhInv t3) ->  if (t1 == t3) then fAppdhOne else t
     (_    , _ )    -> t )
   FdhPlus t1 t2 -> (case (viewTerm2 t1, viewTerm2 t2) of
     (DHZero, DHZero) -> fAppdhZero
@@ -99,6 +107,89 @@ simplifyraw t= case viewTerm2 t of
 
 
 
+-- Gauss Elimination: Solve matrix equation Ax = B
+gaussEliminationFromEquation :: LNTerm -> Matrix LNTerm -> Matrix LNTerm -> Vector LNTerm
+gaussEliminationFromEquation zero a b = gaussEliminationFromMatrix zero $ zipMatrix a b
+
+-- Create augmented matrix from A and B
+zipMatrix :: Matrix LNTerm -> Matrix LNTerm -> Matrix LNTerm
+zipMatrix [] [] = []
+zipMatrix (x:xs) (y:ys) = (x ++ y) : (zipMatrix xs ys)
+
+-- Compute the row-reduced-echelon form of the matrix
+gaussReduction :: LNTerm -> Matrix LNTerm -> Matrix LNTerm
+gaussReduction zero [] = []
+gaussReduction zero matrix = r: gaussReduction zero rs
+    where
+        (r:rows) = pivotCheck zero (allzerosCheck zero matrix) (length matrix)
+        rs = map reduceRow $ rows
+        -- Row reduction using row operations
+        reduceRow row
+            | (head row) == zero = drop 1 row
+            | otherwise = drop 1 $ zipWith (\ a b -> simplifyraw $ b + (simplifyraw $ negate a) ) (map (\y -> simplifyraw $ y*frac) row) r
+            where
+                frac = simplifyraw $ (head r)/(head row)
+
+-- Check and swap row if pivot element is zero
+allzerosCheck :: LNTerm -> Matrix LNTerm -> Matrix LNTerm
+allzerosCheck zero m 
+  | null m = m
+  | null (head m) = m
+  | all (\r -> (head r) == zero) m = allzerosCheck zero (map (drop 1) m)
+  | otherwise = m
+
+-- Check and swap row if pivot element is zero
+pivotCheck :: LNTerm -> Matrix LNTerm -> Int -> Matrix LNTerm
+pivotCheck zero (r:rs) counter
+    | rs == [] = (r:rs)
+    | counter == 0 = (r:rs)
+    | (head r /= zero) = (r:rs)
+    | otherwise = pivotCheck zero (rs ++ [r]) (counter-1)
+
+
+removeZeroRows :: LNTerm -> Matrix LNTerm -> Matrix LNTerm
+removeZeroRows zero = filter (\row -> not (all (== zero) row))
+
+-- check if matrix is inconsistent - it will have all zeroes except last column in at least one row
+inconsistentMatrix :: LNTerm -> Matrix LNTerm -> Bool
+inconsistentMatrix zero = any (\row -> all (== zero) (drop 1 (reverse row)))
+
+
+{- Reverse the rows and columns to make the calculation easier and undo
+-- the column reversion before returning the solutions
+-}
+traceBack :: LNTerm -> Matrix LNTerm -> Vector LNTerm
+traceBack zero = reverse . (traceBack' zero 2) . reverse . map reverse
+
+
+
+-- Use back substitution to calculate the solutions
+traceBack' :: LNTerm -> Int -> Matrix LNTerm -> Vector LNTerm
+traceBack' zero _ [] = []
+traceBack' zero prevlength (r:rows) = (pad ++ (var : (traceBack' zero currlength rs)))
+    where
+        var = simplifyraw $ (head r)/(last r)
+        rs = map substituteVariable rows
+        substituteVariable (x:(y:ys)) = ((simplifyraw $ x +(simplifyraw $ negate (simplifyraw $ var*y) ) ):ys)
+        currlength = (length r)
+        pad = if (currlength - prevlength > 0) then (replicate (currlength - prevlength) zero) else []
+
+
+-- Gauss Elimination: Solve a given augmented matrix
+gaussEliminationFromMatrix :: LNTerm -> Matrix LNTerm -> Vector LNTerm
+gaussEliminationFromMatrix zero matrix = traceBack zero $ gaussReduction zero matrix
+
+
+solveMatrix :: LNTerm -> Matrix LNTerm -> Maybe (Vector LNTerm)
+solveMatrix zero matrix  
+  | inconsistentMatrix zero cleanmatrix = Nothing
+  | otherwise = Just (traceBack zero cleanmatrix)
+    where 
+      redmatrix = gaussReduction zero matrix
+      cleanmatrix = removeZeroRows zero redmatrix
+      
+
+{-
 quicksort :: [a] -> (a -> a -> Int) -> [a]
 quicksort [] _ = []
 quicksort (x : xs) cmp = (quicksort lesser cmp) ++ [x] ++ (quicksort greater cmp)
@@ -168,3 +259,23 @@ gaussSolveMatrix hnd zero mat
     mat2' = filter (not . all (== zero)) mat2
     res1' = gaussRawSolveMatrix hnd zero mat1'
     res2' = gaussRawSolveMatrix hnd zero mat2'
+
+
+computeVariableValues :: LNTerm -> Row -> LNTerm
+computeVariableValues zero r 
+  | not (null other_coefficients) = var_str ++ other_vars_str
+  | otherwise = var_str
+  where
+    index = leadingZeros r
+    coefficient = r !! index
+    value = last r
+    raw_row = reverse . drop 1 . reverse $ r -- row coefficients, except the free member
+    elements_count = length raw_row
+    other_coefficients = filter (\(k, k_idx) -> k /= zero && k_idx /= index) (zip raw_row [0 .. elements_count])
+    --subtract_coefficient k = if k < 0 then " + " ++ show (- k) else " - " ++ show k
+    other_vars_str = concatMap (\(k, k_idx) -> subtract_coefficient k ++ " * " ++ (var_names !! k_idx)) other_coefficients
+    var_str = (var_names !! index) ++ " = " simplifyraw (value / coefficient)
+
+gaussExtractResults :: Matrix -> [String] -> String
+gaussExtractResults rows var_names = foldl (\acc row -> showVariableValues row var_names ++ "\n" ++ acc) "" rows
+-}
