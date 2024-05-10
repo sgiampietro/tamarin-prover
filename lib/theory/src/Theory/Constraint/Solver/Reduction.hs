@@ -587,6 +587,7 @@ markGoalAsSolved how goal =
       NoCancG _       -> modM sGoals $ M.delete goal
       NeededG _ _       -> modM sGoals $ M.delete goal
       IndicatorG _       -> modM sGoals $ M.delete goal
+      IndicatorGExp _       -> modM sGoals $ M.delete goal
   where
     updateStatus = do
         mayStatus <- M.lookup goal <$> getM sGoals
@@ -619,10 +620,9 @@ insertEdge (c, fa1, fa2, p) = do
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
 
--- | TODO: FIX THIS SO THAT IT WORKS. 
-insertDHEdge :: (NodeConc, LNFact, LNFact, NodePrem) -> LNTerm -> LNTerm -> Reduction ()
-insertDHEdge (c, fa1, fa2, p) indt1 t1 = do --fa1 should be an Out fact
-    void (solveFactDHEqs SplitNow ( EqInd (Equal fa1 fa2) indt1 t1 )) -- t1 here is the result of factTerms fa2, and indt1 the indicator of one product term of t1. 
+insertDHEdge :: Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> LNTerm -> LNTerm -> Reduction ()
+insertDHEdge b (c, fa1, fa2, p) indt1 t1 = do --fa1 should be an Out fact
+    void (solveFactDHEqs b SplitNow ( EqInd (Equal fa1 fa2) indt1 t1 )) -- t1 here is the result of factTerms fa2, and indt1 the indicator of one product term of t1. 
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
 insertBasisElem :: LNTerm -> Reduction ()
@@ -857,16 +857,19 @@ solveTermEqs splitStrat eqs0 =
         return Changed
 
 
-solveTermDHEqs :: SplitStrategy -> LNTerm -> LNTerm -> Reduction ChangeIndicator
-solveTermDHEqs splitStrat fa1 indt =
+solveTermDHEqs :: Bool -> SplitStrategy -> LNTerm -> LNTerm -> LNTerm -> Reduction ChangeIndicator
+solveTermDHEqs b splitStrat fa1 indt t1 =
         case (fa1 == indt) of
                     True  -> do return Unchanged
                     False -> do
                             hnd <- getMaudeHandleDH -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
                             se  <- gets id
                             (eqs2, maySplitId) <- addDHEqs hnd fa1 indt =<< getM sEqStore -- check if here you want to add only the equation containing terms, or the entire EqInd facts. 
-                            insertContInd fa1 indt
-                            insertGoal (IndicatorG (fa1,indt)) False
+                            (case b of 
+                                True -> insertGoal (IndicatorGExp (fa1,t1)) False
+                                False -> do
+                                  insertContInd fa1 t1
+                                  insertGoal (IndicatorG (fa1,t1)) False) 
                             setM sEqStore
                                 =<< simp hnd (substCreatesNonNormalTerms hnd se)
                                 =<< case (maySplitId, splitStrat) of
@@ -878,7 +881,8 @@ solveTermDHEqs splitStrat fa1 indt =
                                                     return eqs2
                                         _                        -> return eqs2
                             noContradictoryEqStore
-                            return Changed    
+                            return Changed 
+                               
 
 {-
 solveActionTermDHEqs :: SplitStrategy -> LNTerm -> LNTerm -> LNTerm -> Reduction ChangeIndicator
@@ -940,13 +944,13 @@ factDHTerms :: EqInd LNFact LNTerm -> Equal [LNTerm]
 factDHTerms (EqInd e indt t) = (fmap factTerms) e
 
 -- t1 here is the result of factTerms fa2, and indt1 the indicator of one product term of t1. 
-solveFactDHEqs :: SplitStrategy -> EqInd LNFact LNTerm -> Reduction ChangeIndicator
-solveFactDHEqs split eq@(EqInd (Equal fa1 fa2) indt1 t1) = do
+solveFactDHEqs :: Bool -> SplitStrategy -> EqInd LNFact LNTerm -> Reduction ChangeIndicator
+solveFactDHEqs b split eq@(EqInd (Equal fa1 fa2) indt1 t1) = do
     contradictoryIf (not (factTag fa1 == OutFact) && (factTag fa2 == KdhFact) )
     case factTerms fa1 of 
         [t] -> do
             outterm <- disjunctionOfList (multRootList t)
-            (solveTermDHEqs split outterm indt1) --to do, this indt1 should probs be Y.indt1^Z, with Y,Z known by adversary.
+            (solveTermDHEqs b split outterm indt1 t1) --to do, this indt1 should probs be Y.indt1^Z, with Y,Z known by adversary.
             -- but be careful because that should hold only for G terms. E terms should be handled differrently.
         _ -> error "incorrect factTerm called"
 

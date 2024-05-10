@@ -260,21 +260,21 @@ varE :: String -> Integer -> LNTerm
 varE s i = varTerm $ LVar s LSortNZE i
 
 
-testsRoot :: MaudeHandle -> Test
-testsRoot hnd = TestLabel "Tests for creating Polynomials" $
+testsRoot :: Test
+testsRoot = TestLabel "Tests for creating Polynomials" $
     TestList
       [ testEqual "Just matrix" m ([[]])
       , testEqual "GaussReduction" (gaussReduction fAppdhZero m ) ([])
       , testEqual "GaussEliminaiton result vector" (gaussEliminationFromMatrix fAppdhZero m ) ([])
       , testEqual "removezeros" (removeZeroRows fAppdhZero $ gaussReduction fAppdhZero m ) ([])
       , testEqual "solvematrix" (solveMatrix fAppdhZero m ) (Just [])
-      , testEqual "(exp, vars)" (allExponentsOf (S.fromList [fAppdhTimes(varE "x" 0,varE "v" 1),fAppdhTimes(varE "y" 0,varE "v" 1), fAppdhTimes(fAppdhOne,varE "x" 0), fAppdhTimes(fAppdhOne,varE "w" 0) ])  fAppdhOne ) ([fAppdhOne])
-      , testEqual "(all exponents)" (allNBExponents [varE "x" 0, varE "y" 0] $ allExponentsOf (S.fromList [fAppdhTimes(varE "x" 0,varE "v" 1),fAppdhTimes(varE "y" 0,varE "v" 1), fAppdhTimes(fAppdhOne,varE "x" 0), fAppdhTimes(fAppdhOne,varE "w" 0) ])  fAppdhOne ) (([fAppdhOne],[]))
+      , testEqual "(exp, vars)" (allExponentsOf ([fAppdhTimes(varE "x" 0,varE "v" 1),fAppdhTimes(varE "y" 0,varE "v" 1), fAppdhTimes(fAppdhOne,varE "x" 0), fAppdhTimes(fAppdhOne,varE "w" 0) ])  fAppdhOne ) ([fAppdhOne])
+      , testEqual "(all exponents)" (allNBExponents [varE "x" 0, varE "y" 0] $ allExponentsOf ([fAppdhTimes(varE "x" 0,varE "v" 1),fAppdhTimes(varE "y" 0,varE "v" 1), fAppdhTimes(fAppdhOne,varE "x" 0), fAppdhTimes(fAppdhOne,varE "w" 0) ])  fAppdhOne ) (([fAppdhOne],[]))
       , testEqual "polynomials" (S.toList (S.fromList (concat ((Map.keys targetpoly):(map Map.keys polynomials))) ) ) ([])
       ] 
-        where m = (createMatrix hnd [varE "x" 0, varE "y" 0] (S.fromList [fAppdhTimesE(varE "x" 0,varE "v" 1),fAppdhTimesE(varE "y" 0,varE "v" 1), fAppdhTimesE(fAppdhOne,varE "x" 0), fAppdhTimesE(fAppdhOne,varE "w" 0) ])  fAppdhOne )
-              targetpoly = (parseToMap hnd vars) fAppdhOne 
-              polynomials = map (parseToMap hnd vars) [fAppdhTimes(varE "x" 0,varE "v" 1),fAppdhTimes(varE "y" 0,varE "v" 1), fAppdhTimes(fAppdhOne,varE "x" 0), fAppdhTimes(fAppdhOne,varE "w" 0) ]
+        where m = (createMatrix [varE "x" 0, varE "y" 0] ([fAppdhTimesE(varE "x" 0,varE "v" 1),fAppdhTimesE(varE "y" 0,varE "v" 1), fAppdhTimesE(fAppdhOne,varE "x" 0), fAppdhTimesE(fAppdhOne,varE "w" 0) ])  fAppdhOne )
+              targetpoly = (parseToMap vars) fAppdhOne 
+              polynomials = map (parseToMap vars) [fAppdhTimes(varE "x" 0,varE "v" 1),fAppdhTimes(varE "y" 0,varE "v" 1), fAppdhTimes(fAppdhOne,varE "x" 0), fAppdhTimes(fAppdhOne,varE "w" 0) ]
               vars = [varE "w" 0, varE "v" 1]
 
 

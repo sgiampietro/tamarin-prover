@@ -115,6 +115,7 @@ openGoals sys = do
         NoCancG _ -> not solved
         NeededG _ _ -> not solved
         IndicatorG _ -> not solved
+        IndicatorGExp _ -> not solved
 
     let
         useful = case goal of
@@ -225,6 +226,7 @@ solveGoal goal = do
       NoCancG (t1, t2) -> solveNoCanc t1 t2
       NeededG x i    -> solveNeeded (get crProtocol rules) x i
       IndicatorG (t1, t2) -> solveIndicator t1 t2
+      IndicatorGExp (t1, t2) -> solveIndicatorE t1 t2
 
 -- The following functions are internal to 'solveGoal'. Use them with great
 -- care.
@@ -471,7 +473,7 @@ solveDHIndaux bset nbset x hnd p faPrem t rules =
   case neededexponents bset nbset x of
       (Just es) -> do
           trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es)
-          insertDHInd p faPrem t
+          insertDHInd p faPrem t -- TODO should probably move this WITHIN the insert needed, to ensure it will only be called when exponents are in B/NB.
           return "NeededInserted"
       -- the current goal solveDHInd should remain and we should try to solve it again once we
       -- have solved the Needed goals. or do we try it with a variable?
@@ -484,7 +486,7 @@ solveDHIndaux bset nbset x hnd p faPrem t rules =
             z1 <- freshLVar "Z1" LSortE
             let indt = (runReader (rootIndKnownMaude bset nbset x) hnd)
                 indtexp = fAppdhExp (indt, LIT (Var z1) )
-            (insertDHEdge (c, faConc, faPrem, p) indtexp) t -- instead of root indicator this should be Y.ind^Z.
+            (insertDHEdge False (c, faConc, faPrem, p) indtexp) t -- instead of root indicator this should be Y.ind^Z.
             (return $ showRuleCaseName ru) -- (return "done") 
 
 solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact containing a boxed term as conclusion. 
@@ -516,10 +518,27 @@ solveDHInd rules p faPrem t =  do-- TODO: does this ensure that x is actually a 
 
 
 solveIndicator :: LNTerm -> LNTerm -> Reduction String
-solveIndicator t1 t2 = return "Found indicators! possible attack. "
+solveIndicator t1 t2  = do 
+  nbset <- getM sNotBasis
+  case (solveIndicators (S.toList nbset) terms t2) of 
+   Just vec -> return ("Found indicators! possible attack by result:" ++ show (vec, terms))
+   Nothing -> return "Safe,cannot combine"
+  where 
+    terms = [t1]
+
+solveIndicatorE :: LNTerm -> LNTerm -> Reduction String
+solveIndicatorE t1 t2 = do 
+  case (solveIndicators ([]) terms t2) of 
+   Just vec ->  do 
+        markGoalAsSolved ("Found exponent with:" ++ show (vec, terms)) (IndicatorGExp (t1, t2))
+        return "Exponent found"
+   Nothing -> return "Contradiction! Cannot find exponent"
+  where 
+    terms = [t1]
+        
+  
 
 --how do I make a case distinction _within_ a solve function?? use disjunction monad!
-
 
 solveNeeded ::  [RuleAC] -> LNTerm ->  NodeId ->        -- exponent that is needed.
                 Reduction String -- ^ Case name to use.
@@ -538,7 +557,7 @@ solveNeeded rules x i = do
                 (ru, c, faConc) <- insertFreshNodeConcOut rules
                 z1 <- freshLVar "Z1" LSortE
                 let indx = fAppdhTimesE (x, LIT (Var z1) )
-                trace (show ("WORKING", indx, x)) (insertDHEdge (c, faConc, kdhFact x,(i, PremIdx 0)) indx x)  --TODO: this should not be x, but x*Z1+Z2 (with adversary knowing Z1 and Z2). 
+                trace (show ("WORKING", indx, x)) (insertDHEdge True (c, faConc, kdhFact x,(i, PremIdx 0)) indx x)  --TODO: this should not be x, but x*Z1+Z2 (with adversary knowing Z1 and Z2). 
                 -- return $ showRuleCaseName ru
                 --
                 --insertGoal (PremiseG (i, PremIdx 0) (kIFact x)) False 

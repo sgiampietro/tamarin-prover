@@ -150,6 +150,7 @@ data Goal =
      | NoCancG (LNTerm, LNTerm)
      | NeededG LNTerm NodeId
      | IndicatorG (LNTerm, LNTerm)
+     | IndicatorGExp (LNTerm, LNTerm)
      deriving( Eq, Ord, Show, Generic, NFData, Binary )
 
 -- Indicators
@@ -200,6 +201,7 @@ instance HasFrees Goal where
         NoCancG p    -> foldFrees f p
         NeededG ta p -> foldFrees f ta <> foldFrees f p
         IndicatorG p    -> foldFrees f p
+        IndicatorGExp p    -> foldFrees f p
 
     foldFreesOcc  f c goal = case goal of
         ActionG i fa -> foldFreesOcc f ("ActionG":c) (i, fa)
@@ -217,6 +219,7 @@ instance HasFrees Goal where
         NoCancG p    -> NoCancG <$> mapFrees f p
         NeededG ta p -> NeededG <$> mapFrees f ta <*> mapFrees f p
         IndicatorG p    -> IndicatorG <$> mapFrees f p
+        IndicatorGExp p    -> IndicatorGExp <$> mapFrees f p
 
 instance Apply LNSubst Goal where
     apply subst goal = case goal of
@@ -230,6 +233,7 @@ instance Apply LNSubst Goal where
         NoCancG p    -> NoCancG (apply subst p)
         NeededG ta p -> NeededG (apply subst ta) (apply subst p)
         IndicatorG p    -> IndicatorG (apply subst p)
+        IndicatorGExp p    -> IndicatorGExp (apply subst p)
 
 
 
@@ -282,3 +286,4 @@ prettyGoal (DHIndG i fa ta) =  text "SearchForIndicator" <-> prettyLNTerm ta
 prettyGoal (NoCancG (l,r) ) = prettyLNTerm l <-> text "NoCanc" <-> prettyLNTerm r
 prettyGoal (NeededG ta p ) = prettyLNTerm ta <-> text "Needed" <-> prettyNodeId p
 prettyGoal (IndicatorG (l,r) ) = prettyLNTerm l <-> text "IndicatorFound" <-> prettyLNTerm r
+prettyGoal (IndicatorGExp (l,r) ) = prettyLNTerm l <-> text "Exponent in Not-Basis" <-> prettyLNTerm r

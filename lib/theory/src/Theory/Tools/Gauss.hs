@@ -9,6 +9,7 @@ module Theory.Tools.Gauss (
     Matrix, 
     Solution(..),
     simplify,
+    simplifyraw,
     gaussEliminationFromMatrix,
     gaussReduction,
     solveMatrix,
@@ -63,8 +64,8 @@ data Solution a = Simple (Matrix a) | Infinite (Matrix a) | Inconsistent
 -- 2. Make zero in each row at its index position and add it to others making zero in that position from top to bottom
 -- 3. Do the same from bottom to the top
 
-simplify :: MaudeHandle -> LNTerm  -> LNTerm
-simplify hnd mterm = simplifyraw mterm --runReader (norm' mterm) hnd
+simplify :: LNTerm  -> LNTerm
+simplify mterm = simplifyraw mterm --runReader (norm' mterm) hnd
 
 simplifyraw :: LNTerm -> LNTerm
 simplifyraw t= case viewTerm2 t of 
