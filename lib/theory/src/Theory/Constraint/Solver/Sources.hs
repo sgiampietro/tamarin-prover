@@ -167,6 +167,7 @@ solveAllSafeGoals ths' openChainsLimit =
         NoCancG _ -> False 
         NeededG _ _ -> False 
         IndicatorG _ -> False
+        IndicatorGExp _ -> False
 
     usefulGoal (_, (_, Useful)) = True
     usefulGoal _                = False

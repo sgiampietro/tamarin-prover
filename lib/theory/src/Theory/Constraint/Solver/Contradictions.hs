@@ -144,7 +144,7 @@ hasForbiddenKD sys = (not $ isDiffSystem sys) &&
 -- | True iff there are terms in the node constraints that are not in normal form wrt.
 -- to 'Term.Rewriting.Norm.norm' (DH/AC).
 hasNonNormalTerms :: SignatureWithMaude -> System -> Bool
-hasNonNormalTerms sig se = -- trace ("non-normal terms" ++ show (maybeNonNormalTerms hnd se) ++ " -- " ++ show (map ((`runReader` hnd) . nf') (maybeNonNormalTerms hnd se)) ) $
+hasNonNormalTerms sig se =  -- trace ("non-normal terms" ++ show (maybeNonNormalTerms hnd se) ++ " -- " ++ show (map ((`runReader` hnd) . nf') (maybeNonNormalTerms hnd se)) ) $
     any (not . (`runReader` hnd) . nf') (maybeNonNormalTerms hnd se)
   where hnd = L.get sigmMaudeHandle sig
 

@@ -277,10 +277,26 @@ testsRoot = TestLabel "Tests for creating Polynomials" $
               polynomials = map (parseToMap vars) [fAppdhTimes(varE "x" 0,varE "v" 1),fAppdhTimes(varE "y" 0,varE "v" 1), fAppdhTimes(fAppdhOne,varE "x" 0), fAppdhTimes(fAppdhOne,varE "w" 0) ]
               vars = [varE "w" 0, varE "v" 1]
 
+{-              
+testsRoot2 :: Test
+testsRoot2 = TestLabel "Tests for creating Polynomials" $
+    TestList
+      [ testEqual "Just matrix" m ([[]])
+      , testEqual "GaussReduction" (gaussReduction fAppdhZero m ) ([])
+      , testEqual "GaussEliminaiton result vector" (gaussEliminationFromMatrix fAppdhZero m ) ([])
+      , testEqual "removezeros" (removeZeroRows fAppdhZero $ gaussReduction fAppdhZero m ) ([])
+      , testEqual "solvematrix" (solveMatrix fAppdhZero m ) (Just [])
+      , testEqual "(exp, vars)" (allExponentsOf ([fAppdhTimes(varE "x" 0,varE "v" 1),fAppdhTimes(varE "y" 0,varE "v" 1), fAppdhTimes(fAppdhOne,varE "x" 0), fAppdhTimes(fAppdhOne,varE "w" 0) ])  fAppdhOne ) ([fAppdhOne])
+      , testEqual "(all exponents)" (allNBExponents [varE "x" 0, varE "y" 0] $ allExponentsOf ([fAppdhTimes(varE "x" 0,varE "v" 1),fAppdhTimes(varE "y" 0,varE "v" 1), fAppdhTimes(fAppdhOne,varE "x" 0), fAppdhTimes(fAppdhOne,varE "w" 0) ])  fAppdhOne ) (([fAppdhOne],[]))
+      , testEqual "polynomials" (S.toList (S.fromList (concat ((Map.keys targetpoly):(map Map.keys polynomials))) ) ) ([])
+      ] 
+        where m = (createMatrix [] ([fAppdhTimesE(varE "x" 0,varE "v" 1),fAppdhTimesE(varE "y" 0,varE "v" 1), fAppdhTimesE(fAppdhOne,varE "x" 0), fAppdhTimesE(fAppdhOne,varE "w" 0) ])  fAppdhOne )
+              targetpoly = (parseToMap vars) fAppdhExp(varG "g" 0,varE "m" 1)
+              polynomials = map (parseToMap vars) [fAppdhTimes(varE "x" 0,varE "v" 1) ]
+              vars = [varE "w" 0, varE "v" 1]
 
-
-
-
-
-
+dhBox(dhMult(dhExp(Pg.1, Fm),
+                       dhExp(dhExp(Pg, Fx), Fy))) IndicatorFound dhExp(Pg.1,
+                                                                       Fm) ) // nr. 10
+-}
 

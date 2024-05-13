@@ -472,8 +472,7 @@ solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> MaudeHandle -> NodePr
 solveDHIndaux bset nbset x hnd p faPrem t rules =
   case neededexponents bset nbset x of
       (Just es) -> do
-          trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es)
-          insertDHInd p faPrem t -- TODO should probably move this WITHIN the insert needed, to ensure it will only be called when exponents are in B/NB.
+          trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem t
           return "NeededInserted"
       -- the current goal solveDHInd should remain and we should try to solve it again once we
       -- have solved the Needed goals. or do we try it with a variable?
@@ -521,8 +520,12 @@ solveIndicator :: LNTerm -> LNTerm -> Reduction String
 solveIndicator t1 t2  = do 
   nbset <- getM sNotBasis
   case (solveIndicators (S.toList nbset) terms t2) of 
-   Just vec -> return ("Found indicators! possible attack by result:" ++ show (vec, terms))
-   Nothing -> return "Safe,cannot combine"
+   Just vec -> do
+      markGoalAsSolved ("Found indicators! possible attack by result:" ++ show (vec, terms)) (IndicatorG (t1,t2))
+      return ("Found indicators! possible attack by result:" ++ show (vec, terms))
+   Nothing -> do 
+      markGoalAsSolved ("Safe,cannot combine") (IndicatorG (t1,t2) )
+      return "Safe,cannot combine"
   where 
     terms = [t1]
 

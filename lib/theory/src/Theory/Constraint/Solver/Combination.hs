@@ -39,19 +39,19 @@ import Term.LTerm -- (LNTerm)
 
 
 gTerm2Exp ::  LNTerm -> LNTerm
-gTerm2Exp t@(LIT l) = t
+gTerm2Exp t@(LIT l) = if (isGVar t || isPubGVar t) then (fAppdhOne) else t
 gTerm2Exp t@(FAPP (DHMult o) ts) = case ts of
-    -- [ t1, t2 ] | o == dhMultSym   -> this shouldn't happen. only root terms. 
+    [ t1, t2 ] | o == dhMultSym   -> (FAPP (DHMult dhPlusSym) [gTerm2Exp t1, gTerm2Exp t2])
     [ t1, t2 ] | o == dhTimesSym   -> t
     [ t1, t2 ] | o == dhTimesESym   -> t
-    [ t1, t2 ] | o == dhExpSym   -> t2
+    [ t1, t2 ] | o == dhExpSym   -> (FAPP (DHMult dhTimesESym) [gTerm2Exp t1, gTerm2Exp t2])
     [ t1, t2 ] | o == dhPlusSym   -> t
     [ t1 ]     | o == dhGinvSym    -> (FAPP (DHMult dhMinusSym) [gTerm2Exp t1])
     [ t1 ]     | o == dhInvSym    -> t
     [ t1 ]     | o == dhMinusSym    -> t
     [ t1 ]     | o == dhMuSym    -> t
-    [ t1 ]     | o == dhBoxSym    -> gTerm2Exp t
-    [ t1 ]     | o == dhBoxESym    -> t1
+    [ t1 ]     | o == dhBoxSym    -> gTerm2Exp t1
+    [ t1 ]     | o == dhBoxESym    -> gTerm2Exp t1
     []         | o == dhZeroSym    -> t
     []         | o == dhEgSym    -> (FAPP (DHMult dhZeroSym) [])
     []         | o == dhOneSym    -> t
@@ -150,5 +150,9 @@ createMatrix nb terms target =
   (map (\key -> (map (\p -> getvalue p key) polynomials )++ [getvalue targetpoly key]) allkeys) -- todo: double check if row/column is ok or needs to be switched
 
 
+
+
 solveIndicators :: [LNTerm] -> [LNTerm] -> LNTerm -> Maybe [LNTerm]
-solveIndicators nb terms target = solveMatrix fAppdhZero $ createMatrix nb terms target
+solveIndicators nb terms target = solveMatrix fAppdhZero $ createMatrix nb (map gTerm2Exp terms) (gTerm2Exp target)
+-- TODO: these terms are possible G, terms. We assume here that our terms are always of the form
+-- 'g'^x for some fixed g, so we need to transform them to their exponent values. 

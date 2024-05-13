@@ -645,18 +645,24 @@ insertNoCanc x y = do
         insertGoal (NoCancG (x, y)) False
         return Changed
 
-insertNeeded :: LNTerm  -> Reduction ChangeIndicator
+insertNeeded :: LNTerm  -> Reduction ()
 insertNeeded x = do
     j <- freshLVar "vk" LSortNode
     insertGoal (NeededG x j) False
-    return Changed
 
 
-insertNeededList :: [LNTerm] -> Reduction ChangeIndicator
-insertNeededList [x] = insertNeeded x
-insertNeededList (x:xs) = do
-    insertNeeded x
-    _ <- insertNeededList xs
+insertNeededList' :: [LNTerm] -> Reduction ()
+insertNeededList' [x] = do 
+        insertNeeded x
+insertNeededList' (x:xs) = do
+        insertNeeded x
+        insertNeededList' xs
+    
+
+insertNeededList :: [LNTerm] -> NodePrem -> LNFact -> LNTerm -> Reduction ChangeIndicator
+insertNeededList xs p faPrem t= do
+    insertNeededList' xs 
+    insertDHInd p faPrem t
     return Changed
 
 {-
@@ -857,8 +863,8 @@ solveTermEqs splitStrat eqs0 =
         return Changed
 
 
-solveTermDHEqs :: Bool -> SplitStrategy -> LNTerm -> LNTerm -> LNTerm -> Reduction ChangeIndicator
-solveTermDHEqs b splitStrat fa1 indt t1 =
+solveTermDHEqs :: Bool -> SplitStrategy -> (LNTerm, LNTerm) -> LNTerm -> LNTerm -> Reduction ChangeIndicator
+solveTermDHEqs b splitStrat (fa1, prodfa1) indt t1 =
         case (fa1 == indt) of
                     True  -> do return Unchanged
                     False -> do
@@ -866,10 +872,10 @@ solveTermDHEqs b splitStrat fa1 indt t1 =
                             se  <- gets id
                             (eqs2, maySplitId) <- addDHEqs hnd fa1 indt =<< getM sEqStore -- check if here you want to add only the equation containing terms, or the entire EqInd facts. 
                             (case b of 
-                                True -> insertGoal (IndicatorGExp (fa1,t1)) False
+                                True -> insertGoal (IndicatorGExp (prodfa1,t1)) False
                                 False -> do
-                                  insertContInd fa1 t1
-                                  insertGoal (IndicatorG (fa1,t1)) False) 
+                                  insertContInd prodfa1 t1
+                                  insertGoal (IndicatorG (prodfa1,t1)) False) 
                             setM sEqStore
                                 =<< simp hnd (substCreatesNonNormalTerms hnd se)
                                 =<< case (maySplitId, splitStrat) of
@@ -950,7 +956,7 @@ solveFactDHEqs b split eq@(EqInd (Equal fa1 fa2) indt1 t1) = do
     case factTerms fa1 of 
         [t] -> do
             outterm <- disjunctionOfList (multRootList t)
-            (solveTermDHEqs b split outterm indt1 t1) --to do, this indt1 should probs be Y.indt1^Z, with Y,Z known by adversary.
+            (solveTermDHEqs b split (outterm, t) indt1 t1) --to do, this indt1 should probs be Y.indt1^Z, with Y,Z known by adversary.
             -- but be careful because that should hold only for G terms. E terms should be handled differrently.
         _ -> error "incorrect factTerm called"
 

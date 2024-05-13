@@ -40,17 +40,17 @@ rationalLNTerm n 0 = error "division by zero"
 rationalLNTerm n d = fAppdhMult (fromInteger n, fAppdhInv $ fromInteger d)
 
 instance Num (Term (Lit Name LVar)) where
-  t1 + t2 = fAppdhPlus (t1,t2)
-  t1 - t2 = fAppdhPlus (t1, fAppdhMinus t2)
-  t1 * t2 = fAppdhTimesE (t1,t2)
+  t1 + t2 = simplifyraw $ fAppdhPlus (t1,t2)
+  t1 - t2 = simplifyraw $ fAppdhPlus (t1, simplifyraw $ fAppdhMinus t2)
+  t1 * t2 = simplifyraw $ fAppdhTimesE (t1,t2)
   negate = fAppdhMinus
   abs t = t
   signum t = fAppdhOne
   fromInteger = int2LNTerm
 
 instance Fractional (Term (Lit Name LVar)) where
-  t1 / t2 = fAppdhTimesE (t1, fAppdhInv t2)
-  recip t = fAppdhInv t
+  t1 / t2 = simplifyraw $ fAppdhTimesE (t1, simplifyraw $ fAppdhInv t2)
+  recip t = simplifyraw $ fAppdhInv t
   fromRational (n:%d) = rationalLNTerm n d
 
 
