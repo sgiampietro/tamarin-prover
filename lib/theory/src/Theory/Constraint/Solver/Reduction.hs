@@ -850,7 +850,7 @@ solveTermEqs splitStrat eqs0 =
         se  <- gets id
         (eqs2, maySplitId) <- addEqs hnd eqs1 =<< getM sEqStore
         setM sEqStore
-            =<< simp hnd (substCreatesNonNormalTerms hnd se)
+            =<< simp hnd (substCreatesNonNormalTerms hnd se) -- (\x y -> False) this solves the NORMAL FORM ISSUE!! check that. 
             =<< case (maySplitId, splitStrat) of
                   (Just splitId, SplitNow) -> disjunctionOfList
                                                 $ fromJustNote "solveTermEqs"
