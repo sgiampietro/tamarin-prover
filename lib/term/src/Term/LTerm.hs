@@ -61,6 +61,8 @@ module Term.LTerm (
   , isGVar
   , isPubGVar
   , isPubConst
+  , isBoxTerm
+  , isBoxETerm
   , isSimpleTerm
   , getVar
   , getMsgVar
@@ -446,6 +448,15 @@ isGVar _                         = False
 isPubGVar :: LNTerm -> Bool
 isPubGVar (viewTerm -> Lit (Var v)) = (lvarSort v == LSortPubG)
 isPubGVar _                         = False
+
+isBoxTerm :: LNTerm -> Bool
+isBoxTerm (viewTerm2 -> FdhBox _) = True
+isBoxTerm _                         = False
+
+isBoxETerm :: LNTerm -> Bool
+isBoxETerm (viewTerm2 -> FdhBoxE _) = True
+isBoxETerm _                         = False
+
 
 -- | If the term is a message variable, return it, nothing otherwise.
 getMsgVar :: LNTerm -> Maybe [LVar]

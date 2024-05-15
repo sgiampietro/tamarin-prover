@@ -35,6 +35,7 @@ import qualified Data.DAG.Simple                         as D (reachableSet)
 import qualified Data.Map                                as M
 import qualified Data.Monoid                             as Mono
 import qualified Data.Set                                as S
+import           Data.List                               (union)
 
 import           Control.Basics
 import           Control.Category
@@ -519,15 +520,24 @@ solveDHInd rules p faPrem t =  do-- TODO: does this ensure that x is actually a 
 solveIndicator :: LNTerm -> LNTerm -> Reduction String
 solveIndicator t1 t2  = do 
   nbset <- getM sNotBasis
-  case (solveIndicators (S.toList nbset) terms t2) of 
-   Just vec -> do
-      markGoalAsSolved ("Found indicators! possible attack by result:" ++ show (vec, terms)) (IndicatorG (t1,t2))
-      return ("Found indicators! possible attack by result:" ++ show (vec, terms))
-   Nothing -> do 
-      markGoalAsSolved ("Safe,cannot combine") (IndicatorG (t1,t2) )
-      return "Safe,cannot combine"
-  where 
-    terms = [t1]
+  irules <- getM sNodes
+  let rules = M.elems irules
+      terms = (concatMap enumConcsDhOut rules)
+      exps = (concatMap enumConcsDhExpOut rules)
+   in 
+    case (solveIndicators (union exps (S.toList nbset)) terms t2) of 
+      Just vec -> do
+          markGoalAsSolved ("Found indicators! possible attack by result:" ++ show (vec, terms)) (IndicatorG (t1,t2))
+          return ("Found indicators! possible attack by result:" ++ show (vec, terms))
+      Nothing -> do 
+      -- markGoalAsSolved ("Safe,cannot combine") (IndicatorG (t1,t2) )
+          setNotReachable
+          return ("Safe,cannot combine from (leaked set, terms):"++ show (union exps (S.toList nbset), terms))
+   -- where 
+    -- exps used to be (S.toList nbset)
+    --terms = [t1]
+      --rules = M.elems irules
+      --terms = t1:([concatMap enumConcsDhOut rules])
 
 solveIndicatorE :: LNTerm -> LNTerm -> Reduction String
 solveIndicatorE t1 t2 = do 

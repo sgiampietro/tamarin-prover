@@ -92,6 +92,8 @@ simplifyraw t= case viewTerm2 t of
     (DHZero, DHZero) -> fAppdhZero
     (DHZero, _ )    -> simplifyraw t2
     (_    , DHZero) -> simplifyraw t1
+    (FdhMinus t3, _) ->  if (t2 == t3) then fAppdhZero else t
+    (_, FdhMinus t3) ->  if (t1 == t3) then fAppdhZero else t
     (_    , _ )    -> t )
   FdhInv t1 -> (case (viewTerm2 t1) of
     FdhInv t2 -> simplifyraw t2

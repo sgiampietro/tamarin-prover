@@ -15,7 +15,8 @@ module Theory.Constraint.Solver.Combination
     allNBExponents,
     createMatrix,
     solveIndicators,
-    parseToMap
+    parseToMap,
+    gTerm2Exp
   )
 where
 
@@ -41,23 +42,21 @@ import Term.LTerm -- (LNTerm)
 gTerm2Exp ::  LNTerm -> LNTerm
 gTerm2Exp t@(LIT l) = if (isGVar t || isPubGVar t) then (fAppdhOne) else t
 gTerm2Exp t@(FAPP (DHMult o) ts) = case ts of
-    [ t1, t2 ] | o == dhMultSym   -> (FAPP (DHMult dhPlusSym) [gTerm2Exp t1, gTerm2Exp t2])
+    [ t1, t2 ] | o == dhMultSym   -> simplifyraw $ (FAPP (DHMult dhPlusSym) [gTerm2Exp t1, gTerm2Exp t2])
     [ t1, t2 ] | o == dhTimesSym   -> t
     [ t1, t2 ] | o == dhTimesESym   -> t
-    [ t1, t2 ] | o == dhExpSym   -> (FAPP (DHMult dhTimesESym) [gTerm2Exp t1, gTerm2Exp t2])
+    [ t1, t2 ] | o == dhExpSym   ->  simplifyraw $ (FAPP (DHMult dhTimesESym) [gTerm2Exp t1, gTerm2Exp t2])
     [ t1, t2 ] | o == dhPlusSym   -> t
-    [ t1 ]     | o == dhGinvSym    -> (FAPP (DHMult dhMinusSym) [gTerm2Exp t1])
+    [ t1 ]     | o == dhGinvSym    ->  simplifyraw $ (FAPP (DHMult dhMinusSym) [gTerm2Exp t1])
     [ t1 ]     | o == dhInvSym    -> t
     [ t1 ]     | o == dhMinusSym    -> t
     [ t1 ]     | o == dhMuSym    -> t
     [ t1 ]     | o == dhBoxSym    -> gTerm2Exp t1
     [ t1 ]     | o == dhBoxESym    -> gTerm2Exp t1
     []         | o == dhZeroSym    -> t
-    []         | o == dhEgSym    -> (FAPP (DHMult dhZeroSym) [])
+    []         | o == dhEgSym    ->  simplifyraw $ (FAPP (DHMult dhZeroSym) [])
     []         | o == dhOneSym    -> t
     _                               -> error $ "unexpected term form: `"++show t++"'"
-
-
 
 
 allExponentsOf :: [LNTerm] -> LNTerm -> [LNTerm]

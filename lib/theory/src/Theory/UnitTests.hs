@@ -259,6 +259,9 @@ test_recipe_3 = encTerm (hashTerm y1) (fstTerm y0) == reci
 varE :: String -> Integer -> LNTerm
 varE s i = varTerm $ LVar s LSortNZE i
 
+varG :: String -> Integer -> LNTerm
+varG s i = varTerm $ LVar s LSortG i
+
 
 testsRoot :: Test
 testsRoot = TestLabel "Tests for creating Polynomials" $
@@ -277,24 +280,29 @@ testsRoot = TestLabel "Tests for creating Polynomials" $
               polynomials = map (parseToMap vars) [fAppdhTimes(varE "x" 0,varE "v" 1),fAppdhTimes(varE "y" 0,varE "v" 1), fAppdhTimes(fAppdhOne,varE "x" 0), fAppdhTimes(fAppdhOne,varE "w" 0) ]
               vars = [varE "w" 0, varE "v" 1]
 
-{-              
+              
 testsRoot2 :: Test
 testsRoot2 = TestLabel "Tests for creating Polynomials" $
     TestList
       [ testEqual "Just matrix" m ([[]])
-      , testEqual "GaussReduction" (gaussReduction fAppdhZero m ) ([])
-      , testEqual "GaussEliminaiton result vector" (gaussEliminationFromMatrix fAppdhZero m ) ([])
-      , testEqual "removezeros" (removeZeroRows fAppdhZero $ gaussReduction fAppdhZero m ) ([])
-      , testEqual "solvematrix" (solveMatrix fAppdhZero m ) (Just [])
-      , testEqual "(exp, vars)" (allExponentsOf ([fAppdhTimes(varE "x" 0,varE "v" 1),fAppdhTimes(varE "y" 0,varE "v" 1), fAppdhTimes(fAppdhOne,varE "x" 0), fAppdhTimes(fAppdhOne,varE "w" 0) ])  fAppdhOne ) ([fAppdhOne])
-      , testEqual "(all exponents)" (allNBExponents [varE "x" 0, varE "y" 0] $ allExponentsOf ([fAppdhTimes(varE "x" 0,varE "v" 1),fAppdhTimes(varE "y" 0,varE "v" 1), fAppdhTimes(fAppdhOne,varE "x" 0), fAppdhTimes(fAppdhOne,varE "w" 0) ])  fAppdhOne ) (([fAppdhOne],[]))
-      , testEqual "polynomials" (S.toList (S.fromList (concat ((Map.keys targetpoly):(map Map.keys polynomials))) ) ) ([])
+      , testEqual "maptoexpstarget" (map gTerm2Exp [fAppdhExp (aPg1,aFm)]) ([])
+      , testEqual "maptoexps" (map gTerm2Exp [fAppdhBox (fAppdhExp (aPg1,aFy)),fAppdhBox (fAppdhMult (fAppdhExp (aPg1,aFm),fAppdhExp (fAppdhExp (aPg,aFx),aFy))), fAppdhBox (fAppdhExp (aPg,aFx))]) ([])
+      , testEqual "(exp, vars)" (allExponentsOf [fAppdhBoxE (aFy), fAppdhBox (fAppdhExp (aPg1,aFy)),fAppdhBox (fAppdhMult (fAppdhExp (aPg1,aFm),fAppdhExp (fAppdhExp (aPg,aFx),aFy))),fAppdhBox (fAppdhExp (aPg,aFx))]  (fAppdhExp (aPg1,aFm) )) ([])
+      , testEqual "(all exponents)" (allNBExponents [fAppdhBoxE (aFy)] $ allExponentsOf [fAppdhBoxE (aFy), fAppdhBox (fAppdhExp (aPg1,aFy)),fAppdhBox (fAppdhMult (fAppdhExp (aPg1,aFm),fAppdhExp (fAppdhExp (aPg,aFx),aFy))),fAppdhBox (fAppdhExp (aPg,aFx))] (fAppdhExp (aPg1,aFm))) (([],[]))
+      --, testEqual "polynomials" (S.toList (S.fromList (concat ((Map.keys targetpoly):(map Map.keys polynomials))) ) ) ([])
       ] 
-        where m = (createMatrix [] ([fAppdhTimesE(varE "x" 0,varE "v" 1),fAppdhTimesE(varE "y" 0,varE "v" 1), fAppdhTimesE(fAppdhOne,varE "x" 0), fAppdhTimesE(fAppdhOne,varE "w" 0) ])  fAppdhOne )
-              targetpoly = (parseToMap vars) fAppdhExp(varG "g" 0,varE "m" 1)
-              polynomials = map (parseToMap vars) [fAppdhTimes(varE "x" 0,varE "v" 1) ]
-              vars = [varE "w" 0, varE "v" 1]
+        where m = (createMatrix [aFy] (map gTerm2Exp terms)  (gTerm2Exp target) )
+              terms = [fAppdhBox (fAppdhExp (aPg1,aFy)),fAppdhBox (fAppdhMult (fAppdhExp (aPg1,aFm),fAppdhExp (fAppdhExp (aPg,aFx),aFy))), fAppdhBox (fAppdhExp (aPg,aFx))]
+              target = (fAppdhExp (aPg1,aFm) )
+              --targetpoly = (parseToMap vars) fAppdhExp (Pg1,Fm)
+              --polynomials = map (parseToMap vars) [fAppdhTimes(varE "x" 0,varE "v" 1) ]
+              aFy = varE "y" 0
+              aFx = varE "x" 0
+              aFm = varE "m" 0
+              aPg = varG "g" 0
+              aPg1 = varG "g" 1
 
+{-
 dhBox(dhMult(dhExp(Pg.1, Fm),
                        dhExp(dhExp(Pg, Fx), Fy))) IndicatorFound dhExp(Pg.1,
                                                                        Fm) ) // nr. 10

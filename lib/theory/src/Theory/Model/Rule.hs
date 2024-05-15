@@ -35,6 +35,8 @@ module Theory.Model.Rule (
   , lookupConc
   , enumPrems
   , enumConcs
+  , enumConcsDhOut
+  , enumConcsDhExpOut
 
   -- ** Extended positions
   , ExtendedPosition
@@ -246,6 +248,13 @@ enumPrems = zip [(PremIdx 0)..] . L.get rPrems
 -- | Enumerate all conclusions of a rule.
 enumConcs :: Rule i -> [(ConcIdx, LNFact)]
 enumConcs = zip [(ConcIdx 0)..] . L.get rConcs
+
+-- | Enumerate all DH Out conclusions of a rule.
+enumConcsDhOut :: Rule i -> [LNTerm]
+enumConcsDhOut ru = filter (isBoxTerm) $ concat [ factTerms f | (c,f) <- enumConcs ru, factTag f == OutFact]
+
+enumConcsDhExpOut :: Rule i -> [LNTerm]
+enumConcsDhExpOut ru = filter (isBoxETerm) $ concat [ factTerms f | (c,f) <- enumConcs ru, factTag f == OutFact]
 
 -- Instances
 ------------

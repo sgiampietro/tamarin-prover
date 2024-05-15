@@ -33,6 +33,8 @@ module Theory.Constraint.Solver.Reduction (
   , getMaudeHandleDH
   , getVerbose
 
+  , enumConcsDhOut
+  , enumConcsDhExpOut
   -- ** Inserting nodes, edges, and atoms
   , labelNodeId
   , insertFreshNode
@@ -56,6 +58,7 @@ module Theory.Constraint.Solver.Reduction (
   , insertNeeded
   , insertNeededList
   , insertDHInd
+  , setNotReachable
 
   -- ** Goal management
   , markGoalAsSolved
@@ -632,6 +635,10 @@ insertBasisElem x = do
 insertNotBasisElem :: LNTerm -> Reduction ()
 insertNotBasisElem x = do
     modM sNotBasis (\es -> S.insert x es)
+
+setNotReachable :: Reduction ()
+setNotReachable  = do
+    setM sNotReach True
 
 insertContInd :: LNTerm -> LNTerm -> Reduction ()
 insertContInd x y = modM sContInd (S.insert (x,y))

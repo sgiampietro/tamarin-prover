@@ -9,5 +9,5 @@ import Test.HUnit
 main :: IO ()
 main = do
     -- hnd <- (startMaude "maude" dhMultMaudeSig)
-    runTestTT $ testsRoot 
+    runTestTT $ testsRoot2 
     return ()
