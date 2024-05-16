@@ -16,7 +16,8 @@ module Theory.Constraint.Solver.Combination
     createMatrix,
     solveIndicators,
     parseToMap,
-    gTerm2Exp
+    gTerm2Exp,
+    getvalue
   )
 where
 
@@ -36,7 +37,7 @@ import Term.DHMultiplication
 import Term.LTerm -- (LNTerm)
 
 -- import Theory.Constraint.System.Constraints
-
+import Debug.Trace
 
 
 gTerm2Exp ::  LNTerm -> LNTerm
@@ -146,12 +147,12 @@ createMatrix nb terms target =
         allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetpoly):(map Map.keys polynomials))
         -- row = map( \i -> getvalue targetpoly i) allkeys 
     in 
-  (map (\key -> (map (\p -> getvalue p key) polynomials )++ [getvalue targetpoly key]) allkeys) -- todo: double check if row/column is ok or needs to be switched
+  trace (show ("THIS IS THE MATRIX I GET, vars, targetpoly, polynoimals, allkey ",nb,vars, targetpoly, polynomials, allkeys)) (map (\key -> ((map (\p -> getvalue p key) polynomials )++ [getvalue targetpoly key])) allkeys) -- todo: double check if row/column is ok or needs to be switched
 
 
 
 
 solveIndicators :: [LNTerm] -> [LNTerm] -> LNTerm -> Maybe [LNTerm]
-solveIndicators nb terms target = solveMatrix fAppdhZero $ createMatrix nb (map gTerm2Exp terms) (gTerm2Exp target)
+solveIndicators nb terms target = solveMatrix fAppdhZero $ createMatrix (map unbox nb) (map gTerm2Exp terms) (gTerm2Exp target)
 -- TODO: these terms are possible G, terms. We assume here that our terms are always of the form
 -- 'g'^x for some fixed g, so we need to transform them to their exponent values. 

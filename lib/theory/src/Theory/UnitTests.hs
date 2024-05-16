@@ -285,15 +285,30 @@ testsRoot2 :: Test
 testsRoot2 = TestLabel "Tests for creating Polynomials" $
     TestList
       [ testEqual "Just matrix" m ([[]])
-      , testEqual "maptoexpstarget" (map gTerm2Exp [fAppdhExp (aPg1,aFm)]) ([])
-      , testEqual "maptoexps" (map gTerm2Exp [fAppdhBox (fAppdhExp (aPg1,aFy)),fAppdhBox (fAppdhMult (fAppdhExp (aPg1,aFm),fAppdhExp (fAppdhExp (aPg,aFx),aFy))), fAppdhBox (fAppdhExp (aPg,aFx))]) ([])
-      , testEqual "(exp, vars)" (allExponentsOf [fAppdhBoxE (aFy), fAppdhBox (fAppdhExp (aPg1,aFy)),fAppdhBox (fAppdhMult (fAppdhExp (aPg1,aFm),fAppdhExp (fAppdhExp (aPg,aFx),aFy))),fAppdhBox (fAppdhExp (aPg,aFx))]  (fAppdhExp (aPg1,aFm) )) ([])
-      , testEqual "(all exponents)" (allNBExponents [fAppdhBoxE (aFy)] $ allExponentsOf [fAppdhBoxE (aFy), fAppdhBox (fAppdhExp (aPg1,aFy)),fAppdhBox (fAppdhMult (fAppdhExp (aPg1,aFm),fAppdhExp (fAppdhExp (aPg,aFx),aFy))),fAppdhBox (fAppdhExp (aPg,aFx))] (fAppdhExp (aPg1,aFm))) (([],[]))
-      --, testEqual "polynomials" (S.toList (S.fromList (concat ((Map.keys targetpoly):(map Map.keys polynomials))) ) ) ([])
+      , testEqual "Just matrix2correctONE" m2 ([[]])
+      , testEqual "solvematrix" (solveMatrix fAppdhZero m ) (Just [])
+      --, testEqual "maptoexpstarget" (map gTerm2Exp [fAppdhExp (aPg1,aFm)]) ([])
+      --, testEqual "maptoexps" (map gTerm2Exp [fAppdhBox (fAppdhExp (aPg1,aFy)),fAppdhBox (fAppdhMult (fAppdhExp (aPg1,aFm),fAppdhExp (fAppdhExp (aPg,aFx),aFy))), fAppdhBox (fAppdhExp (aPg,aFx))]) ([])
+      --, testEqual "(exp, vars)" (allExponentsOf [fAppdhBoxE (aFy), fAppdhBox (fAppdhExp (aPg1,aFy)),fAppdhBox (fAppdhMult (fAppdhExp (aPg1,aFm),fAppdhExp (fAppdhExp (aPg,aFx),aFy))),fAppdhBox (fAppdhExp (aPg,aFx))]  (fAppdhExp (aPg1,aFm) )) ([])
+      , testEqual "parsing fAppdhBox (fAppdhExp (aPg1,aFy))" (parseToMap [aFm,aFx] (gTerm2Exp $ fAppdhBox (fAppdhExp (aPg1,aFy)))) (Map.empty) 
+      , testEqual "parsing fAppdhBox (fAppdhMult (fAppdhExp (aPg1,aFm),fAppdhExp (fAppdhExp (aPg,aFx),aFy)))" (parseToMap [aFm,aFx] (gTerm2Exp $ fAppdhBox (fAppdhMult (fAppdhExp (aPg1,aFm),fAppdhExp (fAppdhExp (aPg,aFx),aFy))))) (Map.empty)
+      , testEqual "parsing fAppdhBox (fAppdhExp (aPg,aFx))" (parseToMap [aFm,aFx] (gTerm2Exp $ fAppdhBox (fAppdhExp (aPg,aFx))) ) (Map.empty) 
+      , testEqual "parsing  (fAppdhExp (aPg1,aFm) )" (parseToMap [aFm,aFx] (gTerm2Exp target) ) (Map.empty)
+      , testEqual "(all exponents in creatematrix)" (allNBExponents [aFm,aFx] (allExponentsOf (map gTerm2Exp terms) (gTerm2Exp target))) (([],[]))
+      , testEqual "(all exponents)" (allNBExponents [aFm,aFx] $ allExponentsOf [fAppdhBox (fAppdhExp (aPg1,aFy)),fAppdhBox (fAppdhMult (fAppdhExp (aPg1,aFm),fAppdhExp (fAppdhExp (aPg,aFx),aFy))),fAppdhBox (fAppdhExp (aPg,aFx))] (fAppdhExp (aPg1,aFm))) (([],[]))
+      , testEqual "allkeeys" allkeys ([(gTerm2Exp target)])
+      , testEqual "testAfy" ((map (\p -> getvalue p aFy) polynomials )++ [getvalue targetpoly aFy]) ([])
+      , testEqual "testdhOne" ((map (\p -> getvalue p fAppdhOne) polynomials )++ [getvalue targetpoly fAppdhOne]) ([])
+      , testEqual "matrix def" ((map (\key -> ((map (\p -> getvalue p key) polynomials )++ [getvalue targetpoly key])) allkeys)) ([])
       ] 
-        where m = (createMatrix [aFy] (map gTerm2Exp terms)  (gTerm2Exp target) )
+        where m = (createMatrix (map unbox [fAppdhBox aFy]) (map gTerm2Exp terms) (gTerm2Exp target) )
+              m2 = (createMatrix [aFy] (map gTerm2Exp terms) (gTerm2Exp target) )
               terms = [fAppdhBox (fAppdhExp (aPg1,aFy)),fAppdhBox (fAppdhMult (fAppdhExp (aPg1,aFm),fAppdhExp (fAppdhExp (aPg,aFx),aFy))), fAppdhBox (fAppdhExp (aPg,aFx))]
               target = (fAppdhExp (aPg1,aFm) )
+              vars = [aFm,aFx] 
+              allkeys = (S.toList (S.fromList (concat ((Map.keys targetpoly):(map Map.keys polynomials))) ) )
+              polynomials = map (parseToMap vars) (map gTerm2Exp terms)
+              targetpoly = parseToMap vars (gTerm2Exp target)
               --targetpoly = (parseToMap vars) fAppdhExp (Pg1,Fm)
               --polynomials = map (parseToMap vars) [fAppdhTimes(varE "x" 0,varE "v" 1) ]
               aFy = varE "y" 0

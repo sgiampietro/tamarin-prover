@@ -527,12 +527,12 @@ solveIndicator t1 t2  = do
    in 
     case (solveIndicators (union exps (S.toList nbset)) terms t2) of 
       Just vec -> do
-          markGoalAsSolved ("Found indicators! possible attack by result:" ++ show (vec, terms)) (IndicatorG (t1,t2))
-          return ("Found indicators! possible attack by result:" ++ show (vec, terms))
+          markGoalAsSolved ("Found indicators! possible attack by result:" ++ show (vec, terms, t2)) (IndicatorG (t1,t2))
+          return ("Found indicators! possible attack by result:" ++ show (vec, terms, t2))
       Nothing -> do 
       -- markGoalAsSolved ("Safe,cannot combine") (IndicatorG (t1,t2) )
           setNotReachable
-          return ("Safe,cannot combine from (leaked set, terms):"++ show (union exps (S.toList nbset), terms))
+          return ("Safe,cannot combine from (leaked set, terms):"++ show (union exps (S.toList nbset), terms, t2))
    -- where 
     -- exps used to be (S.toList nbset)
     --terms = [t1]

@@ -21,6 +21,7 @@ module Term.DHMultiplication (
   , rootIndKnownMaude
   , rootIndUnknown
   , eTermsOf
+  , unbox
   , isNoCanc
 
 
@@ -170,7 +171,14 @@ isRoot o t@(viewTerm3 -> BoxE dht) = isRoot o dht
 isRoot o t@(viewTerm3 -> DH dht ts) = S.size (rootSet o t) == 1
 isRoot o _ = error "rootSet applied on non DH term'"
 
+unbox :: LNTerm -> LNTerm
+unbox t@(viewTerm3 -> Box dht) = dht
+unbox t@(viewTerm3 -> BoxE dht) = dht
+unbox t = t 
+
 eTermsOf :: LNTerm -> [ LNTerm ]
+eTermsOf t@(viewTerm3 -> Box dht) = eTermsOf dht
+eTermsOf t@(viewTerm3 -> BoxE dht) = eTermsOf dht
 eTermsOf t@(LIT l)
   | isEVar t = [t]
   | isNZEVar t = [t]
