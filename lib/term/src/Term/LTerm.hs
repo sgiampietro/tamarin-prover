@@ -63,6 +63,7 @@ module Term.LTerm (
   , isPubConst
   , isBoxTerm
   , isBoxETerm
+  , isOfDHSort
   , isSimpleTerm
   , getVar
   , getMsgVar
@@ -456,6 +457,13 @@ isBoxTerm _                         = False
 isBoxETerm :: LNTerm -> Bool
 isBoxETerm (viewTerm2 -> FdhBoxE _) = True
 isBoxETerm _                         = False
+
+isOfDHSort :: LNTerm -> Bool 
+isOfDHSort (viewTerm3 -> DH _ _ ) = True
+isOfDHSort (viewTerm3 -> BoxE _) = True
+isOfDHSort (viewTerm3 -> Box _) = True
+isOfDHSort (viewTerm -> Lit (Var v)) | (lvarSort v == LSortPubG || lvarSort v == LSortG || lvarSort v == LSortFrNZE || lvarSort v == LSortE ) = True
+isOfDHSort _ = False
 
 
 -- | If the term is a message variable, return it, nothing otherwise.

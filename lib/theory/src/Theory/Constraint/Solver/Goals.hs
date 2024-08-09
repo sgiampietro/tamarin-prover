@@ -52,12 +52,16 @@ import           Theory.Constraint.Solver.Contradictions (substCreatesNonNormalT
 import           Theory.Constraint.Solver.Reduction
 import           Theory.Constraint.System
 import           Theory.Tools.IntruderRules (mkDUnionRule, isDExpRule, isDPMultRule, isDEMapRule)
+import           Theory.Tools.DHActionFacts
 import           Theory.Model
 import           Term.Builtin.Convenience
 import           Term.DHMultiplication
 import           Theory.Constraint.Solver.Combination
 
 import           Utils.Misc                              (twoPartitions)
+
+
+
 
 ------------------------------------------------------------------------------
 -- Extracting Goals
@@ -315,9 +319,13 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
              -> LNFact         -- ^ Fact required at this premise.
              -> Reduction String -- ^ Case name to use.
 solvePremise rules p faPrem
-  | isKdhFact faPrem = do
+  | isKdhFact faPrem = do -- {this shouldn't only be Kdh but also In or Out}
       case factTerms faPrem of
           [t1] -> trace (show ("HERE: solving", t1) ) (solveDHInd rules p faPrem t1)
+          _ -> error "malformed KdhFact"
+  | isProtoDHFact faPrem = do 
+      case factTerms faPrem of 
+          [t1] -> solveDHIndProto rules p faPrem t1
           _ -> error "malformed KdhFact"
   | isKDFact faPrem = do
       iLearn    <- freshLVar "vl" LSortNode
@@ -517,6 +525,32 @@ solveDHInd rules p faPrem t =  do-- TODO: does this ensure that x is actually a 
       Nothing -> error "error in prodTerm function"
 
 
+solveDHIndProto ::  [RuleAC]        -- ^ All rules that have an Out fact containing a boxed term as conclusion. 
+             -> NodePrem       -- ^ Premise to solve.
+             ->LNFact
+             -> LNTerm       -- ^ Product term of which we have to find the indicator  
+             -> Reduction String -- ^ Case name to use.
+solveDHIndProto rules p faPrem t = do
+    case prodTerms t of
+      Just (x,y) -> do
+        hnd  <- getMaudeHandle
+        nocancs <- getM sNoCanc
+        --bset <- basisOfRule ru
+        --nbset <- notBasisOfRule ru
+        -- trace (show ("NOCANC", x, y, bset, nbset)) insertNoCanc x y
+        if not (S.member (x,y) nocancs  || isNoCanc x y) then
+              (error "TODO")
+             else do
+              (ru, c, faConc) <-  (insertFreshNodeConc rules)
+              z1 <- freshLVar "Z1" LSortE
+              let indt = (runReader (rootIndKnownMaude (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) x) hnd)
+                  indtexp = fAppdhExp (indt, LIT (Var z1) )
+              (insertDHEdge False (c, faConc, faPrem, p) indtexp) t -- instead of root indicator this should be Y.ind^Z.
+              (return $ showRuleCaseName ru) -- (return "done") 
+          {-TODO: might need to change the insertDHEdge function to handle  -}
+      Nothing -> error "error in prodTerm function"
+
+
 solveIndicator :: LNTerm -> LNTerm -> Reduction String
 solveIndicator t1 t2  = do 
   nbset <- getM sNotBasis
@@ -527,8 +561,8 @@ solveIndicator t1 t2  = do
    in 
     case (solveIndicators (union exps (S.toList nbset)) terms t2) of 
       Just vec -> do
-          markGoalAsSolved ("Found indicators! possible attack by result:" ++ show (vec, terms, t2)) (IndicatorG (t1,t2))
-          return ("Found indicators! possible attack by result:" ++ show (vec, terms, t2))
+          markGoalAsSolved ("Found indicators! attack by result:" ++ show (vec, terms, t2)) (IndicatorG (t1,t2))
+          return ("Found indicators! attack by result:" ++ show (vec, terms, t2))
       Nothing -> do 
       -- markGoalAsSolved ("Safe,cannot combine") (IndicatorG (t1,t2) )
           setNotReachable
@@ -563,7 +597,7 @@ solveNeeded rules x i = do
                 insertBasisElem x
                 --insertGoal (PremiseG (i, PremIdx 0) (kdFact x)) False !!(adversary shouldn't know x? check if we actually _need_ to prove it CANNOT)
                 -- TODO: insertSecret x
-                return "caseBasis"
+                return "case Secret Set"
       False -> do
                 trace "IAMHEREYES" (insertNotBasisElem x)
                 --                
@@ -574,7 +608,7 @@ solveNeeded rules x i = do
                 -- return $ showRuleCaseName ru
                 --
                 --insertGoal (PremiseG (i, PremIdx 0) (kIFact x)) False 
-                return "caseNotBasis" -- TODO: make this appear somehow, maybe with an extra case. 
+                return "case Leaked Set" -- TODO: make this appear somehow, maybe with an extra case. 
 
 
 

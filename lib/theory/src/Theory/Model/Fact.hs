@@ -84,6 +84,8 @@ module Theory.Model.Fact (
   , isKIFact
   --, isKdhIndFact
   , isKDXorFact
+  , isDHFact
+  , isProtoDHFact
 
   , convertKUtoKD
   , convertKDtoKU
@@ -136,6 +138,7 @@ import qualified Data.Set               as S
 import           Term.Unification
 import           Term.Rewriting.Norm
 import           Term.Macro
+import           Term.DHMultiplication
 
 import           Text.PrettyPrint.Class
 
@@ -323,7 +326,6 @@ isKIFact _                 = False
 --isKdhIndFact :: LNFact -> Bool
 --isKdhIndFact (Fact KdhIndFact _ _) = True
 -- isKdhIndFact _                 = False
-
 
 -- | True if the fact is a KD-fact concerning an Xor Term.
 isKDXorFact :: LNFact -> Bool
@@ -514,6 +516,14 @@ outFactView fa = case fa of
     Fact OutFact _ [m] -> Just m
     Fact OutFact _ _   -> errMalformed "outFactView" fa
     _                  -> Nothing
+
+
+isDHFact :: LNFact -> Bool
+isDHFact fa1 = all isOfDHSort (factTerms fa1)
+
+isProtoDHFact :: LNFact -> Bool
+isProtoDHFact fa1 = (isDHFact fa1) && (isProtoFact fa1)
+
 
 ------------------------------------------------------------------------------
 -- NFact

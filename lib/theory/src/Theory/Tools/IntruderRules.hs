@@ -324,7 +324,7 @@ dhmultIntruderRules = [
       --, Rule IRecvRule [outFact x_boxE] [kIFact x_varE] []  [] --Actually not using this rule anymore, check if you can remove.  
       , Rule IRecvRule [freshDHFact x_fresh_var] [kIFact x_varfnE] []  []
       --, Rule ISendRule [kuFact x_boxE]  [kdhFact x_varE] [kLogFact x_boxE]        [] 
-      , Rule CoerceDHRule  [kdhFact x_varG] [kuFact x_box] [kuFact x_box, kLogFact x_box]  []
+      , Rule CoerceDHRule  [kdhFact x_varG] [kuFact x_box] [kuFact x_box, kLogFact x_box]  [] -- TODO: these should be taken care of with Kdh action fats, not transforming them to premises!
       , Rule CoerceDHRuleE [kdhFact x_varE] [kuFact x_boxE] [kuFact x_boxE, kLogFact x_boxE]     []
       --, Rule  (ConstrRule (append (pack "_DH") dhOneSymString)) [] [concfact] (return concfact) []
       -- , kuRule CoerceRule      [kdFact x_box]                 (x_box)         [] 
