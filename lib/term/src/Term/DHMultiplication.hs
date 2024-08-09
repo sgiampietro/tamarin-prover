@@ -16,6 +16,7 @@ module Term.DHMultiplication (
   , rootSet
   , multRootList
   , isRoot
+  , isOfDHSort
   , neededexponents
   , rootIndKnown
   , rootIndKnownMaude
@@ -240,6 +241,16 @@ isNoCanc t1 t2 = case viewTerm2 t2 of
         _ -> (case viewTerm2 t1 of --TODO: fix this case. 
               DHOne -> True
               _ -> False) 
+
+
+isDHTerm :: LNTerm -> Bool
+isDHTerm t = case viewTerm3 t of
+      MsgLit _ -> False
+      MsgFApp _ _ -> False
+      DH _ _ -> True
+      Box _ -> True
+      BoxE _ -> True
+
 
 
 {-

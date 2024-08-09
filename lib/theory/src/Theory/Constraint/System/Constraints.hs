@@ -286,4 +286,4 @@ prettyGoal (DHIndG i fa ta) =  text "SearchForIndicator" <-> prettyLNTerm ta
 prettyGoal (NoCancG (l,r) ) = prettyLNTerm l <-> text "NoCanc" <-> prettyLNTerm r
 prettyGoal (NeededG ta p ) = prettyLNTerm ta <-> text "Needed" <-> prettyNodeId p
 prettyGoal (IndicatorG (l,r) ) = prettyLNTerm l <-> text "IndicatorFound" <-> prettyLNTerm r
-prettyGoal (IndicatorGExp (l,r) ) = prettyLNTerm l <-> text "Exponent in Not-Basis" <-> prettyLNTerm r
+prettyGoal (IndicatorGExp (l,r) ) = prettyLNTerm l <-> text "Exponent in Leaked Set" <-> prettyLNTerm r
