@@ -545,7 +545,7 @@ solveDHIndProto rules p faPrem t = do
               z1 <- freshLVar "Z1" LSortE
               let indt = (runReader (rootIndKnownMaude (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) x) hnd)
                   indtexp = fAppdhExp (indt, LIT (Var z1) )
-              (insertDHEdge False (c, faConc, faPrem, p) indtexp) t -- instead of root indicator this should be Y.ind^Z.
+              (insertDHEdge True (c, faConc, faPrem, p) indtexp) t -- instead of root indicator this should be Y.ind^Z.
               (return $ showRuleCaseName ru) -- (return "done") 
           {-TODO: might need to change the insertDHEdge function to handle  -}
       Nothing -> error "error in prodTerm function"

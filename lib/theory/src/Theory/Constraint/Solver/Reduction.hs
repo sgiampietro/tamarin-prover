@@ -52,6 +52,7 @@ module Theory.Constraint.Solver.Reduction (
 
   , insertNoCanc
   , insertContInd
+  , insertContIndProto
   , insertNotBasisElem
   , insertBasisElem
   , insertDHEdge
@@ -643,6 +644,9 @@ setNotReachable  = do
 insertContInd :: LNTerm -> LNTerm -> Reduction ()
 insertContInd x y = modM sContInd (S.insert (x,y))
 
+insertContIndProto :: LNTerm -> LNTerm -> Reduction ()
+insertContIndProto x y = modM sContIndProto (S.insert (x,y))
+
 -- TODO: the following not needed ?
 insertDHInd :: NodePrem -> LNFact -> LNTerm -> Reduction ()
 insertDHInd nodep fa t = insertGoal (DHIndG nodep fa t) False
@@ -703,6 +707,7 @@ substSystem = do
     substBasis
     substNotBasis
     substContInd
+    substContIndProto
     substLastAtom
     substLessAtoms
     substSubtermStore
@@ -722,6 +727,7 @@ substNoCanc         = substPart sNoCanc
 substBasis          = substPart sBasis
 substNotBasis       = substPart sNotBasis
 substContInd        = substPart sContInd
+substContInd        = substPart sContIndProto
 substLessAtoms      = substPart sLessAtoms
 substSubtermStore   = substPart sSubtermStore
 substLastAtom       = substPart sLastAtom
@@ -879,10 +885,12 @@ solveTermDHEqs b splitStrat (fa1, prodfa1) indt t1 =
                             se  <- gets id
                             (eqs2, maySplitId) <- addDHEqs hnd fa1 indt =<< getM sEqStore -- check if here you want to add only the equation containing terms, or the entire EqInd facts. 
                             (case b of 
-                                True -> insertGoal (IndicatorGExp (prodfa1,t1)) False
+                                True -> do
+                                    insertContIndProto prodfa1 t1
+                                    insertGoal (IndicatorGExp (prodfa1,t1)) False
                                 False -> do
-                                  insertContInd prodfa1 t1
-                                  insertGoal (IndicatorG (prodfa1,t1)) False) 
+                                    insertContInd prodfa1 t1
+                                    insertGoal (IndicatorG (prodfa1,t1)) False) 
                             setM sEqStore
                                 =<< simp hnd (substCreatesNonNormalTerms hnd se)
                                 =<< case (maySplitId, splitStrat) of
