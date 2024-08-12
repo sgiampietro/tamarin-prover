@@ -144,30 +144,13 @@ unifyLDHTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["uni
     --solve _ (Just (m, []))  = (substFromMap m, [emptySubstVFresh])
     solve h = -- (Just (m, leqs)) =
         (emptySubst, unsafePerformIO (UM.unifyViaMaudeDH h sortOf 
-                                      eqs))
+                                      eqs))  -- why is first argument always emptySubst?
       --where subst = substFromMap m
 
 unifyLNDHTermFactored :: [Equal LNTerm]
                     -> WithMaude (LNSubst, [SubstVFresh Name LVar])
 unifyLNDHTermFactored = unifyLDHTermFactored sortOfName             
 
-
-{- TODO
-unifyLDHTermFactored :: (IsConst c)
-                   => (c -> LSort)
-                   -> [EqInd (LTerm c) (LTerm c)]
-                   -> WithMaude (LSubst c, [SubstVFresh c LVar])
-unifyLDHTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTerm: "++ show eqs, "result = "++  show res]) res) $ do
-    solve h $ execRWST unif sortOf M.empty
-  where
-    unif = sequence [ unifyRaw t p | EqInd (Equal t p) t1 p1 <- eqs ]
-    solve _ Nothing         = (emptySubst, [])
-    solve _ (Just (m, _))  = (emptySubst, [])
-
-unifyLNDHTermFactored :: [EqInd LNTerm LNTerm]
-                    -> WithMaude (LNSubst, [SubstVFresh Name LVar])
-unifyLNDHTermFactored = unifyLDHTermFactored sortOfName             
--}
 
 -- | @unifyLNTerm eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLTerm :: (IsConst c)

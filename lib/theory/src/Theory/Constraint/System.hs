@@ -808,7 +808,7 @@ $(mkLabels [''DiffSystem])
 -- | The empty constraint system, which is logically equivalent to true.
 emptySystem :: SourceKind -> Bool -> System
 emptySystem d isdiff = System
-    M.empty S.empty S.empty S.empty S.empty S.empty False S.empty Nothing emptySubtermStore emptyEqStore
+    M.empty S.empty S.empty S.empty S.empty S.empty S.empty False S.empty Nothing emptySubtermStore emptyEqStore
     S.empty S.empty S.empty
     M.empty 0 d isdiff
 
@@ -1813,10 +1813,10 @@ instance Apply LNSubst SourceKind where
     apply = const id
 
 instance Apply LNSubst System where
-    apply subst (System a b b1 b2 b3 b4 b5 c d e f g h i j k l m) =
+    apply subst (System a b b1 b2 b3 b32 b4 b5 c d e f g h i j k l m) =
         System (apply subst a)
         -- we do not apply substitutions to node variables, so we do not apply them to the edges either
-        b b1 b2 b3 (apply subst b4) b5
+        b b1 b2 b3 b32 (apply subst b4) b5
         (apply subst c) (apply subst d)
         (apply subst e) (apply subst f) (apply subst g) (apply subst h) (apply subst i)
         j k (apply subst l) (apply subst m)
@@ -1832,7 +1832,7 @@ instance HasFrees GoalStatus where
     mapFrees  = const pure
 
 instance HasFrees System where
-    foldFrees fun (System a b b1 b2 b3 b4 b5 c d e f g h i j k l m) =
+    foldFrees fun (System a b b1 b2 b3 b32 b4 b5 c d e f g h i j k l m) =
         foldFrees fun a `mappend`
         foldFrees fun b `mappend`
         foldFrees fun c `mappend`
@@ -1847,7 +1847,7 @@ instance HasFrees System where
         foldFrees fun l `mappend`
         foldFrees fun m
 
-    foldFreesOcc fun ctx (System a _b _b1 _b2 _b3 _b4 _b5 _c _d _e _f _g _h _i _j _k _l _m) =
+    foldFreesOcc fun ctx (System a _b _b1 _b2 _b3 _b32 _b4 _b5 _c _d _e _f _g _h _i _j _k _l _m) =
         foldFreesOcc fun ("a":ctx') a {- `mappend`
         foldFreesCtx fun ("b":ctx') b `mappend`
         foldFreesCtx fun ("c":ctx') c `mappend`
@@ -1861,12 +1861,13 @@ instance HasFrees System where
         foldFreesCtx fun ("k":ctx') k -}
       where ctx' = "system":ctx
 
-    mapFrees fun (System a b b1 b2 b3 b4 b5 c d e f g h i j k l m) =
+    mapFrees fun (System a b b1 b2 b3 b32 b4 b5 c d e f g h i j k l m) =
         System <$> mapFrees fun a
                <*> mapFrees fun b
                <*> mapFrees fun b1
                <*> mapFrees fun b2
                <*> mapFrees fun b3
+               <*> mapFrees fun b32
                <*> mapFrees fun b4
                <*> mapFrees fun b5
                <*> mapFrees fun c
@@ -1912,11 +1913,11 @@ compareNodesUpToNewVars n1 n2 = compareListsUpToNewVars (M.toAscList n1) (M.toAs
 compareSystemsUpToNewVars :: System -> System -> Ordering
 -- when we have trace systems, we can ignore new variable instantiations
 compareSystemsUpToNewVars
-   (System a1 b1 bb1 bb2 bb3 b4 b5 c1 d1 e1 f1 g1 h1 i1 j1 k1 l1 False)
-   (System a2 b2 b21 b22 b23 bb4 bb5 c2 d2 e2 f2 g2 h2 i2 j2 k2 l2 False)
+   (System a1 b1 bb1 bb2 bb3 bb32 b4 b5 c1 d1 e1 f1 g1 h1 i1 j1 k1 l1 False)
+   (System a2 b2 b21 b22 b23 b32 bb4 bb5 c2 d2 e2 f2 g2 h2 i2 j2 k2 l2 False)
        = if compareNodes == EQ then
-            compare (System M.empty b1 bb1 bb2 bb3 b4 b5 c1 d1 e1 f1 g1 h1 i1 j1 k1 l1 False)
-                (System M.empty b2 b21 b22 b23 bb4 bb5 c2 d2 e2 f2 g2 h2 i2 j2 k2 l2 False)
+            compare (System M.empty b1 bb1 bb2 bb3 bb32 b4 b5 c1 d1 e1 f1 g1 h1 i1 j1 k1 l1 False)
+                (System M.empty b2 b21 b22 b23 b32 bb4 bb5 c2 d2 e2 f2 g2 h2 i2 j2 k2 l2 False)
          else
             compareNodes
         where

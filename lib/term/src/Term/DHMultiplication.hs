@@ -22,6 +22,7 @@ module Term.DHMultiplication (
   , rootIndKnownMaude
   , rootIndUnknown
   , eTermsOf
+  , varTermsOf
   , unbox
   , isNoCanc
 
@@ -187,6 +188,15 @@ eTermsOf t@(LIT l)
   | otherwise = []
 eTermsOf t@(FAPP f ts) = concatMap eTermsOf ts
 
+
+varTermsOf :: LNTerm -> [ LNTerm ]
+varTermsOf t@(viewTerm3 -> Box dht) = varTermsOf dht
+varTermsOf t@(viewTerm3 -> BoxE dht) = varTermsOf dht
+varTermsOf t@(LIT l)
+  | isvarGVar t = [t]
+  | isvarEVar t = [t]
+  | otherwise = []
+varTermsOf t@(FAPP f ts) = concatMap eTermsOf ts
 
 indComputable :: S.Set LNTerm -> LNTerm -> Bool
 indComputable bs t = S.fromList( eTermsOf t ) `S.isSubsetOf` bs

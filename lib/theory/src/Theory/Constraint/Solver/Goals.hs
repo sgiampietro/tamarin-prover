@@ -231,7 +231,7 @@ solveGoal goal = do
       NoCancG (t1, t2) -> solveNoCanc t1 t2
       NeededG x i    -> solveNeeded (get crProtocol rules) x i
       IndicatorG (t1, t2) -> solveIndicator t1 t2
-      IndicatorGExp (t1, t2) -> solveIndicatorE t1 t2
+      IndicatorGExp (t1, t2) -> solveIndicatorProto t1 t2 -- todo do we also need the basis sets here?
 
 -- The following functions are internal to 'solveGoal'. Use them with great
 -- care.
@@ -573,8 +573,8 @@ solveIndicator t1 t2  = do
       --rules = M.elems irules
       --terms = t1:([concatMap enumConcsDhOut rules])
 
-solveIndicatorE :: LNTerm -> LNTerm -> Reduction String
-solveIndicatorE t1 t2 = do 
+solveIndicatorProto :: LNTerm -> LNTerm -> Reduction String
+solveIndicatorProto t1 t2 = do 
   case (solveIndicators ([]) terms t2) of 
    Just vec ->  do 
         markGoalAsSolved ("Found exponent with:" ++ show (vec, terms)) (IndicatorGExp (t1, t2))
