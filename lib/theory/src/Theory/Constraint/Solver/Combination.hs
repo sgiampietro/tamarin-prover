@@ -63,6 +63,8 @@ gTerm2Exp t@(FAPP (DHMult o) ts) = case ts of
 allExponentsOf :: [LNTerm] -> LNTerm -> [LNTerm]
 allExponentsOf tis target =
   S.toList $ S.union (S.unions $ map (S.fromList . eTermsOf) tis) (S.fromList $ eTermsOf target)
+-- to get monomials that are also product of exponents, probably just need to modify the 
+-- "eTermsOf" function to also take products of E-terms. 
 
 allNBExponents :: [LNTerm] -> [LNTerm] -> ([LNTerm], [LNTerm])
 allNBExponents nbasis allexp = (nbasis `intersect` allexp, allexp \\ nbasis)
@@ -156,3 +158,42 @@ solveIndicators :: [LNTerm] -> [LNTerm] -> LNTerm -> Maybe [LNTerm]
 solveIndicators nb terms target = solveMatrix fAppdhZero $ createMatrix (map unbox nb) (map gTerm2Exp terms) (gTerm2Exp target)
 -- TODO: these terms are possible G, terms. We assume here that our terms are always of the form
 -- 'g'^x for some fixed g, so we need to transform them to their exponent values. 
+
+
+
+-- PART FOR PROTOCOL ACTION INDICATORS
+
+getVariablesOf :: [LNTerm] -> [LNTerm]
+getVariablesOf tis =
+  S.toList (S.unions $ map (S.fromList . varTermsOf) tis) 
+
+stripVarsProd :: LNTerm -> (LNTerm, LNTerm)
+stripVarsProd t@(LIT l) = error "this shouldn't happen" 
+stripVarsProd t@(FAPP (DHMult o) ts) = case ts of
+    [ t1, t2 ] | o == dhTimesSym   -> if isvarEVar t1 then (t1,t2) else (t2,t1)
+    [ t1, t2 ] | o == dhTimesESym   -> if isvarEVar t1 then (t1,t2) else (t2,t1)
+    _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
+
+stripVars :: LNTerm -> (LNTerm, (LNTerm, LNTerm)) -- summed var, (multiplied var, term)
+stripVars t@(LIT l) = error "this shouldn't happen" 
+stripVars t@(FAPP (DHMult o) ts) = case ts of
+    [ t1, t2 ] | o == dhPlusSym   -> if isvarEVar t1 then (t1, stripVarsProd t2) else (t2, stripVarsProd t1)
+    _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
+
+
+oneIfOne :: LNTerm -> LNTerm
+oneIfOne fAppdhOne = fAppdhOne
+oneIfOne _ = fAppdhZero
+
+createMatrixProto :: [LNTerm] -> LNTerm -> LNTerm -> (LNTerm, LNTerm, Matrix LNTerm)
+createMatrixProto nb term target = 
+    let (nbexp, vars) = allNBExponents nb (allExponentsOf [term] target)
+        (z1,(w1,term2)) = stripVars term
+        polynomial = (parseToMap vars term2) -- this term now contains the introduced W and V variables. 
+        targetpoly = parseToMap vars target
+        allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetpoly):[Map.keys polynomial])
+        -- row = map( \i -> getvalue targetpoly i) allkeys 
+    in 
+  (w1, z1, map (\key -> (( getvalue polynomial key):(oneIfOne key):[getvalue targetpoly key])) allkeys) -- todo: double check if row/column is ok or needs to be switched
+
+-- w1 is multiplied term, z1 is the summed term term. 

@@ -63,6 +63,8 @@ module Term.LTerm (
   , isPubConst
   , isBoxTerm
   , isBoxETerm
+  , isvarGVar
+  , isvarEVar
   , isOfDHSort
   , isSimpleTerm
   , getVar
@@ -176,7 +178,9 @@ data LSort = LSortPub    -- ^ Arbitrary public names.
            | LSortMsg    -- ^ Arbitrary messages.
            | LSortDH     -- ^ Arbitrary group/exponent elements.
            | LSortG      -- ^ Arbitrary group elements.
+           | LSortVarG   -- ^ Variable of sort G.
            | LSortE      -- ^ Arbitrary exponents.
+           | LSortVarE   -- ^ Variable of sort E.
            | LSortNZE    -- ^ Arbitrary non-zero exponents
            | LSortPubG   -- ^ Arbitrary public group generators
            | LSortFrNZE  -- ^ Arbitrary fresh non-zero exponents
@@ -231,6 +235,14 @@ sortCompare s1 s2 = case (s1, s2) of
     (LSortFrNZE,  LSortE)  -> Just LT
     (_,   LSortFrNZE)  -> Nothing
     (LSortFrNZE,  _)  -> Nothing
+    (LSortG, LSortVarG) -> Just GT
+    (LSortVarG, LSortG) -> Just LT
+    (LSortVarG, _) -> Nothing
+    (_, LSortVarG) -> Nothing
+    (LSortE, LSortVarE) -> Just GT
+    (LSortVarE, LSortE) -> Just LT
+    (LSortVarE, _) -> Nothing
+    (_, LSortVarE) -> Nothing
     -- Msg is greater than all OTHER sorts except Node
     (LSortMsg,   _        )  -> Just GT
     (_,          LSortMsg )  -> Just LT
@@ -250,6 +262,8 @@ sortPrefix LSortNZE   = "N"
 sortPrefix LSortFrNZE   = "F"
 sortPrefix LSortPubG   = "P"
 sortPrefix LSortDH   = "D"
+sortPrefix LSortVarE = ";"
+sortPrefix LSortVarG = ";"
 
 -- | @sortSuffix s@ is the suffix we use for annotating variables of sort @s@.
 sortSuffix :: LSort -> String
@@ -264,6 +278,8 @@ sortSuffix LSortNZE   = "nexp"
 sortSuffix LSortFrNZE = "freshNZE"
 sortSuffix LSortPubG  = "pubG"
 sortSuffix LSortDH  = "dd"
+sortSuffix LSortVarG = "varG"
+sortSuffix LSortVarE = "varE"
 
 
 ------------------------------------------------------------------------------
@@ -275,7 +291,7 @@ newtype NameId = NameId { getNameId :: String }
     deriving( Eq, Ord, Typeable, Data, Generic, NFData, Binary )
 
 -- | Tags for names.
-data NameTag = FreshName | PubName | NodeName | NatName | FreshEName | PubGName
+data NameTag = FreshName | PubName | NodeName | NatName | FreshEName | PubGName | VarEName | VarGName
     deriving( Eq, Ord, Show, Typeable, Data, Generic, NFData, Binary )
 
 -- | Names.
@@ -298,6 +314,8 @@ instance Show Name where
   show (Name NatName   n) = "%'" ++ show n ++ "'"
   show (Name FreshEName   n) = "F'" ++ show n ++ "'"
   show (Name PubGName    n) = "P'"  ++ show n ++ "'"
+  show (Name VarEName    n) = ";'"  ++ show n ++ "'"
+  show (Name VarGName    n) = ";'"  ++ show n ++ "'"
 
 instance Show NameId where
   show = getNameId
@@ -323,6 +341,12 @@ freshNZETerm = lit . Con . Name FreshEName . NameId
 pubGTerm :: String -> NTerm v
 pubGTerm = lit . Con . Name PubGName . NameId
 
+varETerm :: String -> NTerm v
+varETerm = lit . Con . Name VarEName . NameId
+
+varGTerm :: String -> NTerm v
+varGTerm = lit . Con . Name VarGName . NameId
+
 -- | Return 'LSort' for given 'Name'.
 sortOfName :: Name -> LSort
 sortOfName (Name FreshName _) = LSortFresh
@@ -331,6 +355,8 @@ sortOfName (Name NodeName  _) = LSortNode
 sortOfName (Name NatName   _) = LSortNat
 sortOfName (Name FreshEName   _) = LSortFrNZE
 sortOfName (Name PubGName   _) = LSortPubG
+sortOfName (Name VarEName _) = LSortVarE
+sortOfName (Name VarGName _) = LSortVarG
 
 -- | Is a term a public constant?
 isPubConst :: LNTerm -> Bool
@@ -458,6 +484,14 @@ isBoxETerm :: LNTerm -> Bool
 isBoxETerm (viewTerm2 -> FdhBoxE _) = True
 isBoxETerm _                         = False
 
+isvarGVar :: LNTerm -> Bool
+isvarGVar (viewTerm -> Lit (Var v)) = (lvarSort v == LSortVarG)
+isvarGVar _                         = False
+
+isvarEVar :: LNTerm -> Bool
+isvarEVar (viewTerm -> Lit (Var v)) = (lvarSort v == LSortVarE)
+isvarEVar _                         = False
+
 isOfDHSort :: LNTerm -> Bool 
 isOfDHSort (viewTerm3 -> DH _ _ ) = True
 isOfDHSort (viewTerm3 -> BoxE _) = True
@@ -548,6 +582,8 @@ variableToConst cvar = constTerm (Name (nameOfSort cvar) (NameId ("constVar_" ++
     nameOfSort (LVar _ LSortNat   _) = NatName
     nameOfSort (LVar _ LSortFrNZE   _) = FreshEName
     nameOfSort (LVar _ LSortPubG   _) = PubGName
+    nameOfSort (LVar _ LSortVarG   _) = VarGName
+    nameOfSort (LVar _ LSortVarE   _) = VarEName
     nameOfSort (LVar _ LSortMsg   _) = error "Invalid sort Msg"
 
 
@@ -988,6 +1024,8 @@ showLitName (Con (Name FreshName n)) = "Const_fresh_" ++ show n
 showLitName (Con (Name PubName   n)) = "Const_pub_"   ++ show n
 showLitName (Con (Name FreshEName   n)) = "Const_freshNZE_"   ++ show n
 showLitName (Con (Name PubGName   n)) = "Const_pubG_"   ++ show n
+showLitName (Con (Name VarGName   n)) = "Const_varG_"   ++ show n
+showLitName (Con (Name VarEName   n)) = "Const_varE_"   ++ show n
 showLitName (Var (LVar v s i))       = "Var_" ++ sortSuffix s ++ "_" ++ body
       where
         body | null v           = show i

@@ -167,7 +167,7 @@ instance HasFrees EqStore where
 
 
 instance Apply LNSubst EqStore where
-    apply subst (EqStore a b c) = EqStore (compose subst a) (fmap (fmap $ S.map $ flip composeVFresh subst) b) (apply subst c) 
+    apply subst (EqStore a b c) = EqStore (compose subst a) (fmap (fmap $ S.map $ flip composeVFresh subst) b) (apply subst c)
 
 
 -- Equation Store
@@ -610,6 +610,40 @@ addDHEqs hnd t1 indt eqdhstore =
             trace (show ("SOME UNIFIER2?", indt, t1)) (return (eqStore', Just sid))
   where
     eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
+
+
+addDHProtoEqs :: MonadFresh m
+       => MaudeHandle -> LNTerm -> LNTerm -> EqStore -> m (EqStore, Maybe SplitId)
+addDHProtoEqs hnd t1 indt eqdhstore =
+    case unifyLNDHTermFactored eqs `runReader` hnd of
+        (_, []) ->
+            return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
+        (subst, [substFresh]) | substFresh == emptySubstVFresh ->
+            return (eqdhStore', Nothing)
+              where eqdhStore' =(applyEqStore hnd subst eqdhstore) -- isn't subst always empty?
+        (subst, substs) -> do
+            let (eqStore', sid) = addDisj (applyEqStore hnd subst eqdhstore)
+                                          (generalize (S.fromList substs)) -- TODO: fix this!!
+            return (eqStore', Just sid)
+  where
+    eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
+    generaltup (c, cterm) = do 
+      w1 <- freshLVar "W" LSortVarG
+      v1 <- freshLVar "V" LSortVarE
+      return (c, fAppdhMult (fAppdhExp (cterm, LIT (Var v1)), LIT (Var w1)))
+    generalize [] = return []
+    generalize [sub] = case (substToListVFresh sub) of 
+      [] -> return []
+      [(c, cterm)] -> (do 
+          w1 <- freshLVar "W" LSortVarG
+          v1 <- freshLVar "V" LSortVarE
+          return ([substFromListVFresh [(c, fAppdhMult (fAppdhExp (cterm, LIT (Var v1)), LIT (Var w1)))]]))
+      ((c, cterm):subs) -> (do
+          w1 <- freshLVar "W" LSortVarG
+          v1 <- freshLVar "V" LSortVarE
+          return ((substFromListVFresh [(c, fAppdhMult (fAppdhExp (cterm, LIT (Var v1)), LIT (Var w1)))]):[]))
+    generalize (s:subs) = return []
+
 
 
 ------------------------------------------------------------------------------
