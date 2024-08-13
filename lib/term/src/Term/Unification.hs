@@ -18,6 +18,8 @@ module Term.Unification (
   -- * Diffie-Hellman unification
   , unifyLDHTermFactored
   , unifyLNDHTermFactored
+  , unifyLDHProtoTermFactored
+  , unifyLNDHProtoTermFactored
 
   -- * Unification without AC
   , unifyLTermNoAC
@@ -132,6 +134,7 @@ unifyLNTermFactored :: [Equal LNTerm]
                     -> WithMaude (LNSubst, [SubstVFresh Name LVar])
 unifyLNTermFactored = unifyLTermFactored sortOfName
 
+
 unifyLDHTermFactored :: (IsConst c)
                    => (c -> LSort)
                    -> [Equal (LTerm c)]
@@ -151,6 +154,20 @@ unifyLNDHTermFactored :: [Equal LNTerm]
                     -> WithMaude (LNSubst, [SubstVFresh Name LVar])
 unifyLNDHTermFactored = unifyLDHTermFactored sortOfName             
 
+
+unifyLDHProtoTermFactored :: (IsConst c)
+                   => (c -> LSort)
+                   -> [Equal (LTerm c)]
+                   -> WithMaude [SubstVFresh c LVar]
+unifyLDHProtoTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTermDH: "++ show eqs, "result = "++  show res]) res) $ do
+    solve h 
+  where
+    solve h = unsafePerformIO (UM.unifyViaMaudeDH h sortOf 
+                                      eqs)  
+
+unifyLNDHProtoTermFactored :: [Equal LNTerm]
+                    -> WithMaude [SubstVFresh Name LVar]
+unifyLNDHProtoTermFactored = unifyLDHProtoTermFactored sortOfName             
 
 -- | @unifyLNTerm eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLTerm :: (IsConst c)

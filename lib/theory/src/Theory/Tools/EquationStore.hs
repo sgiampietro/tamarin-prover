@@ -53,13 +53,15 @@ module Theory.Tools.EquationStore (
   , simp
   , simpDisjunction
 
+  , applyEqStore
+
   -- ** Pretty printing
   , prettyEqStore
 ) where
 
 import           GHC.Generics          (Generic)
 import           Logic.Connectives
-import           Term.Unification
+import Term.Unification
 import           Theory.Text.Pretty
 
 import           Control.Monad.Fresh
@@ -247,29 +249,7 @@ addEqs hnd eqs0 eqStore =
             -})
   where
     eqs = apply (L.get eqsSubst eqStore) $ trace (unlines ["addEqs: ", show eqs0]) $ eqs0
-    {-
-    addEqsAC eqSt (sfree, Nothing)   = [ applyEqStore hnd sfree eqSt ]
-    addEqsAC eqSt (sfree, Just disj) =
-      fromMaybe (error "addEqsSplit: impossible, splitAtPos failed")
-                (splitAtPos (applyEqStore hnd sfree (addDisj eqSt (S.fromList disj))) 0)
--}
 
-{-
-addDHEqs :: MonadFresh m
-       => MaudeHandle -> [EqInd LNFact LNTerm] -> EqStore -> m (EqStore, Maybe SplitId)
-addDHEqs hnd eqs0 eqStore =
-    case unifyLNDHTermFactored eqs `runReader` hnd of
-        (_, []) ->
-            return (set eqsConj falseEqConstrConj eqStore, Nothing)
-        (subst, [substFresh]) | substFresh == emptySubstVFresh ->
-            return (applyEqStore hnd subst eqStore, Nothing)
-        (subst, substs) -> do
-            let (eqStore', sid) = addDisj (applyEqStore hnd subst eqStore)
-                                          (S.fromList substs)
-            return (eqStore', Just sid)
-  where
-    eqs = apply (L.get eqsSubst eqStore) $ trace (unlines ["addEqs: ", show eqs0]) $ eqs0
--}
 
 -- | Apply a substitution to an equation store and bring resulting equations into
 --   normal form again by using unification.
@@ -611,19 +591,30 @@ addDHEqs hnd t1 indt eqdhstore =
   where
     eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
 
+addDHEqs2 :: MonadFresh m
+       => MaudeHandle -> LNTerm -> LNTerm -> EqStore -> m (EqStore, Maybe SplitId)
+addDHEqs2 hnd t1 indt eqdhstore =
+    case unifyLNDHProtoTermFactored eqs `runReader` hnd of
+        [] -> return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
+        [substFresh] | substFresh == emptySubstVFresh ->
+            return (eqdhstore, Nothing)
+        substs -> do
+            let (eqStore', sid) = addDisj (eqdhstore) (S.fromList substs)
+            return (eqStore', Just sid)
+  where
+    eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
+
 
 addDHProtoEqs :: MonadFresh m
        => MaudeHandle -> LNTerm -> LNTerm -> EqStore -> m (EqStore, Maybe SplitId)
 addDHProtoEqs hnd t1 indt eqdhstore =
-    case unifyLNDHTermFactored eqs `runReader` hnd of
-        (_, []) ->
+    case unifyLNDHProtoTermFactored eqs `runReader` hnd of
+        []->
             return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
-        (subst, [substFresh]) | substFresh == emptySubstVFresh ->
-            return (eqdhStore', Nothing)
-              where eqdhStore' =(applyEqStore hnd subst eqdhstore) -- isn't subst always empty?
-        (subst, substs) -> do
-            let (eqStore', sid) = addDisj (applyEqStore hnd subst eqdhstore)
-                                          (generalize (S.fromList substs)) -- TODO: fix this!!
+        [substFresh] | substFresh == emptySubstVFresh ->
+            return (eqdhstore, Nothing)
+        substs -> do
+            (eqStore', sid) <- liftM (addDisj eqdhstore) (liftM S.fromList (mapM generalize substs)) -- TODO: fix this!!
             return (eqStore', Just sid)
   where
     eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
@@ -631,19 +622,8 @@ addDHProtoEqs hnd t1 indt eqdhstore =
       w1 <- freshLVar "W" LSortVarG
       v1 <- freshLVar "V" LSortVarE
       return (c, fAppdhMult (fAppdhExp (cterm, LIT (Var v1)), LIT (Var w1)))
-    generalize [] = return []
-    generalize [sub] = case (substToListVFresh sub) of 
-      [] -> return []
-      [(c, cterm)] -> (do 
-          w1 <- freshLVar "W" LSortVarG
-          v1 <- freshLVar "V" LSortVarE
-          return ([substFromListVFresh [(c, fAppdhMult (fAppdhExp (cterm, LIT (Var v1)), LIT (Var w1)))]]))
-      ((c, cterm):subs) -> (do
-          w1 <- freshLVar "W" LSortVarG
-          v1 <- freshLVar "V" LSortVarE
-          return ((substFromListVFresh [(c, fAppdhMult (fAppdhExp (cterm, LIT (Var v1)), LIT (Var w1)))]):[]))
-    generalize (s:subs) = return []
-
+    generalize sub = liftM substFromListVFresh $ mapM generaltup $ substToListVFresh sub
+ 
 
 
 ------------------------------------------------------------------------------

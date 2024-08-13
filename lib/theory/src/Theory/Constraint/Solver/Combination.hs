@@ -14,7 +14,8 @@ module Theory.Constraint.Solver.Combination
     getkeyfromProd,
     allNBExponents,
     createMatrix,
-    solveIndicators,
+    solveIndicatorGauss,
+    solveIndicatorGaussProto,
     parseToMap,
     gTerm2Exp,
     getvalue
@@ -38,6 +39,7 @@ import Term.LTerm -- (LNTerm)
 
 -- import Theory.Constraint.System.Constraints
 import Debug.Trace
+import Data.ByteString.Builder (word16BE)
 
 
 gTerm2Exp ::  LNTerm -> LNTerm
@@ -154,8 +156,8 @@ createMatrix nb terms target =
 
 
 
-solveIndicators :: [LNTerm] -> [LNTerm] -> LNTerm -> Maybe [LNTerm]
-solveIndicators nb terms target = solveMatrix fAppdhZero $ createMatrix (map unbox nb) (map gTerm2Exp terms) (gTerm2Exp target)
+solveIndicatorGauss :: [LNTerm] -> [LNTerm] -> LNTerm -> Maybe [LNTerm]
+solveIndicatorGauss nb terms target = solveMatrix fAppdhZero $ createMatrix (map unbox nb) (map gTerm2Exp terms) (gTerm2Exp target)
 -- TODO: these terms are possible G, terms. We assume here that our terms are always of the form
 -- 'g'^x for some fixed g, so we need to transform them to their exponent values. 
 
@@ -189,11 +191,27 @@ createMatrixProto :: [LNTerm] -> LNTerm -> LNTerm -> (LNTerm, LNTerm, Matrix LNT
 createMatrixProto nb term target = 
     let (nbexp, vars) = allNBExponents nb (allExponentsOf [term] target)
         (z1,(w1,term2)) = stripVars term
-        polynomial = (parseToMap vars term2) -- this term now contains the introduced W and V variables. 
+        polynomial = parseToMap vars term2 -- this term now contains the introduced W and V variables. 
         targetpoly = parseToMap vars target
         allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetpoly):[Map.keys polynomial])
         -- row = map( \i -> getvalue targetpoly i) allkeys 
     in 
-  (w1, z1, map (\key -> (( getvalue polynomial key):(oneIfOne key):[getvalue targetpoly key])) allkeys) -- todo: double check if row/column is ok or needs to be switched
+  (w1, z1, map (\key -> ( getvalue polynomial key):(oneIfOne key):[getvalue targetpoly key]) allkeys) -- todo: double check if row/column is ok or needs to be switched
 
--- w1 is multiplied term, z1 is the summed term term. 
+-- w1 is multiplied term, z1 is the summed term. 
+
+
+solveIndicatorGaussProto :: [LNTerm] -> LNTerm -> LNTerm -> Maybe [(LVar, LNTerm)]
+solveIndicatorGaussProto nb term target = 
+    let (w1, z2, matriz) = createMatrixProto (map unbox nb) (gTerm2Exp term) (gTerm2Exp target)
+        solution = solveMatrix fAppdhZero matriz
+    in
+  case solution of 
+    Nothing -> Nothing
+    Just ([t1,t2]) -> case (getVar w1, getVar z2) of
+                        (Just varw1, Just varz2) -> Just [(varw1, t1), (varz2, t2)]
+                        _ -> Nothing
+
+
+-- TODO: these terms are possible G, terms. We assume here that our terms are always of the form
+-- 'g'^x for some fixed g, so we need to transform them to their exponent values. 
