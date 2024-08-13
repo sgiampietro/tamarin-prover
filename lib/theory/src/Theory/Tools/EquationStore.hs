@@ -40,6 +40,8 @@ module Theory.Tools.EquationStore (
 
   -- ** Adding DH equalities
   , addDHEqs
+  , addDHEqs2
+  , addDHProtoEqs
 
   -- ** Case splitting
   , performSplit
@@ -599,7 +601,7 @@ addDHEqs2 hnd t1 indt eqdhstore =
         [substFresh] | substFresh == emptySubstVFresh ->
             return (eqdhstore, Nothing)
         substs -> do
-            let (eqStore', sid) = addDisj (eqdhstore) (S.fromList substs)
+            let (eqStore', sid) = addDisj eqdhstore (S.fromList substs)
             return (eqStore', Just sid)
   where
     eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
