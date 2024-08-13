@@ -53,6 +53,7 @@ import           Theory.Constraint.Solver.Reduction
 import           Theory.Constraint.System
 import           Theory.Tools.IntruderRules (mkDUnionRule, isDExpRule, isDPMultRule, isDEMapRule)
 import           Theory.Tools.DHActionFacts
+import           Theory.Tools.EquationStore
 import           Theory.Model
 import           Term.Builtin.Convenience
 import           Term.DHMultiplication
@@ -559,7 +560,7 @@ solveIndicator t1 t2  = do
       terms = (concatMap enumConcsDhOut rules)
       exps = (concatMap enumConcsDhExpOut rules)
    in 
-    case (solveIndicators (union exps (S.toList nbset)) terms t2) of 
+    case (solveIndicatorGauss (union exps (S.toList nbset)) terms t2) of 
       Just vec -> do
           markGoalAsSolved ("Found indicators! attack by result:" ++ show (vec, terms, t2)) (IndicatorG (t1,t2))
           return ("Found indicators! attack by result:" ++ show (vec, terms, t2))
@@ -575,10 +576,13 @@ solveIndicator t1 t2  = do
 
 solveIndicatorProto :: LNTerm -> LNTerm -> Reduction String
 solveIndicatorProto t1 t2 = do 
-  case (solveIndicators ([]) terms t2) of 
-   Just vec ->  do 
-        markGoalAsSolved ("Found exponent with:" ++ show (vec, terms)) (IndicatorGExp (t1, t2))
-        return "Exponent found"
+  case (solveIndicatorGaussProto ([]) t1 t2) of 
+   Just subst ->  do 
+        markGoalAsSolved ("Found exponent with:" ++ show subst) (IndicatorGExp (t1, t2))
+        eqStore <- getM sEqStore
+        hnd  <- getMaudeHandle
+        setM sEqStore $ applyEqStore hnd (substFromList subst) eqStore
+        return "Matched"
    Nothing -> return "Contradiction! Cannot find exponent"
   where 
     terms = [t1]
