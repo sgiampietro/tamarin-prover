@@ -26,7 +26,7 @@ module Theory.Constraint.Solver.Reduction (
   , whenChanged
   , applyChangeList
   , whileChanging
-  
+
   -- ** Accessing the 'ProofContext'
   , getProofContext
   , getMaudeHandle
@@ -266,7 +266,7 @@ labelNodeId = \i rules parent -> do
 
     mkFreshRuleAC m = Rule (ProtoInfo (ProtoRuleACInstInfo FreshRule [] []))
                            [] [freshFact m] [] [m]
-        
+
     mkFreshDHRuleAC m = Rule (ProtoInfo (ProtoRuleACInstInfo FreshRule [] []))
                            [] [freshDHFact m] [] [m]
 
@@ -298,7 +298,7 @@ labelNodeId = \i rules parent -> do
                 -- 'm' must be of sort fresh ==> enforce via unification
                 n <- varTerm <$> freshLVar "n" LSortFrNZE
                 void (solveTermEqs SplitNow [Equal m n])
-            modM sEdges (S.insert $ Edge (j, ConcIdx 0) (i,v))    
+            modM sEdges (S.insert $ Edge (j, ConcIdx 0) (i,v))
 
           -- CR-rule *DG2_{2,u}*: solve a KU-premise by inserting the
           -- corresponding KU-actions before this node.
@@ -361,7 +361,7 @@ insertAction i fa@(Fact _ ann _) = do
                 Just (UpK, viewTerm2 -> FInv m) -> do
                 -- In the diff case, add inv rule instead of goal
                     if isdiff
-                       then do                          
+                       then do
                           -- if the node is already present in the graph, do not insert it again. (This can be caused by substitutions applying and changing a goal.)
                           if not nodePresent
                              then do
@@ -380,7 +380,7 @@ insertAction i fa@(Fact _ ann _) = do
                 Just (UpK, viewTerm2 -> FMult ms) -> do
                 -- In the diff case, add mult rule instead of goal
                     if isdiff
-                       then do           
+                       then do
                           -- if the node is already present in the graph, do not insert it again. (This can be caused by substitutions applying and changing a goal.)
                           if not nodePresent
                              then do
@@ -392,7 +392,7 @@ insertAction i fa@(Fact _ ann _) = do
                                insertGoal goal False
                                markGoalAsSolved "exists" goal
                                return Changed
-                          
+
                        else do
                           insertGoal goal False
                           mapM_ requiresKU ms *> return Changed
@@ -400,7 +400,7 @@ insertAction i fa@(Fact _ ann _) = do
                 Just (UpK, viewTerm2 -> FUnion ms) -> do
                 -- In the diff case, add union (?) rule instead of goal
                     if isdiff
-                       then do                        
+                       then do
                           -- if the node is already present in the graph, do not insert it again. (This can be caused by substitutions applying and changing a goal.)
                           if not nodePresent
                              then do
@@ -412,7 +412,7 @@ insertAction i fa@(Fact _ ann _) = do
                                insertGoal goal False
                                markGoalAsSolved "exists" goal
                                return Changed
-                          
+
                        else do
                           insertGoal goal False
                           mapM_ requiresKU ms *> return Changed
@@ -572,7 +572,7 @@ insertGoalStatus goal status = do
 -- | Insert a 'Goal' and store its age.
 insertGoal :: Goal -> Bool -> Reduction ()
 insertGoal goal looping = insertGoalStatus goal (GoalStatus False 0 looping)
- 
+
 -- | Mark the given goal as solved.
 markGoalAsSolved :: String -> Goal -> Reduction ()
 markGoalAsSolved how goal =
@@ -652,7 +652,7 @@ insertDHInd :: NodePrem -> LNFact -> LNTerm -> Reduction ()
 insertDHInd nodep fa t = insertGoal (DHIndG nodep fa t) False
 
 insertNoCanc :: LNTerm -> LNTerm -> Reduction ChangeIndicator
-insertNoCanc x y = do 
+insertNoCanc x y = do
         insertGoal (NoCancG (x, y)) False
         return Changed
 
@@ -663,16 +663,16 @@ insertNeeded x = do
 
 
 insertNeededList' :: [LNTerm] -> Reduction ()
-insertNeededList' [x] = do 
+insertNeededList' [x] = do
         insertNeeded x
 insertNeededList' (x:xs) = do
         insertNeeded x
         insertNeededList' xs
-    
+
 
 insertNeededList :: [LNTerm] -> NodePrem -> LNFact -> LNTerm -> Reduction ChangeIndicator
 insertNeededList xs p faPrem t= do
-    insertNeededList' xs 
+    insertNeededList' xs
     insertDHInd p faPrem t
     return Changed
 
@@ -877,33 +877,40 @@ solveTermEqs splitStrat eqs0 =
 
 
 solveTermDHEqs :: Bool -> SplitStrategy -> (LNTerm, LNTerm) -> LNTerm -> LNTerm -> Reduction ChangeIndicator
-solveTermDHEqs b splitStrat (fa1, prodfa1) indt t1 =
-        case (fa1 == indt) of
-                    True  -> do return Unchanged
-                    False -> do
-                            hnd <- getMaudeHandleDH -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
-                            se  <- gets id
-                            (eqs2, maySplitId) <- addDHEqs hnd fa1 indt =<< getM sEqStore -- check if here you want to add only the equation containing terms, or the entire EqInd facts. 
-                            (case b of 
-                                True -> do
-                                    insertContIndProto prodfa1 t1
-                                    insertGoal (IndicatorGExp (prodfa1,t1)) False
-                                False -> do
-                                    insertContInd prodfa1 t1
-                                    insertGoal (IndicatorG (prodfa1,t1)) False) 
-                            setM sEqStore
-                                =<< simp hnd (substCreatesNonNormalTerms hnd se)
-                                =<< case (maySplitId, splitStrat) of
-                                        (Just splitId, SplitNow) -> disjunctionOfList
-                                                                        $ fromJustNote "solveTermEqs"
-                                                                        $ performSplit eqs2 splitId
-                                        (Just splitId, SplitLater) -> do
-                                                    insertGoal (SplitG splitId) False
-                                                    return eqs2
-                                        _                        -> return eqs2
-                            noContradictoryEqStore
-                            return Changed 
-                               
+solveTermDHEqs True splitStrat (fa1, prodfa1) indt t1 =
+        if fa1 == indt then (do return Unchanged) else (do
+        hnd <- getMaudeHandleDH -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
+        se  <- gets id
+        (eqs2, maySplitId) <- addDHProtoEqs hnd fa1 indt =<< getM sEqStore
+        insertContIndProto prodfa1 t1
+        insertGoal (IndicatorGExp (prodfa1,t1)) False
+        setM sEqStore  
+            =<< simp hnd (substCreatesNonNormalTerms hnd se)
+            =<< case (maySplitId, splitStrat) of
+                    (Just splitId, SplitNow) -> disjunctionOfList  $ fromJustNote "solveTermEqs" $ performSplit eqs2 splitId
+                    (Just splitId, SplitLater) -> do
+                                insertGoal (SplitG splitId) False
+                                return eqs2
+                    _        -> return eqs2
+        noContradictoryEqStore
+        return Changed)
+solveTermDHEqs False splitStrat (fa1, prodfa1) indt t1 =
+        if fa1 == indt then (do return Unchanged) else (do
+        hnd <- getMaudeHandleDH -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
+        se  <- gets id
+        (eqs2, maySplitId) <- addDHEqs hnd fa1 indt =<< getM sEqStore
+        insertContInd prodfa1 t1
+        insertGoal (IndicatorG (prodfa1,t1)) False
+        setM sEqStore
+            =<< simp hnd (substCreatesNonNormalTerms hnd se)
+            =<< case (maySplitId, splitStrat) of
+                            (Just splitId, SplitNow) -> disjunctionOfList $ fromJustNote "solveTermEqs" $ performSplit eqs2 splitId
+                            (Just splitId, SplitLater) -> do
+                                insertGoal (SplitG splitId) False
+                                return eqs2
+                            _                        -> return eqs2
+        noContradictoryEqStore
+        return Changed)
 
 {-
 solveActionTermDHEqs :: SplitStrategy -> LNTerm -> LNTerm -> LNTerm -> Reduction ChangeIndicator
@@ -938,7 +945,7 @@ solveIndEqTermDHEqs split b nb  eq@(Equal l r) = do
             targetterm <- disjunctionOfList (multRootList r)
             solveActionTermDHEqs split (rootIndKnown b nb targetterm) (rootIndKnown b nb lx) r
         Nothing -> error "shouldn't happen"
-  -}      
+  -}
 
 -- | Add a list of equalities in substitution form to the equation store
 solveSubstEqs :: SplitStrategy -> LNSubst -> Reduction ChangeIndicator
@@ -966,14 +973,21 @@ factDHTerms (EqInd e indt t) = (fmap factTerms) e
 
 -- t1 here is the result of factTerms fa2, and indt1 the indicator of one product term of t1. 
 solveFactDHEqs :: Bool -> SplitStrategy -> EqInd LNFact LNTerm -> Reduction ChangeIndicator
-solveFactDHEqs b split eq@(EqInd (Equal fa1 fa2) indt1 t1) = do
-    contradictoryIf (not (factTag fa1 == OutFact) && (factTag fa2 == KdhFact) )
-    case factTerms fa1 of 
-        [t] -> do
-            outterm <- disjunctionOfList (multRootList t)
-            (solveTermDHEqs b split (outterm, t) indt1 t1) --to do, this indt1 should probs be Y.indt1^Z, with Y,Z known by adversary.
+solveFactDHEqs b split eq@(EqInd (Equal fa1 fa2) indt1 t1)
+    | b = case factTerms fa1 of
+            [t] -> do
+                outterm <- disjunctionOfList (multRootList t)
+                (solveTermDHEqs b split (outterm, t) indt1 t1) --to do, this indt1 should probs be Y.indt1^Z, with Y,Z known by adversary.
             -- but be careful because that should hold only for G terms. E terms should be handled differrently.
-        _ -> error "incorrect factTerm called"
+            _ -> error "incorrect factTerm called"
+    | otherwise = do
+            contradictoryIf (not (factTag fa1 == OutFact) && (factTag fa2 == KdhFact) )
+            case factTerms fa1 of
+                [t] -> do
+                    outterm <- disjunctionOfList (multRootList t)
+                    (solveTermDHEqs b split (outterm, t) indt1 t1) --to do, this indt1 should probs be Y.indt1^Z, with Y,Z known by adversary.
+            -- but be careful because that should hold only for G terms. E terms should be handled differrently.
+                _ -> error "incorrect factTerm called"
 
 -- need to take care of indicators here. Trying to do this in the "solveIndEqTermDHEqs" function. 
 {-solveActionFactDHEqs :: SplitStrategy -> Equal LNFact -> RuleACInst -> Reduction ChangeIndicator
@@ -1008,11 +1022,11 @@ solveListEqs solver eqs = do
 
 solveListDHEqs :: (Equal a -> Reduction b) -> [(Equal a)] -> Reduction b
 solveListDHEqs solver eqs = do
-    case eqs of 
+    case eqs of
         [a] -> solver a
         (a : as) -> do
             solver a
-            solveListDHEqs solver as 
+            solveListDHEqs solver as
     -- on RHS "Equal" 
 
 -- | Solve a number of equalities between lists interpreted as free terms
