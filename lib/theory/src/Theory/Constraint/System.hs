@@ -1501,7 +1501,7 @@ unsolvedTrivialGoals sys = foldl f [] $ M.toList (L.get sGoals sys)
     f l (SplitG _, _)                 = l
     f l (DisjG _, _)                  = l
     f l (SubtermG _, _)               = l
-    f l (DHIndG _ _ _ , _)                 = l
+    f l (DHIndG _ _ , _)                 = l
     f l (NoCancG _, _)                  = l
     f l (NeededG _ _, _)               = l
 
@@ -1542,7 +1542,7 @@ allOpenGoalsAreSimpleFacts ctxt sys = M.foldlWithKey goalIsSimpleFact True (L.ge
     goalIsSimpleFact ret (SplitG _)               (GoalStatus solved _ _) = ret && solved
     goalIsSimpleFact ret (DisjG _)                (GoalStatus solved _ _) = ret && solved
     goalIsSimpleFact ret (SubtermG _)             (GoalStatus solved _ _) = ret && solved
-    goalIsSimpleFact ret (DHIndG _ _ _)               (GoalStatus solved _ _) = ret && solved
+    goalIsSimpleFact ret (DHIndG _ _ )               (GoalStatus solved _ _) = ret && solved
     goalIsSimpleFact ret (NoCancG _)                (GoalStatus solved _ _) = ret && solved
     goalIsSimpleFact ret (NeededG _ _)             (GoalStatus solved _ _) = ret && solved
 

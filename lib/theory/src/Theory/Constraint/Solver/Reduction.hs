@@ -587,7 +587,7 @@ markGoalAsSolved how goal =
                          modM sSolvedFormulas (S.insert $ GDisj disj) >>
                          updateStatus
       SubtermG _      -> updateStatus
-      DHIndG _ _ _    -> modM sGoals $ M.delete goal
+      DHIndG _ _    -> modM sGoals $ M.delete goal
       NoCancG _       -> modM sGoals $ M.delete goal
       NeededG _ _       -> modM sGoals $ M.delete goal
       IndicatorG _       -> modM sGoals $ M.delete goal
@@ -902,7 +902,7 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
                                     _            -> return eqs2
                         noContradictoryEqStore
                         return Changed)
-solveTermDHEqs False splitStrat (fa1, prodfa1) indt t1 =
+solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
         if ta1 == ta2 then (do return Unchanged) else (
         case (isDHLit ta1, isDHLit ta2) of 
             (True, _)  -> solveTermEqs splitStrat [(Equal ta1 ta2)]
