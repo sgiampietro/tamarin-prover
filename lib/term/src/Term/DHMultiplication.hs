@@ -17,6 +17,7 @@ module Term.DHMultiplication (
   , multRootList
   , isRoot
   , isOfDHSort
+  , isDHLit
   , neededexponents
   , neededexponentslist
   , rootIndKnown
@@ -202,6 +203,12 @@ varTermsOf t@(FAPP f ts) = concatMap eTermsOf ts
 indComputable :: S.Set LNTerm -> LNTerm -> Bool
 indComputable bs t = S.fromList( eTermsOf t ) `S.isSubsetOf` bs
 
+
+isDHLit :: LNTerm -> Bool
+isDHLit t@(viewTerm3 -> Box dht) = isDHLit dht
+isDHLit t@(viewTerm3 -> BoxE dht) = isDHLit dht
+isDHLit t@(viewTerm -> Lit (Var _)) = True
+isDHLit _ = False
 
 -- TODO: this function should actually return which indicators are needed too in the 
 -- case it's not computable. 
