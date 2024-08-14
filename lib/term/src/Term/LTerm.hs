@@ -61,8 +61,8 @@ module Term.LTerm (
   , isGVar
   , isPubGVar
   , isPubConst
-  , isBoxTerm
-  , isBoxETerm
+  --, isBoxTerm
+  --, isBoxETerm
   , isvarGVar
   , isvarEVar
   , isOfDHSort
@@ -418,8 +418,8 @@ sortOfLTerm sortOfConst t = case viewTerm2 t of
     FdhTimesE _ _ -> LSortE
     FdhPlus _ _ -> LSortE
     FdhMu _ -> LSortG
-    FdhBox _ -> LSortG
-    FdhBoxE _ -> LSortE
+    --FdhBox _ -> LSortG
+    --FdhBoxE _ -> LSortE
     _             -> LSortMsg
 
 -- | Returns the most precise sort of an 'LNTerm'.
@@ -476,13 +476,14 @@ isPubGVar :: LNTerm -> Bool
 isPubGVar (viewTerm -> Lit (Var v)) = (lvarSort v == LSortPubG)
 isPubGVar _                         = False
 
+{-
 isBoxTerm :: LNTerm -> Bool
 isBoxTerm (viewTerm2 -> FdhBox _) = True
 isBoxTerm _                         = False
 
 isBoxETerm :: LNTerm -> Bool
 isBoxETerm (viewTerm2 -> FdhBoxE _) = True
-isBoxETerm _                         = False
+isBoxETerm _                         = False -}
 
 isvarGVar :: LNTerm -> Bool
 isvarGVar (viewTerm -> Lit (Var v)) = (lvarSort v == LSortVarG)
@@ -494,9 +495,10 @@ isvarEVar _                         = False
 
 isOfDHSort :: LNTerm -> Bool 
 isOfDHSort (viewTerm3 -> DH _ _ ) = True
-isOfDHSort (viewTerm3 -> BoxE _) = True
-isOfDHSort (viewTerm3 -> Box _) = True
-isOfDHSort (viewTerm -> Lit (Var v)) | (lvarSort v == LSortPubG || lvarSort v == LSortG || lvarSort v == LSortFrNZE || lvarSort v == LSortE ) = True
+--isOfDHSort (viewTerm3 -> BoxE _) = True
+--isOfDHSort (viewTerm3 -> Box _) = True
+isOfDHSort (viewTerm -> Lit (Var v)) | (lvarSort v == LSortPubG || lvarSort v == LSortG || lvarSort v == LSortFrNZE || lvarSort v == LSortE || lvarSort v  == LSortVarE || lvarSort v  == LSortVarG ) = True
+isOfDHSort (viewTerm -> Lit (Con c)) | (sortOfName c == LSortPubG || sortOfName c == LSortFrNZE || sortOfName c  == LSortVarE || sortOfName c  == LSortVarG ) = True
 isOfDHSort _ = False
 
 
