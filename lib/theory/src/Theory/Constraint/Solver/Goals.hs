@@ -272,10 +272,7 @@ solveAction rules (i, fa@(Fact _ ann _)) =trace (show ("SEARCHING", fa, "END")) 
                             let ru = Rule (IntrInfo (ConstrRule $ BC.pack "_xor")) [(kuFact a),(kuFact b)] [fa] [fa] []
                             modM sNodes (M.insert i ru)
                             mapM_ requiresKU [a, b] *> return ru
-            --(Fact (ProtoFact n s i) _ [m@(viewTerm3 -> Box ts)]) -> solveProtoAction fa rules i
-            --(Fact (ProtoFact n s i) _ [m@(viewTerm3 -> BoxE ts)]) -> solveProtoAction fa rules i
-            --(Fact _ _ [m@(viewTerm3 -> Box ts)]) -> solveKUAction
-            --(Fact _ _ [m@(viewTerm3 -> BoxE ts)]) -> solveKUAction
+            -- Distinguish DH term cases!!
             _                                        -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList $ get rActs ru
@@ -283,10 +280,7 @@ solveAction rules (i, fa@(Fact _ ann _)) =trace (show ("SEARCHING", fa, "END")) 
                    return ru
 
         Just ru ->  case fa of
-            --(Fact (ProtoFact n s i) _ [m@(viewTerm3 -> Box ts)]) -> solveProtoAction ru
-            --(Fact (ProtoFact n s i) _ [m@(viewTerm3 -> BoxE ts)]) -> solveProtoAction ru
-            --(Fact _ _ [m@(viewTerm3 -> Box ts)]) -> solveKU ru
-            --(Fact _ _ [m@(viewTerm3 -> BoxE ts)]) -> solveKU ru
+            --Distinguish DH Term cases!!
             _                                     -> do unless (fa `elem` get rActs ru) $ do
                                                           act <- disjunctionOfList $ get rActs ru
                                                           (void (solveFactEqs SplitNow [Equal fa act]))

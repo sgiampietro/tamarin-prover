@@ -880,8 +880,8 @@ solveTermDHEqs ::  Bool -> SplitStrategy -> S.Set LNTerm -> S.Set LNTerm -> (LNT
 solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
         if ta1 == ta2 then (do return Unchanged) else (
         case (isDHLit ta1, isDHLit ta2) of 
-            (True, _)  -> solveTermEqs splitStrat [(Equal (unbox ta1) (unbox ta2))]
-            ( _, True) -> solveTermEqs splitStrat [(Equal (unbox ta1) (unbox ta2))]
+            (True, _)  -> solveTermEqs splitStrat [(Equal ta1 ta2)]
+            ( _, True) -> solveTermEqs splitStrat [(Equal ta1 ta2)]
             _          -> do
                         nocancs <- getM sNoCanc
                         case prodTerms ta1 of 
@@ -909,8 +909,8 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
 solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
         if ta1 == ta2 then (do return Unchanged) else (
         case (isDHLit ta1, isDHLit ta2) of 
-            (True, _)  -> solveTermEqs splitStrat [(Equal (unbox ta1) (unbox ta2))]
-            ( _, True) -> solveTermEqs splitStrat [(Equal (unbox ta1) (unbox ta2))]
+            (True, _)  -> solveTermEqs splitStrat [(Equal ta1 ta2)]
+            ( _, True) -> solveTermEqs splitStrat [(Equal ta1 ta2)]
             _          -> do
                 nocancs <- getM sNoCanc
                 case prodTerms ta1 of 

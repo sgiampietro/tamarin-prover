@@ -317,7 +317,7 @@ gh :: Term (Lit Name LVar)
 gh = fAppdhMult(gvar, fAppdhExp(hvar,yvar))
 
 gg :: Term (Lit Name LVar)
-gg = fAppPair (fAppdhBox (fAppdhExp(gvar,yvar)),fAppdhBox gh)
+gg = fAppPair ((fAppdhExp(gvar,yvar)), gh)
 
 testsClean :: Test
 testsClean = TestLabel "Tests for Cleaning" $

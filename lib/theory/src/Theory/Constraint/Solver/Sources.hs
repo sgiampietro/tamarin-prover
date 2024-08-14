@@ -453,8 +453,8 @@ precomputeSources parameters ctxt restrictions =
           , fAppAC NatPlus [varTerm (LVar "t" LSortNat 1), varTerm (LVar "t" LSortNat 2)] ]
           else []
       , if enableDHMult msig then 
-         [  fAppDHMult dhBoxSym [varTerm (LVar "y" LSortG 1)]
-          , fAppDHMult dhBoxESym [varTerm (LVar "e" LSortE 1)]]
+         [  varTerm (LVar "y" LSortG 1)
+          , varTerm (LVar "e" LSortE 1)]
           else [] 
       , [ fAppNoEq o $ nMsgVars k
         | o@(_,(k,priv,_)) <- S.toList . noEqFunSyms  $ msig

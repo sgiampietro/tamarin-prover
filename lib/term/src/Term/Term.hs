@@ -43,8 +43,8 @@ module Term.Term (
     , fAppdhExp
     , fAppdhOne 
     , fAppdhMu
-    , fAppdhBox
-    , fAppdhBoxE 
+    --, fAppdhBox
+    --, fAppdhBoxE 
 
     -- ** Destructors and classifiers
     , isPair
@@ -106,8 +106,8 @@ module Term.Term (
     , dhExpSymString
     , dhOneSymString
     , dhMuSymString
-    , dhBoxSymString
-    , dhBoxESymString
+    --, dhBoxSymString
+    --, dhBoxESymString
 
     -- ** Function symbols
     , diffSym
@@ -130,8 +130,8 @@ module Term.Term (
     , dhExpSym
     , dhOneSym  
     , dhMuSym
-    , dhBoxSym
-    , dhBoxESym
+    --, dhBoxSym
+    --, dhBoxESym
 
     -- ** concrete signatures
     , dhFunSig
@@ -203,13 +203,13 @@ fAppdhTimesE  (b,e)  = fAppDHMult dhTimesESym   [b, e]
 fAppdhPlus (s,p) = fAppDHMult dhPlusSym [s, p]
 fAppdhExp (s,p) = fAppDHMult dhExpSym [s, p]
 
-fAppdhGinv, fAppdhMinus, fAppdhInv, fAppdhMu, fAppdhBox, fAppdhBoxE :: Term a -> Term a
+fAppdhGinv, fAppdhMinus, fAppdhInv, fAppdhMu :: Term a -> Term a --, fAppdhBox, fAppdhBoxE
 fAppdhGinv e = fAppDHMult dhGinvSym [e]
 fAppdhMinus e = fAppDHMult dhMinusSym [e]
 fAppdhInv e = fAppDHMult dhInvSym [e]
 fAppdhMu e = fAppDHMult dhMuSym [e]
-fAppdhBox e = fAppDHMult dhBoxSym [e]
-fAppdhBoxE e = fAppDHMult dhBoxESym [e]
+--fAppdhBox e = fAppDHMult dhBoxSym [e]
+--fAppdhBoxE e = fAppDHMult dhBoxESym [e]
 
 fAppdhZero, fAppdhEg, fAppdhOne :: Term a
 fAppdhOne = fAppDHMult dhOneSym []

@@ -54,8 +54,8 @@ gTerm2Exp t@(FAPP (DHMult o) ts) = case ts of
     [ t1 ]     | o == dhInvSym    -> t
     [ t1 ]     | o == dhMinusSym    -> t
     [ t1 ]     | o == dhMuSym    -> t
-    [ t1 ]     | o == dhBoxSym    -> gTerm2Exp t1
-    [ t1 ]     | o == dhBoxESym    -> gTerm2Exp t1
+    --[ t1 ]     | o == dhBoxSym    -> gTerm2Exp t1
+    --[ t1 ]     | o == dhBoxESym    -> gTerm2Exp t1
     []         | o == dhZeroSym    -> t
     []         | o == dhEgSym    ->  simplifyraw $ (FAPP (DHMult dhZeroSym) [])
     []         | o == dhOneSym    -> t
@@ -157,7 +157,7 @@ createMatrix nb terms target =
 
 
 solveIndicatorGauss :: [LNTerm] -> [LNTerm] -> LNTerm -> Maybe [LNTerm]
-solveIndicatorGauss nb terms target = solveMatrix fAppdhZero $ createMatrix (map unbox nb) (map gTerm2Exp terms) (gTerm2Exp target)
+solveIndicatorGauss nb terms target = solveMatrix fAppdhZero $ createMatrix (nb) (map gTerm2Exp terms) (gTerm2Exp target)
 -- TODO: these terms are possible G, terms. We assume here that our terms are always of the form
 -- 'g'^x for some fixed g, so we need to transform them to their exponent values. 
 
@@ -203,7 +203,7 @@ createMatrixProto nb term target =
 
 solveIndicatorGaussProto :: [LNTerm] -> LNTerm -> LNTerm -> Maybe [(LVar, LNTerm)]
 solveIndicatorGaussProto nb term target = 
-    let (w1, z2, matriz) = createMatrixProto (map unbox nb) (gTerm2Exp term) (gTerm2Exp target)
+    let (w1, z2, matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)
         solution = solveMatrix fAppdhZero matriz
     in
   case solution of 
