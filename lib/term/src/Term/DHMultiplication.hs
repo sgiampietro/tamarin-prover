@@ -18,6 +18,7 @@ module Term.DHMultiplication (
   , isRoot
   , isOfDHSort
   , neededexponents
+  , neededexponentslist
   , rootIndKnown
   , rootIndKnownMaude
   , rootIndUnknown
@@ -204,11 +205,19 @@ indComputable bs t = S.fromList( eTermsOf t ) `S.isSubsetOf` bs
 
 -- TODO: this function should actually return which indicators are needed too in the 
 -- case it's not computable. 
-neededexponents:: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> Maybe (S.Set LNTerm)
+neededexponents:: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> [LNTerm]
 neededexponents b nb t 
+  | null es = []
+  | otherwise = S.toList es
+      where es =S.fromList( eTermsOf t ) `S.difference` (b `S.union` nb)
+
+neededexponentslist:: S.Set LNTerm -> S.Set LNTerm -> [LNTerm] -> Maybe (S.Set LNTerm)
+neededexponentslist b nb terms
   | null es = Nothing
   | otherwise = Just es
-      where es =S.fromList( eTermsOf t ) `S.difference` (b `S.union` nb)
+      where es = S.fromList $ concatMap (neededexponents b nb) terms
+
+
 
 rootIndicator :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> (LNTerm, [(LVar, VTerm Name LVar)])
 rootIndicator b nb t

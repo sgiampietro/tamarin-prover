@@ -117,7 +117,7 @@ openGoals sys = do
         -- explicitly if they still exist.
         SplitG idx -> splitExists (get sEqStore sys) idx
         SubtermG st -> st `elem` L.get (posSubterms . sSubtermStore) sys
-        DHIndG _ _ _ -> not solved
+        DHIndG _ _ -> not solved
         NoCancG _ -> not solved
         NeededG _ _ -> not solved
         IndicatorG _ -> not solved
@@ -228,7 +228,7 @@ solveGoal goal = do
       SplitG i      -> solveSplit i
       DisjG disj    -> solveDisjunction disj
       SubtermG st   -> solveSubterm st
-      DHIndG p fa t -> solveDHInd (get crProtocol rules) p fa t
+      DHIndG p fa -> solveDHInd (get crProtocol rules) p fa
       NoCancG (t1, t2) -> solveNoCanc t1 t2
       NeededG x i    -> solveNeeded (get crProtocol rules) x i
       IndicatorG (t1, t2) -> solveIndicator t1 t2
@@ -237,9 +237,19 @@ solveGoal goal = do
 -- The following functions are internal to 'solveGoal'. Use them with great
 -- care.
 
+--ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
+--                   act <- disjunctionOfList $ get rActs ru
+--                   (void (solveFactEqs SplitNow [Equal fa act]))
+--                   return ru
 
---solveProtoAction :: RuleACInst ->  Reduction RuleACInst 
---solveProtoAction ru = return ru
+solveProtoAction :: LNFact -> [RuleAC] -> NodeId ->  Reduction String
+solveProtoAction fa rules i=  do
+    ru  <- labelNodeId i rules Nothing
+    act <- disjunctionOfList $ get rActs ru
+
+    (void (solveFactEqs SplitNow [Equal fa act]))
+    return ru
+
 
 -- | CR-rule *S_at*: solve an action goal.
 solveAction :: [RuleAC]          -- ^ All rules labelled with an action
@@ -263,8 +273,8 @@ solveAction rules (i, fa@(Fact _ ann _)) =trace (show ("SEARCHING", fa, "END")) 
                             let ru = Rule (IntrInfo (ConstrRule $ BC.pack "_xor")) [(kuFact a),(kuFact b)] [fa] [fa] []
                             modM sNodes (M.insert i ru)
                             mapM_ requiresKU [a, b] *> return ru
-            --(Fact (ProtoFact n s i) _ [m@(viewTerm3 -> Box ts)]) -> solveProto
-            --(Fact (ProtoFact n s i) _ [m@(viewTerm3 -> BoxE ts)]) -> solveProto
+            (Fact (ProtoFact n s i) _ [m@(viewTerm3 -> Box ts)]) -> solveProtoAction fa rules i
+            (Fact (ProtoFact n s i) _ [m@(viewTerm3 -> BoxE ts)]) -> solveProtoAction fa rules i
             --(Fact _ _ [m@(viewTerm3 -> Box ts)]) -> solveKUAction
             --(Fact _ _ [m@(viewTerm3 -> BoxE ts)]) -> solveKUAction
             _                                        -> do
@@ -321,12 +331,14 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
              -> Reduction String -- ^ Case name to use.
 solvePremise rules p faPrem
   | isKdhFact faPrem = do -- {this shouldn't only be Kdh but also In or Out}
-      case factTerms faPrem of
-          [t1] -> trace (show ("HERE: solving", t1) ) (solveDHInd rules p faPrem t1)
-          _ -> error "malformed KdhFact"
+      --case factTerms faPrem of
+          (solveDHInd rules p faPrem)
+      --    _ -> error "malformed KdhFact"
   | isProtoDHFact faPrem = do 
       case factTerms faPrem of 
-          [t1] -> solveDHIndProto rules p faPrem t1
+          [t1] -> 
+            -- TODO: case t1 of a variable (possibly boxed) - handle this more easily!!
+              solveDHIndProto rules p faPrem t1
           _ -> error "malformed KdhFact"
   | isKDFact faPrem = do
       iLearn    <- freshLVar "vl" LSortNode
@@ -478,78 +490,57 @@ solveNoCanc x y = do
       )
 
 
-solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> MaudeHandle -> NodePrem -> LNFact -> LNTerm -> [RuleAC] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
-solveDHIndaux bset nbset x hnd p faPrem t rules =
-  case neededexponents bset nbset x of
-      (Just es) -> do
-          trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem t
-          return "NeededInserted"
-      -- the current goal solveDHInd should remain and we should try to solve it again once we
-      -- have solved the Needed goals. or do we try it with a variable?
-      Nothing -> case viewTerm2 (runReader (rootIndKnownMaude bset nbset x) hnd) of
-          (DHOne) -> trace (show ("GotHERE")) return "attack"
-          (DHEg) -> trace (show ("GotHERE")) return "attack"
-          (Lit2 t) | (isPubGVar (LIT t))  -> trace (show ("GotHERE")) return "attack"
-          _ -> do
-            (ru, c, faConc) <- trace (show ("gotHERE2", sortOfLNTerm (runReader (rootIndKnownMaude bset nbset x) hnd))) (insertFreshNodeConcOut rules)
-            z1 <- freshLVar "Z1" LSortE
-            let indt = (runReader (rootIndKnownMaude bset nbset x) hnd)
-                indtexp = fAppdhExp (indt, LIT (Var z1) )
-            (insertDHEdge False (c, faConc, faPrem, p) indtexp) t -- instead of root indicator this should be Y.ind^Z.
-            (return $ showRuleCaseName ru) -- (return "done") 
-
 solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact containing a boxed term as conclusion. 
              -> NodePrem       -- ^ Premise to solve.
-             ->LNFact
-             -> LNTerm       -- ^ Product term of which we have to find the indicator  
+             ->LNFact       -- ^ Product term of which we have to find the indicator  
              -> Reduction String -- ^ Case name to use.
-solveDHInd rules p faPrem t =  do-- TODO: does this ensure that x is actually a root term?
-    case prodTerms t of
-      Just (x,y) -> do
+solveDHInd rules p faPrem =  do
         hnd  <- getMaudeHandle
         bset <- getM sBasis
         nbset <- getM sNotBasis
         nocancs <- getM sNoCanc
-        -- trace (show ("NOCANC", x, y, bset, nbset)) insertNoCanc x y
-        if not (S.member (x,y) nocancs  || isNoCanc x y) then
-              (do
-              insertNoCanc x y
-              solveDHIndaux bset nbset x hnd p faPrem t rules)
-             else (solveDHIndaux bset nbset x hnd p faPrem t rules)
-          {-Nothing -> case (rootIndKnown bset nbset x) of
-              --(FAPP dhEgSym []) -> trace (show ("GotHERE")) return "attack" 
-              --(FAPP dhOneSym []) -> trace (show ("GotHERE")) return "attack" 
-              indterm -> do
-                (ru, c, faConc) <- trace (show ("gotHERE2", sortOfLNTerm indterm, indterm)) (insertFreshNodeConcOut rules) 
-                (insertDHEdge (c, faConc, faPrem, p) (runReader (rootIndKnownMaude bset nbset x) hnd)) t 
-                (return $ showRuleCaseName ru) -- (return "done") -}
-      Nothing -> error "error in prodTerm function"
+        solveDHIndaux bset nbset (factTerms faPrem) hnd p faPrem rules
+
+solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> [LNTerm] -> MaudeHandle -> NodePrem -> LNFact -> [RuleAC] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
+solveDHIndaux bset nbset terms hnd p faPrem rules =
+  case neededexponentslist bset nbset terms of
+      (Just es) -> do
+          trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem
+          return "NeededInserted"
+      -- the current goal solveDHInd should remain and we should try to solve it again once we
+      -- have solved the Needed goals. or do we try it with a variable?
+      Nothing -> do --case viewTerm2 (runReader (rootIndKnownMaude bset nbset x) hnd) of
+          --(DHOne) -> trace (show ("GotHERE")) return "attack"
+          --(DHEg) -> trace (show ("GotHERE")) return "attack"
+          --(Lit2 t) | (isPubGVar (LIT t))  -> trace (show ("GotHERE")) return "attack"
+          --_ -> do
+          (ru, c, faConc) <- insertFreshNodeConcOut rules
+          insertDHEdge hnd False (c, faConc, faPrem, p) bset nbset -- instead of root indicator this should be Y.ind^Z.
+          return $ showRuleCaseName ru -- (return "done") 
 
 
 solveDHIndProto ::  [RuleAC]        -- ^ All rules that have an Out fact containing a boxed term as conclusion. 
              -> NodePrem       -- ^ Premise to solve.
              ->LNFact
-             -> LNTerm       -- ^ Product term of which we have to find the indicator  
              -> Reduction String -- ^ Case name to use.
-solveDHIndProto rules p faPrem t = do
-    case prodTerms t of
-      Just (x,y) -> do
-        hnd  <- getMaudeHandle
-        nocancs <- getM sNoCanc
+solveDHIndProto rules p faPrem = do
+      hnd  <- getMaudeHandle
+      nocancs <- getM sNoCanc
         --bset <- basisOfRule ru
         --nbset <- notBasisOfRule ru
         -- trace (show ("NOCANC", x, y, bset, nbset)) insertNoCanc x y
-        if not (S.member (x,y) nocancs  || isNoCanc x y) then
-              (error "TODO")
-             else do
-              (ru, c, faConc) <-  (insertFreshNodeConc rules)
-              z1 <- freshLVar "Z1" LSortE
-              let indt = (runReader (rootIndKnownMaude (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) x) hnd)
-                  indtexp = fAppdhExp (indt, LIT (Var z1) )
-              (insertDHEdge True (c, faConc, faPrem, p) indtexp) t -- instead of root indicator this should be Y.ind^Z.
-              (return $ showRuleCaseName ru) -- (return "done") 
-          {-TODO: might need to change the insertDHEdge function to handle  -}
-      Nothing -> error "error in prodTerm function"
+      --if not (S.member (x,y) nocancs  || isNoCanc x y) then
+      --        (error "TODO")
+      --       else do
+      (ru, c, faConc) <-  insertFreshNodeConc rules
+             --z1 <- freshLVar "Z1" LSortE
+              --let indt = (runReader (rootIndKnownMaude (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) x) hnd)
+              --    indtexp = fAppdhExp (indt, LIT (Var z1) )
+      bset <- basisOfRule ru
+      nbset <- notBasisOfRule ru
+      insertDHEdge hnd True (c, faConc, faPrem, p) bset nbset -- instead of root indicator this should be Y.ind^Z.
+      return $ showRuleCaseName ru
+
 
 
 solveIndicator :: LNTerm -> LNTerm -> Reduction String

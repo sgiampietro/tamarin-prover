@@ -146,7 +146,7 @@ data Goal =
        -- ^ A case split over a disjunction.
      | SubtermG (LNTerm, LNTerm)
        -- ^ A split of a Subterm which is in SubtermStore -> _subterms
-     | DHIndG NodePrem LNFact LNTerm -- I think this might be unnecessary.
+     | DHIndG NodePrem LNFact -- I think this might be unnecessary.
      | NoCancG (LNTerm, LNTerm)
      | NeededG LNTerm NodeId
      | IndicatorG (LNTerm, LNTerm)
@@ -197,7 +197,7 @@ instance HasFrees Goal where
         SplitG i      -> foldFrees f i
         DisjG x       -> foldFrees f x
         SubtermG p    -> foldFrees f p
-        DHIndG i fa ta -> foldFrees f i <> foldFrees f fa <> foldFrees f ta -- I think this might be unnecessary.
+        DHIndG i fa  -> foldFrees f i <> foldFrees f fa -- <> foldFrees f ta -- I think this might be unnecessary.
         NoCancG p    -> foldFrees f p
         NeededG ta p -> foldFrees f ta <> foldFrees f p
         IndicatorG p    -> foldFrees f p
@@ -215,7 +215,7 @@ instance HasFrees Goal where
         SplitG i      -> SplitG   <$> mapFrees f i
         DisjG x       -> DisjG    <$> mapFrees f x
         SubtermG p    -> SubtermG <$> mapFrees f p
-        DHIndG i fa ta -> DHIndG <$> mapFrees f i <*> mapFrees f fa <*> mapFrees f ta -- I think this might be unnecessary.
+        DHIndG i fa -> DHIndG <$> mapFrees f i <*> mapFrees f fa -- <*> mapFrees f ta -- I think this might be unnecessary.
         NoCancG p    -> NoCancG <$> mapFrees f p
         NeededG ta p -> NeededG <$> mapFrees f ta <*> mapFrees f p
         IndicatorG p    -> IndicatorG <$> mapFrees f p
@@ -229,7 +229,7 @@ instance Apply LNSubst Goal where
         SplitG i      -> SplitG   (apply subst i)
         DisjG x       -> DisjG    (apply subst x)
         SubtermG p    -> SubtermG (apply subst p)
-        DHIndG i fa ta -> DHIndG (apply subst i) (apply subst fa) (apply subst ta) -- I think this might be unnecessary.
+        DHIndG i fa  -> DHIndG (apply subst i) (apply subst fa) -- (apply subst ta) -- I think this might be unnecessary.
         NoCancG p    -> NoCancG (apply subst p)
         NeededG ta p -> NeededG (apply subst ta) (apply subst p)
         IndicatorG p    -> IndicatorG (apply subst p)
@@ -282,7 +282,7 @@ prettyGoal (SplitG x) =
     text "splitEqs" <> parens (text $ show (unSplitId x))
 prettyGoal (SubtermG (l,r)) =
     prettyLNTerm l <-> operator_ "⊏" <-> prettyLNTerm r
-prettyGoal (DHIndG i fa ta) =  text "SearchForIndicator" <-> prettyLNTerm ta
+prettyGoal (DHIndG i fa) =  text "SearchForIndicator" <-> prettyLNFact fa
 prettyGoal (NoCancG (l,r) ) = prettyLNTerm l <-> text "NoCanc" <-> prettyLNTerm r
 prettyGoal (NeededG ta p ) = prettyLNTerm ta <-> text "Needed" <-> prettyNodeId p
 prettyGoal (IndicatorG (l,r) ) = prettyLNTerm l <-> text "IndicatorFound" <-> prettyLNTerm r
