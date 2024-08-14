@@ -31,8 +31,8 @@ dhMultBuiltins =  [
   , dhExpSymString
   , dhOneSymString
   , dhMuSymString
-  , dhBoxSymString
-  , dhBoxESymString  
+  -- , dhBoxSymString
+  -- , dhBoxESymString  
   ] 
 
 

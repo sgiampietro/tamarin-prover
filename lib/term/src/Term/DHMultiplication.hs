@@ -16,7 +16,8 @@ module Term.DHMultiplication (
   , rootSet
   , multRootList
   , isRoot
-  , isOfDHSort
+  --, isOfDHSort
+  , isDHTerm
   , isDHLit
   , neededexponents
   , neededexponentslist
@@ -25,7 +26,7 @@ module Term.DHMultiplication (
   , rootIndUnknown
   , eTermsOf
   , varTermsOf
-  , unbox
+  --, unbox
   , isNoCanc
 
 
@@ -143,12 +144,12 @@ clean t@(viewTerm3 -> MsgFApp f ts) vars=  case ts of
   [t1] -> (FAPP f [myFirst ts1], mySecond ts1, vars `union` (myThird ts1) )
                 where   ts1 = clean t1 vars
   [] -> (FAPP f [], [], vars)
-clean t@(viewTerm3 -> Box dht) vars = (FAPP (DHMult dhBoxSym) [LIT (Var vg )], [(vg, dht)], vg:dhtvars )
-  where vg = (getVarGAvoid dhtvars vars)
-        dhtvars = (varsVTerm dht)
-clean t@(viewTerm3 -> BoxE dht) vars = (FAPP (DHMult dhBoxESym) [LIT (Var ve)], [(ve, dht)], ve:dhtvars )
-  where ve = (getVarEAvoid dhtvars vars)
-        dhtvars = (varsVTerm dht)
+--clean t@(viewTerm3 -> Box dht) vars = (FAPP (DHMult dhBoxSym) [LIT (Var vg )], [(vg, dht)], vg:dhtvars )
+--  where vg = (getVarGAvoid dhtvars vars)
+--        dhtvars = (varsVTerm dht)
+--clean t@(viewTerm3 -> BoxE dht) vars = (FAPP (DHMult dhBoxESym) [LIT (Var ve)], [(ve, dht)], ve:dhtvars )
+--  where ve = (getVarEAvoid dhtvars vars)
+--        dhtvars = (varsVTerm dht)
 clean t@(viewTerm3 -> DH f dht) vars = (FAPP f dht, [], vars )
 
 
@@ -156,8 +157,8 @@ clean t@(viewTerm3 -> DH f dht) vars = (FAPP f dht, [], vars )
 rootSet :: (Show a, Ord a ) => DHMultSym -> Term a -> S.Set (Term a)
 rootSet operator t@(LIT l) = S.singleton t
 rootSet operator t@(FAPP (DHMult o) ts) = case ts of
-    [t1]       | o == dhBoxSym    -> rootSet operator t1
-    [t1]       | o == dhBoxESym    -> rootSet operator t1
+    --[t1]       | o == dhBoxSym    -> rootSet operator t1
+    --[t1]       | o == dhBoxESym    -> rootSet operator t1
     [ t1, t2 ] | o == operator    -> S.union (rootSet operator t1) (rootSet operator t2)
     [ t1, t2 ] | o /= operator    -> S.singleton t
     [ t1 ]                        -> S.singleton t
@@ -170,19 +171,19 @@ multRootList a = S.toList (rootSet dhMultSym a)
 
 isRoot :: (Show a, Ord a ) => DHMultSym -> Term a -> Bool
 isRoot o (LIT l) = True
-isRoot o t@(viewTerm3 -> Box dht) = isRoot o dht
-isRoot o t@(viewTerm3 -> BoxE dht) = isRoot o dht
+--isRoot o t@(viewTerm3 -> Box dht) = isRoot o dht
+--isRoot o t@(viewTerm3 -> BoxE dht) = isRoot o dht
 isRoot o t@(viewTerm3 -> DH dht ts) = S.size (rootSet o t) == 1
 isRoot o _ = error "rootSet applied on non DH term'"
 
-unbox :: LNTerm -> LNTerm
-unbox t@(viewTerm3 -> Box dht) = dht
-unbox t@(viewTerm3 -> BoxE dht) = dht
-unbox t = t 
+--unbox :: LNTerm -> LNTerm
+--unbox t@(viewTerm3 -> Box dht) = dht
+--unbox t@(viewTerm3 -> BoxE dht) = dht
+--unbox t = t 
 
 eTermsOf :: LNTerm -> [ LNTerm ]
-eTermsOf t@(viewTerm3 -> Box dht) = eTermsOf dht
-eTermsOf t@(viewTerm3 -> BoxE dht) = eTermsOf dht
+--eTermsOf t@(viewTerm3 -> Box dht) = eTermsOf dht
+--eTermsOf t@(viewTerm3 -> BoxE dht) = eTermsOf dht
 eTermsOf t@(LIT l)
   | isEVar t = [t]
   | isNZEVar t = [t]
@@ -192,8 +193,8 @@ eTermsOf t@(FAPP f ts) = concatMap eTermsOf ts
 
 
 varTermsOf :: LNTerm -> [ LNTerm ]
-varTermsOf t@(viewTerm3 -> Box dht) = varTermsOf dht
-varTermsOf t@(viewTerm3 -> BoxE dht) = varTermsOf dht
+--varTermsOf t@(viewTerm3 -> Box dht) = varTermsOf dht
+--varTermsOf t@(viewTerm3 -> BoxE dht) = varTermsOf dht
 varTermsOf t@(LIT l)
   | isvarGVar t = [t]
   | isvarEVar t = [t]
@@ -205,9 +206,9 @@ indComputable bs t = S.fromList( eTermsOf t ) `S.isSubsetOf` bs
 
 
 isDHLit :: LNTerm -> Bool
-isDHLit t@(viewTerm3 -> Box dht) = isDHLit dht
-isDHLit t@(viewTerm3 -> BoxE dht) = isDHLit dht
-isDHLit t@(viewTerm -> Lit (Var _)) = True
+-- isDHLit t@(viewTerm3 -> Box dht) = isDHLit dht
+-- isDHLit t@(viewTerm3 -> BoxE dht) = isDHLit dht
+isDHLit t@(viewTerm -> Lit (Var _)) = isOfDHSort t
 isDHLit _ = False
 
 -- TODO: this function should actually return which indicators are needed too in the 
@@ -238,11 +239,11 @@ rootIndKnown b nb t@(viewTerm2 -> FdhGinv dht) = (FAPP (DHMult dhGinvSym) [rootI
 rootIndKnown b nb t@(viewTerm2 -> FdhTimes t1 t2) = (FAPP (DHMult dhTimesSym) [rootIndKnown b nb t1, rootIndKnown b nb t2] )
 rootIndKnown b nb t@(viewTerm2 -> FdhTimesE t1 t2) =  (FAPP (DHMult dhTimesESym) [rootIndKnown b nb t1, rootIndKnown b nb t2])
 rootIndKnown b nb t@(viewTerm2 -> FdhMu t1) =  (FAPP (DHMult dhOneSym) [])
-rootIndKnown b nb t@(viewTerm2 -> FdhBox (LIT a)) = (t)
-rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Var t1)))
-  | S.member (LIT (Var t1)) nb = (FAPP (DHMult dhOneSym) [])
-  | S.member (LIT (Var t1)) b = (t)
-  | otherwise = error ("this shouldn't happen" ++ show (t, b, nb) ++ "ops")
+--rootIndKnown b nb t@(viewTerm2 -> FdhBox (LIT a)) = (t)
+--rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Var t1)))
+--  | S.member (LIT (Var t1)) nb = (FAPP (DHMult dhOneSym) [])
+--  | S.member (LIT (Var t1)) b = (t)
+--  | otherwise = error ("this shouldn't happen" ++ show (t, b, nb) ++ "ops")
 rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Con t1))) = (LIT (Con t1))
 rootIndKnown b nb t@(viewTerm2 -> Lit2 (Var t1))
   | S.member t nb = (FAPP (DHMult dhOneSym) [])
@@ -268,14 +269,20 @@ isNoCanc t1 t2 = case viewTerm2 t2 of
               DHOne -> True
               _ -> False) 
 
+isDHTerm :: LNTerm -> Bool
+isDHTerm t = case viewTerm3 t of
+      MsgLit _ -> isOfDHSort t 
+      MsgFApp _ _ -> False
+      DH _ _ -> True
 
+{-
 isDHTerm :: LNTerm -> Bool
 isDHTerm t = case viewTerm3 t of
       MsgLit _ -> False
       MsgFApp _ _ -> False
       DH _ _ -> True
       Box _ -> True
-      BoxE _ -> True
+      BoxE _ -> True -}
 
 
 
