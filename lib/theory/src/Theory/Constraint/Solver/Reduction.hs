@@ -624,9 +624,9 @@ insertEdge (c, fa1, fa2, p) = do
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
 
-insertDHEdge :: Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> LNTerm -> LNTerm -> Reduction ()
-insertDHEdge b (c, fa1, fa2, p) indt1 t1 = do --fa1 should be an Out fact
-    void (solveFactDHEqs b SplitNow ( EqInd (Equal fa1 fa2) indt1 t1 )) -- t1 here is the result of factTerms fa2, and indt1 the indicator of one product term of t1. 
+insertDHEdge :: MaudeHandle -> Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> S.Set LNTerm -> S.Set LNTerm -> Reduction ()
+insertDHEdge hnd b (c, fa1, fa2, p) bset nbset = do --fa1 should be an Out fact
+    void (solveFactDHEqs hnd b SplitNow fa1 fa2 bset nbset) 
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
 insertBasisElem :: LNTerm -> Reduction ()
@@ -648,8 +648,8 @@ insertContIndProto :: LNTerm -> LNTerm -> Reduction ()
 insertContIndProto x y = modM sContIndProto (S.insert (x,y))
 
 -- TODO: the following not needed ?
-insertDHInd :: NodePrem -> LNFact -> LNTerm -> Reduction ()
-insertDHInd nodep fa t = insertGoal (DHIndG nodep fa t) False
+insertDHInd :: NodePrem -> LNFact ->  Reduction ()
+insertDHInd nodep fa = insertGoal (DHIndG nodep fa) False
 
 insertNoCanc :: LNTerm -> LNTerm -> Reduction ChangeIndicator
 insertNoCanc x y = do
@@ -670,10 +670,10 @@ insertNeededList' (x:xs) = do
         insertNeededList' xs
 
 
-insertNeededList :: [LNTerm] -> NodePrem -> LNFact -> LNTerm -> Reduction ChangeIndicator
-insertNeededList xs p faPrem t= do
+insertNeededList :: [LNTerm] -> NodePrem -> LNFact -> Reduction ChangeIndicator
+insertNeededList xs p faPrem = do
     insertNeededList' xs
-    insertDHInd p faPrem t
+    insertDHInd p faPrem
     return Changed
 
 {-
@@ -876,15 +876,15 @@ solveTermEqs splitStrat eqs0 =
         return Changed
 
 
-solveTermDHEqs :: Bool -> SplitStrategy -> (LNTerm, LNTerm) -> LNTerm -> LNTerm -> Reduction ChangeIndicator
-solveTermDHEqs True splitStrat (fa1, prodfa1) indt t1 =
+solveTermDHEqs :: MaudeHandle -> Bool -> SplitStrategy -> S.Set LNTerm -> S.Set LNTerm -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
+solveTermDHEqs hnd True splitStrat bset nbset (ta1, ta2)=
         if fa1 == indt then (do return Unchanged) else (do
         hnd <- getMaudeHandleDH -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
         se  <- gets id
         (eqs2, maySplitId) <- addDHProtoEqs hnd fa1 indt =<< getM sEqStore
         insertContIndProto prodfa1 t1
         insertGoal (IndicatorGExp (prodfa1,t1)) False
-        setM sEqStore  
+        setM sEqStore
             =<< simp hnd (substCreatesNonNormalTerms hnd se)
             =<< case (maySplitId, splitStrat) of
                     (Just splitId, SplitNow) -> disjunctionOfList  $ fromJustNote "solveTermEqs" $ performSplit eqs2 splitId
@@ -895,6 +895,9 @@ solveTermDHEqs True splitStrat (fa1, prodfa1) indt t1 =
         noContradictoryEqStore
         return Changed)
 solveTermDHEqs False splitStrat (fa1, prodfa1) indt t1 =
+--            z1 <- freshLVar "Z1" LSortE
+--            let indt = (runReader (rootIndKnownMaude bset nbset x) hnd)
+--                indtexp = fAppdhExp (indt, LIT (Var z1) )
         if fa1 == indt then (do return Unchanged) else (do
         hnd <- getMaudeHandleDH -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
         se  <- gets id
@@ -912,40 +915,6 @@ solveTermDHEqs False splitStrat (fa1, prodfa1) indt t1 =
         noContradictoryEqStore
         return Changed)
 
-{-
-solveActionTermDHEqs :: SplitStrategy -> LNTerm -> LNTerm -> LNTerm -> Reduction ChangeIndicator
-solveActionTermDHEqs splitStrat fa1 indt targetterm= -- targetterm is added here to be able to add "ContainsIndicator facts."
-        case (fa1 == indt) of
-                    True  -> do return Unchanged
-                    False -> do
-                            hnd <- getMaudeHandleDH 
-                            se  <- gets id
-                            (eqs2, maySplitId) <- addDHEqs hnd fa1 indt =<< getM sEqStore -- check if here you want to add only the equation containing terms, or the entire EqInd facts. 
-                            setM sEqStore
-                                =<< simp hnd (substCreatesNonNormalTerms hnd se)
-                                =<< case (maySplitId, splitStrat) of
-                                        (Just splitId, SplitNow) -> disjunctionOfList
-                                                                        $ fromJustNote "solveTermEqs"
-                                                                        $ performSplit eqs2 splitId
-                                        (Just splitId, SplitLater) -> do
-                                                    insertGoal (SplitG splitId) False
-                                                    return eqs2
-                                        _                        -> return eqs2
-                            insertContainsIndicator fa1 indt targetterm
-                            noContradictoryEqStore
-                            return Changed                                
--}
-
-{-solveIndEqTermDHEqs :: SplitStrategy-> (S.Set LNTerm) -> (S.Set LNTerm) -> Equal LNTerm  -> Reduction ChangeIndicator
-solveIndEqTermDHEqs split b nb  eq@(Equal l r) = do
-    lhs <- disjunctionOfList (multRootList l) -- TODO: this should actually be a CONJUNCTION!
-        case prodTerms lhs of
-        Just (lx,ly) -> do
-            insertNoCanc lx ly
-            targetterm <- disjunctionOfList (multRootList r)
-            solveActionTermDHEqs split (rootIndKnown b nb targetterm) (rootIndKnown b nb lx) r
-        Nothing -> error "shouldn't happen"
-  -}
 
 -- | Add a list of equalities in substitution form to the equation store
 solveSubstEqs :: SplitStrategy -> LNSubst -> Reduction ChangeIndicator
@@ -971,23 +940,25 @@ factDHTag (EqInd e indt t) =  (fmap factTag) e
 factDHTerms :: EqInd LNFact LNTerm -> Equal [LNTerm]
 factDHTerms (EqInd e indt t) = (fmap factTerms) e
 
+solveActionFactEqs :: SplitStrategy -> LNFact -> LNFact -> Reduction ChangeIndicator
+solveActionFactEqs split fa1 fa2 = do
+    contradictoryIf (not $ all evalEqual $ map (fmap factTag) ([Equal fa1 fa2]) )
+    return Changed
+
 -- t1 here is the result of factTerms fa2, and indt1 the indicator of one product term of t1. 
-solveFactDHEqs :: Bool -> SplitStrategy -> EqInd LNFact LNTerm -> Reduction ChangeIndicator
-solveFactDHEqs b split eq@(EqInd (Equal fa1 fa2) indt1 t1)
-    | b = case factTerms fa1 of
-            [t] -> do
-                outterm <- disjunctionOfList (multRootList t)
-                (solveTermDHEqs b split (outterm, t) indt1 t1) --to do, this indt1 should probs be Y.indt1^Z, with Y,Z known by adversary.
-            -- but be careful because that should hold only for G terms. E terms should be handled differrently.
-            _ -> error "incorrect factTerm called"
+solveFactDHEqs :: MaudeHandle -> Bool -> SplitStrategy -> LNFact -> LNFact -> S.Set LNTerm -> S.Set LNTerm -> Reduction ChangeIndicator
+solveFactDHEqs hnd b split fa1 fa2 bset nbset
+    -- if one of fa1 or fa2 is a variable here we should apply substitution immediately!!
+    | b =  do
+            contradictoryIf (not (factTag fa1 == factTag fa2))
+            contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
+            solveListDHEqs (solveTermDHEqs hnd b split bset nbset) $ zip (factTerms fa1) (factTerms fa2)
+          --      outterm <- disjunctionOfList (multRootList t)
     | otherwise = do
             contradictoryIf (not (factTag fa1 == OutFact) && (factTag fa2 == KdhFact) )
-            case factTerms fa1 of
-                [t] -> do
-                    outterm <- disjunctionOfList (multRootList t)
-                    (solveTermDHEqs b split (outterm, t) indt1 t1) --to do, this indt1 should probs be Y.indt1^Z, with Y,Z known by adversary.
-            -- but be careful because that should hold only for G terms. E terms should be handled differrently.
-                _ -> error "incorrect factTerm called"
+            solveListDHEqs (solveTermDHEqs hnd b split bset nbset) $ zip (factTerms fa1) (factTerms fa2)
+         -- but be careful because that should hold only for G terms. E terms should be handled differrently.
+
 
 -- need to take care of indicators here. Trying to do this in the "solveIndEqTermDHEqs" function. 
 {-solveActionFactDHEqs :: SplitStrategy -> Equal LNFact -> RuleACInst -> Reduction ChangeIndicator
@@ -1020,7 +991,7 @@ solveListEqs solver eqs = do
     flatten (Equal l r) = zipWith Equal l r
     -- on RHS "Equal" is a function that from two lists of terms, returns the list of pair of Equal of terms.
 
-solveListDHEqs :: (Equal a -> Reduction b) -> [(Equal a)] -> Reduction b
+solveListDHEqs :: ( (a,a) -> Reduction b) -> [(a,a)] -> Reduction b
 solveListDHEqs solver eqs = do
     case eqs of
         [a] -> solver a
