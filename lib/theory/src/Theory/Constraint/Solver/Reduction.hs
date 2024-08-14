@@ -883,31 +883,39 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
             (True, _)  -> solveTermEqs splitStrat [(Equal (unbox ta1) (unbox ta2))]
             ( _, True) -> solveTermEqs splitStrat [(Equal (unbox ta1) (unbox ta2))]
             _          -> do
-                        hndNormal <- getMaudeHandle
-            -- z1 <- freshLVar "Z1" LSortE
-                        let indt = (runReader (rootIndKnownMaude bset nbset ta1) hndNormal)
-        --    indtexp = fAppdhExp (indt, LIT (Var z1) )
-                        hnd <- getMaudeHandleDH -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
-                        se  <- gets id
-                        (eqs2, maySplitId) <- addDHProtoEqs hnd ta2 indt =<< getM sEqStore
-                        insertContIndProto ta2 ta1
-                        insertGoal (IndicatorGExp (ta1,ta2)) False
-                        setM sEqStore
-                            =<< simp hnd (substCreatesNonNormalTerms hnd se)
-                            =<< case (maySplitId, splitStrat) of
-                                    (Just splitId, SplitNow) -> disjunctionOfList  $ fromJustNote "solveTermEqs" $ performSplit eqs2 splitId
-                                    (Just splitId, SplitLater) -> do
-                                            insertGoal (SplitG splitId) False
-                                            return eqs2
-                                    _            -> return eqs2
-                        noContradictoryEqStore
-                        return Changed)
+                        nocancs <- getM sNoCanc
+                        case prodTerms ta1 of 
+                            Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
+                                          else do 
+                                            hndNormal <- getMaudeHandle
+                                            let indt = (runReader (rootIndKnownMaude bset nbset x) hndNormal)
+        --    indtexp = fAppdhExp (indt, LIT (Var z1) )             -- z1 <- freshLVar "Z1" LSortE
+                                            hnd <- getMaudeHandleDH -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
+                                            se  <- gets id
+                                            (eqs2, maySplitId) <- addDHProtoEqs hnd ta2 indt =<< getM sEqStore
+                                            insertContIndProto ta2 ta1
+                                            insertGoal (IndicatorGExp (ta1,ta2)) False
+                                            setM sEqStore
+                                                =<< simp hnd (substCreatesNonNormalTerms hnd se)
+                                                =<< case (maySplitId, splitStrat) of
+                                                    (Just splitId, SplitNow) -> disjunctionOfList  $ fromJustNote "solveTermEqs" $ performSplit eqs2 splitId
+                                                    (Just splitId, SplitLater) -> do
+                                                            insertGoal (SplitG splitId) False
+                                                            return eqs2
+                                                    _        -> return eqs2
+                                            noContradictoryEqStore
+                                            return Changed
+                            _ -> error "TODO")
 solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
         if ta1 == ta2 then (do return Unchanged) else (
         case (isDHLit ta1, isDHLit ta2) of 
             (True, _)  -> solveTermEqs splitStrat [(Equal (unbox ta1) (unbox ta2))]
             ( _, True) -> solveTermEqs splitStrat [(Equal (unbox ta1) (unbox ta2))]
             _          -> do
+                nocancs <- getM sNoCanc
+                case prodTerms ta1 of 
+                    Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
+                     else do 
                         hndNormal <- getMaudeHandle
             -- z1 <- freshLVar "Z1" LSortE
                         let indt = (runReader (rootIndKnownMaude bset nbset ta1) hndNormal)
@@ -929,7 +937,8 @@ solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
                                         return eqs2
                                     _                        -> return eqs2
                         noContradictoryEqStore
-                        return Changed)
+                        return Changed
+                    _ -> error "TODO")
 
 
 -- | Add a list of equalities in substitution form to the equation store
