@@ -517,7 +517,7 @@ solveDHIndProto ::  [RuleAC]        -- ^ All rules that have an Out fact contain
              ->LNFact
              -> Reduction String -- ^ Case name to use.
 solveDHIndProto rules p faPrem = do
-      nocancs <- getM sNoCanc
+        -- nocancs <- getM sNoCanc
         --bset <- basisOfRule ru
         --nbset <- notBasisOfRule ru
         -- trace (show ("NOCANC", x, y, bset, nbset)) insertNoCanc x y
