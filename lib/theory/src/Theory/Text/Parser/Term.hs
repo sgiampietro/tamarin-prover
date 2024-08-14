@@ -86,8 +86,8 @@ reservedBuiltins =  map unpackChars [
   , dhExpSymString
   , dhOneSymString
   , dhMuSymString
-  , dhBoxSymString
-  , dhBoxESymString  
+  --, dhBoxSymString
+  --, dhBoxESymString  
   ]
 
 dhMultBuiltins :: [BC.ByteString]
@@ -104,8 +104,8 @@ dhMultBuiltins =  [
   , dhExpSymString
   , dhOneSymString
   , dhMuSymString
-  , dhBoxSymString
-  , dhBoxESymString  
+  --, dhBoxSymString
+  --, dhBoxESymString  
   ] 
 
 -- | Parse an n-ary operator application for arbitrary n.

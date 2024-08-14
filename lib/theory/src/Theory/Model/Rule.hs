@@ -184,6 +184,7 @@ import qualified Extension.Data.Label as L
 import           Logic.Connectives
 
 import           Term.LTerm
+import           Term.DHMultiplication
 import           Term.Positions
 import           Term.Macro
 import           Term.Rewriting.Norm  (nf', norm')
@@ -251,10 +252,10 @@ enumConcs = zip [(ConcIdx 0)..] . L.get rConcs
 
 -- | Enumerate all DH Out conclusions of a rule.
 enumConcsDhOut :: Rule i -> [LNTerm]
-enumConcsDhOut ru = filter (isBoxTerm) $ concat [ factTerms f | (c,f) <- enumConcs ru, factTag f == OutFact]
+enumConcsDhOut ru = filter (isDHTerm) $ concat [ factTerms f | (c,f) <- enumConcs ru, factTag f == OutFact]
 
 enumConcsDhExpOut :: Rule i -> [LNTerm]
-enumConcsDhExpOut ru = filter (isBoxETerm) $ concat [ factTerms f | (c,f) <- enumConcs ru, factTag f == OutFact]
+enumConcsDhExpOut ru = filter (isDHTerm) $ concat [ factTerms f | (c,f) <- enumConcs ru, factTag f == OutFact]
 
 -- Instances
 ------------

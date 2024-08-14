@@ -317,7 +317,7 @@ normRule' (Rule i ps cs as nvs) = reader $ \hnd ->
 
 dhmultIntruderRules ::  [IntrRuleAC]
 dhmultIntruderRules = [
-      Rule PubGConstrRule   [] [ kdhFact (x_pub_var)] [kLogFact (fAppdhBox x_pub_var)]  []
+      Rule PubGConstrRule   [] [ kdhFact (x_pub_var)] [kLogFact (x_pub_var)]  []
       , kdhRule FreshNZEConstrRule [freshDHFact x_fresh_var] (x_fresh_var) (x_fresh_var)         []
       --, Rule ISendRule [kuFact x_box]  [kdhFact x_varG] [kLogFact x_box]        []
       --, Rule IRecvRule [outFact x_box] [kdhFact x_varG] []  []
@@ -331,14 +331,14 @@ dhmultIntruderRules = [
       --  , kuRule CoerceRule      [kdFact x_varE]                 (x_varE)         []
     ]
   where
-    kdhRule name prems t t2 nvs = Rule name prems [kdhFact t] [kLogFact (fAppdhBoxE t2)] nvs
+    kdhRule name prems t t2 nvs = Rule name prems [kdhFact t] [kLogFact (t2)] nvs
     x_pub_var   = varTerm (LVar "x"  LSortPubG  0) --PubG (if we replace this with "LSortMsg" seems to work better - probably need to solve the unification problem)
     x_fresh_var = varTerm (LVar "x"  LSortFrNZE 0) --FrNZE
     x_varG = varTerm (LVar "x"  LSortG 0) --G (if we replace this with "LSortMsg" seems to work better - probably need to solve the unification problem)
     x_varE = varTerm (LVar "x"  LSortE 0) --E
     x_varfnE = varTerm (LVar "x"  LSortFrNZE 0) --E
-    x_box = fAppdhBox x_varG
-    x_boxE = fAppdhBoxE x_varE
+    x_box =  x_varG
+    x_boxE = x_varE
     conc     = fAppDHMult dhOneSym []
     concfact = kdhFact conc
     kuRule name prems t nvs = Rule name prems [kuFact t] [kuFact t] nvs
