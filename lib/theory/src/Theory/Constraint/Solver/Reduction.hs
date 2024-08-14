@@ -624,9 +624,9 @@ insertEdge (c, fa1, fa2, p) = do
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
 
-insertDHEdge :: MaudeHandle -> Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> S.Set LNTerm -> S.Set LNTerm -> Reduction ()
-insertDHEdge hnd b (c, fa1, fa2, p) bset nbset = do --fa1 should be an Out fact
-    void (solveFactDHEqs hnd b SplitNow fa1 fa2 bset nbset) 
+insertDHEdge ::  Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> S.Set LNTerm -> S.Set LNTerm -> Reduction ()
+insertDHEdge b (c, fa1, fa2, p) bset nbset = do --fa1 should be an Out fact
+    void (solveFactDHEqs b SplitNow fa1 fa2 bset nbset) 
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
 insertBasisElem :: LNTerm -> Reduction ()
@@ -876,44 +876,60 @@ solveTermEqs splitStrat eqs0 =
         return Changed
 
 
-solveTermDHEqs :: MaudeHandle -> Bool -> SplitStrategy -> S.Set LNTerm -> S.Set LNTerm -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
-solveTermDHEqs hnd True splitStrat bset nbset (ta1, ta2)=
-        if fa1 == indt then (do return Unchanged) else (do
-        hnd <- getMaudeHandleDH -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
-        se  <- gets id
-        (eqs2, maySplitId) <- addDHProtoEqs hnd fa1 indt =<< getM sEqStore
-        insertContIndProto prodfa1 t1
-        insertGoal (IndicatorGExp (prodfa1,t1)) False
-        setM sEqStore
-            =<< simp hnd (substCreatesNonNormalTerms hnd se)
-            =<< case (maySplitId, splitStrat) of
-                    (Just splitId, SplitNow) -> disjunctionOfList  $ fromJustNote "solveTermEqs" $ performSplit eqs2 splitId
-                    (Just splitId, SplitLater) -> do
-                                insertGoal (SplitG splitId) False
-                                return eqs2
-                    _        -> return eqs2
-        noContradictoryEqStore
-        return Changed)
+solveTermDHEqs ::  Bool -> SplitStrategy -> S.Set LNTerm -> S.Set LNTerm -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
+solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
+        if ta1 == ta2 then (do return Unchanged) else (
+        case (isDHLit ta1, isDHLit ta2) of 
+            (True, _)  -> solveTermEqs splitStrat [(Equal ta1 ta2)]
+            ( _, True) -> solveTermEqs splitStrat [(Equal ta1 ta2)]
+            _          -> do
+                        hndNormal <- getMaudeHandle
+            -- z1 <- freshLVar "Z1" LSortE
+                        let indt = (runReader (rootIndKnownMaude bset nbset ta1) hndNormal)
+        --    indtexp = fAppdhExp (indt, LIT (Var z1) )
+                        hnd <- getMaudeHandleDH -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
+                        se  <- gets id
+                        (eqs2, maySplitId) <- addDHProtoEqs hnd ta2 indt =<< getM sEqStore
+                        insertContIndProto ta2 ta1
+                        insertGoal (IndicatorGExp (ta1,ta2)) False
+                        setM sEqStore
+                            =<< simp hnd (substCreatesNonNormalTerms hnd se)
+                            =<< case (maySplitId, splitStrat) of
+                                    (Just splitId, SplitNow) -> disjunctionOfList  $ fromJustNote "solveTermEqs" $ performSplit eqs2 splitId
+                                    (Just splitId, SplitLater) -> do
+                                            insertGoal (SplitG splitId) False
+                                            return eqs2
+                                    _            -> return eqs2
+                        noContradictoryEqStore
+                        return Changed)
 solveTermDHEqs False splitStrat (fa1, prodfa1) indt t1 =
+        if ta1 == ta2 then (do return Unchanged) else (
+        case (isDHLit ta1, isDHLit ta2) of 
+            (True, _)  -> solveTermEqs splitStrat [(Equal ta1 ta2)]
+            ( _, True) -> solveTermEqs splitStrat [(Equal ta1 ta2)]
+            _          -> do
+                        hndNormal <- getMaudeHandle
+            -- z1 <- freshLVar "Z1" LSortE
+                        let indt = (runReader (rootIndKnownMaude bset nbset ta1) hndNormal)
+        --    indtexp = fAppdhExp (indt, LIT (Var z1) )
 --            z1 <- freshLVar "Z1" LSortE
 --            let indt = (runReader (rootIndKnownMaude bset nbset x) hnd)
 --                indtexp = fAppdhExp (indt, LIT (Var z1) )
-        if fa1 == indt then (do return Unchanged) else (do
-        hnd <- getMaudeHandleDH -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
-        se  <- gets id
-        (eqs2, maySplitId) <- addDHEqs hnd fa1 indt =<< getM sEqStore
-        insertContInd prodfa1 t1
-        insertGoal (IndicatorG (prodfa1,t1)) False
-        setM sEqStore
-            =<< simp hnd (substCreatesNonNormalTerms hnd se)
-            =<< case (maySplitId, splitStrat) of
-                            (Just splitId, SplitNow) -> disjunctionOfList $ fromJustNote "solveTermEqs" $ performSplit eqs2 splitId
-                            (Just splitId, SplitLater) -> do
-                                insertGoal (SplitG splitId) False
-                                return eqs2
-                            _                        -> return eqs2
-        noContradictoryEqStore
-        return Changed)
+                        hnd <- getMaudeHandleDH -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
+                        se  <- gets id
+                        (eqs2, maySplitId) <- addDHEqs hnd ta2 indt =<< getM sEqStore
+                        insertContInd ta1 ta2
+                        insertGoal (IndicatorG (ta1,ta2)) False
+                        setM sEqStore
+                            =<< simp hnd (substCreatesNonNormalTerms hnd se)
+                             =<< case (maySplitId, splitStrat) of
+                                    (Just splitId, SplitNow) -> disjunctionOfList $ fromJustNote "solveTermEqs" $ performSplit eqs2 splitId
+                                    (Just splitId, SplitLater) -> do
+                                        insertGoal (SplitG splitId) False
+                                        return eqs2
+                                    _                        -> return eqs2
+                        noContradictoryEqStore
+                        return Changed)
 
 
 -- | Add a list of equalities in substitution form to the equation store
@@ -946,17 +962,17 @@ solveActionFactEqs split fa1 fa2 = do
     return Changed
 
 -- t1 here is the result of factTerms fa2, and indt1 the indicator of one product term of t1. 
-solveFactDHEqs :: MaudeHandle -> Bool -> SplitStrategy -> LNFact -> LNFact -> S.Set LNTerm -> S.Set LNTerm -> Reduction ChangeIndicator
-solveFactDHEqs hnd b split fa1 fa2 bset nbset
+solveFactDHEqs ::  Bool -> SplitStrategy -> LNFact -> LNFact -> S.Set LNTerm -> S.Set LNTerm -> Reduction ChangeIndicator
+solveFactDHEqs b split fa1 fa2 bset nbset
     -- if one of fa1 or fa2 is a variable here we should apply substitution immediately!!
     | b =  do
             contradictoryIf (not (factTag fa1 == factTag fa2))
             contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
-            solveListDHEqs (solveTermDHEqs hnd b split bset nbset) $ zip (factTerms fa1) (factTerms fa2)
+            solveListDHEqs (solveTermDHEqs b split bset nbset) $ zip (factTerms fa1) (factTerms fa2)
           --      outterm <- disjunctionOfList (multRootList t)
     | otherwise = do
             contradictoryIf (not (factTag fa1 == OutFact) && (factTag fa2 == KdhFact) )
-            solveListDHEqs (solveTermDHEqs hnd b split bset nbset) $ zip (factTerms fa1) (factTerms fa2)
+            solveListDHEqs (solveTermDHEqs b split bset nbset) $ zip (factTerms fa1) (factTerms fa2)
          -- but be careful because that should hold only for G terms. E terms should be handled differrently.
 
 

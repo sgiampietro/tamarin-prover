@@ -495,14 +495,13 @@ solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact containing a
              ->LNFact       -- ^ Product term of which we have to find the indicator  
              -> Reduction String -- ^ Case name to use.
 solveDHInd rules p faPrem =  do
-        hnd  <- getMaudeHandle
         bset <- getM sBasis
         nbset <- getM sNotBasis
         nocancs <- getM sNoCanc
-        solveDHIndaux bset nbset (factTerms faPrem) hnd p faPrem rules
+        solveDHIndaux bset nbset (factTerms faPrem) p faPrem rules
 
-solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> [LNTerm] -> MaudeHandle -> NodePrem -> LNFact -> [RuleAC] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
-solveDHIndaux bset nbset terms hnd p faPrem rules =
+solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> [LNTerm] -> NodePrem -> LNFact -> [RuleAC] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
+solveDHIndaux bset nbset terms p faPrem rules =
   case neededexponentslist bset nbset terms of
       (Just es) -> do
           trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem
@@ -515,7 +514,7 @@ solveDHIndaux bset nbset terms hnd p faPrem rules =
           --(Lit2 t) | (isPubGVar (LIT t))  -> trace (show ("GotHERE")) return "attack"
           --_ -> do
           (ru, c, faConc) <- insertFreshNodeConcOut rules
-          insertDHEdge hnd False (c, faConc, faPrem, p) bset nbset -- instead of root indicator this should be Y.ind^Z.
+          insertDHEdge False (c, faConc, faPrem, p) bset nbset -- instead of root indicator this should be Y.ind^Z.
           return $ showRuleCaseName ru -- (return "done") 
 
 
@@ -524,7 +523,6 @@ solveDHIndProto ::  [RuleAC]        -- ^ All rules that have an Out fact contain
              ->LNFact
              -> Reduction String -- ^ Case name to use.
 solveDHIndProto rules p faPrem = do
-      hnd  <- getMaudeHandle
       nocancs <- getM sNoCanc
         --bset <- basisOfRule ru
         --nbset <- notBasisOfRule ru
@@ -538,7 +536,7 @@ solveDHIndProto rules p faPrem = do
               --    indtexp = fAppdhExp (indt, LIT (Var z1) )
       bset <- basisOfRule ru
       nbset <- notBasisOfRule ru
-      insertDHEdge hnd True (c, faConc, faPrem, p) bset nbset -- instead of root indicator this should be Y.ind^Z.
+      insertDHEdge True (c, faConc, faPrem, p) bset nbset -- instead of root indicator this should be Y.ind^Z.
       return $ showRuleCaseName ru
 
 
