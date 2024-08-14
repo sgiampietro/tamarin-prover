@@ -243,12 +243,11 @@ solveGoal goal = do
 --                   return ru
 
 solveProtoAction :: LNFact -> [RuleAC] -> NodeId ->  Reduction String
-solveProtoAction fa rules i=  do
+solveProtoAction fa rules i=  return "TODO"{-do
     ru  <- labelNodeId i rules Nothing
     act <- disjunctionOfList $ get rActs ru
-
     (void (solveFactEqs SplitNow [Equal fa act]))
-    return ru
+    return ru -}
 
 
 -- | CR-rule *S_at*: solve an action goal.
@@ -273,8 +272,8 @@ solveAction rules (i, fa@(Fact _ ann _)) =trace (show ("SEARCHING", fa, "END")) 
                             let ru = Rule (IntrInfo (ConstrRule $ BC.pack "_xor")) [(kuFact a),(kuFact b)] [fa] [fa] []
                             modM sNodes (M.insert i ru)
                             mapM_ requiresKU [a, b] *> return ru
-            (Fact (ProtoFact n s i) _ [m@(viewTerm3 -> Box ts)]) -> solveProtoAction fa rules i
-            (Fact (ProtoFact n s i) _ [m@(viewTerm3 -> BoxE ts)]) -> solveProtoAction fa rules i
+            --(Fact (ProtoFact n s i) _ [m@(viewTerm3 -> Box ts)]) -> solveProtoAction fa rules i
+            --(Fact (ProtoFact n s i) _ [m@(viewTerm3 -> BoxE ts)]) -> solveProtoAction fa rules i
             --(Fact _ _ [m@(viewTerm3 -> Box ts)]) -> solveKUAction
             --(Fact _ _ [m@(viewTerm3 -> BoxE ts)]) -> solveKUAction
             _                                        -> do
@@ -334,12 +333,7 @@ solvePremise rules p faPrem
       --case factTerms faPrem of
           (solveDHInd rules p faPrem)
       --    _ -> error "malformed KdhFact"
-  | isProtoDHFact faPrem = do 
-      case factTerms faPrem of 
-          [t1] -> 
-            -- TODO: case t1 of a variable (possibly boxed) - handle this more easily!!
-              solveDHIndProto rules p faPrem t1
-          _ -> error "malformed KdhFact"
+  | isProtoDHFact faPrem =  solveDHIndProto rules p faPrem
   | isKDFact faPrem = do
       iLearn    <- freshLVar "vl" LSortNode
       mLearn    <- varTerm <$> freshLVar "t" LSortMsg -- why do we not care about the term here??
@@ -534,9 +528,9 @@ solveDHIndProto rules p faPrem = do
              --z1 <- freshLVar "Z1" LSortE
               --let indt = (runReader (rootIndKnownMaude (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) x) hnd)
               --    indtexp = fAppdhExp (indt, LIT (Var z1) )
-      bset <- basisOfRule ru
-      nbset <- notBasisOfRule ru
-      insertDHEdge True (c, faConc, faPrem, p) bset nbset -- instead of root indicator this should be Y.ind^Z.
+      --bset <- basisOfRule ru
+      --nbset <- notBasisOfRule ru
+      insertDHEdge True (c, faConc, faPrem, p) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) -- instead of root indicator this should be Y.ind^Z.
       return $ showRuleCaseName ru
 
 
@@ -597,7 +591,9 @@ solveNeeded rules x i = do
                 (ru, c, faConc) <- insertFreshNodeConcOut rules
                 z1 <- freshLVar "Z1" LSortE
                 let indx = fAppdhTimesE (x, LIT (Var z1) )
-                trace (show ("WORKING", indx, x)) (insertDHEdge True (c, faConc, kdhFact x,(i, PremIdx 0)) indx x)  --TODO: this should not be x, but x*Z1+Z2 (with adversary knowing Z1 and Z2). 
+                bset <- getM sBasis
+                nbset <- getM sNotBasis
+                (insertDHEdge True (c, faConc, kdhFact x,(i, PremIdx 0)) bset nbset)  --TODO: this should not be x, but x*Z1+Z2 (with adversary knowing Z1 and Z2). 
                 -- return $ showRuleCaseName ru
                 --
                 --insertGoal (PremiseG (i, PremIdx 0) (kIFact x)) False 
