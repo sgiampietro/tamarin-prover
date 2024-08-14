@@ -589,15 +589,16 @@ solveNeeded rules x i = do
                 trace "IAMHEREYES" (insertNotBasisElem x)
                 --                
                 (ru, c, faConc) <- insertFreshNodeConcOut rules
-                z1 <- freshLVar "Z1" LSortE
-                let indx = fAppdhTimesE (x, LIT (Var z1) )
+                --z1 <- freshLVar "Z1" LSortE
+                --let indx = fAppdhTimesE (x, LIT (Var z1) )
                 bset <- getM sBasis
                 nbset <- getM sNotBasis
-                (insertDHEdge True (c, faConc, kdhFact x,(i, PremIdx 0)) bset nbset)  --TODO: this should not be x, but x*Z1+Z2 (with adversary knowing Z1 and Z2). 
+                (insertDHEdge False (c, faConc, kdhFact x,(i, PremIdx 0)) bset nbset)  --TODO: this should not be x, but x*Z1+Z2 (with adversary knowing Z1 and Z2). 
                 -- return $ showRuleCaseName ru
                 --
                 --insertGoal (PremiseG (i, PremIdx 0) (kIFact x)) False 
                 return "case Leaked Set" -- TODO: make this appear somehow, maybe with an extra case. 
+
 
 
 
