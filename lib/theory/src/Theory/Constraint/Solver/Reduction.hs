@@ -880,7 +880,12 @@ solveTermDHEqs ::  Bool -> SplitStrategy -> S.Set LNTerm -> S.Set LNTerm -> (LNT
 solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
         if ta1 == ta2 then (do return Unchanged) else (
         case compatibleLits ta1 ta2 of 
-            True       -> solveTermEqs splitStrat [(Equal ta1 ta2)]
+            Nothing    -> do 
+                            eqdhstore <- getM sEqStore
+                            setM sEqStore =<< return (set eqsConj falseEqConstrConj eqdhstore) -- =<< getM sEqStore
+                            noContradictoryEqStore
+                            return Changed
+            Just True  -> solveTermEqs splitStrat [(Equal ta1 ta2)]
             _          -> do
                         nocancs <- getM sNoCanc
                         case prodTerms ta1 of 
@@ -908,7 +913,12 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
 solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
         if ta1 == ta2 then (do return Unchanged) else (
         case compatibleLits ta1 ta2 of 
-            True  -> solveTermEqs splitStrat [(Equal ta1 ta2)]
+            Nothing    -> do 
+                            eqdhstore <- getM sEqStore
+                            setM sEqStore =<< return (set eqsConj falseEqConstrConj eqdhstore) -- =<< getM sEqStore
+                            noContradictoryEqStore
+                            return Changed
+            Just True  -> trace (show ("usualunification", ta1, ta2)) solveTermEqs splitStrat [(Equal ta1 ta2)]
             _          -> do
                 nocancs <- getM sNoCanc
                 case prodTerms ta1 of 
@@ -916,7 +926,7 @@ solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
                      else do 
                         hndNormal <- getMaudeHandle
             -- z1 <- freshLVar "Z1" LSortE
-                        let indt = trace (show ("THISISIND:",ta1,(runReader (rootIndKnownMaude bset nbset ta1) hndNormal))) (runReader (rootIndKnownMaude bset nbset ta1) hndNormal)
+                        let indt = trace (show ("THISISIND:",ta1,(runReader (rootIndKnownMaude bset nbset ta1) hndNormal), bset, nbset, (rootIndKnown bset nbset ta1))) (runReader (rootIndKnownMaude bset nbset ta1) hndNormal)
                         case viewTerm2 (indt) of
                             (DHOne) -> trace (show ("GotHEREDHOne")) return Unchanged
                             (DHEg) -> trace (show ("GotHEREDHEg")) return Unchanged
