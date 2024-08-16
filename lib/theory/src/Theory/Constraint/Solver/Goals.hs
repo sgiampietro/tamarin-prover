@@ -587,7 +587,9 @@ solveNeeded rules x i = do
                 --let indx = fAppdhTimesE (x, LIT (Var z1) )
                 bset <- getM sBasis
                 nbset <- getM sNotBasis
-                (insertDHEdge False (c, faConc, kdhFact x,(i, PremIdx 0)) bset nbset)  --TODO: this should not be x, but x*Z1+Z2 (with adversary knowing Z1 and Z2). 
+                -- somehow the below does not seem to be doing insertGoal (PremiseG (i, PremIdx 0) (kIFact x)) False ... !!
+                --(insertDHEdge False (c, faConc, kdhFact x,(i, PremIdx 0)) bset nbset)  --TODO: this should not be x, but x*Z1+Z2 (with adversary knowing Z1 and Z2). 
+                insertGoal (PremiseG (i, PremIdx 0) (kdhFact x)) False
                 -- return $ showRuleCaseName ru
                 --
                 --insertGoal (PremiseG (i, PremIdx 0) (kIFact x)) False 
