@@ -19,6 +19,7 @@ module Term.DHMultiplication (
   --, isOfDHSort
   , isDHTerm
   , isDHLit
+  , compatibleLits
   , neededexponents
   , neededexponentslist
   , rootIndKnown
@@ -81,10 +82,10 @@ getNewSimilarVar x allVars
   | otherwise = x
 
 getVarGAvoid:: [LVar]  -> [LVar] -> LVar
-getVarGAvoid t vs= getNewSimilarVar (LVar "t" LSortG 0) (t ++ vs) 
+getVarGAvoid t vs= getNewSimilarVar (LVar "t" LSortG 0) (t ++ vs)
 
 getVarEAvoid:: [LVar]  -> [LVar] -> LVar
-getVarEAvoid t vs= getNewSimilarVar (LVar "t" LSortE 0) (t ++ vs) 
+getVarEAvoid t vs= getNewSimilarVar (LVar "t" LSortE 0) (t ++ vs)
 
 -- | @clean@ returns the message term cleaned of its diffie-hellman terms,
 -- replacing them by fresh variables
@@ -113,7 +114,7 @@ clean t@(viewTerm3 -> DH f dht) = (FAPP f dht, emptySubstVFresh )
 
 
 applyTermSubst:: Map.Map LVar LVar -> Term (Lit Name LVar) -> Term (Lit Name LVar)
-applyTermSubst vs (LIT t) = case t of 
+applyTermSubst vs (LIT t) = case t of
   (Con tc) -> (LIT t)
   (Var tv) -> (case (Map.lookup tv vs) of
       (Just tv2) -> (LIT (Var tv2))
@@ -136,11 +137,11 @@ myThird (x,y,z) = z
 
 clean :: Term (Lit Name LVar) -> [LVar] -> (Term (Lit Name LVar), [(LVar,VTerm Name LVar)], [LVar])
 clean t@(viewTerm3 -> MsgLit l) vars = (LIT l, [], vars)
-clean t@(viewTerm3 -> MsgFApp f ts) vars=  case ts of 
+clean t@(viewTerm3 -> MsgFApp f ts) vars=  case ts of
   [t1, t2] -> (FAPP f [myFirst ts1, myFirst ts2], mySecond ts1 `union` (mySecond ts2), vars1 `union` (myThird ts2) )
                 where   ts1 = clean t1 vars
                         ts2 = clean t2 vars1
-                        vars1 = vars `union` (myThird ts1) 
+                        vars1 = vars `union` (myThird ts1)
   [t1] -> (FAPP f [myFirst ts1], mySecond ts1, vars `union` (myThird ts1) )
                 where   ts1 = clean t1 vars
   [] -> (FAPP f [], [], vars)
@@ -202,7 +203,7 @@ varTermsOf t@(LIT l)
 varTermsOf t@(FAPP f ts) = concatMap eTermsOf ts
 
 indComputable :: S.Set LNTerm -> LNTerm -> Bool
-indComputable bs t = S.fromList( eTermsOf t ) `S.isSubsetOf` bs
+indComputable bs t = S.fromList ( eTermsOf t ) `S.isSubsetOf` bs
 
 
 isDHLit :: LNTerm -> Bool
@@ -211,13 +212,20 @@ isDHLit :: LNTerm -> Bool
 isDHLit t@(viewTerm -> Lit (Var _)) = isOfDHSort t
 isDHLit _ = False
 
+compatibleLits :: LNTerm -> LNTerm -> Bool
+compatibleLits ta1 ta2 = case (isDHLit ta1, isDHLit ta2) of
+  (True, True) -> (sortCompare (sortOfLNTerm ta1) (sortOfLNTerm ta2)) /= Nothing
+  (True, _ ) -> sortCompare (sortOfLNTerm ta1) (sortOfLNTerm ta2) == Just GT
+  (_, True) -> sortCompare (sortOfLNTerm ta1) (sortOfLNTerm ta2) == Just LT
+  (_, _) -> False
+
 -- TODO: this function should actually return which indicators are needed too in the 
 -- case it's not computable. 
 neededexponents:: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> [LNTerm]
-neededexponents b nb t 
+neededexponents b nb t
   | null es = []
   | otherwise = S.toList es
-      where es =S.fromList( eTermsOf t ) `S.difference` (b `S.union` nb)
+      where es =S.fromList ( eTermsOf t ) `S.difference` (b `S.union` nb)
 
 neededexponentslist:: S.Set LNTerm -> S.Set LNTerm -> [LNTerm] -> Maybe (S.Set LNTerm)
 neededexponentslist b nb terms
@@ -263,15 +271,15 @@ rootIndUnknown n nb t = ( LIT (Var newv), [(newv, t)])
 
 
 isNoCanc :: LNTerm -> LNTerm -> Bool
-isNoCanc t1 t2 = case viewTerm2 t2 of 
+isNoCanc t1 t2 = case viewTerm2 t2 of
         DHOne -> True
         _ -> (case viewTerm2 t1 of --TODO: fix this case. 
               DHOne -> True
-              _ -> False) 
+              _ -> False)
 
 isDHTerm :: LNTerm -> Bool
 isDHTerm t = case viewTerm3 t of
-      MsgLit _ -> isOfDHSort t 
+      MsgLit _ -> isOfDHSort t
       MsgFApp _ _ -> False
       DH _ _ -> True
 
