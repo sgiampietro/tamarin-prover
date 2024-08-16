@@ -302,8 +302,8 @@ ppTheory msig = BC.unlines $
         , "eq tamXCdhMinus(tamXCdhZero) = tamXCdhZero ."
         , "eq tamXCdhMinus (tamXCdhPlus(X,Y)) = tamXCdhPlus((tamXCdhMinus(X)), (tamXCdhMinus(Y))) ."
         , "eq tamXCdhMinus( tamXCdhMinus(X)) = X ."
-        , "eq tamXCdhMult(tamXCdhZero, X) = tamXCdhZero ."
-        , "eq tamXCdhMult((tamXCdhMinus(X)), Y) = tamXCdhMinus( tamXCdhMult(X, Y)) ."
+        , "eq tamXCdhTimesE(tamXCdhZero, X) = tamXCdhZero ."
+        , "eq tamXCdhTimes((tamXCdhMinus(X)), Y) = tamXCdhMinus( tamXCdhTimes(X, Y)) ."
         ]
        else [])
     ++

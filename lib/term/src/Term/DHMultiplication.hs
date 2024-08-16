@@ -212,13 +212,18 @@ isDHLit :: LNTerm -> Bool
 isDHLit t@(viewTerm -> Lit (Var _)) = isOfDHSort t
 isDHLit _ = False
 
+compatibleLits :: LNTerm -> LNTerm -> Bool
+compatibleLits ta1 ta2 = sortCompare (sortOfLNTerm ta1) (sortOfLNTerm ta2) /= Nothing
+
+
+{-
 compatibleLits :: LNTerm -> LNTerm -> Maybe Bool
 compatibleLits ta1 ta2 = (if (sortCompare (sortOfLNTerm ta1) (sortOfLNTerm ta2) == Nothing) then Nothing else 
                             (case (isDHLit ta1, isDHLit ta2) of
                                   (True, True) ->  Just True
                                   (True, _ ) -> Just (sortCompare (sortOfLNTerm ta1) (sortOfLNTerm ta2) == Just GT)
                                   (_, True) -> Just (sortCompare (sortOfLNTerm ta1) (sortOfLNTerm ta2) == Just LT)
-                                  (_, _) -> Just False))
+                                  (_, _) -> Just False)) -}
 
 -- TODO: this function should actually return which indicators are needed too in the 
 -- case it's not computable. 
@@ -255,11 +260,11 @@ rootIndKnown b nb t@(viewTerm2 -> FdhMu t1) =  (FAPP (DHMult dhZeroSym) [])
 --  | otherwise = error ("this shouldn't happen" ++ show (t, b, nb) ++ "ops")
 -- rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Con t1))) = (LIT (Con t1))
 rootIndKnown b nb t@(viewTerm2 -> Lit2 (Var t1))
-  | S.member t nb = (FAPP (DHMult dhZeroSym) [])
+  | S.member t nb = (FAPP (DHMult dhOneSym) [])
   | S.member t b = (t)
   | otherwise  = t -- (if isPubGVar t then (FAPP (DHMult dhEgSym) []) else t) -- this is a G variable
-rootIndKnown b nb t@(viewTerm2 -> DHZero) = (FAPP (DHMult dhZeroSym) [])
-rootIndKnown b nb t@(viewTerm2 -> DHOne) = (FAPP (DHMult dhZeroSym) [])
+rootIndKnown b nb t@(viewTerm2 -> DHZero) = (FAPP (DHMult dhOneSym) [])
+rootIndKnown b nb t@(viewTerm2 -> DHOne) = (FAPP (DHMult dhOneSym) [])
 rootIndKnown b nb t@(viewTerm2 -> DHEg) = (FAPP (DHMult dhEgSym) [])
 rootIndKnown b nb _ = error "rootSet applied on non DH term'"
 
