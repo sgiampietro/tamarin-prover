@@ -582,14 +582,14 @@ solveNeeded rules x i = do
       False -> do
                 trace "IAMHEREYES" (insertNotBasisElem x)
                 --                
-                (ru, c, faConc) <- insertFreshNodeConcOut rules
+                --(ru, c, faConc) <- insertFreshNodeConcOut rules
                 --z1 <- freshLVar "Z1" LSortE
                 --let indx = fAppdhTimesE (x, LIT (Var z1) )
                 bset <- getM sBasis
                 nbset <- getM sNotBasis
                 -- somehow the below does not seem to be doing insertGoal (PremiseG (i, PremIdx 0) (kIFact x)) False ... !!
                 --(insertDHEdge False (c, faConc, kdhFact x,(i, PremIdx 0)) bset nbset)  --TODO: this should not be x, but x*Z1+Z2 (with adversary knowing Z1 and Z2). 
-                insertGoal (PremiseG (i, PremIdx 0) (kdhFact x)) False
+                insertGoal (PremiseG (i, PremIdx 0) (kIFact x)) False
                 -- return $ showRuleCaseName ru
                 --
                 --insertGoal (PremiseG (i, PremIdx 0) (kIFact x)) False 

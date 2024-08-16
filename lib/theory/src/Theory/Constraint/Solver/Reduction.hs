@@ -879,13 +879,16 @@ solveTermEqs splitStrat eqs0 =
 solveTermDHEqs ::  Bool -> SplitStrategy -> S.Set LNTerm -> S.Set LNTerm -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
 solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
         if ta1 == ta2 then (do return Unchanged) else (
-        case compatibleLits ta1 ta2 of 
-            Nothing    -> do 
-                            eqdhstore <- getM sEqStore
-                            setM sEqStore =<< return (set eqsConj falseEqConstrConj eqdhstore) -- =<< getM sEqStore
-                            noContradictoryEqStore
-                            return Changed
-            Just True  -> solveTermEqs splitStrat [(Equal ta1 ta2)]
+        --case compatibleLits ta1 ta2 of 
+        --    Nothing    -> do 
+        --                    eqdhstore <- getM sEqStore
+        --                    setM sEqStore =<< return (set eqsConj falseEqConstrConj eqdhstore) -- =<< getM sEqStore
+         --                   noContradictoryEqStore
+        --                    return Changed
+        --    Just True  -> solveTermEqs splitStrat [(Equal ta1 ta2)]
+        case (isDHLit ta1, isDHLit ta2) of
+            (True, _) | compatibleLits ta1 ta2 -> trace (show ("usualunification", ta1, ta2)) solveTermEqs splitStrat [(Equal ta1 ta2)]
+            (_, True) | compatibleLits ta1 ta2 ->  trace (show ("usualunification", ta1, ta2)) solveTermEqs splitStrat [(Equal ta1 ta2)]
             _          -> do
                         nocancs <- getM sNoCanc
                         case prodTerms ta1 of 
@@ -912,14 +915,18 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
                             _ -> error "TODO")
 solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
         if ta1 == ta2 then (do return Unchanged) else (
-        case compatibleLits ta1 ta2 of 
-            Nothing    -> do 
-                            eqdhstore <- getM sEqStore
-                            setM sEqStore =<< return (set eqsConj falseEqConstrConj eqdhstore) -- =<< getM sEqStore
-                            noContradictoryEqStore
-                            return Changed
-            Just True  -> trace (show ("usualunification", ta1, ta2)) solveTermEqs splitStrat [(Equal ta1 ta2)]
-            _          -> do
+        --case compatibleLits ta1 ta2 of 
+            --Nothing    -> do 
+            --                eqdhstore <- getM sEqStore
+            --                setM sEqStore =<< return (set eqsConj falseEqConstrConj eqdhstore) -- =<< getM sEqStore
+            --                noContradictoryEqStore
+            --                return Changed
+            --Just True  -> trace (show ("usualunification", ta1, ta2)) solveTermEqs splitStrat [(Equal ta1 ta2)]
+            --_          -> do
+        case (isDHLit ta1, isDHLit ta2) of
+            (True, _) | compatibleLits ta1 ta2 -> trace (show ("usualunification", ta1, ta2)) solveTermEqs splitStrat [(Equal ta1 ta2)]
+            (_, True) | compatibleLits ta1 ta2 ->  trace (show ("usualunification", ta1, ta2)) solveTermEqs splitStrat [(Equal ta1 ta2)]
+            _ -> do
                 nocancs <- getM sNoCanc
                 case prodTerms ta1 of 
                     Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
