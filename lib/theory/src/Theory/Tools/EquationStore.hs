@@ -232,15 +232,15 @@ addEqs hnd eqs0 eqStore =
     --trace ("DEBUG-ADDEQS:"++ show eqs) 
     (case unifyLNTermFactored eqs `runReader` hnd of
         (_, []) ->
-            (return (set eqsConj falseEqConstrConj eqStore, Nothing))
+            trace (show ("this is not good", eqs)) (return (set eqsConj falseEqConstrConj eqStore, Nothing))
         (subst, [substFresh]) | substFresh == emptySubstVFresh ->
-            (return (eqStore', Nothing))
+            trace (show ("just one", eqs)) (return (eqStore', Nothing))
               where eqStore' =(applyEqStore hnd subst eqStore)
             --return (applyEqStore hnd subst eqStore, Nothing)
         (subst, substs) -> do
             let (eqStore', sid) = addDisj (applyEqStore hnd subst eqStore)
                                           (S.fromList substs)
-            return (eqStore', Just sid)
+            trace (show ("mutliple case", eqs)) return (eqStore', Just sid)
             {-
             case splitStrat of
                 SplitLater ->
