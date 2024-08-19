@@ -18,6 +18,7 @@ module Term.DHMultiplication (
   , isRoot
   --, isOfDHSort
   , isDHTerm
+  --, isDHFact
   , isDHLit
   , compatibleLits
   , neededexponents
@@ -70,6 +71,7 @@ import           Term.Positions
 
 -- import           Theory.Model
 import Data.Bool (Bool)
+--import Theory.Model (getFactTerms)
 
 -- import           Debug.Trace
 
@@ -289,6 +291,9 @@ isDHTerm t = case viewTerm3 t of
       MsgLit _ -> isOfDHSort t
       MsgFApp _ _ -> False
       DH _ _ -> True
+
+--isDHFact :: LNFact -> Bool
+--isDHFact ft = all isDHTerm $ getFactTerms ft 
 
 {-
 isDHTerm :: LNTerm -> Bool

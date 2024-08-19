@@ -273,6 +273,12 @@ solveAction rules (i, fa@(Fact _ ann _)) =trace (show ("SEARCHING", fa, "END")) 
                             modM sNodes (M.insert i ru)
                             mapM_ requiresKU [a, b] *> return ru
             -- Distinguish DH term cases!!
+            _ | isDHFact fa                          -> do
+                   ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
+                   act <- disjunctionOfList (filter isDHFact $ get rActs ru)
+                   trace (show ("YSYZ", fa, act) ) (void (solveFactDHEqs True SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
+                   void substSystem
+                   return ru
             _                                        -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList $ get rActs ru
