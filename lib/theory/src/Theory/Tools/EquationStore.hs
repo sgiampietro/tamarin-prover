@@ -620,10 +620,16 @@ addDHProtoEqs hnd t1 indt eqdhstore =
             return (eqStore', Just sid)
   where
     eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
-    generaltup (c, cterm) = do 
-      w1 <- freshLVar "W" LSortVarG
-      v1 <- freshLVar "V" LSortVarE
-      return (c, fAppdhMult (fAppdhExp (cterm, LIT (Var v1)), LIT (Var w1)))
+    generaltup (c, cterm) = case (sortOfLNTerm cterm) of 
+      a | a == LSortE || (sortCompare a LSortE == Just LT) -> do 
+          w1 <- freshLVar "W" LSortVarE
+          v1 <- freshLVar "V" LSortVarE
+          return (c, fAppdhPlus (fAppdhTimesE (cterm, LIT (Var v1)), LIT (Var w1)))
+      a | a == LSortG || (sortCompare a LSortG == Just LT) -> do 
+          w1 <- freshLVar "W" LSortVarG
+          v1 <- freshLVar "V" LSortVarE
+          return (c, fAppdhMult (fAppdhExp (cterm, LIT (Var v1)), LIT (Var w1)))
+      _ -> error "generalizing substitution of sort different from G or E!"
     generalize sub = liftM substFromListVFresh $ mapM generaltup $ substToListVFresh sub
  
 

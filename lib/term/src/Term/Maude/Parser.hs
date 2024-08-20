@@ -56,6 +56,8 @@ ppLSort s = case s of
     LSortNode      -> "Node"
     LSortDH         -> "DH"
     LSortG         -> "G"
+    LSortVarG      -> "VarG"
+    LSortVarE      -> "VarE"
     LSortE         -> "E"
     LSortNZE       -> "NZE"
     LSortPubG       -> "BG"
@@ -74,6 +76,8 @@ ppLSortSym lsort = case lsort of
     LSortNZE       -> "nze"
     LSortPubG       -> "bg"
     LSortFrNZE     -> "fnze"
+    LSortVarG      -> "vg"
+    LSortVarE      -> "ve"
 
 parseLSortSym :: ByteString -> Maybe LSort
 parseLSortSym s = case s of
@@ -88,6 +92,8 @@ parseLSortSym s = case s of
     "nze"  -> Just LSortNZE
     "bg"   -> Just  LSortPubG
     "fnze"  -> Just LSortFrNZE
+    "vg"   -> Just LSortVarG
+    "ve"  ->  Just LSortVarE
     _    -> Nothing
 
 -- | Used to prevent clashes with predefined Maude function symbols
@@ -251,7 +257,9 @@ ppTheory msig = BC.unlines $
         , "  subsort E < DH ."
         , "  subsort NZE < E ."
         , "  subsort FrNZE < NZE ."
+        , "  subsort VarE < E ."
         , "  subsort BG < G ."
+        , "  subsort VarG < G ."
         , "  subsort DH < TOP ."
         , "  op dh : Nat -> DH ."
         , "  op g : Nat -> G ."
@@ -418,6 +426,8 @@ parseSort =  string "Pub"      *> return LSortPub
          <|> string "NZE"       *> return LSortNZE
          <|> string "BG"       *> return LSortPubG
          <|> string "FrNZE"       *> return LSortFrNZE
+         <|> string "VarE"       *> return LSortVarE
+         <|> string "VarG"       *> return LSortVarG
          <|> string "M"        *> -- FIXME: why?
                (    string "sg"  *> return LSortMsg )
 

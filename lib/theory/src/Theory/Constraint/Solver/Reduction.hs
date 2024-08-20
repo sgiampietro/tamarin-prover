@@ -901,11 +901,12 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
                             Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
                                           else do 
                                             hndNormal <- getMaudeHandle
-                                            let indt = trace (show ("THISISIND:TRUE", (runReader (rootIndKnownMaude bset nbset ta1) hndNormal))) (runReader (rootIndKnownMaude bset nbset x) hndNormal)
+                                            let indt = trace (show ("THISISIND:TRUE", (runReader (rootIndKnownMaude bset nbset x) hndNormal))) (runReader (rootIndKnownMaude bset nbset x) hndNormal)
         --    indtexp = fAppdhExp (indt, LIT (Var z1) )             -- z1 <- freshLVar "Z1" LSortE
                                             hnd <- getMaudeHandleDH -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
                                             se  <- gets id
-                                            (eqs2, maySplitId) <- addDHProtoEqs hnd ta2 indt =<< getM sEqStore
+                                            outterm <- disjunctionOfList (multRootList ta2)
+                                            (eqs2, maySplitId) <- addDHProtoEqs hnd outterm indt =<< getM sEqStore
                                             insertContIndProto ta2 ta1
                                             insertGoal (IndicatorGExp (ta1,ta2)) False
                                             setM sEqStore
