@@ -5,6 +5,7 @@ module Prover (
     module Prover
 ) where
 
+
 import           Prelude                             hiding (id, (.))
 
 import           Data.Maybe
@@ -258,7 +259,7 @@ proveTheory :: (Lemma IncrementalProof -> Bool)   -- ^ Lemma selector.
             -> ClosedTheory
             -> ClosedTheory
 proveTheory selector prover thy =
-    modify thyItems ((`MS.evalState` []) . mapM prove) thy
+  modify thyItems ((`MS.evalState` []) . mapM prove) thy
   where
     prove item = case item of
       LemmaItem l0 -> do l <- MS.gets (LemmaItem . proveLemma l0)

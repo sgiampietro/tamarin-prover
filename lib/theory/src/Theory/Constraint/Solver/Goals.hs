@@ -25,7 +25,7 @@ module Theory.Constraint.Solver.Goals (
   , plainOpenGoals
   ) where
 
-import           Debug.Trace
+import           Debug.Trace -- .Ignore
 
 import           Prelude                                 hiding (id, (.))
 
@@ -276,7 +276,7 @@ solveAction rules (i, fa@(Fact _ ann _)) =trace (show ("SEARCHING", fa, "END")) 
             _ | isDHFact fa                          -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList (filter isDHFact $ get rActs ru)
-                   trace (show ("YSYZ", fa, act) ) (void (solveFactDHEqs True SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
+                   (void (solveFactDHEqs True SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
                    void substSystem
                    return ru
             _                                        -> do
@@ -507,7 +507,7 @@ solveDHIndaux bset nbset terms p faPrem rules =
           --(DHEg) -> trace (show ("GotHERE")) return "attack"
           --(Lit2 t) | (isPubGVar (LIT t))  -> trace (show ("GotHERE")) return "attack"
           --_ -> do
-          (ru, c, faConc) <- trace (show ("ABCDEF", faPrem)) insertFreshNodeConcOut rules
+          (ru, c, faConc) <- insertFreshNodeConcOut rules
           insertDHEdge False (c, faConc, faPrem, p) bset nbset -- instead of root indicator this should be Y.ind^Z.
           return $ showRuleCaseName ru -- (return "done") 
 
@@ -524,7 +524,7 @@ solveDHIndProto rules p faPrem = do
       --if not (S.member (x,y) nocancs  || isNoCanc x y) then
       --        (error "TODO")
       --       else do
-      (ru, c, faConc) <-  trace (show ("GHIKF", faPrem)) insertFreshNodeConc rules
+      (ru, c, faConc) <-  insertFreshNodeConc rules
              --z1 <- freshLVar "Z1" LSortE
               --let indt = (runReader (rootIndKnownMaude (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) x) hnd)
               --    indtexp = fAppdhExp (indt, LIT (Var z1) )
