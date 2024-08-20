@@ -252,7 +252,7 @@ ppTheory msig = BC.unlines $
     ++
     (if enableDHMult msig
        then
-        [ "sort DH G E NZE BG FrNZE ."
+        [ "sort DH G E NZE BG FrNZE VarE VarG."
         , "  subsort G < DH ."
         , "  subsort E < DH ."
         , "  subsort NZE < E ."
@@ -267,6 +267,8 @@ ppTheory msig = BC.unlines $
         , "  op nze : Nat -> NZE ."
         , "  op Bg : Nat -> BG ."
         , "  op fnze : Nat -> FrNZE ."
+        , "  op vg : Nat -> VarG ."
+        , "  op ve : Nat -> VarE"
         , theoryOpDH "dhMult : G G -> G"
         , theoryOpEq "dhGinv : G -> G"
         , theoryOpEq "dhZero : -> E"
