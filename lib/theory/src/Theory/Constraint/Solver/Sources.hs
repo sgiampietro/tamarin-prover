@@ -108,7 +108,7 @@ initialSource ctxt restrictions goal =
         runReduction instantiate ctxt se0 (avoid (goal, se0))
     instantiate = do
         insertGoal goal False
-        solveGoal goal
+        trace (show ("ITSASOURCESONE!", goal)) $ solveGoal goal
 
 -- | Refine a source by applying the additional proof step.
 refineSource

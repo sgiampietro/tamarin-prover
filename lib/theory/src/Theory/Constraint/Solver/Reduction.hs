@@ -781,7 +781,7 @@ substGoals :: Reduction ChangeIndicator
 substGoals = do
     subst <- getM sSubst
     goals <- M.toList <$> getM sGoals
-    sGoals =: trace (show ("THESEARETHESUBSTS:", subst, goals)) M.empty
+    sGoals =: M.empty
     changes <- forM goals $ \(goal, status) -> case goal of
         -- Look out for KU-actions that might need to be solved again.
         ActionG i fa@(kFactView -> Just (UpK, m))
@@ -790,8 +790,7 @@ substGoals = do
         _ -> do modM sGoals $
                   M'.insertWith combineGoalStatus (apply subst goal) status
                 return Unchanged
-    goals2 <- M.toList <$> getM sGoals 
-    trace (show ("aftersubst", goals2)) return (mconcat changes)
+    return (mconcat changes)
 
 
 -- Conjoining two constraint systems
@@ -890,15 +889,11 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
         case (isDHLit ta1, isDHLit ta2) of
             (True, _) | compatibleLits ta1 ta2 -> do
                             trace (show ("usualunification", ta1, ta2)) solveTermEqs splitStrat [(Equal ta1 ta2)]
-                            mmm <- getM sEqStore
-                            mm2 <- getM sSubst
-                            trace (show ("thisiswhateqstoreisnow", mmm, mm2) ) $ void substSystem
+                            void substSystem
                             return Changed
             (_, True) | compatibleLits ta1 ta2 -> do
                             trace (show ("usualunification", ta1, ta2)) solveTermEqs splitStrat [(Equal ta1 ta2)]
-                            mmm <- getM sEqStore
-                            mm2 <- getM sSubst
-                            trace (show ("thisiswhateqstoreisnow", mmm, mm2) ) $ void substSystem
+                            void substSystem
                             return Changed
             _          -> do
                         nocancs <- getM sNoCanc
@@ -935,8 +930,14 @@ solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
             --Just True  -> trace (show ("usualunification", ta1, ta2)) solveTermEqs splitStrat [(Equal ta1 ta2)]
             --_          -> do
         case (isDHLit ta1, isDHLit ta2) of
-            (True, _) | compatibleLits ta1 ta2 -> trace (show ("usualunification", ta1, ta2)) solveTermEqs splitStrat [(Equal ta1 ta2)]
-            (_, True) | compatibleLits ta1 ta2 ->  trace (show ("usualunification", ta1, ta2)) solveTermEqs splitStrat [(Equal ta1 ta2)]
+            (True, _) | compatibleLits ta1 ta2 -> do
+                                                trace (show ("usualunification", ta1, ta2)) $ solveTermEqs splitStrat [(Equal ta1 ta2)]
+                                                void substSystem
+                                                return Changed
+            (_, True) | compatibleLits ta1 ta2 ->  do
+                                                trace (show ("usualunification", ta1, ta2)) $ solveTermEqs splitStrat [(Equal ta1 ta2)]
+                                                void substSystem
+                                                return Changed
             _ -> do
                 nocancs <- getM sNoCanc
                 case prodTerms ta1 of 
@@ -1008,7 +1009,7 @@ solveFactDHEqs b split fa1 fa2 bset nbset
           --      outterm <- disjunctionOfList (multRootList t)
     | otherwise = do
             contradictoryIf (not (factTag fa1 == OutFact) && (factTag fa2 == KdhFact) )
-            trace (show ("PGQD", fa1, fa2)) $ solveListDHEqs (solveTermDHEqs b split bset nbset) $ zip (factTerms fa2) (factTerms fa1)
+            solveListDHEqs (solveTermDHEqs b split bset nbset) $ zip (factTerms fa2) (factTerms fa1)
          -- but be careful because that should hold only for G terms. E terms should be handled differrently.
 
 
