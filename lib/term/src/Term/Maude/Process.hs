@@ -147,10 +147,11 @@ getToDelim ih =
   where
     go !acc = do
         bs <- BC.append acc <$> B.hGetSome ih 8096
-        case BC.breakSubstring mDelim bs of
-            (before, after) | after == mDelim -> return before
-            (_,      after) | after == ""     -> go bs
-            _  -> error $ "Too much maude output" ++ BC.unpack bs
+        trace (show ("SHERLOCK'SBACK!:", bs)) $ (
+            case BC.breakSubstring mDelim bs of
+                (before, after) | after == mDelim -> return before
+                (_,      after) | after == ""     -> go bs
+                _  -> error $ "Too much maude output" ++ BC.unpack bs)
     mDelim = "Maude> "
 
 -- | @callMaude cmd@ sends the command @cmd@ to Maude and returns Maude's
@@ -172,7 +173,7 @@ callMaude hnd updateStatistics cmd = do
         hFlush  inp
         mp' <- evaluate (updateStatistics mp)
         res <- getToDelim out
-        return (mp', res)
+        trace (show ("THISISBEINGSENTRECV", cmd, out, res))$ return (mp', res)
 
 -- | Compute a result via Maude.
 computeViaMaude ::
