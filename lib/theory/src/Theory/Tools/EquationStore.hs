@@ -72,7 +72,7 @@ import           Control.Monad.Reader
 import           Extension.Prelude
 import           Utils.Misc
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Control.Basics
 import           Control.DeepSeq
@@ -232,15 +232,15 @@ addEqs hnd eqs0 eqStore =
     --trace ("DEBUG-ADDEQS:"++ show eqs) 
     (case unifyLNTermFactored eqs `runReader` hnd of
         (_, []) ->
-            trace (show ("this is not good", eqs)) (return (set eqsConj falseEqConstrConj eqStore, Nothing))
+            (return (set eqsConj falseEqConstrConj eqStore, Nothing))
         (subst, [substFresh]) | substFresh == emptySubstVFresh ->
-            trace (show ("just one", eqs)) (return (eqStore', Nothing))
+            (return (eqStore', Nothing))
               where eqStore' =(applyEqStore hnd subst eqStore)
             --return (applyEqStore hnd subst eqStore, Nothing)
         (subst, substs) -> do
             let (eqStore', sid) = addDisj (applyEqStore hnd subst eqStore)
                                           (S.fromList substs)
-            trace (show ("mutliple case", eqs)) return (eqStore', Just sid)
+            return (eqStore', Just sid)
             {-
             case splitStrat of
                 SplitLater ->
@@ -582,14 +582,14 @@ addDHEqs :: MonadFresh m
 addDHEqs hnd t1 indt eqdhstore =
     case unifyLNDHTermFactored eqs `runReader` hnd of
         (_, []) ->
-            trace (show ("NO UNIFIER", indt, t1, eqs, sortOfLNTerm indt, sortOfLNTerm t1)) (return (set eqsConj falseEqConstrConj eqdhstore, Nothing))
+            (return (set eqsConj falseEqConstrConj eqdhstore, Nothing))
         (subst, [substFresh]) | substFresh == emptySubstVFresh ->
-            trace (show ("SOME UNIFIER?", indt, t1)) (return (eqdhStore', Nothing))
+            (return (eqdhStore', Nothing))
               where eqdhStore' =(applyEqStore hnd subst eqdhstore)
         (subst, substs) -> do
             let (eqStore', sid) = addDisj (applyEqStore hnd subst eqdhstore)
                                           (S.fromList substs)
-            trace (show ("SOME UNIFIER2?", indt, t1)) (return (eqStore', Just sid))
+            (return (eqStore', Just sid))
   where
     eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
 
@@ -617,14 +617,15 @@ addDHProtoEqs hnd t1 indt eqdhstore =
             return (eqdhstore, Nothing)
         substs -> do
             (eqStore', sid) <- liftM (addDisj eqdhstore) (liftM S.fromList (mapM generalize substs)) -- TODO: fix this!!
-            return (eqStore', Just sid)
+            trace (show ("eqStore' now: ", eqStore', sid)) return (eqStore', Just sid)
   where
     eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
     generaltup (c, cterm) = case (sortOfLNTerm cterm) of 
       a | a == LSortE || (sortCompare a LSortE == Just LT) -> do 
-          w1 <- freshLVar "W" LSortVarE
-          v1 <- freshLVar "V" LSortVarE
-          return (c, fAppdhPlus (fAppdhTimesE (cterm, LIT (Var v1)), LIT (Var w1)))
+          w1 <- freshLVar "yk" LSortVarE
+          v1 <- freshLVar "zk" LSortVarE
+          trace (show ("gentup:", v1, w1)) $ return (c, fAppdhPlus (fAppdhTimesE (cterm, varTerm v1), varTerm w1))
+          -- return (c, fAppdhTimesE (cterm, fAppdhOne))
       a | a == LSortG || (sortCompare a LSortG == Just LT) -> do 
           w1 <- freshLVar "W" LSortVarG
           v1 <- freshLVar "V" LSortVarE

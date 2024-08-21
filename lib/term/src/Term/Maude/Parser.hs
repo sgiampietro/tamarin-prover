@@ -337,7 +337,7 @@ ppTheory msig = BC.unlines $
     theoryOpDH fsort =
         "  op " <> funSymPrefix <> maybeEncode (Just (Public,Constructor)) <> fsort <>" [comm assoc] ."
     --theoryDH fsort = "  op " <> fsort <>" ."
-    theoryDH = theoryOp (Just (Private,Constructor))
+    --theoryDH = theoryOp (Just (Private,Constructor))
     theoryOpEq = theoryOp (Just (Public,Constructor))
     theoryOpAC = theoryOp Nothing
     theoryOpC  = theoryOp Nothing

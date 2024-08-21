@@ -907,17 +907,18 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
                                             se  <- gets id
                                             outterm <- disjunctionOfList (multRootList ta2)
                                             (eqs2, maySplitId) <- addDHProtoEqs hnd outterm indt =<< getM sEqStore
+                                            trace (show ("EQSTORE AFTER ADDDHPROTOEQS", eqs2)) $ setM sEqStore eqs2
+                                                -- =<< simp hnd (substCreatesNonNormalTerms hnd se)
+                                                -- =<< case (maySplitId, splitStrat) of
+                                                --    (Just splitId, SplitNow) -> disjunctionOfList  $ fromJustNote "solveTermEqs" $ performSplit eqs2 splitId
+                                                --    (Just splitId, SplitLater) -> do
+                                                --            insertGoal (SplitG splitId) False
+                                                --            return eqs2
+                                                --    _        -> return eqs2
+                                            noContradictoryEqStore
+                                            void substSystem
                                             insertContIndProto ta2 ta1
                                             insertGoal (IndicatorGExp (ta1,ta2)) False
-                                            setM sEqStore
-                                                =<< simp hnd (substCreatesNonNormalTerms hnd se)
-                                                =<< case (maySplitId, splitStrat) of
-                                                    (Just splitId, SplitNow) -> disjunctionOfList  $ fromJustNote "solveTermEqs" $ performSplit eqs2 splitId
-                                                    (Just splitId, SplitLater) -> do
-                                                            insertGoal (SplitG splitId) False
-                                                            return eqs2
-                                                    _        -> return eqs2
-                                            noContradictoryEqStore
                                             return Changed
                             _ -> error "TODO")
 solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
