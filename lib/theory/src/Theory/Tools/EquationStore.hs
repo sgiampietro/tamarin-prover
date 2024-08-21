@@ -617,6 +617,7 @@ addDHProtoEqs hnd t1 indt eqdhstore =
             return (eqdhstore, Nothing)
         substs -> do
             (eqStore', sid) <- liftM (addDisj eqdhstore) (liftM S.fromList (mapM generalize substs)) -- TODO: fix this!!
+            -- TODO: instead of adding disjunctions here, need to directly add them as substitutions!
             trace (show ("eqStore' now: ", eqStore', sid)) return (eqStore', Just sid)
   where
     eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
@@ -632,7 +633,7 @@ addDHProtoEqs hnd t1 indt eqdhstore =
           return (c, fAppdhMult (fAppdhExp (cterm, LIT (Var v1)), LIT (Var w1)))
       _ -> error "generalizing substitution of sort different from G or E!"
     generalize sub = liftM substFromListVFresh $ mapM generaltup $ substToListVFresh sub
- 
+    -- TODO: transform these "fresh" substitutons into Free ones!!
 
 
 ------------------------------------------------------------------------------
