@@ -616,11 +616,16 @@ addDHProtoEqs hnd t1 indt eqdhstore =
         [substFresh] | substFresh == emptySubstVFresh ->
             return (eqdhstore, Nothing)
         substs -> do
-            (eqStore', sid) <- liftM (addDisj eqdhstore) (liftM S.fromList (mapM generalize substs)) -- TODO: fix this!!
+            substs' <- mapM generalize substs
+            let  eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs' ) eqdhstore
+            --(eqStore', sid) <- liftM (addDisj eqdhstore) (liftM S.fromList (mapM generalize substs)) -- TODO: fix this!!
             -- TODO: instead of adding disjunctions here, need to directly add them as substitutions!
-            trace (show ("eqStore' now: ", eqStore', sid)) return (eqStore', Just sid)
+            trace (show ("eqStore' now: ", eqStore')) return (eqStore', Nothing)
   where
     eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
+    addsubsts sub eqst= applyEqStore hnd sub eqst
+    changeqstore [x] eq = addsubsts x eq
+    changeqstore (x:xs) eq = changeqstore xs (addsubsts x eq)
     generaltup (c, cterm) = case (sortOfLNTerm cterm) of 
       a | a == LSortE || (sortCompare a LSortE == Just LT) -> do 
           w1 <- freshLVar "yk" LSortVarE
