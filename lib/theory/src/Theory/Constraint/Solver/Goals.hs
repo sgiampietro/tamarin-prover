@@ -121,7 +121,7 @@ openGoals sys = do
         NoCancG _ -> not solved
         NeededG _ _ -> not solved
         IndicatorG _ -> not solved
-        IndicatorGExp _ -> not solved
+        IndicatorGExp _ _ -> not solved
 
     let
         useful = case goal of
@@ -232,7 +232,7 @@ solveGoal goal = do
       NoCancG (t1, t2) -> solveNoCanc t1 t2
       NeededG x i    -> solveNeeded (get crProtocol rules) x i
       IndicatorG (t1, t2) -> solveIndicator t1 t2
-      IndicatorGExp (t1, t2) -> solveIndicatorProto t1 t2 -- todo do we also need the basis sets here?
+      IndicatorGExp nb (t1, t2) -> solveIndicatorProto nb t1 t2 -- todo do we also need the basis sets here?
 
 -- The following functions are internal to 'solveGoal'. Use them with great
 -- care.
@@ -557,11 +557,11 @@ solveIndicator t1 t2  = do
       --rules = M.elems irules
       --terms = t1:([concatMap enumConcsDhOut rules])
 
-solveIndicatorProto :: LNTerm -> LNTerm -> Reduction String
-solveIndicatorProto t1 t2 = do 
-  case (solveIndicatorGaussProto ([]) t1 t2) of 
+solveIndicatorProto :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
+solveIndicatorProto nb t1 t2 = do 
+  case (solveIndicatorGaussProto nb t1 t2) of 
    Just subst ->  do 
-        markGoalAsSolved ("Found exponent with:" ++ show subst) (IndicatorGExp (t1, t2))
+        markGoalAsSolved ("Found exponent with:" ++ show subst) (IndicatorGExp nb (t1, t2))
         eqStore <- getM sEqStore
         hnd  <- getMaudeHandle
         setM sEqStore $ applyEqStore hnd (substFromList subst) eqStore
