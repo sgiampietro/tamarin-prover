@@ -190,7 +190,7 @@ oneIfOne _ = fAppdhZero
 createMatrixProto :: [LNTerm] -> LNTerm -> LNTerm -> (LNTerm, LNTerm, Matrix LNTerm)
 createMatrixProto nb term target = 
     let (nbexp, vars) = allNBExponents nb (allExponentsOf [term] target)
-        (z1,(w1,term2)) = trace (show ("stripvars on", term)) $ stripVars term
+        (z1,(w1,term2)) = trace (show ("stripvars on", term, nb, nbexp, vars)) $ stripVars term
         polynomial = parseToMap vars term2 -- this term now contains the introduced W and V variables. 
         targetpoly = parseToMap vars target
         allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetpoly):[Map.keys polynomial])
