@@ -627,16 +627,15 @@ addDHProtoEqs hnd t1 indt eqdhstore =
     changeqstore [x] eq = addsubsts x eq
     changeqstore (x:xs) eq = changeqstore xs (addsubsts x eq)
     generaltup (c, cterm) = case (sortOfLNTerm cterm) of 
-      a | a == LSortE || (sortCompare a LSortE == Just LT) -> do 
+      a | a == LSortE  -> do 
           w1 <- freshLVar "yk" LSortVarE
           v1 <- freshLVar "zk" LSortVarE
           trace (show ("gentup:", v1, w1)) $ return (c, fAppdhPlus (fAppdhTimesE (cterm, varTerm v1), varTerm w1))
-          -- return (c, fAppdhTimesE (cterm, fAppdhOne))
-      a | a == LSortG || (sortCompare a LSortG == Just LT) -> do 
+      a | a == LSortG  -> do 
           w1 <- freshLVar "W" LSortVarG
           v1 <- freshLVar "V" LSortVarE
           return (c, fAppdhMult (fAppdhExp (cterm, LIT (Var v1)), LIT (Var w1)))
-      _ -> error "generalizing substitution of sort different from G or E!"
+      _ -> return (c, cterm)
     generalize sub = liftM substFromListVFresh $ mapM generaltup $ substToListVFresh sub
     -- TODO: transform these "fresh" substitutons into Free ones!!
 
