@@ -592,7 +592,7 @@ markGoalAsSolved how goal =
       NoCancG _       -> modM sGoals $ M.delete goal
       NeededG _ _       -> modM sGoals $ M.delete goal
       IndicatorG _       -> modM sGoals $ M.delete goal
-      IndicatorGExp _       -> modM sGoals $ M.delete goal
+      IndicatorGExp _ _      -> modM sGoals $ M.delete goal
   where
     updateStatus = do
         mayStatus <- M.lookup goal <$> getM sGoals
@@ -919,7 +919,7 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
                                             noContradictoryEqStore
                                             void substSystem
                                             insertContIndProto ta2 ta1
-                                            insertGoal (IndicatorGExp (ta1,ta2)) False
+                                            insertGoal (IndicatorGExp (S.toList nbset) (ta2,ta1)) False
                                             return Changed
                             _ -> error "TODO")
 solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
