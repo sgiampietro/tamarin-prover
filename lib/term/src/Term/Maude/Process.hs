@@ -62,7 +62,7 @@ import System.IO
 import Utils.Misc
 -- import Extension.Data.Monoid
 
-import Debug.Trace
+import Debug.Trace.Ignore
 
 
 -- Unification using a persistent Maude process
@@ -147,7 +147,7 @@ getToDelim ih =
   where
     go !acc = do
         bs <- BC.append acc <$> B.hGetSome ih 8096
-        trace (show ("SHERLOCK'SBACK!:", bs)) $ (
+        trace (show (bs)) $ (
             case BC.breakSubstring mDelim bs of
                 (before, after) | after == mDelim -> return before
                 (_,      after) | after == ""     -> go bs

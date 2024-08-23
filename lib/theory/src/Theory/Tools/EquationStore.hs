@@ -620,21 +620,21 @@ addDHProtoEqs hnd t1 indt eqdhstore =
             let  eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs' ) eqdhstore
             --(eqStore', sid) <- liftM (addDisj eqdhstore) (liftM S.fromList (mapM generalize substs)) -- TODO: fix this!!
             -- TODO: instead of adding disjunctions here, need to directly add them as substitutions!
-            trace (show ("eqStore' now: ", eqStore')) return (eqStore', Nothing)
+            trace (show ("whatwegetsherlock:", map substToListVFresh substs)) return (eqStore', Nothing)
   where
     eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
     addsubsts sub eqst= applyEqStore hnd sub eqst
     changeqstore [x] eq = addsubsts x eq
     changeqstore (x:xs) eq = changeqstore xs (addsubsts x eq)
-    generaltup (c, cterm) = case (sortOfLNTerm cterm) of 
+    generaltup (c, cterm) = case (sortOfLNTerm (varTerm c)) of 
       a | a == LSortE  -> do 
           w1 <- freshLVar "yk" LSortVarE
           v1 <- freshLVar "zk" LSortVarE
           trace (show ("gentup:", v1, w1)) $ return (c, fAppdhPlus (fAppdhTimesE (cterm, varTerm v1), varTerm w1))
       a | a == LSortG  -> do 
-          w1 <- freshLVar "W" LSortVarG
-          v1 <- freshLVar "V" LSortVarE
-          return (c, fAppdhMult (fAppdhExp (cterm, LIT (Var v1)), LIT (Var w1)))
+          w1 <- freshLVar "wk" LSortVarG
+          v1 <- freshLVar "vk" LSortVarE
+          return (c, fAppdhMult (fAppdhExp (cterm,varTerm v1), varTerm w1))
       _ -> return (c, cterm)
     generalize sub = liftM substFromListVFresh $ mapM generaltup $ substToListVFresh sub
     -- TODO: transform these "fresh" substitutons into Free ones!!
