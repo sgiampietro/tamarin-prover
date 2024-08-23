@@ -286,7 +286,7 @@ ppTheory msig = BC.unlines $
         , "vars A B : G . "
         , "vars X Y Z : E ."
         , "vars U V : NZE ."
-        , "eq tamXCdhMult(A, tamXCdhEg(A)) = A ."
+        , "eq tamXCdhMult(A, tamXCdhEg) = A ."
         , "eq tamXCdhMult(A, tamXCdhGinv (A)) = tamXCdhEg ."
         , "eq tamXCdhPlus(X , tamXCdhZero) = X ."
         , "eq tamXCdhTimesE(X , tamXCdhOne) = X ."

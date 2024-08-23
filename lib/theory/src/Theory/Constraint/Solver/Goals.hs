@@ -573,7 +573,10 @@ solveIndicatorProto nb t1 t2 = do
         setM sEqStore $ applyEqStore hnd (substFromList $ normalizeSubstList hnd subst) eqStore
         --substCheck <- gets (substCreatesNonNormalTerms hnd)
         --store <- getM sEqStore
-        --store'     <- simp hnd substCheck store
+        --store'     <- simp hnd substCheck store 
+        void substSystem
+        nodes <- getM sNodes
+        setM sNodes $ M.map (\r -> runReader (normRule r) hnd) nodes
         return ("Matched" ++ show (normalizeSubstList hnd subst))
    Nothing -> return "Contradiction! Cannot find exponent"
   where 
