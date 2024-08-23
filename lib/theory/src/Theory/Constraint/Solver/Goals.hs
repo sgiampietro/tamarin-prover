@@ -25,7 +25,7 @@ module Theory.Constraint.Solver.Goals (
   , plainOpenGoals
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Prelude                                 hiding (id, (.))
 
@@ -276,7 +276,7 @@ solveAction rules (i, fa@(Fact _ ann _)) =trace (show ("SEARCHING", fa, "END")) 
             _ | isDHFact fa                          -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList (filter isDHFact $ get rActs ru)
-                   (void (solveFactDHEqs True SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
+                   trace (show ("ruleandnbset", ru,(notBasisOfRule ru)) ) (void (solveFactDHEqs True SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
                    void substSystem
                    return ru
             _                                        -> do
