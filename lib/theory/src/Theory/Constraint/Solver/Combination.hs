@@ -80,7 +80,7 @@ combineMaps key oldvalue newvalue = simplifyraw $ fAppdhPlus (oldvalue,newvalue)
 coeffTermsOf :: LNTerm -> LNTerm -> LNTerm 
 coeffTermsOf t@(LIT l) vart
   | t == vart = fAppdhOne
-  | otherwise = fAppdhZero
+  | otherwise = t
 coeffTermsOf t@(FAPP (DHMult o) ts) vart =     case ts of 
     [ t1, t2 ] | o == dhPlusSym   -> error $ "term not in normal form?: `"++show t++"'"
     [ t1, t2 ] | o == dhTimesESym   -> simplifyraw $ fAppdhTimesE ( coeffTermsOf t1 vart, coeffTermsOf t2 vart)
@@ -187,6 +187,7 @@ stripVars var t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhPlusSym   -> simplifyraw $ fAppdhPlus (stripVars var t1, stripVars var t2)
     [ t1, t2 ] | o == dhTimesESym   -> if (elem var (varTermsOf t)) then (coeffTermsOf t var) else fAppdhZero 
     [ t1, t2 ] | o == dhTimesSym   -> if (elem var (varTermsOf t)) then (coeffTermsOf t var) else fAppdhZero 
+    [ t1 ]     | o == dhMinusSym   -> simplifyraw $ fAppdhMinus (stripVars var t1)
     _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
 
 constCoeff :: LNTerm -> LNTerm -- (coeff of X, coeff of Y, constant factor)
@@ -195,6 +196,7 @@ constCoeff t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhPlusSym   -> simplifyraw $ fAppdhPlus (constCoeff t1, constCoeff t2)
     [ t1, t2 ] | o == dhTimesESym   -> if (null $ varTermsOf t ) then t else fAppdhZero 
     [ t1, t2 ] | o == dhTimesSym   -> if (null $ varTermsOf t) then t else fAppdhZero 
+    [ t1 ]     | o == dhMinusSym   -> simplifyraw $ fAppdhMinus (constCoeff t1)
     _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
 
 
@@ -211,13 +213,14 @@ createMatrixProto nb term target =
     let (nbexp, vars) = allNBExponents nb (allExponentsOf [term] target)
         matrixvars = getVariablesOf [term, target]
         (coeffX, coeffY, const) = splitVars matrixvars term
-        polynomials = [parseToMap vars coeffX, parseToMap vars coeffY, parseToMap vars const] -- this term now contains the introduced W and V variables. 
-        targetpoly = parseToMap vars target
+        polynomials = [parseToMap vars coeffX, parseToMap vars coeffY] -- this term now contains the introduced W and V variables. 
+        targetpoly = parseToMap vars (simplifyraw $ fAppdhPlus(target, simplifyraw $ fAppdhMinus const))
         allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetpoly):(map Map.keys polynomials))
+        resultmatrix = map (\key -> ((map (\p -> getvalue p key) polynomials )++ [getvalue targetpoly key])) allkeys
         -- allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetpoly):[Map.keys polynomial])
         -- row = map( \i -> getvalue targetpoly i) allkeys 
     in 
-  (matrixvars, map (\key -> ((map (\p -> getvalue p key) polynomials )++ [getvalue targetpoly key])) allkeys)
+  trace (show ("OBTAINEDMATRIX!!:", matrixvars, resultmatrix, allkeys)) (matrixvars, resultmatrix)
 -- w1 is multiplied term, z1 is the summed term. 
 
 
