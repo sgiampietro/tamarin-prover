@@ -916,11 +916,12 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
                                                             insertGoal (SplitG splitId) False
                                                             return eqs2
                                                         _        -> return eqs2
+                                            eq3 <- getM sEqStore
                                             noContradictoryEqStore
-                                            void substSystem
-                                            insertContIndProto ta2 ta1
+                                            trace (show ("beforesusbst", ta2,ta1,eq3) ) $ insertContIndProto ta2 ta1
                                             insertGoal (IndicatorGExp (S.toList nbset) (ta2,ta1)) False
-                                            return Changed
+                                            void substSystem
+                                            trace (show ("aftersusbst", ta2,ta1,eq3) ) $ return Changed
                             _ -> error "TODO")
 solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
         if ta1 == ta2 then (do return Unchanged) else (
