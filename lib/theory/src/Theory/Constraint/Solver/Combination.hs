@@ -77,6 +77,17 @@ combineMaps :: LNTerm -> LNTerm -> LNTerm -> LNTerm
 combineMaps key oldvalue newvalue = simplifyraw $ fAppdhPlus (oldvalue,newvalue)
 
 
+coeffTermsOf :: LNTerm -> LNTerm -> LNTerm 
+coeffTermsOf t@(LIT l) vart
+  | t == vart = fAppdhOne
+  | otherwise = fAppdhZero
+coeffTermsOf t@(FAPP (DHMult o) ts) vart =     case ts of 
+    [ t1, t2 ] | o == dhPlusSym   -> error $ "term not in normal form?: `"++show t++"'"
+    [ t1, t2 ] | o == dhTimesESym   -> simplifyraw $ fAppdhTimesE ( coeffTermsOf t1 vart, coeffTermsOf t2 vart)
+    [ t1, t2 ] | o == dhTimesSym   -> simplifyraw $ fAppdhTimesE ( coeffTermsOf t1 vart, coeffTermsOf t2 vart)
+    _                               -> error $ "term not in normal form?: `"++show t++"'"
+
+
 -- THIS FUNCTION ASSUMES THAT THE INPUT TERMS ARE IN NORMAL FORM, i.e. 
 -- EACH MONOMIAL (which we assume of type E) is of the form 
 -- "(m1+m2+...+mk)" where mi = (e1*e2*...*el), and ei are either literals or inv(lit).
@@ -151,7 +162,7 @@ createMatrix nb terms target =
         allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetpoly):(map Map.keys polynomials))
         -- row = map( \i -> getvalue targetpoly i) allkeys 
     in 
-  trace (show ("THIS IS THE MATRIX I GET, vars, targetpoly, polynoimals, allkey ",nb,vars, targetpoly, polynomials, allkeys)) (map (\key -> ((map (\p -> getvalue p key) polynomials )++ [getvalue targetpoly key])) allkeys) -- todo: double check if row/column is ok or needs to be switched
+  (map (\key -> ((map (\p -> getvalue p key) polynomials )++ [getvalue targetpoly key])) allkeys) -- todo: double check if row/column is ok or needs to be switched
 
 
 
@@ -169,41 +180,50 @@ getVariablesOf :: [LNTerm] -> [LNTerm]
 getVariablesOf tis =
   S.toList (S.unions $ map (S.fromList . varTermsOf) tis) 
 
-stripVarsProd :: LNTerm -> (LNTerm, LNTerm)
-stripVarsProd t@(LIT l) = error "this shouldn't happen" 
-stripVarsProd t@(FAPP (DHMult o) ts) = case ts of
-    [ t1, t2 ] | o == dhTimesSym   -> if isvarEVar t1 then (t1,t2) else (t2,t1)
-    [ t1, t2 ] | o == dhTimesESym   -> if isvarEVar t1 then (t1,t2) else (t2,t1)
+
+stripVars :: LNTerm -> LNTerm -> LNTerm -- (coeff of X, coeff of Y, constant factor)
+stripVars var t@(LIT l) = if (t == var) then fAppdhOne else fAppdhZero
+stripVars var t@(FAPP (DHMult o) ts) = case ts of
+    [ t1, t2 ] | o == dhPlusSym   -> simplifyraw $ fAppdhPlus (stripVars var t1, stripVars var t2)
+    [ t1, t2 ] | o == dhTimesESym   -> if (elem var (varTermsOf t)) then (coeffTermsOf t var) else fAppdhZero 
+    [ t1, t2 ] | o == dhTimesSym   -> if (elem var (varTermsOf t)) then (coeffTermsOf t var) else fAppdhZero 
     _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
 
-stripVars :: LNTerm -> (LNTerm, (LNTerm, LNTerm)) -- summed var, (multiplied var, term)
-stripVars t@(LIT l) = error "this shouldn't happen" 
-stripVars t@(FAPP (DHMult o) ts) = case ts of
-    [ t1, t2 ] | o == dhPlusSym   -> if isvarEVar t1 then (t1, stripVarsProd t2) else (t2, stripVarsProd t1)
+constCoeff :: LNTerm -> LNTerm -- (coeff of X, coeff of Y, constant factor)
+constCoeff t@(LIT l) = if (isvarGVar t || isvarEVar t) then fAppdhZero else fAppdhOne
+constCoeff t@(FAPP (DHMult o) ts) = case ts of
+    [ t1, t2 ] | o == dhPlusSym   -> simplifyraw $ fAppdhPlus (constCoeff t1, constCoeff t2)
+    [ t1, t2 ] | o == dhTimesESym   -> if (null $ varTermsOf t ) then t else fAppdhZero 
+    [ t1, t2 ] | o == dhTimesSym   -> if (null $ varTermsOf t) then t else fAppdhZero 
     _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
 
+
+splitVars :: [LNTerm] -> LNTerm -> (LNTerm, LNTerm, LNTerm) -- (coeff of X, coeff of Y, constant factor)
+splitVars [v1,v2] t = (stripVars v1 t, stripVars v2 t, constCoeff t )
+-- stripVars nbset t = stripVarsAux nbset t (fAppdhZero, [])
 
 oneIfOne :: LNTerm -> LNTerm
 oneIfOne fAppdhOne = fAppdhOne
 oneIfOne _ = fAppdhZero
 
-createMatrixProto :: [LNTerm] -> LNTerm -> LNTerm -> (LNTerm, LNTerm, Matrix LNTerm)
+createMatrixProto :: [LNTerm] -> LNTerm -> LNTerm -> ([LNTerm], Matrix LNTerm)
 createMatrixProto nb term target = 
     let (nbexp, vars) = allNBExponents nb (allExponentsOf [term] target)
-        (z1,(w1,term2)) = trace (show ("stripvars on", term, nb, nbexp, vars)) $ stripVars term
-        polynomial = parseToMap vars term2 -- this term now contains the introduced W and V variables. 
+        matrixvars = getVariablesOf [term, target]
+        (coeffX, coeffY, const) = splitVars matrixvars term
+        polynomials = [parseToMap vars coeffX, parseToMap vars coeffY, parseToMap vars const] -- this term now contains the introduced W and V variables. 
         targetpoly = parseToMap vars target
-        allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetpoly):[Map.keys polynomial])
+        allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetpoly):(map Map.keys polynomials))
+        -- allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetpoly):[Map.keys polynomial])
         -- row = map( \i -> getvalue targetpoly i) allkeys 
     in 
-  (w1, z1, map (\key -> ( getvalue polynomial key):(oneIfOne key):[getvalue targetpoly key]) allkeys) -- todo: double check if row/column is ok or needs to be switched
-
+  (matrixvars, map (\key -> ((map (\p -> getvalue p key) polynomials )++ [getvalue targetpoly key])) allkeys)
 -- w1 is multiplied term, z1 is the summed term. 
 
 
 solveIndicatorGaussProto :: [LNTerm] -> LNTerm -> LNTerm -> Maybe [(LVar, LNTerm)]
 solveIndicatorGaussProto nb term target = 
-    let (w1, z2, matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)
+    let ([w1, z2], matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)
         solution = solveMatrix fAppdhZero matriz
     in
   case solution of 
