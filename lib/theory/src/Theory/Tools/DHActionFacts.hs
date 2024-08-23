@@ -56,13 +56,13 @@ import qualified Extension.Data.Label  as L
 
 
 basisOfRule :: Rule i -> [LNTerm]
-basisOfRule ru = concatMap eTermsOf (enumInTerms ru)
+basisOfRule ru = [] -- concatMap eTermsOf (enumInTerms ru)
 
 notBasisOfRule :: Rule i -> [LNTerm]
 notBasisOfRule ru = concatMap eTermsOf (enumNotInTerms ru)
 
 enumInTerms :: Rule i -> [LNTerm]
-enumInTerms ru = concat [ factTerms fa  | (i,fa) <- enumPrems ru, factTag fa == InFact ]
+enumInTerms ru = concat [ factTerms fa  | (i,fa) <- enumPrems ru ] -- , factTag fa == InFact ]
 
 enumNotInTerms :: Rule i -> [LNTerm]
-enumNotInTerms ru = concat [ factTerms fa  | (i,fa) <- enumPrems ru, factTag fa /= InFact ]
+enumNotInTerms ru = concat [ factTerms fa  | (i,fa) <- enumPrems ru] -- , factTag fa /= InFact ]
