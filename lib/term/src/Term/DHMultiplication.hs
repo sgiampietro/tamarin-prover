@@ -20,6 +20,7 @@ module Term.DHMultiplication (
   , isDHTerm
   --, isDHFact
   , isDHLit
+  -- , isVarEGTerm
   , compatibleLits
   , neededexponents
   , neededexponentslist
@@ -195,6 +196,8 @@ eTermsOf t@(LIT l)
 eTermsOf t@(FAPP f ts) = concatMap eTermsOf ts
 
 
+
+
 varTermsOf :: LNTerm -> [ LNTerm ]
 --varTermsOf t@(viewTerm3 -> Box dht) = varTermsOf dht
 --varTermsOf t@(viewTerm3 -> BoxE dht) = varTermsOf dht
@@ -202,7 +205,7 @@ varTermsOf t@(LIT l)
   | isvarGVar t = [t]
   | isvarEVar t = [t]
   | otherwise = []
-varTermsOf t@(FAPP f ts) = concatMap eTermsOf ts
+varTermsOf t@(FAPP f ts) = concatMap varTermsOf ts
 
 indComputable :: S.Set LNTerm -> LNTerm -> Bool
 indComputable bs t = S.fromList ( eTermsOf t ) `S.isSubsetOf` bs
@@ -291,6 +294,10 @@ isDHTerm t = case viewTerm3 t of
       MsgLit _ -> isOfDHSort t
       MsgFApp _ _ -> False
       DH _ _ -> True
+
+--isVarEGTerm :: LNTerm -> Bool
+--isVarEGTerm t = (sortOfLNTerm t == LSortVarE || sortOfLNTerm == LSortVarG)
+
 
 --isDHFact :: LNFact -> Bool
 --isDHFact ft = all isDHTerm $ getFactTerms ft 
