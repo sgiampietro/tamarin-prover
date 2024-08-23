@@ -57,6 +57,7 @@ import           Theory.Tools.EquationStore
 import           Theory.Model
 import           Term.Builtin.Convenience
 import           Term.DHMultiplication
+import           Term.Rewriting.Norm
 import           Theory.Constraint.Solver.Combination
 
 import           Utils.Misc                              (twoPartitions)
@@ -557,6 +558,11 @@ solveIndicator t1 t2  = do
       --rules = M.elems irules
       --terms = t1:([concatMap enumConcsDhOut rules])
 
+normalizeSubstList :: MaudeHandle -> [(LVar, LNTerm)] -> [(LVar, LNTerm)]    
+normalizeSubstList hnd [] = []
+normalizeSubstList hnd [(t,t2)] = [(t, runReader ( norm' t2) hnd)]
+normalizeSubstList hnd ((t,t2) : xs) = (t, runReader ( norm' t2) hnd):(normalizeSubstList hnd xs)
+
 solveIndicatorProto :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
 solveIndicatorProto nb t1 t2 = do 
   case (solveIndicatorGaussProto nb t1 t2) of 
@@ -564,8 +570,11 @@ solveIndicatorProto nb t1 t2 = do
         markGoalAsSolved ("Found exponent with:" ++ show subst) (IndicatorGExp nb (t1, t2))
         eqStore <- getM sEqStore
         hnd  <- getMaudeHandle
-        setM sEqStore $ applyEqStore hnd (substFromList subst) eqStore
-        return "Matched"
+        setM sEqStore $ applyEqStore hnd (substFromList $ normalizeSubstList hnd subst) eqStore
+        --substCheck <- gets (substCreatesNonNormalTerms hnd)
+        --store <- getM sEqStore
+        --store'     <- simp hnd substCheck store
+        return ("Matched" ++ show (normalizeSubstList hnd subst))
    Nothing -> return "Contradiction! Cannot find exponent"
   where 
     terms = [t1]
