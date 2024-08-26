@@ -188,8 +188,8 @@ solveMatrix zero matrix
   | inconsistentMatrix zero cleanmatrix = Nothing
   | otherwise = Just (traceBack zero cleanmatrix)
     where 
-      redmatrix = gaussReduction zero matrix
-      cleanmatrix = removeZeroRows zero redmatrix
+      redmatrix = trace (show ("IGetTillHere", gaussReduction zero matrix)) $ gaussReduction zero matrix
+      cleanmatrix =  trace (show ("IGetTillHere2", removeZeroRows zero redmatrix)) $ removeZeroRows zero redmatrix
       
 
 {-

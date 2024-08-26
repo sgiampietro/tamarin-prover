@@ -285,5 +285,5 @@ prettyGoal (SubtermG (l,r)) =
 prettyGoal (DHIndG i fa) =  text "SearchForIndicator" <-> prettyLNFact fa
 prettyGoal (NoCancG (l,r) ) = prettyLNTerm l <-> text "NoCanc" <-> prettyLNTerm r
 prettyGoal (NeededG ta p ) = prettyLNTerm ta <-> text "Needed" <-> prettyNodeId p
-prettyGoal (IndicatorG (l,r) ) = prettyLNTerm l <-> text "IndicatorFound" <-> prettyLNTerm r
+prettyGoal (IndicatorG (l,r) ) = prettyLNTerm l <-> text "contains indicator of" <-> prettyLNTerm r
 prettyGoal (IndicatorGExp nb (l,r) ) = prettyLNTerm l <-> text "contains indicator of" <-> prettyLNTerm r

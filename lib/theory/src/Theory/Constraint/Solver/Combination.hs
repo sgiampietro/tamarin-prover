@@ -161,8 +161,9 @@ createMatrix nb terms target =
         targetpoly = parseToMap vars target
         allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetpoly):(map Map.keys polynomials))
         -- row = map( \i -> getvalue targetpoly i) allkeys 
+        createdmatrix = (map (\key -> ((map (\p -> getvalue p key) polynomials )++ [getvalue targetpoly key])) allkeys)
     in 
-  (map (\key -> ((map (\p -> getvalue p key) polynomials )++ [getvalue targetpoly key])) allkeys) -- todo: double check if row/column is ok or needs to be switched
+  trace (show ("thisistheresultingmatrix", createdmatrix)) createdmatrix -- todo: double check if row/column is ok or needs to be switched
 
 
 

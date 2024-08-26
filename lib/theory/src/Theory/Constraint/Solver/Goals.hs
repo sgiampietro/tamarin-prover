@@ -255,7 +255,7 @@ solveProtoAction fa rules i=  return "TODO"{-do
 solveAction :: [RuleAC]          -- ^ All rules labelled with an action
             -> (NodeId, LNFact)  -- ^ The action we are looking for.
             -> Reduction String  -- ^ A sensible case name.
-solveAction rules (i, fa@(Fact _ ann _)) =trace (show ("SEARCHING", fa, "END")) ( do
+solveAction rules (i, fa@(Fact _ ann _)) = do
     mayRu <- M.lookup i <$> getM sNodes
     showRuleCaseName <$> case mayRu of
         Nothing -> case fa of
@@ -274,10 +274,10 @@ solveAction rules (i, fa@(Fact _ ann _)) =trace (show ("SEARCHING", fa, "END")) 
                             modM sNodes (M.insert i ru)
                             mapM_ requiresKU [a, b] *> return ru
             -- Distinguish DH term cases!!
-            _ | isDHFact fa                          -> do
+            _ | (isDHFact fa)                       -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList (filter isDHFact $ get rActs ru)
-                   trace (show ("ruleandnbset", ru,(notBasisOfRule ru)) ) (void (solveFactDHEqs True SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
+                   (void (solveFactDHEqs True SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
                    void substSystem
                    return ru
             _                                        -> do
@@ -288,10 +288,15 @@ solveAction rules (i, fa@(Fact _ ann _)) =trace (show ("SEARCHING", fa, "END")) 
 
         Just ru ->  case fa of
             --Distinguish DH Term cases!!
+            _ | isDHFact fa                       -> do unless (fa `elem` get rActs ru) $ do
+                                                          act <- disjunctionOfList (filter isDHFact $ get rActs ru)
+                                                          (void (solveFactDHEqs True SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
+                                                          void substSystem
+                                                        return ru
             _                                     -> do unless (fa `elem` get rActs ru) $ do
                                                           act <- disjunctionOfList $ get rActs ru
                                                           (void (solveFactEqs SplitNow [Equal fa act]))
-                                                        return ru)
+                                                        return ru
   where
     -- If the fact in the action goal has annotations, then consider annotated
     -- versions of intruder rules (this allows high or low priority intruder knowledge
@@ -330,10 +335,8 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
              -> LNFact         -- ^ Fact required at this premise.
              -> Reduction String -- ^ Case name to use.
 solvePremise rules p faPrem
-  | isKdhFact faPrem = do -- {this shouldn't only be Kdh but also In or Out}
-      --case factTerms faPrem of
-          (solveDHInd rules p faPrem)
-      --    _ -> error "malformed KdhFact"
+  | isKdhFact faPrem = (solveDHInd rules p faPrem)
+  | (isInFact faPrem && isDHFact faPrem) = solveDHInd rules p faPrem
   | isProtoDHFact faPrem =  solveDHIndProto rules p faPrem
   | isKDFact faPrem = do
       iLearn    <- freshLVar "vl" LSortNode
@@ -544,7 +547,7 @@ solveIndicator t1 t2  = do
       terms = (concatMap enumConcsDhOut rules)
       exps = (concatMap enumConcsDhExpOut rules)
    in 
-    case (solveIndicatorGauss (union exps (S.toList nbset)) terms t2) of 
+    case trace (show ("SOLVING GAUSS", terms, exps)) (solveIndicatorGauss (union exps (S.toList nbset)) terms t2) of 
       Just vec -> do
           markGoalAsSolved ("Found indicators! attack by result:" ++ show (vec, terms, t2)) (IndicatorG (t1,t2))
           return ("Found indicators! attack by result:" ++ show (vec, terms, t2))
