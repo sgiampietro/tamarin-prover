@@ -279,6 +279,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                    act <- disjunctionOfList (filter isDHFact $ get rActs ru)
                    (void (solveFactDHEqs True SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
                    void substSystem
+                   --void normSystem
                    return ru
             _                                        -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
@@ -292,6 +293,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                                                           act <- disjunctionOfList (filter isDHFact $ get rActs ru)
                                                           (void (solveFactDHEqs True SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
                                                           void substSystem
+                                                          --void normSystem
                                                         return ru
             _                                     -> do unless (fa `elem` get rActs ru) $ do
                                                           act <- disjunctionOfList $ get rActs ru
@@ -495,7 +497,6 @@ solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact containing a
 solveDHInd rules p faPrem =  do
         bset <- getM sBasis
         nbset <- getM sNotBasis
-        nocancs <- getM sNoCanc
         solveDHIndaux bset nbset (factTerms faPrem) p faPrem rules
 
 solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> [LNTerm] -> NodePrem -> LNFact -> [RuleAC] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
@@ -512,7 +513,10 @@ solveDHIndaux bset nbset terms p faPrem rules =
           --(Lit2 t) | (isPubGVar (LIT t))  -> trace (show ("GotHERE")) return "attack"
           --_ -> do
           (ru, c, faConc) <- insertFreshNodeConcOut rules
-          insertDHEdge False (c, faConc, faPrem, p) bset nbset -- instead of root indicator this should be Y.ind^Z.
+          hnd <- getMaudeHandle
+          let faConc' = normalizeFact hnd faConc
+              faPrem' = normalizeFact hnd faPrem
+          insertDHEdge False (c, faConc', faPrem', p) bset nbset -- instead of root indicator this should be Y.ind^Z.
           return $ showRuleCaseName ru -- (return "done") 
 
 
@@ -578,6 +582,7 @@ solveIndicatorProto nb t1 t2 = do
         --store <- getM sEqStore
         --store'     <- simp hnd substCheck store 
         void substSystem
+        --void normSystem
         nodes <- getM sNodes
         setM sNodes $ M.map (\r -> runReader (normRule r) hnd) nodes
         return ("Matched" ++ show (normalizeSubstList hnd subst))

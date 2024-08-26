@@ -283,11 +283,15 @@ rootIndUnknown n nb t = ( LIT (Var newv), [(newv, t)])
 
 
 isNoCanc :: LNTerm -> LNTerm -> Bool
-isNoCanc t1 t2 = case viewTerm2 t2 of
-        DHOne -> True
-        _ -> (case viewTerm2 t1 of --TODO: fix this case. 
-              DHOne -> True
-              _ -> False)
+isNoCanc t1 t2 | isFrNZEVar t1 = True
+               | isFrNZEVar t2 = True
+               | otherwise = case viewTerm2 t2 of
+                  DHOne -> True
+                  FdhExp t3 t4 | isFrNZEVar t4 -> True
+                  _     -> (case viewTerm2 t1 of --TODO: fix this case. 
+                            DHOne -> True
+                            FdhExp t3 t4 | isFrNZEVar t4 -> True
+                            _ -> False)
 
 isDHTerm :: LNTerm -> Bool
 isDHTerm t = case viewTerm3 t of

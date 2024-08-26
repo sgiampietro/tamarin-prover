@@ -74,6 +74,9 @@ module Theory.Constraint.Solver.Reduction (
   , substFormulas
   , substSolvedFormulas
 
+  , normSystem
+  , normalizeFact
+
   -- ** Solving equalities
   , SplitStrategy(..)
 
@@ -124,6 +127,7 @@ import           Theory.Constraint.System
 import           Theory.Model
 import           Utils.Misc
 import           Term.DHMultiplication
+import           Term.Rewriting.Norm (norm')
 import           Theory.Tools.DHActionFacts
 
 ------------------------------------------------------------------------------
@@ -230,7 +234,7 @@ insertFreshNodeConc rules = do
 insertFreshNodeConcOut :: [RuleAC] -> Reduction (RuleACInst, NodeConc, LNFact)
 insertFreshNodeConcOut rules = do
     (i, ru) <- insertFreshNode rules Nothing
-    (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru, (factTag f == OutFact || factTag f == KdhFact) ]
+    (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru, (factTag f == OutFact || factTag f == KdhFact), isDHFact f ]
     return (ru, (i, v), fa)
 
 -- | Insert a fresh rule node labelled with a fresh instance of one of the rules
@@ -627,7 +631,7 @@ insertEdge (c, fa1, fa2, p) = do
 
 insertDHEdge ::  Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> S.Set LNTerm -> S.Set LNTerm -> Reduction ()
 insertDHEdge b (c, fa1, fa2, p) bset nbset = do --fa1 should be an Out fact
-    void (solveFactDHEqs b SplitNow fa1 fa2 bset nbset) 
+    trace (show ("SHOULDBEOUT:", fa1,"SHOULDBEIN/KD",fa2)) $ void (solveFactDHEqs b SplitNow fa1 fa2 bset nbset) 
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
 insertBasisElem :: LNTerm -> Reduction ()
@@ -838,28 +842,53 @@ conjoinSystem sys = do
 -- TODO: Ideally, we'd like a function that normalizes the entire Constraint System. 
 -- (how come it doesn't already exist??+)
 -- | Normalize the entire system.
-{-normSystem :: Reduction ChangeIndicator
+normSystem :: Reduction ChangeIndicator
 normSystem = do
     hnd <- getMaudeHandle
     nodes <- getM sNodes
     setM sNodes $ M.map (\r -> runReader (normRule r) hnd) nodes
-    edges <- getM sEdges
-    substEdges
-    substNoCanc
-    substBasis
-    substNotBasis
-    substContInd
-    substContIndProto
-    substLastAtom
-    substLessAtoms
-    substSubtermStore
-    substFormulas
-    substSolvedFormulas
-    substLemmas
-    c2 <- substGoals
-    substNextGoalNr
-    return (c1 <> c2)
--}
+    --edges <- getM sEdges
+    --substEdges
+    nocanc <- getM sNoCanc
+    setM sNoCanc $ S.map (\(t1,t2) -> (runReader (norm' t1) hnd,runReader (norm' t2) hnd )) nocanc
+    basis <- getM sBasis
+    setM sBasis $ S.map (\t1 -> (runReader (norm' t1) hnd)) basis
+    notbasis <- getM sNotBasis
+    setM sNotBasis $ S.map (\t1 -> (runReader (norm' t1) hnd)) notbasis
+    --substContInd
+    --substContIndProto
+    --substLastAtom
+    --substLessAtoms
+    --substSubtermStore
+    --substFormulas
+    --substSolvedFormulas
+    --substLemmas
+    c2 <- normGoals hnd
+    --substNextGoalNr
+    return c2
+
+normalizeFact :: MaudeHandle -> LNFact -> LNFact
+normalizeFact hnd fa@(Fact f1 f2 faterms) = Fact f1 f2 (map (\t-> runReader (norm' t) hnd) faterms)
+
+normalizeGoal :: MaudeHandle -> Goal -> Goal
+normalizeGoal hnd goal = case goal of
+        ActionG v fact -> ActionG v $ normalizeFact hnd fact 
+        PremiseG prem fact -> PremiseG prem $ normalizeFact hnd fact
+        DHIndG prem fact -> DHIndG prem $ normalizeFact hnd fact
+        NoCancG (t1, t2) -> NoCancG (runReader (norm' t1) hnd, runReader (norm' t2) hnd)
+        NeededG t2 nid -> NeededG (runReader (norm' t2) hnd) nid
+        IndicatorG (t1, t2) -> IndicatorG (runReader (norm' t1) hnd, runReader (norm' t2) hnd)
+        IndicatorGExp terms (t1,t2) -> IndicatorGExp (map (\t->runReader (norm' t) hnd) terms) (runReader (norm' t1) hnd, runReader (norm' t2) hnd)
+        _ -> goal
+
+normGoals :: MaudeHandle -> Reduction ChangeIndicator
+normGoals hnd = do
+    goals <- M.toList <$> getM sGoals
+    sGoals =: M.empty
+    changes <- forM goals $ \(goal, status) ->  do modM sGoals $
+                                                     M'.insertWith combineGoalStatus (normalizeGoal hnd goal) status
+                                                   return Unchanged
+    return (mconcat changes)
 
 -- Unification via the equation store
 -------------------------------------
@@ -928,10 +957,11 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
                             return Changed
             _          -> do
                         nocancs <- getM sNoCanc
-                        case prodTerms ta1 of 
+                        hndNormal <- getMaudeHandle
+                        let ta1' = runReader (norm' ta1) hndNormal
+                        case prodTerms ta1' of 
                             Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
                                           else do 
-                                            hndNormal <- getMaudeHandle
                                             let indt = trace (show ("THISISIND:TRUE", (runReader (rootIndKnownMaude bset nbset x) hndNormal))) (runReader (rootIndKnownMaude bset nbset x) hndNormal)
         --    indtexp = fAppdhExp (indt, LIT (Var z1) )             -- z1 <- freshLVar "Z1" LSortE
                                             hnd <- getMaudeHandleDH -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
@@ -949,8 +979,8 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
                                                         _        -> return eqs2
                                             eq3 <- getM sEqStore
                                             noContradictoryEqStore
-                                            trace (show ("beforesusbst", ta2,ta1,eq3) ) $ insertContIndProto ta2 ta1
-                                            insertGoal (IndicatorGExp (S.toList nbset) (ta2,ta1)) False
+                                            trace (show ("beforesusbst", ta2,ta1,eq3) ) $ insertContIndProto ta2 ta1'
+                                            insertGoal (IndicatorGExp (S.toList nbset) (ta2,ta1')) False
                                             void substSystem
                                             trace (show ("aftersusbst", ta2,ta1,eq3) ) $ return Changed
                             _ -> error "TODO")
@@ -975,12 +1005,13 @@ solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
                                                 return Changed
             _ -> do
                 nocancs <- getM sNoCanc
-                case prodTerms ta1 of 
+                hndNormal <- getMaudeHandle
+                let ta1' = trace (show ("APPLYINGPRODTERMS ON: ", runReader (norm' ta1) hndNormal)) $ runReader (norm' ta1) hndNormal
+                case prodTerms ta1' of 
                     Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
                      else do 
-                        hndNormal <- getMaudeHandle
             -- z1 <- freshLVar "Z1" LSortE
-                        let indt = trace (show ("THISISIND:",ta1,(runReader (rootIndKnownMaude bset nbset ta1) hndNormal), bset, nbset, (rootIndKnown bset nbset ta1))) (runReader (rootIndKnownMaude bset nbset ta1) hndNormal)
+                        let indt = trace (show ("THISISIND:",ta1',x,(runReader (rootIndKnownMaude bset nbset x) hndNormal), bset, nbset, (rootIndKnown bset nbset x))) (runReader (rootIndKnownMaude bset nbset x) hndNormal)
                         case viewTerm2 (indt) of
                             (DHOne) -> trace (show ("GotHEREDHOne")) return Unchanged
                             (DHEg) -> trace (show ("GotHEREDHEg")) return Unchanged
@@ -999,8 +1030,9 @@ solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
                                                 return eqs2
                                             _                        -> return eqs2
                                 noContradictoryEqStore
-                                insertContInd ta2 ta1
-                                insertGoal (IndicatorG (ta2,ta1)) False
+                                let ta2' = runReader (norm' ta2) hndNormal
+                                insertContInd ta2' ta1'
+                                insertGoal (IndicatorG (ta2',ta1')) False
                                 void substSystem
                                 return Changed
                     _ -> error "TODO")
@@ -1045,7 +1077,7 @@ solveFactDHEqs b split fa1 fa2 bset nbset
             solveListDHEqs (solveTermDHEqs b split bset nbset) $ zip (factTerms fa1) (factTerms fa2)
           --      outterm <- disjunctionOfList (multRootList t)
     | otherwise = do
-            contradictoryIf (not (factTag fa1 == OutFact) && (factTag fa2 == KdhFact) )
+            contradictoryIf (not (factTag fa1 == OutFact) && (factTag fa2 == KdhFact || factTag fa2 == InFact) )
             solveListDHEqs (solveTermDHEqs b split bset nbset) $ zip (factTerms fa2) (factTerms fa1)
          -- but be careful because that should hold only for G terms. E terms should be handled differrently.
 

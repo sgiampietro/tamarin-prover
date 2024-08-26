@@ -84,6 +84,7 @@ simplifySystem = do
           -- Perform one initial substitution. We do not have to consider its
           -- changes as 'substSystem' is idempotent.
           void substSystem
+          --void normSystem
           -- Perform one simplification pass.
           isdiff <- getM sDiffSystem
           -- In the diff case, we cannot enfore N4-N6.

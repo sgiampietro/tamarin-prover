@@ -289,6 +289,9 @@ isAC _                           = False
 -- | 'True' iff the term is a well-formed product.
 prodTerms :: Show a => Term a -> Maybe (Term a,Term a)
 prodTerms (viewTerm2 -> FdhMult x y) = Just (x,y)
+prodTerms t@(viewTerm2 -> FdhExp x y) = case viewTerm2 y of 
+                                            FdhPlus e1 e2 -> Just (fAppdhExp (x,e1), fAppdhExp(x,e2))
+                                            _             -> Just ( t, (FAPP (DHMult dhOneSym) []))
 prodTerms t                         = Just ( t, (FAPP (DHMult dhOneSym) []))
 
 
