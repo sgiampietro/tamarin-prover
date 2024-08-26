@@ -458,7 +458,7 @@ parseTerm msig = choice
       | op `elem` allowedfunSymsDH = replaceMinusFunDH op
       | otherwise                =
           error $ "Maude.Parser.parseTerm: unknown function "
-                  ++ "symbol `"++ show op ++"', not in "
+                  ++ "symbol `"++ show op ++ show ident++ "', not in "
                   ++ show allowedfunSyms ++ show allowedfunSymsDH ++ show msig ++ "edn"
       where
             special             = ident `elem` ["list", "cons", "nil" ]
@@ -490,11 +490,9 @@ parseTerm msig = choice
 
         flattenCons (viewTerm -> FApp (NoEq s) [x,xs]) | s == consSym = x:flattenCons xs
         flattenCons (viewTerm -> FApp (NoEq s)  [])    | s == nilSym  = []
-        flattenCons (viewTerm -> FApp (DHMult s) [x,xs]) | s == consSym = x:flattenCons xs
-        flattenCons (viewTerm -> FApp (DHMult s)  [])    | s == nilSym  = []
         flattenCons t                                                 = [t]
 
-    parseFAppConst ident | ident `elem` (map ppMaudeDHMultSym $ S.toList $ dhMultFunSyms msig) = return $ fAppDHMult (parseFunSym ident []) []
+    -- parseFAppConst ident | ident `elem` (map ppMaudeDHMultSym $ S.toList $ dhMultFunSyms msig) = return $ fAppDHMult (parseFunSym ident []) []
     parseFAppConst ident  = return $ fAppNoEq (parseFunSym ident []) []
 
     parseMaudeVariable ident =

@@ -122,7 +122,8 @@ zipMatrix (x:xs) (y:ys) = (x ++ y) : (zipMatrix xs ys)
 -- Compute the row-reduced-echelon form of the matrix
 gaussReduction :: LNTerm -> Matrix LNTerm -> Matrix LNTerm
 gaussReduction zero [] = []
-gaussReduction zero matrix = r: gaussReduction zero rs
+gaussReduction zero matrix | null $ head (allzerosCheck zero matrix) = matrix
+gaussReduction zero matrix = trace (show ("REMOVEDZEROS", allzerosCheck zero matrix, null $ head $ allzerosCheck zero matrix, head $ allzerosCheck zero matrix)) $ r: gaussReduction zero rs
     where
         (r:rows) = pivotCheck zero (allzerosCheck zero matrix) (length matrix)
         rs = map reduceRow $ rows
