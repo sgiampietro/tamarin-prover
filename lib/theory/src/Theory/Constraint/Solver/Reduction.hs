@@ -275,7 +275,7 @@ labelNodeId = \i rules parent -> do
 
     exploitPrem i ru (v, fa) = case fa of
         -- CR-rule *DG2_2* specialized for *In* facts.
-        Fact InFact ann [m] -> do
+        Fact InFact ann [m] | (not $ isDHFact fa) -> do
             j <- freshLVar "vf" LSortNode
             ruKnows <- mkISendRuleAC ann m
             modM sNodes (M.insert j ruKnows)
@@ -303,7 +303,7 @@ labelNodeId = \i rules parent -> do
 
           -- CR-rule *DG2_{2,u}*: solve a KU-premise by inserting the
           -- corresponding KU-actions before this node.
-        _ | isKUFact fa -> do
+        _ | (isKUFact fa && (not (isDHFact fa))) -> do
               j <- freshLVar "vk" LSortNode
               insertLess j i Adversary
               void (insertAction j fa)
@@ -830,6 +830,37 @@ conjoinSystem sys = do
     joinSets :: Ord a => (System :-> S.Set a) -> Reduction ()
     joinSets proj = modM proj (`S.union` get proj sys)
 
+
+
+
+-- Normalization
+---------------
+-- TODO: Ideally, we'd like a function that normalizes the entire Constraint System. 
+-- (how come it doesn't already exist??+)
+-- | Normalize the entire system.
+{-normSystem :: Reduction ChangeIndicator
+normSystem = do
+    hnd <- getMaudeHandle
+    nodes <- getM sNodes
+    setM sNodes $ M.map (\r -> runReader (normRule r) hnd) nodes
+    edges <- getM sEdges
+    substEdges
+    substNoCanc
+    substBasis
+    substNotBasis
+    substContInd
+    substContIndProto
+    substLastAtom
+    substLessAtoms
+    substSubtermStore
+    substFormulas
+    substSolvedFormulas
+    substLemmas
+    c2 <- substGoals
+    substNextGoalNr
+    return (c1 <> c2)
+-}
+
 -- Unification via the equation store
 -------------------------------------
 
@@ -957,9 +988,8 @@ solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
                             _ -> do
                                 hnd <- getMaudeHandleDH -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
                                 se  <- gets id
-                                (eqs2, maySplitId) <- addDHEqs hnd ta2 indt =<< getM sEqStore
-                                insertContInd ta1 ta2
-                                insertGoal (IndicatorG (ta1,ta2)) False
+                                outterm <- disjunctionOfList (multRootList ta2)
+                                (eqs2, maySplitId) <- addDHEqs hnd outterm indt =<< getM sEqStore
                                 setM sEqStore
                                     =<< simp hnd (substCreatesNonNormalTerms hnd se)
                                     =<< case (maySplitId, splitStrat) of
@@ -969,6 +999,9 @@ solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
                                                 return eqs2
                                             _                        -> return eqs2
                                 noContradictoryEqStore
+                                insertContInd ta2 ta1
+                                insertGoal (IndicatorG (ta2,ta1)) False
+                                void substSystem
                                 return Changed
                     _ -> error "TODO")
 
