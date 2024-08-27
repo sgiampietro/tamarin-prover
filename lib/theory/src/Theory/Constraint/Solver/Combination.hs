@@ -38,7 +38,7 @@ import Term.DHMultiplication
 import Term.LTerm -- (LNTerm)
 
 -- import Theory.Constraint.System.Constraints
-import Debug.Trace
+import Debug.Trace.Ignore
 import Data.ByteString.Builder (word16BE)
 
 

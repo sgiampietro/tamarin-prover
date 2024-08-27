@@ -412,9 +412,9 @@ parseSubstitution msig = do
 
 -- | @parseReduceReply l@ parses a single solution returned by Maude.
 parseReduceReply :: MaudeSig -> ByteString -> Either String MTerm
-parseReduceReply msig reply = flip parseOnly reply $ do
+parseReduceReply msig reply = trace (show ("PARSING:", reply)) (flip parseOnly reply $ do
     string "result " *> choice [ string "TOP" *> pure LSortMsg, parseSort ] -- we ignore the sort
-        *> string ": " *> parseTerm msig <* endOfLine <* endOfInput
+        *> string ": " *> parseTerm msig <* endOfLine <* endOfInput)
 
 -- | Parse an 'MSort'.
 parseSort :: Parser LSort
@@ -471,6 +471,46 @@ parseTerm msig = choice
 
     parseConst s = lit <$> (flip MaudeConst s <$> decimal) <* string ")"
 
+    parseFApp ident
+      | (ident == ppMaudeDHMultSym dhMultSym) = appIdent <$> sepBy1 (parseTerm msig) (string ", ") <* string ")"
+         where
+              appIdent args = fAppDHMult dhMultSym (unflatten args)
+              unflatten [] = []
+              unflatten [x1, x2] = [x1, x2]
+              unflatten (x:(y:xs)) = [x, fAppDHMult dhMultSym [y,(unflatten' xs)]]
+              unflatten' [x1] = x1
+              unflatten' [x1,x2] = fAppDHMult dhMultSym [x1,x2]
+              unflatten' (x:xs) = fAppDHMult dhMultSym [x, unflatten' xs]
+    parseFApp ident
+      | (ident == ppMaudeDHMultSym dhTimesSym) = appIdent <$> sepBy1 (parseTerm msig) (string ", ") <* string ")"
+         where
+              appIdent args = fAppDHMult dhTimesSym (unflatten args)
+              unflatten [] = []
+              unflatten [x1, x2] = [x1, x2]
+              unflatten (x:(y:xs)) = [x, fAppDHMult dhTimesSym [y,(unflatten' xs)]]
+              unflatten' [x1] = x1
+              unflatten' [x1,x2] = fAppDHMult dhTimesSym [x1,x2]
+              unflatten' (x:xs) = fAppDHMult dhTimesSym [x, unflatten' xs]
+    parseFApp ident
+      | (ident == ppMaudeDHMultSym dhTimesESym) = appIdent <$> sepBy1 (parseTerm msig) (string ", ") <* string ")"
+         where
+              appIdent args = fAppDHMult dhTimesESym (unflatten args)
+              unflatten [] = []
+              unflatten [x1, x2] = [x1, x2]
+              unflatten (x:(y:xs)) = [x, fAppDHMult dhTimesESym [y,(unflatten' xs)]]
+              unflatten' [x1] = x1
+              unflatten' [x1,x2] = fAppDHMult dhTimesESym [x1,x2]
+              unflatten' (x:xs) = fAppDHMult dhTimesESym [x, unflatten' xs]
+    parseFApp ident
+      | (ident == ppMaudeDHMultSym dhPlusSym) = appIdent <$> sepBy1 (parseTerm msig) (string ", ") <* string ")"
+         where
+              appIdent args = fAppDHMult dhPlusSym (unflatten args)
+              unflatten [] = []
+              unflatten [x1, x2] = [x1, x2]
+              unflatten (x:(y:xs)) = [x, fAppDHMult dhPlusSym [y,(unflatten' xs)]]
+              unflatten' [x1] = x1
+              unflatten' [x1,x2] = fAppDHMult dhPlusSym [x1,x2]
+              unflatten' (x:xs) = fAppDHMult dhPlusSym [x, unflatten' xs]
     parseFApp ident =
         appIdent <$> sepBy1 (parseTerm msig) (string ", ") <* string ")"
       where

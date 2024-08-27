@@ -28,7 +28,7 @@ import Term.Rewriting.Norm
 import Term.LTerm -- (LNTerm)
 import Term.Term.Raw
 
-import Debug.Trace
+import Debug.Trace.Ignore
 
 int2LNTerm :: Integer -> LNTerm
 int2LNTerm 0 = fAppdhZero
