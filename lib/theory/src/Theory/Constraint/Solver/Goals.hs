@@ -229,7 +229,7 @@ solveGoal goal = do
       SplitG i      -> solveSplit i
       DisjG disj    -> solveDisjunction disj
       SubtermG st   -> solveSubterm st
-      DHIndG p fa -> solveDHInd (get crProtocol rules) p fa
+      DHIndG p fa -> solveDHIndInst p fa
       NoCancG (t1, t2) -> solveNoCanc t1 t2
       NeededG x i    -> solveNeeded (get crProtocol rules) x i
       IndicatorG (t1, t2) -> solveIndicator t1 t2
@@ -237,18 +237,6 @@ solveGoal goal = do
 
 -- The following functions are internal to 'solveGoal'. Use them with great
 -- care.
-
---ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
---                   act <- disjunctionOfList $ get rActs ru
---                   (void (solveFactEqs SplitNow [Equal fa act]))
---                   return ru
-
-solveProtoAction :: LNFact -> [RuleAC] -> NodeId ->  Reduction String
-solveProtoAction fa rules i=  return "TODO"{-do
-    ru  <- labelNodeId i rules Nothing
-    act <- disjunctionOfList $ get rActs ru
-    (void (solveFactEqs SplitNow [Equal fa act]))
-    return ru -}
 
 
 -- | CR-rule *S_at*: solve an action goal.
@@ -338,7 +326,7 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
              -> Reduction String -- ^ Case name to use.
 solvePremise rules p faPrem
   | isKdhFact faPrem = (solveDHInd rules p faPrem)
-  | (isInFact faPrem && isDHFact faPrem) = solveDHInd rules p faPrem
+  | (isInFact faPrem && isDHFact faPrem) = solveDHIndInst p faPrem
   | isProtoDHFact faPrem =  solveDHIndProto rules p faPrem
   | isKDFact faPrem = do
       iLearn    <- freshLVar "vl" LSortNode
@@ -490,6 +478,38 @@ solveNoCanc x y = do
       )
 
 
+
+solveDHIndInst :: NodePrem       -- ^ Premise to solve.
+             ->LNFact       -- ^ Product term of which we have to find the indicator  
+             -> Reduction String -- ^ Case name to use.
+solveDHIndInst p faPrem =  do
+        bset <- getM sBasis
+        nbset <- getM sNotBasis
+        nodes <- getM sNodes
+        solveDHIndInstaux bset nbset (factTerms faPrem) p faPrem (M.assocs nodes)
+
+solveDHIndInstaux :: S.Set LNTerm -> S.Set LNTerm -> [LNTerm] -> NodePrem -> LNFact -> [(NodeId,RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
+solveDHIndInstaux bset nbset terms p faPrem rules =
+  case neededexponentslist bset nbset terms of
+      (Just es) -> do
+          trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem
+          return "NeededInserted"
+      -- the current goal solveDHInd should remain and we should try to solve it again once we
+      -- have solved the Needed goals. or do we try it with a variable?
+      Nothing -> do --case viewTerm2 (runReader (rootIndKnownMaude bset nbset x) hnd) of
+          --(DHOne) -> trace (show ("GotHERE")) return "attack"
+          --(DHEg) -> trace (show ("GotHERE")) return "attack"
+          --(Lit2 t) | (isPubGVar (LIT t))  -> trace (show ("GotHERE")) return "attack"
+          --_ -> do
+          (ru, c, faConc) <- insertFreshNodeConcOutInst rules
+          --hnd <- getMaudeHandle
+          --let faConc' = normalizeFact hnd faConc
+          --    faPrem' = normalizeFact hnd faPrem
+          insertDHEdge False (c, faConc, faPrem, p) bset nbset -- instead of root indicator this should be Y.ind^Z.
+          return $ showRuleCaseName ru -- (return "done") 
+
+
+
 solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact containing a boxed term as conclusion. 
              -> NodePrem       -- ^ Premise to solve.
              ->LNFact       -- ^ Product term of which we have to find the indicator  
@@ -497,7 +517,7 @@ solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact containing a
 solveDHInd rules p faPrem =  do
         bset <- getM sBasis
         nbset <- getM sNotBasis
-        solveDHIndaux bset nbset (factTerms faPrem) p faPrem rules
+        solveDHIndaux bset nbset (factTerms faPrem) p faPrem rules 
 
 solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> [LNTerm] -> NodePrem -> LNFact -> [RuleAC] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
 solveDHIndaux bset nbset terms p faPrem rules =

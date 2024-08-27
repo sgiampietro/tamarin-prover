@@ -40,6 +40,7 @@ module Theory.Constraint.Solver.Reduction (
   , insertFreshNode
   , insertFreshNodeConc
   , insertFreshNodeConcOut
+  , insertFreshNodeConcOutInst
 
   , insertGoal
   , insertAtom
@@ -96,7 +97,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -237,6 +238,12 @@ insertFreshNodeConcOut rules = do
     (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru, (factTag f == OutFact || factTag f == KdhFact), isDHFact f ]
     return (ru, (i, v), fa)
 
+insertFreshNodeConcOutInst :: [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, LNFact)
+insertFreshNodeConcOutInst rules = do
+    (i,ru) <- disjunctionOfList rules
+    (v, fa) <- disjunctionOfList $ [(c,f)|  (c,f) <- enumConcs ru, (factTag f == OutFact || factTag f == KdhFact), isDHFact f ]
+    return (ru, (i, v), fa)
+
 -- | Insert a fresh rule node labelled with a fresh instance of one of the rules
 -- and solve it's 'Fr', 'In', and 'KU' premises immediately.
 -- If a parent node is given, updates the remaining rule applications.
@@ -313,7 +320,7 @@ labelNodeId = \i rules parent -> do
               void (insertAction j fa)
 
           -- Store premise goal for later processing using CR-rule *DG2_2*
-          | otherwise -> trace (show ("inserting premise", fa)) (insertGoal (PremiseG (i,v) fa) (v `elem` breakers))
+          | otherwise -> (insertGoal (PremiseG (i,v) fa) (v `elem` breakers))
       where
         breakers = ruleInfo (get praciLoopBreakers) (const []) $ get rInfo ru
 
@@ -631,7 +638,7 @@ insertEdge (c, fa1, fa2, p) = do
 
 insertDHEdge ::  Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> S.Set LNTerm -> S.Set LNTerm -> Reduction ()
 insertDHEdge b (c, fa1, fa2, p) bset nbset = do --fa1 should be an Out fact
-    trace (show ("SHOULDBEOUT:", fa1,"SHOULDBEIN/KD",fa2)) $ void (solveFactDHEqs b SplitNow fa1 fa2 bset nbset) 
+    void (solveFactDHEqs b SplitNow fa1 fa2 bset nbset) 
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
 insertBasisElem :: LNTerm -> Reduction ()
@@ -932,7 +939,7 @@ solveTermEqs splitStrat eqs0 =
                       insertGoal (SplitG splitId) False
                       return eqs2
                   _                        -> return eqs2
-        trace ("DEBUG-EQ-TERMS" ++ show eqs2) noContradictoryEqStore
+        noContradictoryEqStore
         return Changed
 
 
@@ -948,20 +955,19 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
         --    Just True  -> solveTermEqs splitStrat [(Equal ta1 ta2)]
         case (isDHLit ta1, isDHLit ta2) of
             (True, _) | compatibleLits ta1 ta2 -> do
-                            trace (show ("usualunification", ta1, ta2)) solveTermEqs splitStrat [(Equal ta1 ta2)]
+                            solveTermEqs splitStrat [(Equal ta1 ta2)]
                             void substSystem
                             void normSystem
                             return Changed
             (_, True) | compatibleLits ta1 ta2 -> do
-                            trace (show ("usualunification", ta1, ta2)) solveTermEqs splitStrat [(Equal ta1 ta2)]
+                            solveTermEqs splitStrat [(Equal ta1 ta2)]
                             void substSystem
                             void normSystem
                             return Changed
             _          -> do
                         nocancs <- getM sNoCanc
                         hndNormal <- getMaudeHandle
-                        let ta1' = runReader (norm' ta1) hndNormal
-                        case prodTerms ta1' of 
+                        case prodTerms ta1 of 
                             Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
                                           else do 
                                             let indt = trace (show ("THISISIND:TRUE", (runReader (rootIndKnownMaude bset nbset x) hndNormal))) (runReader (rootIndKnownMaude bset nbset x) hndNormal)
@@ -981,11 +987,11 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
                                                         _        -> return eqs2
                                             eq3 <- getM sEqStore
                                             noContradictoryEqStore
-                                            trace (show ("beforesusbst", ta2,ta1,eq3) ) $ insertContIndProto ta2 ta1'
-                                            insertGoal (IndicatorGExp (S.toList nbset) (ta2,ta1')) False
+                                            insertContIndProto ta2 ta1
+                                            insertGoal (IndicatorGExp (S.toList nbset) (ta2,ta1)) False
                                             void substSystem
                                             void normSystem
-                                            trace (show ("aftersusbst", ta2,ta1,eq3) ) $ return Changed
+                                            return Changed
                             _ -> error "TODO")
 solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
         if ta1 == ta2 then (do return Unchanged) else (
@@ -999,24 +1005,23 @@ solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
             --_          -> do
         case (isDHLit ta1, isDHLit ta2) of
             (True, _) | compatibleLits ta1 ta2 -> do
-                                                trace (show ("usualunification", ta1, ta2)) $ solveTermEqs splitStrat [(Equal ta1 ta2)]
+                                                solveTermEqs splitStrat [(Equal ta1 ta2)]
                                                 void substSystem
                                                 void normSystem
                                                 return Changed
             (_, True) | compatibleLits ta1 ta2 ->  do
-                                                trace (show ("usualunification", ta1, ta2)) $ solveTermEqs splitStrat [(Equal ta1 ta2)]
+                                                solveTermEqs splitStrat [(Equal ta1 ta2)]
                                                 void substSystem
                                                 void normSystem
                                                 return Changed
             _ -> do
                 nocancs <- getM sNoCanc
                 hndNormal <- getMaudeHandle
-                let ta1' = trace (show ("APPLYINGPRODTERMS ON: ", runReader (norm' ta1) hndNormal)) $ runReader (norm' ta1) hndNormal
-                case prodTerms ta1' of 
+                case prodTerms ta1 of 
                     Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
                      else do 
             -- z1 <- freshLVar "Z1" LSortE
-                        let indt = trace (show ("THISISIND:",ta1',x,(runReader (rootIndKnownMaude bset nbset x) hndNormal), bset, nbset, (rootIndKnown bset nbset x))) (runReader (rootIndKnownMaude bset nbset x) hndNormal)
+                        let indt = trace (show ("THISISIND:",ta1,x,(runReader (rootIndKnownMaude bset nbset x) hndNormal), bset, nbset, (rootIndKnown bset nbset x))) (runReader (rootIndKnownMaude bset nbset x) hndNormal)
                         case viewTerm2 (indt) of
                             (DHOne) -> trace (show ("GotHEREDHOne")) return Unchanged
                             (DHEg) -> trace (show ("GotHEREDHEg")) return Unchanged
@@ -1025,9 +1030,9 @@ solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
                                 hnd <- getMaudeHandleDH -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
                                 se  <- gets id
                                 outterm <- disjunctionOfList (multRootList ta2)
-                                (eqs2, maySplitId) <- addDHEqs hnd outterm indt =<< getM sEqStore
+                                (eqs2, maySplitId) <- addDHEqs2 hnd outterm indt =<< getM sEqStore
                                 setM sEqStore
-                                    =<< simp hnd (substCreatesNonNormalTerms hnd se)
+                                    -- =<< simp hnd (substCreatesNonNormalTerms hnd se)
                                     =<< case (maySplitId, splitStrat) of
                                             (Just splitId, SplitNow) -> disjunctionOfList $ fromJustNote "solveTermEqs" $ performSplit eqs2 splitId
                                             (Just splitId, SplitLater) -> do
@@ -1035,10 +1040,9 @@ solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
                                                 return eqs2
                                             _                        -> return eqs2
                                 noContradictoryEqStore
-                                let ta2' = runReader (norm' ta2) hndNormal
-                                insertContInd ta2' ta1'
-                                insertGoal (IndicatorG (ta2',ta1')) False
-                                void substSystem
+                                insertContInd ta2 ta1
+                                insertGoal (IndicatorG (ta2,ta1)) False
+                                trace (show ("OUTTERMOF, T2, INDOF, T1", outterm, ta2, indt, x, y, ta1)) $ void substSystem
                                 void normSystem
                                 return Changed
                     _ -> error "TODO")
@@ -1057,7 +1061,7 @@ solveNodeIdEqs = solveTermEqs SplitNow . map (fmap varTerm)
 solveFactEqs :: SplitStrategy -> [Equal LNFact] -> Reduction ChangeIndicator
 solveFactEqs split eqs = do
     contradictoryIf (not $ all evalEqual $ map (fmap factTag) eqs)
-    --trace ("DEBUG-EQ-FACTS" ++ show eqs) 
+    --trace ("DEBUG-FACTS" ++ show eqs) 
     (solveListEqs (solveTermEqs split) $ map (fmap factTerms) eqs)
 
 -- DH: Fix this

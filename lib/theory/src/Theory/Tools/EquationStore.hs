@@ -601,10 +601,13 @@ addDHEqs2 hnd t1 indt eqdhstore =
         [substFresh] | substFresh == emptySubstVFresh ->
             return (eqdhstore, Nothing)
         substs -> do
-            let (eqStore', sid) = addDisj eqdhstore (S.fromList substs)
-            return (eqStore', Just sid)
+            let  eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs ) eqdhstore
+            return (eqStore', Nothing)
   where
     eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
+    addsubsts sub eqst= applyEqStore hnd sub eqst
+    changeqstore [x] eq = addsubsts x eq
+    changeqstore (x:xs) eq = changeqstore xs (addsubsts x eq)
 
 
 addDHProtoEqs :: MonadFresh m
