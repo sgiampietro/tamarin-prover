@@ -38,7 +38,7 @@ import qualified Data.ByteString.Char8 as BC
 
 import Data.Attoparsec.ByteString.Char8
 
-import Debug.Trace
+--import Debug.Trace
 
 -- import Extension.Data.Monoid
 
@@ -412,9 +412,9 @@ parseSubstitution msig = do
 
 -- | @parseReduceReply l@ parses a single solution returned by Maude.
 parseReduceReply :: MaudeSig -> ByteString -> Either String MTerm
-parseReduceReply msig reply = trace (show ("PARSING:", reply)) (flip parseOnly reply $ do
+parseReduceReply msig reply = flip parseOnly reply $ do
     string "result " *> choice [ string "TOP" *> pure LSortMsg, parseSort ] -- we ignore the sort
-        *> string ": " *> parseTerm msig <* endOfLine <* endOfInput)
+        *> string ": " *> parseTerm msig <* endOfLine <* endOfInput
 
 -- | Parse an 'MSort'.
 parseSort :: Parser LSort
