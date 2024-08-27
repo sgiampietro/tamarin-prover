@@ -25,7 +25,7 @@ module Theory.Constraint.Solver.Goals (
   , plainOpenGoals
   ) where
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 
 import           Prelude                                 hiding (id, (.))
 
@@ -513,10 +513,10 @@ solveDHIndaux bset nbset terms p faPrem rules =
           --(Lit2 t) | (isPubGVar (LIT t))  -> trace (show ("GotHERE")) return "attack"
           --_ -> do
           (ru, c, faConc) <- insertFreshNodeConcOut rules
-          hnd <- getMaudeHandle
-          let faConc' = normalizeFact hnd faConc
-              faPrem' = normalizeFact hnd faPrem
-          insertDHEdge False (c, faConc', faPrem', p) bset nbset -- instead of root indicator this should be Y.ind^Z.
+          --hnd <- getMaudeHandle
+          --let faConc' = normalizeFact hnd faConc
+          --    faPrem' = normalizeFact hnd faPrem
+          insertDHEdge False (c, faConc, faPrem, p) bset nbset -- instead of root indicator this should be Y.ind^Z.
           return $ showRuleCaseName ru -- (return "done") 
 
 
@@ -582,7 +582,7 @@ solveIndicatorProto nb t1 t2 = do
         --store <- getM sEqStore
         --store'     <- simp hnd substCheck store 
         void substSystem
-        --void normSystem
+        void normSystem
         nodes <- getM sNodes
         setM sNodes $ M.map (\r -> runReader (normRule r) hnd) nodes
         return ("Matched" ++ show (normalizeSubstList hnd subst))

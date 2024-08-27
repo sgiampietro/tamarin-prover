@@ -96,7 +96,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -950,10 +950,12 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
             (True, _) | compatibleLits ta1 ta2 -> do
                             trace (show ("usualunification", ta1, ta2)) solveTermEqs splitStrat [(Equal ta1 ta2)]
                             void substSystem
+                            void normSystem
                             return Changed
             (_, True) | compatibleLits ta1 ta2 -> do
                             trace (show ("usualunification", ta1, ta2)) solveTermEqs splitStrat [(Equal ta1 ta2)]
                             void substSystem
+                            void normSystem
                             return Changed
             _          -> do
                         nocancs <- getM sNoCanc
@@ -982,6 +984,7 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
                                             trace (show ("beforesusbst", ta2,ta1,eq3) ) $ insertContIndProto ta2 ta1'
                                             insertGoal (IndicatorGExp (S.toList nbset) (ta2,ta1')) False
                                             void substSystem
+                                            void normSystem
                                             trace (show ("aftersusbst", ta2,ta1,eq3) ) $ return Changed
                             _ -> error "TODO")
 solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
@@ -998,10 +1001,12 @@ solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
             (True, _) | compatibleLits ta1 ta2 -> do
                                                 trace (show ("usualunification", ta1, ta2)) $ solveTermEqs splitStrat [(Equal ta1 ta2)]
                                                 void substSystem
+                                                void normSystem
                                                 return Changed
             (_, True) | compatibleLits ta1 ta2 ->  do
                                                 trace (show ("usualunification", ta1, ta2)) $ solveTermEqs splitStrat [(Equal ta1 ta2)]
                                                 void substSystem
+                                                void normSystem
                                                 return Changed
             _ -> do
                 nocancs <- getM sNoCanc
@@ -1034,6 +1039,7 @@ solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
                                 insertContInd ta2' ta1'
                                 insertGoal (IndicatorG (ta2',ta1')) False
                                 void substSystem
+                                void normSystem
                                 return Changed
                     _ -> error "TODO")
 
