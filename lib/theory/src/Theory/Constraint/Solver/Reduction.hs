@@ -327,7 +327,7 @@ labelNodeId = \i rules parent -> do
                 -- 'm' must be of sort fresh ==> enforce via unification
                 n <- varTerm <$> freshLVar "n" LSortFrNZE
                 void (solveTermEqs SplitNow [Equal m n])
-            modM sEdges (S.insert $ Edge (j, ConcIdx 0) (i,v))
+            modM sEdges (S.insert $ Edge (j, ConcIdx 0) (i,v)) 
 
           -- CR-rule *DG2_{2,u}*: solve a KU-premise by inserting the
           -- corresponding KU-actions before this node.
@@ -960,16 +960,64 @@ solveTermEqs splitStrat eqs0 =
         return Changed
 
 
+
+solveDHProtoEqsAux :: SplitStrategy -> S.Set LNTerm  -> S.Set LNTerm -> MaudeHandle -> MaudeHandle -> [LNTerm] -> LNTerm -> LNTerm -> StateT System (FreshT (DisjT (Reader ProofContext))) ()
+solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 = do
+    case xindterms of 
+        [indt] -> do
+            se  <- gets id
+            outterm <- disjunctionOfList (multRootList ta2)
+            (eqs2, maySplitId) <- addDHProtoEqs hnd outterm indt =<< getM sEqStore
+            setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
+            noContradictoryEqStore
+            insertContIndProto ta2 ta1
+            insertGoal (IndicatorGExp (S.toList nbset) (ta2,ta1)) False
+        (indt:indts) -> do 
+            se  <- gets id
+            outterm <- disjunctionOfList (multRootList ta2)
+            (eqs2, maySplitId) <- addDHProtoEqs hnd outterm indt =<< getM sEqStore
+            setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
+            noContradictoryEqStore
+            insertContIndProto ta2 ta1
+            solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd indts ta1 ta2
+
+solveDHEqsAux :: SplitStrategy -> S.Set LNTerm  -> S.Set LNTerm -> MaudeHandle -> MaudeHandle -> [LNTerm] -> LNTerm -> LNTerm -> StateT System (FreshT (DisjT (Reader ProofContext))) ()
+solveDHEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 = do
+    case xindterms of 
+        [indt] -> do
+            case viewTerm2 (indt) of
+                (DHOne) -> trace (show ("GotHEREDHOne")) return ()
+                (DHEg) -> trace (show ("GotHEREDHEg")) return ()
+                (Lit2 t) | (isPubGVar (LIT t))  -> trace (show ("GotHEREPubG")) return ()
+                _ -> do
+                        se  <- gets id
+                        outterm <- disjunctionOfList (multRootList ta2)
+                        (eqs2, maySplitId) <- addDHEqs2 hnd outterm indt =<< getM sEqStore
+                        setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
+                        noContradictoryEqStore
+                        insertContInd ta2 ta1
+                        insertGoal (IndicatorG (ta2,ta1)) False
+                        void substSystem
+                        void normSystem
+        (indt:indts) -> do
+            case viewTerm2 (indt) of
+                (DHOne) -> solveDHEqsAux splitStrat bset nbset hndNormal hnd indts ta1 ta2
+                (DHEg) -> solveDHEqsAux splitStrat bset nbset hndNormal hnd indts ta1 ta2
+                (Lit2 t) | (isPubGVar (LIT t))  -> solveDHEqsAux splitStrat bset nbset hndNormal hnd indts ta1 ta2
+                _ -> do
+                        se  <- gets id
+                        outterm <- disjunctionOfList (multRootList ta2)
+                        (eqs2, maySplitId) <- addDHEqs2 hnd outterm indt =<< getM sEqStore
+                        setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
+                        noContradictoryEqStore
+                        insertContInd ta2 ta1
+                        void substSystem
+                        void normSystem
+                        solveDHEqsAux splitStrat bset nbset hndNormal hnd indts ta1 ta2
+
 solveTermDHEqs ::  Bool -> SplitStrategy -> S.Set LNTerm -> S.Set LNTerm -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
 solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
         if ta1 == ta2 then (do return Unchanged) else (
-        --case compatibleLits ta1 ta2 of 
-        --    Nothing    -> do 
-        --                    eqdhstore <- getM sEqStore
-        --                    setM sEqStore =<< return (set eqsConj falseEqConstrConj eqdhstore) -- =<< getM sEqStore
-         --                   noContradictoryEqStore
-        --                    return Changed
-        --    Just True  -> solveTermEqs splitStrat [(Equal ta1 ta2)]
         case (isDHLit ta1, isDHLit ta2) of
             (True, _) | compatibleLits ta1 ta2 -> do
                             solveTermEqs splitStrat [(Equal ta1 ta2)]
@@ -987,39 +1035,14 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
                         case prodTerms ta1 of
                             Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
                                           else do
-                                            let indt = trace (show ("THISISIND:TRUE", (runReader (rootIndKnownMaude bset nbset x) hndNormal))) (runReader (rootIndKnownMaude bset nbset x) hndNormal)
-        --    indtexp = fAppdhExp (indt, LIT (Var z1) )             -- z1 <- freshLVar "Z1" LSortE
-                                            hnd <- getMaudeHandleDH -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
-                                            se  <- gets id
-                                            outterm <- disjunctionOfList (multRootList ta2)
-                                            (eqs2, maySplitId) <- addDHProtoEqs hnd outterm indt =<< getM sEqStore
-                                            -- trace (show ("EQSTORE AFTER ADDDHPROTOEQS", eqs2)) $ setM sEqStore eqs2
-                                            setM sEqStore
-                                                =<< simp hnd (substCreatesNonNormalTerms hnd se)
-                                                =<< case (maySplitId, splitStrat) of
-                                                        (Just splitId, SplitNow) -> disjunctionOfList  $ fromJustNote "solveTermEqs" $ performSplit eqs2 splitId
-                                                        (Just splitId, SplitLater) -> do
-                                                            insertGoal (SplitG splitId) False
-                                                            return eqs2
-                                                        _        -> return eqs2
-                                            eq3 <- getM sEqStore
-                                            noContradictoryEqStore
-                                            insertContIndProto ta2 ta1
-                                            insertGoal (IndicatorGExp (S.toList nbset) (ta2,ta1)) False
-                                            void substSystem
-                                            void normSystem
+                                            let xrooterms = multRootList ta1
+                                                xindterms = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) xrooterms
+                                            hnd <- getMaudeHandleDH 
+                                            solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2
                                             return Changed
                             _ -> error "TODO")
 solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
         if ta1 == ta2 then (do return Unchanged) else (
-        --case compatibleLits ta1 ta2 of 
-            --Nothing    -> do 
-            --                eqdhstore <- getM sEqStore
-            --                setM sEqStore =<< return (set eqsConj falseEqConstrConj eqdhstore) -- =<< getM sEqStore
-            --                noContradictoryEqStore
-            --                return Changed
-            --Just True  -> trace (show ("usualunification", ta1, ta2)) solveTermEqs splitStrat [(Equal ta1 ta2)]
-            --_          -> do
         case (isDHLit ta1, isDHLit ta2) of
             (True, _) | compatibleLits ta1 ta2 -> do
                                                 solveTermEqs splitStrat [(Equal ta1 ta2)]
@@ -1037,31 +1060,11 @@ solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
                 case prodTerms ta1 of
                     Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
                      else do
-            -- z1 <- freshLVar "Z1" LSortE
-                        let indt = trace (show ("THISISIND:",ta1,x,(runReader (rootIndKnownMaude bset nbset x) hndNormal), bset, nbset, (rootIndKnown bset nbset x))) (runReader (rootIndKnownMaude bset nbset x) hndNormal)
-                        case viewTerm2 (indt) of
-                            (DHOne) -> trace (show ("GotHEREDHOne")) return Unchanged
-                            (DHEg) -> trace (show ("GotHEREDHEg")) return Unchanged
-                            (Lit2 t) | (isPubGVar (LIT t))  -> trace (show ("GotHEREPubG")) return Unchanged
-                            _ -> do
-                                hnd <- getMaudeHandleDH -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
-                                se  <- gets id
-                                outterm <- disjunctionOfList (multRootList ta2)
-                                (eqs2, maySplitId) <- addDHEqs2 hnd outterm indt =<< getM sEqStore
-                                setM sEqStore
-                                    -- =<< simp hnd (substCreatesNonNormalTerms hnd se)
-                                    =<< case (maySplitId, splitStrat) of
-                                            (Just splitId, SplitNow) -> disjunctionOfList $ fromJustNote "solveTermEqs" $ performSplit eqs2 splitId
-                                            (Just splitId, SplitLater) -> do
-                                                insertGoal (SplitG splitId) False
-                                                return eqs2
-                                            _                        -> return eqs2
-                                noContradictoryEqStore
-                                insertContInd ta2 ta1
-                                insertGoal (IndicatorG (ta2,ta1)) False
-                                trace (show ("OUTTERMOF, T2, INDOF, T1", outterm, ta2, indt, x, y, ta1)) $ void substSystem
-                                void normSystem
-                                return Changed
+                        let xrooterms = multRootList ta1
+                            xindterms = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) xrooterms                
+                        hnd <- getMaudeHandleDH 
+                        solveDHEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2
+                        return Changed
                     _ -> error "TODO")
 
 
