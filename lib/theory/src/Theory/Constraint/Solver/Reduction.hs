@@ -39,6 +39,7 @@ module Theory.Constraint.Solver.Reduction (
   , labelNodeId
   , insertFreshNode
   , insertFreshNodeConc
+  , insertFreshNodeConcInst
   , insertFreshNodeConcOut
   , insertFreshNodeConcOutInst
 
@@ -232,17 +233,33 @@ insertFreshNodeConc rules = do
     (v, fa) <- disjunctionOfList $  enumConcs ru
     return (ru, (i, v), fa)
 
+insertFreshNodeConcInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, LNFact)
+insertFreshNodeConcInst rules instrules = do
+    b <- disjunctionOfList [True, False]
+    (if b then (do
+            (i,ru) <- disjunctionOfList instrules
+            (v, fa) <- disjunctionOfList $ [(c,f)|  (c,f) <- enumConcs ru, isDHFact f ]
+            return (ru, (i, v), fa)) else (do
+            (i, ru) <- insertFreshNode rules Nothing
+            (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru,  isDHFact f ]
+            return (ru, (i, v), fa)))
+
 insertFreshNodeConcOut :: [RuleAC] -> Reduction (RuleACInst, NodeConc, LNFact)
 insertFreshNodeConcOut rules = do
     (i, ru) <- insertFreshNode rules Nothing
     (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru, (factTag f == OutFact || factTag f == KdhFact), isDHFact f ]
     return (ru, (i, v), fa)
 
-insertFreshNodeConcOutInst :: [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, LNFact)
-insertFreshNodeConcOutInst rules = do
-    (i,ru) <- disjunctionOfList rules
-    (v, fa) <- disjunctionOfList $ [(c,f)|  (c,f) <- enumConcs ru, (factTag f == OutFact || factTag f == KdhFact), isDHFact f ]
-    return (ru, (i, v), fa)
+insertFreshNodeConcOutInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, LNFact)
+insertFreshNodeConcOutInst rules instrules = do
+    b <- disjunctionOfList [True, False]
+    (if b then (do
+            (i,ru) <- disjunctionOfList instrules
+            (v, fa) <- disjunctionOfList $ [(c,f)|  (c,f) <- enumConcs ru, (factTag f == OutFact || factTag f == KdhFact), isDHFact f ]
+            return (ru, (i, v), fa)) else (do
+            (i, ru) <- insertFreshNode rules Nothing
+            (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru, (factTag f == OutFact || factTag f == KdhFact), isDHFact f ]
+            return (ru, (i, v), fa)))
 
 -- | Insert a fresh rule node labelled with a fresh instance of one of the rules
 -- and solve it's 'Fr', 'In', and 'KU' premises immediately.
@@ -638,7 +655,7 @@ insertEdge (c, fa1, fa2, p) = do
 
 insertDHEdge ::  Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> S.Set LNTerm -> S.Set LNTerm -> Reduction ()
 insertDHEdge b (c, fa1, fa2, p) bset nbset = do --fa1 should be an Out fact
-    void (solveFactDHEqs b SplitNow fa1 fa2 bset nbset) 
+    void (solveFactDHEqs b SplitNow fa1 fa2 bset nbset)
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
 insertBasisElem :: LNTerm -> Reduction ()
@@ -879,7 +896,7 @@ normalizeFact hnd fa@(Fact f1 f2 faterms) = Fact f1 f2 (map (\t-> runReader (nor
 
 normalizeGoal :: MaudeHandle -> Goal -> Goal
 normalizeGoal hnd goal = case goal of
-        ActionG v fact -> ActionG v $ normalizeFact hnd fact 
+        ActionG v fact -> ActionG v $ normalizeFact hnd fact
         PremiseG prem fact -> PremiseG prem $ normalizeFact hnd fact
         DHIndG prem fact -> DHIndG prem $ normalizeFact hnd fact
         NoCancG (t1, t2) -> NoCancG (runReader (norm' t1) hnd, runReader (norm' t2) hnd)
@@ -967,9 +984,9 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
             _          -> do
                         nocancs <- getM sNoCanc
                         hndNormal <- getMaudeHandle
-                        case prodTerms ta1 of 
+                        case prodTerms ta1 of
                             Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
-                                          else do 
+                                          else do
                                             let indt = trace (show ("THISISIND:TRUE", (runReader (rootIndKnownMaude bset nbset x) hndNormal))) (runReader (rootIndKnownMaude bset nbset x) hndNormal)
         --    indtexp = fAppdhExp (indt, LIT (Var z1) )             -- z1 <- freshLVar "Z1" LSortE
                                             hnd <- getMaudeHandleDH -- unless the simplified unification algorithm is already implemented in Maude, this shouldn't be necessary? the simplified unification algorithm is as if we had the DHMult theory loaded.
@@ -977,7 +994,7 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
                                             outterm <- disjunctionOfList (multRootList ta2)
                                             (eqs2, maySplitId) <- addDHProtoEqs hnd outterm indt =<< getM sEqStore
                                             -- trace (show ("EQSTORE AFTER ADDDHPROTOEQS", eqs2)) $ setM sEqStore eqs2
-                                            setM sEqStore 
+                                            setM sEqStore
                                                 =<< simp hnd (substCreatesNonNormalTerms hnd se)
                                                 =<< case (maySplitId, splitStrat) of
                                                         (Just splitId, SplitNow) -> disjunctionOfList  $ fromJustNote "solveTermEqs" $ performSplit eqs2 splitId
@@ -1017,9 +1034,9 @@ solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
             _ -> do
                 nocancs <- getM sNoCanc
                 hndNormal <- getMaudeHandle
-                case prodTerms ta1 of 
+                case prodTerms ta1 of
                     Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
-                     else do 
+                     else do
             -- z1 <- freshLVar "Z1" LSortE
                         let indt = trace (show ("THISISIND:",ta1,x,(runReader (rootIndKnownMaude bset nbset x) hndNormal), bset, nbset, (rootIndKnown bset nbset x))) (runReader (rootIndKnownMaude bset nbset x) hndNormal)
                         case viewTerm2 (indt) of
