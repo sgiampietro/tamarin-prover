@@ -157,7 +157,7 @@ solveAllSafeGoals ths' openChainsLimit =
         ActionG _ fa  -> not (isKUFact fa)
         -- we do not solve KD goals for Xor facts as insertAction inserts
         -- these goals directly. This prevents loops in the precomputations
-        PremiseG _ fa -> not (isKUFact fa) && not (isKDXorFact fa) && not (isNoSourcesFact fa)
+        PremiseG _ fa -> not (isKUFact fa) && not (isKDXorFact fa) && not (isNoSourcesFact fa) && not (isDHFact fa)
         DisjG _       -> doSplit
         -- Uncomment to get more extensive case splitting
         SplitG _      -> doSplit --extensiveSplitting &&
@@ -330,7 +330,7 @@ solveWithSourceAndReturn :: ProofContext
                          -> Maybe (Reduction [String], Maybe Source)
 solveWithSourceAndReturn hnd ths goal = do
     -- goal <- toBigStepGoal goal0
-    asum [ applySource hnd th goal | th <- ths ]
+    trace (show ("SOLVINGVIASOURCE:", goal)) $ asum [ applySource hnd th goal | th <- ths ]
 
 -- | Try to solve a premise goal or 'KU' action using the first precomputed
 -- source with a matching premise.
@@ -358,7 +358,7 @@ applySource ctxt th0 goal = case matchToGoal ctxt th0 goal of
         return names), Just th0)
     Nothing -> Nothing
   where
-    keepVarBindings = M.fromList (map (\v -> (v, v)) (frees goal))
+    keepVarBindings = trace (show ("CALLEDAPPLYSOURCE", goal)) $ M.fromList (map (\v -> (v, v)) (frees goal))
 
 -- | Saturate the sources with respect to each other such that no
 -- additional splitting is introduced; i.e., only rules with a single or no

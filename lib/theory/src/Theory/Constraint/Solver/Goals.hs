@@ -25,7 +25,7 @@ module Theory.Constraint.Solver.Goals (
   , plainOpenGoals
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Prelude                                 hiding (id, (.))
 
@@ -244,7 +244,7 @@ solveAction :: [RuleAC]          -- ^ All rules labelled with an action
             -> (NodeId, LNFact)  -- ^ The action we are looking for.
             -> Reduction String  -- ^ A sensible case name.
 solveAction rules (i, fa@(Fact _ ann _)) = do
-    mayRu <- M.lookup i <$> getM sNodes
+    mayRu <- trace (show ("SOLVINGACTION:", fa)) $ M.lookup i <$> getM sNodes
     showRuleCaseName <$> case mayRu of
         Nothing -> case fa of
             (Fact KUFact _ [m@(viewTerm2 -> FXor ts)]) -> do
@@ -327,7 +327,7 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
 solvePremise rules p faPrem
   | isKdhFact faPrem = (solveDHInd rules p faPrem)
   | (isInFact faPrem && isDHFact faPrem) = solveDHInd rules p faPrem
-  | isProtoDHFact faPrem =  solveDHIndProto rules p faPrem
+  | isProtoDHFact faPrem =  trace (show ("SOLVINGPREMISEDH:", faPrem)) $ solveDHIndProto rules p faPrem
   | isKDFact faPrem = do
       iLearn    <- freshLVar "vl" LSortNode
       mLearn    <- varTerm <$> freshLVar "t" LSortMsg -- why do we not care about the term here??
@@ -349,7 +349,7 @@ solvePremise rules p faPrem
 -}
   | otherwise = do
       (ru, c, faConc) <- insertFreshNodeConc rules
-      insertEdges [(c, faConc, faPrem, p)]
+      trace (show ("SOLVINGNORMALPREMISE:", faPrem)) $ insertEdges [(c, faConc, faPrem, p)]
       return $ showRuleCaseName ru
 
 -- | CR-rule *DG2_chain*: solve a chain constraint.

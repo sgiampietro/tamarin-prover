@@ -23,7 +23,7 @@ module Theory.Constraint.Solver.Simplify (
 
   ) where
 
-import           Debug.Trace
+import           Debug.Trace -- .Ignore
 
 import           Prelude                            hiding (id, (.))
 
@@ -59,8 +59,7 @@ import           Utils.Misc
 -- system does not change anymore.
 simplifySystem :: Reduction ()
 simplifySystem = do
-    pog <- gets plainOpenGoals
-    isdiff <- trace (show ("CURRENTPLAINOPENGOALS", pog)) $ getM sDiffSystem
+    isdiff <- getM sDiffSystem
     -- Start simplification, indicating that some change happened
     go (0 :: Int) [Changed]
     if isdiff
@@ -127,15 +126,15 @@ simplifySystem = do
 
               traceIfLooping $ go (n + 1) (map snd changes)
             else do
-              (c1,c2,c3) <- trace (show "gothere100")  enforceNodeUniqueness
-              c4 <- trace (show "gothere101") enforceEdgeUniqueness
-              c5 <- trace (show ("gothere102",c4)) solveUniqueActions
-              c6 <- trace (show "gothere103") reduceFormulas
-              c7 <- trace (show "gothere104") evalFormulaAtoms
-              c8 <- trace (show "gothere105") insertImpliedFormulas
-              c9 <- trace (show "gothere106") freshOrdering
-              c10 <- trace (show "gothere107") simpSubterms
-              c11 <- trace (show "gothere108") simpInjectiveFactEqMon
+              (c1,c2,c3) <- enforceNodeUniqueness
+              c4 <- enforceEdgeUniqueness
+              c5 <- solveUniqueActions
+              c6 <- reduceFormulas
+              c7 <- evalFormulaAtoms
+              c8 <- insertImpliedFormulas
+              c9 <- freshOrdering
+              c10 <- simpSubterms
+              c11 <- simpInjectiveFactEqMon
 
               -- Report on looping behaviour if necessary
               let changes = filter ((Changed ==) . snd) $
@@ -189,7 +188,7 @@ enforceNodeUniqueness =
     freshRuleInsts se = do
         (i, ru) <- M.toList $ get sNodes se
         guard (isFreshRule ru)
-        trace (show ("freshru", ru)) $ return (ru, ((), i))  -- no need to merge equal rules
+        return (ru, ((), i))  -- no need to merge equal rules
 
     -- *N5_d*
     kdConcs sys = (\(i, ru, m) -> (m, (ru, i))) <$> allKDConcs sys
@@ -297,7 +296,7 @@ solveUniqueActions = do
            && null [ () | t <- ts, FUnion _ <- return (viewTerm2 t) ]
 
         trySolve (i, fa)
-          | isUnique fa && (not $ isDHFact fa) = (solveGoal (ActionG i fa) >> return Changed)
+          | isUnique fa && (not $ isDHFact fa) = trace (show ("SOLVINGFROMHERE", fa)) (solveGoal (ActionG i fa) >> return Changed)
           | otherwise   = return Unchanged
 
     mconcat <$> mapM trySolve actionAtoms

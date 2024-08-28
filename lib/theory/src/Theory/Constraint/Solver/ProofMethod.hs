@@ -291,9 +291,10 @@ execProofMethod ctxt method sys =
       where
         reduc  = runReduction solver ctxt sys (avoid sys)
         ths    = L.get pcSources ctxt
-        solver = do name <- maybe (solveGoal goal)
-                                  (fmap $ concat . intersperse "_")
-                                  (solveWithSource ctxt ths goal)
+        solver = do name <- solveGoal goal
+        --maybe (solveGoal goal)
+                            --      (fmap $ concat . intersperse "_")
+                            --      (solveWithSource ctxt ths goal)
                     simplifySystem
                     return name
 
