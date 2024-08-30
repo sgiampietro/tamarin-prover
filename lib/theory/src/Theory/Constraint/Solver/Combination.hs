@@ -38,7 +38,7 @@ import Term.DHMultiplication
 import Term.LTerm -- (LNTerm)
 
 -- import Theory.Constraint.System.Constraints
-import Debug.Trace.Ignore
+import Debug.Trace -- .Ignore
 import Data.ByteString.Builder (word16BE)
 
 
@@ -73,11 +73,8 @@ allNBExponents nbasis allexp = (nbasis `intersect` allexp, allexp \\ nbasis)
 
 -- polynomials, how should we represent them? maps? vectors?
 
-combineMaps :: LNTerm -> LNTerm -> LNTerm -> LNTerm
-combineMaps key oldvalue newvalue = simplifyraw $ fAppdhPlus (oldvalue,newvalue)
 
-
-coeffTermsOf :: LNTerm -> LNTerm -> LNTerm 
+coeffTermsOf :: ( LNTerm) -> (LNTerm) -> LNTerm 
 coeffTermsOf t@(LIT l) vart
   | t == vart = fAppdhOne
   | otherwise = t
@@ -88,32 +85,55 @@ coeffTermsOf t@(FAPP (DHMult o) ts) vart =     case ts of
     _                               -> error $ "term not in normal form?: `"++show t++"'"
 
 
+setSimplify :: S.Set LNTerm -> S.Set LNTerm
+setSimplify s = 
+  if S.size s == 1 then s 
+  else ( S.filter (\x -> x /= fAppdhOne ) s)
+
+
+monomialsOf :: [LNTerm] -> LNTerm -> [S.Set LNTerm]
+--eTermsOf t@(viewTerm3 -> Box dht) = eTermsOf dht
+--eTermsOf t@(viewTerm3 -> BoxE dht) = eTermsOf dht
+monomialsOf vars t@(LIT l)
+  | isEVar t && elem t vars= [S.singleton t]
+  | isNZEVar t && elem t vars= [S.singleton t]
+  | isFrNZEVar t && elem t vars = [S.singleton t]
+  | otherwise = [S.empty]
+monomialsOf vars t = 
+  case viewTerm2 t of 
+    FdhTimesE t1 t2 -> [S.union (head $ monomialsOf vars t1) (head $ monomialsOf vars t2)]
+    FdhTimesE t1 t2 -> [S.union (head $ monomialsOf vars t1) (head $ monomialsOf vars t2)]
+    FdhPlus t1 t2 -> monomialsOf vars t1 ++ monomialsOf vars t2
+    FdhMinus t1 -> monomialsOf vars t1
+    FdhInv t1 | elem t vars -> [S.singleton t1]
+    FdhInv t1 -> [S.empty]
+
 -- THIS FUNCTION ASSUMES THAT THE INPUT TERMS ARE IN NORMAL FORM, i.e. 
 -- EACH MONOMIAL (which we assume of type E) is of the form 
 -- "(m1+m2+...+mk)" where mi = (e1*e2*...*el), and ei are either literals or inv(lit).
-
+ 
 -- make sure the vars do not contain any inverse, but only pure LIT terms. 
-getkeyfromProd :: [LNTerm] -> LNTerm -> LNTerm 
-getkeyfromProd vars t@(LIT l) = if (elem t vars) then t else fAppdhOne
+getkeyfromProd :: [LNTerm] -> LNTerm -> S.Set LNTerm 
+getkeyfromProd vars t@(LIT l) = if (elem t vars) then (S.singleton t) else (S.singleton fAppdhOne)
 getkeyfromProd vars t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhTimesSym   -> (case t1 of
-        (LIT l) -> if (elem t1 vars) then simplifyraw $ fAppdhTimesE (t1, getkeyfromProd vars t2) else getkeyfromProd vars t2
-        _       -> simplifyraw $ fAppdhTimesE (getkeyfromProd vars t1, getkeyfromProd vars t2))
+        (LIT l) -> if (elem t1 vars) then setSimplify $ S.union (S.singleton t1) (getkeyfromProd vars t2) else getkeyfromProd vars t2
+        _       -> setSimplify $ S.union (getkeyfromProd vars t1) (getkeyfromProd vars t2))
     [ t1, t2 ] | o == dhTimesESym   -> (case t1 of
-        (LIT l) -> if (elem t1 vars) then simplifyraw $ fAppdhTimesE (t1, getkeyfromProd vars t2) else getkeyfromProd vars t2
-        _       -> simplifyraw $ fAppdhTimesE (getkeyfromProd vars t1, getkeyfromProd vars t2))
-    [ t1 ]     | o == dhInvSym    -> if (elem t1 vars) then t else fAppdhOne
+        (LIT l) -> if (elem t1 vars) then setSimplify $ S.union (S.singleton t1) (getkeyfromProd vars t2) else getkeyfromProd vars t2
+        _       -> setSimplify $ S.union (getkeyfromProd vars t1) (getkeyfromProd vars t2))
+    [ t1 ]     | o == dhInvSym    -> if (elem t1 vars) then S.singleton t else S.singleton fAppdhOne
     [ t1 ]     | o == dhMinusSym    -> getkeyfromProd vars t1
-    [ t1 ]     | o == dhMuSym    -> if (elem t1 vars) then fAppdhMu t1 else fAppdhOne --TODO: not sure what to do here? t1 is actually a G term??
-    []         | o == dhZeroSym    -> fAppdhOne
-    []         | o == dhOneSym    -> fAppdhOne
+    [ t1 ]     | o == dhMuSym    -> if (elem t1 vars) then S.singleton $ fAppdhMu t1 else S.singleton fAppdhOne --TODO: not sure what to do here? t1 is actually a G term??
+    []         | o == dhZeroSym    -> S.singleton fAppdhOne
+    []         | o == dhOneSym    -> S.singleton fAppdhOne
     _                               -> error $ "this shouldn't have happened: `"++show t++"'"
 
 getcoefromProd :: [LNTerm] -> LNTerm -> LNTerm 
 getcoefromProd vars t@(LIT l) = if (elem t vars) then fAppdhOne else t
 getcoefromProd vars t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhTimesSym   -> (case t1 of
-        (LIT l) -> if (elem t1 vars) then getcoefromProd vars t2 else simplifyraw $ fAppdhTimesE (t1, getcoefromProd vars t2) 
+        (LIT l) -> if (elem t1 vars) then getcoefromProd vars t2 else simplifyraw $ fAppdhTimesE ( t1, getcoefromProd vars t2) 
         _       -> simplifyraw $ fAppdhTimesE (getcoefromProd vars t1, getcoefromProd vars t2))
     [ t1, t2 ] | o == dhTimesESym   -> (case t1 of
         (LIT l) -> if (elem t1 vars) then getcoefromProd vars t2 else simplifyraw $ fAppdhTimesE (t1, getcoefromProd vars t2) 
@@ -126,8 +146,11 @@ getcoefromProd vars t@(FAPP (DHMult o) ts) = case ts of
     _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
 
 
-addToMap :: Map.Map LNTerm LNTerm -> [LNTerm] -> LNTerm  -> Map.Map LNTerm LNTerm 
-addToMap currmap vars t@(LIT l) = if (elem t vars) then (Map.insertWithKey combineMaps t fAppdhOne currmap) else (Map.insertWithKey combineMaps fAppdhOne t currmap) 
+combineMaps :: S.Set LNTerm -> LNTerm -> LNTerm -> LNTerm
+combineMaps key oldvalue newvalue = simplifyraw $ fAppdhPlus (oldvalue,newvalue)
+
+addToMap :: Map.Map (S.Set LNTerm) LNTerm -> [LNTerm] -> LNTerm  -> Map.Map (S.Set LNTerm) LNTerm 
+addToMap currmap vars t@(LIT l) = if (elem t vars) then (Map.insertWithKey combineMaps (S.singleton t) fAppdhOne currmap) else (Map.insertWithKey combineMaps (S.singleton fAppdhOne) t currmap) 
 addToMap currmap vars t@(FAPP (DHMult o) ts) = case ts of
     -- [ t1, t2 ] | o == dhMultSym   -> this shouldn't happen. only root terms. 
     [ t1, t2 ] | o == dhTimesSym   -> Map.insertWithKey combineMaps (getkeyfromProd vars t) (getcoefromProd vars t) currmap
@@ -141,15 +164,14 @@ addToMap currmap vars t@(FAPP (DHMult o) ts) = case ts of
     --[ t1 ]     | o == dhBoxSym    -> FdhBox t1 (this function should be called on UN-boxed term)
     --[ t1 ]     | o == dhBoxESym    -> FdhBoxE t1 (this function should be called on UN-boxed term)
     []         | o == dhZeroSym    -> Map.empty
-    []         | o == dhOneSym    -> (Map.insertWithKey combineMaps fAppdhOne fAppdhOne currmap)
+    []         | o == dhOneSym    -> (Map.insertWithKey combineMaps (S.singleton fAppdhOne) fAppdhOne currmap)
     _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
 
 
-parseToMap ::  [LNTerm] -> LNTerm  -> Map.Map LNTerm LNTerm 
+parseToMap ::  [LNTerm] -> LNTerm  -> Map.Map (S.Set LNTerm) LNTerm 
 parseToMap = addToMap Map.empty
 
-
-getvalue :: Map.Map LNTerm LNTerm -> LNTerm -> LNTerm 
+getvalue :: Map.Map (S.Set LNTerm) LNTerm -> (S.Set LNTerm) -> LNTerm 
 getvalue somemap key = case Map.lookup key somemap of
   Just t -> t
   Nothing -> fAppdhZero 
@@ -163,13 +185,10 @@ createMatrix nb terms target =
         -- row = map( \i -> getvalue targetpoly i) allkeys 
         createdmatrix = (map (\key -> ((map (\p -> getvalue p key) polynomials )++ [getvalue targetpoly key])) allkeys)
     in 
-  trace (show ("thisistheresultingmatrix", createdmatrix)) createdmatrix -- todo: double check if row/column is ok or needs to be switched
-
-
-
+  trace (show ("thisistheresultingmatrix", createdmatrix, "vars", vars)) createdmatrix -- todo: double check if row/column is ok or needs to be switched
 
 solveIndicatorGauss :: [LNTerm] -> [LNTerm] -> LNTerm -> Maybe [LNTerm]
-solveIndicatorGauss nb terms target = solveMatrix fAppdhZero $ createMatrix (nb) (map gTerm2Exp terms) (gTerm2Exp target)
+solveIndicatorGauss nb terms target = trace (show ("solving matrix for terms and target", terms,(map gTerm2Exp terms), target, (gTerm2Exp target))) $ solveMatrix fAppdhZero $ createMatrix (nb) (map gTerm2Exp terms) (gTerm2Exp target)
 -- TODO: these terms are possible G, terms. We assume here that our terms are always of the form
 -- 'g'^x for some fixed g, so we need to transform them to their exponent values. 
 
@@ -221,7 +240,7 @@ createMatrixProto nb term target =
         -- allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetpoly):[Map.keys polynomial])
         -- row = map( \i -> getvalue targetpoly i) allkeys 
     in 
-  trace (show ("OBTAINEDMATRIX!!:", matrixvars, resultmatrix, allkeys)) (matrixvars, resultmatrix)
+  trace (show ("OBTAINEDMATRIX!!:", matrixvars, resultmatrix, allkeys, "Term,target:", term,target)) (matrixvars, resultmatrix)
 -- w1 is multiplied term, z1 is the summed term. 
 
 
