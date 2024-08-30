@@ -106,7 +106,7 @@ import qualified Data.Map                                as M
 import qualified Data.Map.Strict                         as M'
 import qualified Data.Set                                as S
 import qualified Data.ByteString.Char8                   as BC
-import           Data.List                               (mapAccumL)
+import           Data.List                               (mapAccumL, delete)
 import           Safe
 
 import           Control.Basics
@@ -981,8 +981,8 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 = do
             insertContIndProto ta2 ta1
             solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd indts ta1 ta2
 
-solveDHEqsAux :: SplitStrategy -> S.Set LNTerm  -> S.Set LNTerm -> MaudeHandle -> MaudeHandle -> [LNTerm] -> LNTerm -> LNTerm -> StateT System (FreshT (DisjT (Reader ProofContext))) ()
-solveDHEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 = do
+solveDHEqsAux :: SplitStrategy -> S.Set LNTerm  -> S.Set LNTerm -> MaudeHandle -> MaudeHandle -> [LNTerm] -> LNTerm -> LNTerm -> [LNTerm] -> StateT System (FreshT (DisjT (Reader ProofContext))) ()
+solveDHEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 rootsta2 = do
     case xindterms of 
         [indt] -> do
             case viewTerm2 (indt) of
@@ -991,29 +991,51 @@ solveDHEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 = do
                 (Lit2 t) | (isPubGVar (LIT t))  -> trace (show ("GotHEREPubG")) return ()
                 _ -> do
                         se  <- gets id
-                        outterm <- disjunctionOfList (multRootList ta2)
+                        outterm <- disjunctionOfList rootsta2
                         (eqs2, maySplitId) <- addDHEqs2 hnd outterm indt =<< getM sEqStore
                         setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
+                        {-(eqs2, maySplitId) <- addDHEqs hnd outterm indt =<< getM sEqStore
+                        setM sEqStore 
+                            =<< simp hnd (substCreatesNonNormalTerms hnd se)
+                            =<< case (maySplitId, splitStrat) of
+                                (Just splitId, SplitNow) -> disjunctionOfList
+                                                            $ fromJustNote "solveTermEqs"
+                                                            $ performSplit eqs2 splitId
+                                (Just splitId, SplitLater) -> do
+                                        insertGoal (SplitG splitId) False
+                                        return eqs2
+                                _                        -> return eqs2 -}
                         noContradictoryEqStore
                         insertContInd ta2 ta1
-                        insertGoal (IndicatorG (ta2,ta1)) False
-                        void substSystem
+                        trace (show ("INSERTINGGOAL", ta2,ta2)) $ insertGoal (IndicatorG (ta2,ta1)) False
+                        trace (show ("MATCHED IND with SINGLETON", indt,ta1,ta2, outterm)) $ void substSystem
                         void normSystem
         (indt:indts) -> do
             case viewTerm2 (indt) of
-                (DHOne) -> solveDHEqsAux splitStrat bset nbset hndNormal hnd indts ta1 ta2
-                (DHEg) -> solveDHEqsAux splitStrat bset nbset hndNormal hnd indts ta1 ta2
-                (Lit2 t) | (isPubGVar (LIT t))  -> solveDHEqsAux splitStrat bset nbset hndNormal hnd indts ta1 ta2
+                (DHOne) -> solveDHEqsAux splitStrat bset nbset hndNormal hnd indts ta1 ta2 rootsta2
+                (DHEg) -> solveDHEqsAux splitStrat bset nbset hndNormal hnd indts ta1 ta2 rootsta2
+                (Lit2 t) | (isPubGVar (LIT t))  -> solveDHEqsAux splitStrat bset nbset hndNormal hnd indts ta1 ta2 rootsta2
                 _ -> do
                         se  <- gets id
-                        outterm <- disjunctionOfList (multRootList ta2)
+                        outterm <- disjunctionOfList (rootsta2)
                         (eqs2, maySplitId) <- addDHEqs2 hnd outterm indt =<< getM sEqStore
                         setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
+                        {-(eqs2, maySplitId) <- addDHEqs hnd outterm indt =<< getM sEqStore
+                        setM sEqStore 
+                            =<< simp hnd (substCreatesNonNormalTerms hnd se)
+                            =<< case (maySplitId, splitStrat) of
+                                (Just splitId, SplitNow) -> disjunctionOfList
+                                                            $ fromJustNote "solveTermEqs"
+                                                            $ performSplit eqs2 splitId
+                                (Just splitId, SplitLater) -> do
+                                        insertGoal (SplitG splitId) False
+                                        return eqs2
+                                _                        -> return eqs2-}
                         noContradictoryEqStore
                         insertContInd ta2 ta1
                         void substSystem
-                        void normSystem
-                        solveDHEqsAux splitStrat bset nbset hndNormal hnd indts ta1 ta2
+                        trace (show ("MATCHed IND with", indt,ta1,ta2,outterm)) $ void normSystem
+                        solveDHEqsAux splitStrat bset nbset hndNormal hnd indts ta1 ta2 (delete outterm rootsta2)
 
 solveTermDHEqs ::  Bool -> SplitStrategy -> S.Set LNTerm -> S.Set LNTerm -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
 solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
@@ -1062,8 +1084,8 @@ solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
                      else do
                         let xrooterms = multRootList ta1
                             xindterms = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) xrooterms                
-                        hnd <- getMaudeHandleDH 
-                        solveDHEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2
+                        hnd <- trace (show ("solving equality of watson", ta1, ta2)) getMaudeHandleDH 
+                        solveDHEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 (multRootList ta2)
                         return Changed
                     _ -> error "TODO")
 

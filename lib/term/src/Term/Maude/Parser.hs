@@ -382,8 +382,28 @@ parseVariantsReply msig reply = flip parseOnly reply $ do
                          *> string ": " *> parseTerm msig <* endOfLine
     parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
                      <*> (string " --> " *> parseTerm msig <* endOfLine)
+{-}
+
+parseUnifyDHReply :: MaudeSig -> ByteString -> Either String [MSubst]
+parseUnifyDHReply msig reply = (flip parseOnly reply $
+    choice [ string "No unifier." *> endOfLine *> pure []
+           , many1 (parseSubstitution msig) ]
+        <* endOfInput )-}
 
 
+parseUnifyDHReply :: MaudeSig -> ByteString -> Either String [MSubst]
+parseUnifyDHReply msig reply = flip parseOnly reply $
+     choice [ endOfLine *> string "No unifiers." <* endOfLine <* string "rewrites: "
+              <* takeWhile1 isDigit <* endOfLine *> pure []      <* endOfInput
+           , endOfLine *> many1 (parseUnifier) ]
+              where
+                    parseUnifier = string "Unifier " *> takeWhile1 isDigit *> endOfLine *>
+                                    string "rewrites: " *> takeWhile1 isDigit *> endOfLine *>
+                                    manyTill parseEntry endOfInput
+                    parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
+                                    <*> (string " --> " *> parseTerm msig <* endOfLine)
+
+{-
 parseUnifyDHReply :: MaudeSig -> ByteString -> Either String [MSubst]
 parseUnifyDHReply msig reply = flip parseOnly reply $
      endOfLine *> choice [ string "No unifiers." <* endOfLine <* string "rewrites: "
@@ -398,7 +418,7 @@ parseUnifyDHReply msig reply = flip parseOnly reply $
                                     manyTill parseEntry endOfLine
                     parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
                                     <*> (string " --> " *> parseTerm msig <* endOfLine)
-
+-}
 
 -- | @parseSubstitution l@ parses a single substitution returned by Maude.
 parseSubstitution :: MaudeSig -> Parser MSubst
@@ -556,12 +576,12 @@ ppTheoryDHsimp = BC.unlines $
       , "subsort NZE < E ."
       , "subsort FrNZE < NZE ."
       , "subsort BG < G ."
-      , "op tamXCdhGinv : G -> G ."
+      , "op tamXCdhGinv : G -> G"
       , "op tamXCdhZero : -> E ."
       , "op tamXCdhInv : NZE -> NZE ."
       , "op tamXCdhEg : -> G ."
-      , "op tamXCdhTimesE : E E -> E ."
-      , "op tamXCdhTimes : NZE NZE -> NZE ."
+      , "op tamXCdhTimesE : E E -> E [assoc comm] ."
+      , "op tamXCdhTimes : NZE NZE -> NZE [assoc comm] ."
       , "op tamXCdhExp : G E -> G ."
       , "op tamXCdhOne : -> NZE ."
       , "op tamXCdhMu : G -> E ."
@@ -570,20 +590,61 @@ ppTheoryDHsimp = BC.unlines $
       , "vars A B : G ."
       , "vars X Y : E ."
       , "vars U V W : NZE ."
-      , "eq tamXCdhExp(tamXCdhExp(A, X), Y) = tamXCdhExp(A, tamXCdhTimesE(X, Y)) [variant] ."
-      , "eq tamXCdhExp(A, tamXCdhOne ) = A [variant] ."
+      , "eq tamXCdhdhExp(A, dhOne ) = A [variant] ."
+      , "eq tamXCdhdhExp(dhExp(A, X), Y) = tamXCdhdhExp(A, dhTimesE(X, Y)) [variant] ."
       , "eq tamXCdhExp(tamXCdhEg, X) = tamXCdhEg [variant] ."
       , "eq tamXCdhTimesE(X, tamXCdhOne) = X [variant] ."
       , "eq tamXCdhInv (tamXCdhInv(U) ) = U [variant] ."
       , "eq tamXCdhInv(tamXCdhOne) = tamXCdhOne [variant] ."
       , "eq tamXCdhTimes(U, tamXCdhInv(U)) = tamXCdhOne [variant] ."
       , "eq tamXCdhTimes( tamXCdhInv(U) , tamXCdhInv(V)) = tamXCdhInv( tamXCdhTimes(U, V)) [variant] ."
-      , "eq tamXCdhTimes( tamXCdhInv(tamXCdhTimes(U,V)), V) = tamXCdhInv( U) [variant] ."
+      , "eq tamXCdhTimes( tamXCdhInv(tamXCdhTimes(U,V)), V) = tamXCdhInv(U) [variant] ."
       , "eq tamXCdhInv( tamXCdhTimes(tamXCdhInv(U),V)) = tamXCdhTimes(U, tamXCdhInv(V)) [variant] ."
       , "eq tamXCdhTimes( U, tamXCdhTimes(tamXCdhInv(U),V)) = V [variant] ."
       , "eq tamXCdhTimes( tamXCdhInv(U), tamXCdhTimes(tamXCdhInv(V),W)) = tamXCdhTimes( tamXCdhInv(tamXCdhTimes(U,V)),W) [variant] ."
       , "eq tamXCdhTimes( tamXCdhInv(tamXCdhTimes(U,V)), tamXCdhTimes(V,W)) = tamXCdhTimes( tamXCdhInv(U),W) [variant] ."
-      , "endfm"]
+      , "eq tamXCdhTimes(U,V) = tamXCdhTimesE(U,V) [variant] ."
+      , "endfm"] 
+
+{-
+ppTheoryDHsimp ::  ByteString
+ppTheoryDHsimp = BC.unlines $
+      [ "fmod DHsimp is"
+      , "sort DH G E NZE BG FrNZE ."
+      , "subsort G < DH ."
+      , "subsort E < DH ."
+      , "subsort NZE < E ."
+      , "subsort FrNZE < NZE ."
+      , "subsort BG < G ."
+      , "op tamXCdhGinv : G -> G ."
+      , "op tamXCdhZero : -> E ."
+      , "op tamXCdhInv : NZE -> NZE ."
+      , "op tamXCdhEg : -> G ."
+      , "op tamXCdhTimesE : E E -> E [assoc comm id: tamXCdhOne] ."
+      , "op tamXCdhTimes : NZE NZE -> NZE [assoc comm id: tamXCdhOne] ."
+      , "op tamXCdhExp : G E -> G ."
+      , "op tamXCdhOne : -> NZE ."
+      , "op tamXCdhMu : G -> E ."
+      -- , "op tamPCdhBox : G -> G ."
+      -- , "op tamPCdhBoxE : E -> E ."
+      , "vars A B : G ."
+      , "vars X Y : E ."
+      , "vars U V W : NZE ."
+      , "eq tamXCdhExp(tamXCdhExp(A, X), Y) = tamXCdhExp(A, tamXCdhTimesE(X, Y)) ."
+      , "eq tamXCdhExp(A, tamXCdhOne ) = A ."
+      , "eq tamXCdhExp(tamXCdhEg, X) = tamXCdhEg ."
+      , "eq tamXCdhTimesE(X, tamXCdhOne) = X ."
+      , "eq tamXCdhInv (tamXCdhInv(U) ) = U ."
+      , "eq tamXCdhInv(tamXCdhOne) = tamXCdhOne ."
+      , "eq tamXCdhTimes(U, tamXCdhInv(U)) = tamXCdhOne ."
+      , "eq tamXCdhTimes( tamXCdhInv(U) , tamXCdhInv(V)) = tamXCdhInv( tamXCdhTimes(U, V)) ."
+      , "eq tamXCdhTimes( tamXCdhInv(tamXCdhTimes(U,V)), V) = tamXCdhInv( U) ."
+      , "eq tamXCdhInv( tamXCdhTimes(tamXCdhInv(U),V)) = tamXCdhTimes(U, tamXCdhInv(V)) ."
+      , "eq tamXCdhTimes( U, tamXCdhTimes(tamXCdhInv(U),V)) = V ."
+      , "eq tamXCdhTimes( tamXCdhInv(U), tamXCdhTimes(tamXCdhInv(V),W)) = tamXCdhTimes( tamXCdhInv(tamXCdhTimes(U,V)),W) ."
+      , "eq tamXCdhTimes( tamXCdhInv(tamXCdhTimes(U,V)), tamXCdhTimes(V,W)) = tamXCdhTimes( tamXCdhInv(U),W) ."
+      , "endfm"] 
+-}
 
 {-
 ppTheoryDHfull ::  ByteString

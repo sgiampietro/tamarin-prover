@@ -254,7 +254,7 @@ rootIndicator b nb t
 
 rootIndKnown :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> LNTerm
 rootIndKnown b nb t@(viewTerm2 -> FdhExp t1 t2) = (FAPP (DHMult dhExpSym) [ rootIndKnown b nb t1, rootIndKnown b nb t2])
-rootIndKnown b nb t@(viewTerm2 -> FdhGinv dht) = (FAPP (DHMult dhGinvSym) [rootIndKnown b nb dht])
+rootIndKnown b nb t@(viewTerm2 -> FdhGinv dht) = rootIndKnown b nb dht--(FAPP (DHMult dhGinvSym) [rootIndKnown b nb dht])
 rootIndKnown b nb t@(viewTerm2 -> FdhTimes t1 t2) = (FAPP (DHMult dhTimesSym) [rootIndKnown b nb t1, rootIndKnown b nb t2] )
 rootIndKnown b nb t@(viewTerm2 -> FdhTimesE t1 t2) =  (FAPP (DHMult dhTimesESym) [rootIndKnown b nb t1, rootIndKnown b nb t2])
 rootIndKnown b nb t@(viewTerm2 -> FdhMu t1) =  (FAPP (DHMult dhZeroSym) [])

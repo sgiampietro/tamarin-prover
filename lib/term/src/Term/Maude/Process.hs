@@ -62,7 +62,7 @@ import System.IO
 import Utils.Misc
 -- import Extension.Data.Monoid
 
-import Debug.Trace.Ignore
+import Debug.Trace -- .Ignore
 
 
 -- Unification using a persistent Maude process
@@ -360,7 +360,8 @@ startMaudeProcessDH maudePath = do
 unifyCmdDH :: [Equal MTerm] -> ByteString
 unifyCmdDH []  = error "unifyCmd: cannot create cmd for empty list of equations."
 unifyCmdDH eqs =
-    "variant unify in DHsimp : " <> seqs <> " .\n"
+    "variant unify [1] in DHsimp : " <> seqs <> " .\n"
+    -- "unify in DHsimp : " <> seqs <> " .\n"
   where
     ppEq (Equal t1 t2) = ppMaude t1 <> " =? " <> ppMaude t2
     seqs = B.intercalate " /\\ " $ map ppEq eqs

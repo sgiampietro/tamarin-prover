@@ -72,7 +72,7 @@ import           Control.Monad.Reader
 import           Extension.Prelude
 import           Utils.Misc
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Control.Basics
 import           Control.DeepSeq
@@ -587,8 +587,7 @@ addDHEqs hnd t1 indt eqdhstore =
             (return (eqdhStore', Nothing))
               where eqdhStore' =(applyEqStore hnd subst eqdhstore)
         (subst, substs) -> do
-            let (eqStore', sid) = addDisj (applyEqStore hnd subst eqdhstore)
-                                          (S.fromList substs)
+            let (eqStore', sid) = trace (show "IGOTHERESHERLOCK") $ addDisj (applyEqStore hnd subst eqdhstore) (S.fromList substs)
             (return (eqStore', Just sid))
   where
     eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
@@ -602,7 +601,7 @@ addDHEqs2 hnd t1 indt eqdhstore =
             return (eqdhstore, Nothing)
         substs -> do
             let  eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs ) eqdhstore
-            return (eqStore', Nothing)
+            trace (show ("THIS IS SUBSTRETURNED FOR MATCH", t1, indt, substs)) $ return (eqStore', Nothing)
   where
     eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
     addsubsts sub eqst= applyEqStore hnd sub eqst
