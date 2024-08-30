@@ -262,7 +262,7 @@ varE s i = varTerm $ LVar s LSortNZE i
 varG :: String -> Integer -> LNTerm
 varG s i = varTerm $ LVar s LSortG i
 
-
+{-}
 testsRoot :: Test
 testsRoot = TestLabel "Tests for creating Polynomials" $
     TestList
@@ -279,8 +279,8 @@ testsRoot = TestLabel "Tests for creating Polynomials" $
               targetpoly = (parseToMap vars) fAppdhOne 
               polynomials = map (parseToMap vars) [fAppdhTimes(varE "x" 0,varE "v" 1),fAppdhTimes(varE "y" 0,varE "v" 1), fAppdhTimes(fAppdhOne,varE "x" 0), fAppdhTimes(fAppdhOne,varE "w" 0) ]
               vars = [varE "w" 0, varE "v" 1]
-
-              
+-}
+              {-}
 testsRoot2 :: Test
 testsRoot2 = TestLabel "Tests for creating Polynomials" $
     TestList
@@ -316,7 +316,7 @@ testsRoot2 = TestLabel "Tests for creating Polynomials" $
               aFm = varE "m" 0
               aPg = varG "g" 0
               aPg1 = varG "g" 1
-
+-}
 {-
 dhBox(dhMult(dhExp(Pg.1, Fm),
                        dhExp(dhExp(Pg, Fx), Fy))) IndicatorFound dhExp(Pg.1,

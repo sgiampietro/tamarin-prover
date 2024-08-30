@@ -109,7 +109,6 @@ simplifyraw t= case viewTerm2 t of
 
 
 
-
 -- Gauss Elimination: Solve matrix equation Ax = B
 gaussEliminationFromEquation :: LNTerm -> Matrix LNTerm -> Matrix LNTerm -> Vector LNTerm
 gaussEliminationFromEquation zero a b = gaussEliminationFromMatrix zero $ zipMatrix a b

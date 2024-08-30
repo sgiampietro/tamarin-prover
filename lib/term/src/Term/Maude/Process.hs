@@ -62,7 +62,7 @@ import System.IO
 import Utils.Misc
 -- import Extension.Data.Monoid
 
-import Debug.Trace -- .Ignore
+import Debug.Trace.Ignore
 
 
 -- Unification using a persistent Maude process
