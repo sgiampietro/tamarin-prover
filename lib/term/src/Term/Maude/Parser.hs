@@ -403,18 +403,18 @@ parseUnifyDHReply msig reply = flip parseOnly reply $
                     parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
                                     <*> (string " --> " *> parseTerm msig <* endOfLine)
 
+
 {-
 parseUnifyDHReply :: MaudeSig -> ByteString -> Either String [MSubst]
 parseUnifyDHReply msig reply = flip parseOnly reply $
-     endOfLine *> choice [ string "No unifiers." <* endOfLine <* string "rewrites: "
+     choice [ endOfLine *> string "No unifiers." <* endOfLine <* string "rewrites: "
               <* takeWhile1 isDigit <* endOfLine *> pure []
-           , many1 (parseUnifier) <* (string "No more unifiers.")
-            <* endOfLine <* string "rewrites: "
-            <* takeWhile1 isDigit <* endOfLine ]
+           , endOfLine *> many1 (parseUnifier) <* (string "No more unifiers. ")
+            <* endOfInput ]
       <* endOfInput
               where
-                    parseUnifier = string "Unifier " *> optional (char '#') *> takeWhile1 isDigit *> endOfLine *>
-                                    string "rewrites: " *> takeWhile1 isDigit *> endOfLine *>
+                    parseUnifier = string "rewrites: " *> takeWhile1 isDigit *> endOfLine *>
+                                  string "Unifier " *> optional (char '#') *> takeWhile1 isDigit *> endOfLine *>
                                     manyTill parseEntry endOfLine
                     parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
                                     <*> (string " --> " *> parseTerm msig <* endOfLine)

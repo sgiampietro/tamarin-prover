@@ -40,6 +40,7 @@ module Theory.Tools.EquationStore (
 
   -- ** Adding DH equalities
   , addDHEqs
+  , addMixedEqs
   , addDHEqs2
   , addDHProtoEqs
 
@@ -251,6 +252,38 @@ addEqs hnd eqs0 eqStore =
             -})
   where
     eqs = apply (L.get eqsSubst eqStore) $ trace (unlines ["addEqs: ", show eqs0]) $ eqs0
+
+
+addMixedEqs :: MonadFresh m
+       => MaudeHandle -> [Equal LNTerm] -> [LVar] -> EqStore -> m (EqStore, Maybe SplitId, [(LVar, LNTerm)])
+addMixedEqs hnd eqs0 dhvars eqStore =
+    --trace ("DEBUG-ADDEQS:"++ show eqs) 
+    (case unifyLNTermFactored eqs `runReader` hnd of
+        (_, []) ->
+            (return (set eqsConj falseEqConstrConj eqStore, Nothing, []))
+        (subst, [substFresh]) | substFresh == emptySubstVFresh ->
+            (return (eqStore', Nothing, substdh))
+              where eqStore' =(applyEqStore hnd subst' eqStore)
+                    subst' = substFromList ( filter (\(a,b) -> not $ elem a dhvars) $ substToList subst)
+                    substdh = ( filter (\(a,b) -> elem a dhvars) $ substToList subst)
+            --return (applyEqStore hnd subst eqStore, Nothing)
+        (subst, substs) -> do
+            let (eqStore', sid) = addDisj (applyEqStore hnd subst' eqStore)
+                                          (S.fromList substs)
+                subst' = substFromList ( filter (\(a,b) -> not $ elem a dhvars) $ substToList subst)
+                substdh = ( filter (\(a,b) -> elem a dhvars) $ substToList subst)
+            return (eqStore', Just sid, substdh)
+            {-
+            case splitStrat of
+                SplitLater ->
+                    return [ addDisj (applyEqStore hnd subst eqStore) (S.fromList substs) ]
+                SplitNow ->
+                    addEqsAC (modify eqsSubst (compose subst) eqStore)
+                        <$> simpDisjunction hnd (const False) (Disj substs)
+            -})
+  where
+    eqs = apply (L.get eqsSubst eqStore) $ trace (unlines ["addEqs: ", show eqs0]) $ eqs0
+
 
 
 -- | Apply a substitution to an equation store and bring resulting equations into

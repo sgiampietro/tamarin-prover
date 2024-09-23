@@ -85,6 +85,7 @@ module Theory.Model.Fact (
   --, isKdhIndFact
   , isKDXorFact
   , isDHFact
+  , isMixedFact
   , isProtoDHFact
 
   , convertKUtoKD
@@ -520,6 +521,11 @@ outFactView fa = case fa of
 
 isDHFact :: LNFact -> Bool
 isDHFact fa1 = all isOfDHSort (factTerms fa1)
+
+-- this assumes that isDHFact does not hold
+isMixedFact :: LNFact -> Bool
+isMixedFact fa1 = (any isOfDHSort varsof)
+    where varsof = (map (\x -> LIT (Var x) ) (concatMap varsVTerm (factTerms fa1)))++(map (\x -> LIT (Con x) ) (concatMap constsVTerm (factTerms fa1)))
 
 isProtoDHFact :: LNFact -> Bool
 isProtoDHFact fa1 = (isDHFact fa1) && (isProtoFact fa1)

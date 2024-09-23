@@ -361,6 +361,7 @@ unifyCmdDH :: [Equal MTerm] -> ByteString
 unifyCmdDH []  = error "unifyCmd: cannot create cmd for empty list of equations."
 unifyCmdDH eqs =
     "variant unify [1] in DHsimp : " <> seqs <> " .\n"
+    -- "filtered variant unify in DHsimp : " <> seqs <> " .\n"
     -- "unify in DHsimp : " <> seqs <> " .\n"
   where
     ppEq (Equal t1 t2) = ppMaude t1 <> " =? " <> ppMaude t2
