@@ -267,20 +267,20 @@ viewTerm3 t@(FAPP (NoEq o) ts) = case ts of
     -- special symbols
     ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym , dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym, dhTimesSym, dhPlusSym, dhMuSym]
 viewTerm3 t@(FAPP (DHMult o) ts) = case ts of
-    [ t1, t2 ] | o == dhMultSym   -> DH (NoEq o) ts
-    [ t1, t2 ] | o == dhTimesSym   -> DH (NoEq o) ts
-    [ t1, t2 ] | o == dhTimesESym   -> DH (NoEq o) ts
-    [ t1, t2 ] | o == dhExpSym   -> DH (NoEq o) ts
-    [ t1, t2 ] | o == dhPlusSym   -> DH (NoEq o) ts
-    [ t1 ]     | o == dhGinvSym    -> DH (NoEq o) ts
-    [ t1 ]     | o == dhInvSym    -> DH (NoEq o) ts
-    [ t1 ]     | o == dhMinusSym    -> DH (NoEq o) ts
-    [ t1 ]     | o == dhMuSym    -> DH (NoEq o) ts
+    [ t1, t2 ] | o == dhMultSym   -> DH (DHMult o) ts
+    [ t1, t2 ] | o == dhTimesSym   -> DH (DHMult  o) ts
+    [ t1, t2 ] | o == dhTimesESym   -> DH (DHMult o) ts
+    [ t1, t2 ] | o == dhExpSym   -> DH (DHMult o) ts
+    [ t1, t2 ] | o == dhPlusSym   -> DH (DHMult o) ts
+    [ t1 ]     | o == dhGinvSym    -> DH (DHMult o) ts
+    [ t1 ]     | o == dhInvSym    -> DH (DHMult o) ts
+    [ t1 ]     | o == dhMinusSym    -> DH (DHMult o) ts
+    [ t1 ]     | o == dhMuSym    -> DH (DHMult o) ts
     --[ t1 ]     | o == dhBoxSym    -> Box (t1)
     --[ t1 ]     | o == dhBoxESym    -> BoxE (t1)
-    []         | o == dhZeroSym    -> DH (NoEq o) ts
-    []         | o == dhEgSym    -> DH (NoEq o) ts 
-    []         | o == dhOneSym    -> DH (NoEq o) ts
+    []         | o == dhZeroSym    -> DH (DHMult o) ts
+    []         | o == dhEgSym    -> DH (DHMult o) ts 
+    []         | o == dhOneSym    -> DH (DHMult o) ts
     _          | o `elem` ssyms -> error $ "viewTerm2: malformed term `"++show t++"'"
     _                           -> MsgFApp (DHMult o) ts
   where

@@ -46,6 +46,7 @@ module Term.DHMultiplication (
 
 import           Control.Basics hiding (empty)
 import           Control.Monad.Reader
+import Control.Monad.Fresh
 
 import           Data.List
 import qualified Data.Map                         as Map
@@ -129,32 +130,32 @@ applyVarSubst vs tv = (case (Map.lookup tv vs) of
       (Just tv2) -> tv2
       Nothing -> tv)
 
-myFirst :: (a,b,c) -> a
-myFirst (x,y,z) = x
 
-mySecond :: (a,b,c) -> b
-mySecond (x,y,z) = y
+determineSort :: Term (Lit Name LVar) -> LSort
+determineSort t@(FAPP (DHMult o) ts ) = case o of
+    dhMultSym   -> LSortG
+    dhTimesSym   -> LSortE
+    dhTimesESym   -> LSortE
+    dhExpSym   -> LSortG
+    dhPlusSym   -> LSortE
+    dhGinvSym    -> LSortG
+    dhInvSym    -> LSortG
+    dhMinusSym    -> LSortE
+    dhMuSym    -> LSortE
+    --[ t1 ]     | o == dhBoxSym    -> Box (t1)
+    --[ t1 ]     | o == dhBoxESym    -> BoxE (t1)
+    dhZeroSym    -> LSortE
+    dhEgSym    -> LSortG
+    dhOneSym    -> LSortE
 
-myThird :: (a,b,c) -> c
-myThird (x,y,z) = z
-
-clean :: Term (Lit Name LVar) -> [LVar] -> (Term (Lit Name LVar), [(LVar,VTerm Name LVar)], [LVar])
-clean t@(viewTerm3 -> MsgLit l) vars = (LIT l, [], vars)
-clean t@(viewTerm3 -> MsgFApp f ts) vars=  case ts of
-  [t1, t2] -> (FAPP f [myFirst ts1, myFirst ts2], mySecond ts1 `union` (mySecond ts2), vars1 `union` (myThird ts2) )
-                where   ts1 = clean t1 vars
-                        ts2 = clean t2 vars1
-                        vars1 = vars `union` (myThird ts1)
-  [t1] -> (FAPP f [myFirst ts1], mySecond ts1, vars `union` (myThird ts1) )
-                where   ts1 = clean t1 vars
-  [] -> (FAPP f [], [], vars)
---clean t@(viewTerm3 -> Box dht) vars = (FAPP (DHMult dhBoxSym) [LIT (Var vg )], [(vg, dht)], vg:dhtvars )
---  where vg = (getVarGAvoid dhtvars vars)
---        dhtvars = (varsVTerm dht)
---clean t@(viewTerm3 -> BoxE dht) vars = (FAPP (DHMult dhBoxESym) [LIT (Var ve)], [(ve, dht)], ve:dhtvars )
---  where ve = (getVarEAvoid dhtvars vars)
---        dhtvars = (varsVTerm dht)
-clean t@(viewTerm3 -> DH f dht) vars = (FAPP f dht, [], vars )
+clean :: MonadFresh m => Term (Lit Name LVar) -> m (Term (Lit Name LVar), [(LVar,VTerm Name LVar)])
+clean t@(viewTerm3 -> MsgLit l) = return (LIT l, [])
+clean t@(viewTerm3 -> MsgFApp f ts) =  do
+                                            cleanedts <- mapM clean ts 
+                                            return (FAPP f (map fst cleanedts),  (concatMap snd cleanedts)  )
+clean t@(viewTerm3 -> DH f dht) = do 
+                                      varx <- freshLVar "clt" (determineSort t)
+                                      return ( LIT (Var varx) , [(varx, t)] )
 
 
 

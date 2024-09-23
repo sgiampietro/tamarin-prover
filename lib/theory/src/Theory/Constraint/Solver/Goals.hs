@@ -269,6 +269,13 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                    void substSystem
                    --void normSystem
                    return ru
+            _ | (isMixedFact fa)                       -> do
+                   ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
+                   act <- disjunctionOfList (filter isMixedFact $ get rActs ru)
+                   (void (solveMixedFactEqs SplitNow (Equal fa act)))
+                   void substSystem
+                   --void normSystem
+                   return ru
             _                                        -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList $ get rActs ru
