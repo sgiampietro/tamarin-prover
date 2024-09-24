@@ -204,21 +204,26 @@ sortCompare s1 s2 = case (s1, s2) of
     (LSortNode,  _        )  -> Nothing
     (_,          LSortNode)  -> Nothing
     -- Can't compare DH and Msg terms
-    (LSortMsg,   LSortDH)  -> Nothing
-    (LSortMsg,   LSortG)  -> Nothing
-    (LSortG,     LSortMsg )  -> Nothing
-    (LSortDH,   LSortMsg)  -> Nothing
-    (LSortDH,   LSortFresh)  -> Nothing
+    (LSortMsg,   LSortDH)  -> Just GT
+    (LSortMsg,   LSortG)  -> Just GT
+    (LSortG,     LSortMsg )  -> Just LT
+    (LSortPubG,     LSortMsg )  -> Just LT
+    (LSortMsg,   LSortPubG)  -> Just GT
+    (LSortDH,   LSortMsg)  -> Just LT
+    (LSortMsg,   LSortE)  -> Just GT
+    (LSortE,     LSortMsg )  -> Just LT
+    (LSortMsg,   LSortNZE)  -> Just GT
+    (LSortNZE,   LSortMsg )  -> Just LT
+    (LSortMsg,   LSortVarG)  -> Just GT
+    (LSortVarG,   LSortMsg )  -> Just LT
+    (LSortMsg,   LSortVarE)  -> Just GT
+    (LSortVarE,   LSortMsg )  -> Just LT
     (LSortFresh,   LSortDH)  -> Nothing
     (LSortDH,   LSortPub)  -> Nothing
     (LSortPub,   LSortDH)  -> Nothing
     (LSortDH,   LSortNat)  -> Nothing
-    (LSortNat,   LSortDH)  -> Nothing
-    -- Sub-DH terms
-    (LSortMsg,   LSortE)  -> Nothing
-    (LSortE,     LSortMsg )  -> Nothing
-    (LSortMsg,   LSortNZE)  -> Nothing
-    (LSortNZE,   LSortMsg )  -> Nothing
+    (LSortNat,   LSortDH)  -> Nothing 
+    (LSortDH,   LSortFresh)  -> Nothing
     (LSortG,     LSortNZE)  -> Nothing
     (LSortNZE,   LSortG )  -> Nothing
     (LSortDH,    _)  -> Just GT

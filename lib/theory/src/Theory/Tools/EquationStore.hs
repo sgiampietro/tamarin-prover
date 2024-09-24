@@ -73,7 +73,7 @@ import           Control.Monad.Reader
 import           Extension.Prelude
 import           Utils.Misc
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Control.Basics
 import           Control.DeepSeq
@@ -255,32 +255,25 @@ addEqs hnd eqs0 eqStore =
 
 
 addMixedEqs :: MonadFresh m
-       => MaudeHandle -> [Equal LNTerm] -> [LVar] -> EqStore -> m (EqStore, Maybe SplitId, [(LVar, LNTerm)])
+       => MaudeHandle -> [Equal LNTerm] -> [LVar] -> EqStore -> m (EqStore, Maybe SplitId, [(LNTerm, LNTerm)])
 addMixedEqs hnd eqs0 dhvars eqStore =
     --trace ("DEBUG-ADDEQS:"++ show eqs) 
     (case unifyLNTermFactored eqs `runReader` hnd of
         (_, []) ->
             (return (set eqsConj falseEqConstrConj eqStore, Nothing, []))
         (subst, [substFresh]) | substFresh == emptySubstVFresh ->
-            (return (eqStore', Nothing, substdh))
+            trace (show ("SHERLOCK BACK1", substdh, subst')) $ (return (eqStore', Nothing, map (\(a,b) -> (LIT (Var a), b)) substdh))
               where eqStore' =(applyEqStore hnd subst' eqStore)
                     subst' = substFromList ( filter (\(a,b) -> not $ elem a dhvars) $ substToList subst)
                     substdh = ( filter (\(a,b) -> elem a dhvars) $ substToList subst)
-            --return (applyEqStore hnd subst eqStore, Nothing)
         (subst, substs) -> do
             let (eqStore', sid) = addDisj (applyEqStore hnd subst' eqStore)
                                           (S.fromList substs)
                 subst' = substFromList ( filter (\(a,b) -> not $ elem a dhvars) $ substToList subst)
                 substdh = ( filter (\(a,b) -> elem a dhvars) $ substToList subst)
-            return (eqStore', Just sid, substdh)
-            {-
-            case splitStrat of
-                SplitLater ->
-                    return [ addDisj (applyEqStore hnd subst eqStore) (S.fromList substs) ]
-                SplitNow ->
-                    addEqsAC (modify eqsSubst (compose subst) eqStore)
-                        <$> simpDisjunction hnd (const False) (Disj substs)
-            -})
+            trace (show ("SHERLOCK BACK2", substdh, subst')) $ return (eqStore', Just sid, map (\(a,b) -> (LIT (Var a), b)) substdh)
+            -- TODO: check if we need to filter out elements in dhvars also in the addDisj
+            )
   where
     eqs = apply (L.get eqsSubst eqStore) $ trace (unlines ["addEqs: ", show eqs0]) $ eqs0
 

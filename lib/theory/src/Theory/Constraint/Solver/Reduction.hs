@@ -948,7 +948,7 @@ solveTermEqs splitStrat eqs0 =
         se  <- gets id
         (eqs2, maySplitId) <- addEqs hnd eqs1 =<< getM sEqStore
         setM sEqStore
-            =<< simp hnd (substCreatesNonNormalTerms hnd se) -- (\x y -> False) this solves the NORMAL FORM ISSUE!! check that. 
+            =<< simp hnd (substCreatesNonNormalTerms hnd se) 
             =<< case (maySplitId, splitStrat) of
                   (Just splitId, SplitNow) -> disjunctionOfList
                                                 $ fromJustNote "solveTermEqs"
@@ -960,11 +960,11 @@ solveTermEqs splitStrat eqs0 =
         noContradictoryEqStore
         return Changed
 
-solveMixedTermEqs :: SplitStrategy -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
-solveMixedTermEqs splitStrat (lhs,rhs) =
-    case evalEqual (Equal lhs rhs) of
-      True  -> do return Unchanged
-      False -> do
+solveMixedTermEqs :: SplitStrategy -> S.Set LNTerm -> S.Set LNTerm  ->  (LNTerm, LNTerm) -> Reduction ChangeIndicator
+solveMixedTermEqs splitStrat bset nbset (lhs,rhs) =
+    if (evalEqual (Equal lhs rhs)) then
+      return Unchanged
+    else (do
         (cleanedlhs, lhsDHvars) <- clean lhs
         (cleanedrhs, rhsDHvars) <- clean rhs
         hnd <- getMaudeHandle
@@ -980,8 +980,11 @@ solveMixedTermEqs splitStrat (lhs,rhs) =
                       insertGoal (SplitG splitId) False
                       return eqs2
                   _                        -> return eqs2
+        let substdhvars = map (\(a,b) -> (applyVTerm compsubst a, applyVTerm compsubst b)) dheqs   
+            compsubst = substFromList (lhsDHvars ++ rhsDHvars)
+        trace (show ("Watson,", cleanedlhs, lhsDHvars, cleanedrhs, rhsDHvars)) $ solveListDHEqs (solveTermDHEqs True splitStrat bset nbset) substdhvars
         noContradictoryEqStore
-        return Changed
+        return Changed)
 
 
 solveDHProtoEqsAux :: SplitStrategy -> S.Set LNTerm  -> S.Set LNTerm -> MaudeHandle -> MaudeHandle -> [LNTerm] -> LNTerm -> LNTerm -> StateT System (FreshT (DisjT (Reader ProofContext))) ()
@@ -1129,12 +1132,12 @@ solveFactEqs split eqs = do
     --trace ("DEBUG-FACTS" ++ show eqs) 
     (solveListEqs (solveTermEqs split) $ map (fmap factTerms) eqs)
 
-solveMixedFactEqs :: SplitStrategy -> Equal LNFact -> Reduction ChangeIndicator
-solveMixedFactEqs split (Equal fa1 fa2) = do
+solveMixedFactEqs :: SplitStrategy -> Equal LNFact -> S.Set LNTerm -> S.Set LNTerm -> Reduction ChangeIndicator
+solveMixedFactEqs split (Equal fa1 fa2) bset nbset = do
     contradictoryIf (not (factTag fa1 == factTag fa2))
     contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
     --trace ("DEBUG-FACTS" ++ show eqs) 
-    solveListDHEqs (solveMixedTermEqs split) $ zip (factTerms fa1) (factTerms fa2)
+    solveListDHEqs (solveMixedTermEqs split bset nbset) $ zip (factTerms fa1) (factTerms fa2)
 
 -- DH: Fix this
 
