@@ -272,14 +272,14 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
             _ | (isMixedFact fa)                       -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList (filter isMixedFact $ get rActs ru)
-                   (void (solveMixedFactEqs SplitNow (Equal fa act)))
+                   trace (show ("HELPPP here", fa, act)) (void (solveMixedFactEqs SplitNow (Equal fa act) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
                    void substSystem
                    --void normSystem
                    return ru
             _                                        -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList $ get rActs ru
-                   (void (solveFactEqs SplitNow [Equal fa act]))
+                   trace (show ("Notwherewewant", fa, act)) (void (solveFactEqs SplitNow [Equal fa act]))
                    return ru
 
         Just ru ->  case fa of
@@ -290,9 +290,14 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                                                           void substSystem
                                                           --void normSystem
                                                         return ru
+            _ | (isMixedFact fa)                  -> do unless (fa `elem` get rActs ru) $ do
+                                                          act <- disjunctionOfList (filter isMixedFact $ get rActs ru)
+                                                          trace (show ("HELPPP here1", fa, act)) (void (solveMixedFactEqs SplitNow (Equal fa act) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
+                                                          void substSystem
+                                                        return ru
             _                                     -> do unless (fa `elem` get rActs ru) $ do
                                                           act <- disjunctionOfList $ get rActs ru
-                                                          (void (solveFactEqs SplitNow [Equal fa act]))
+                                                          trace (show ("HELPPP nothere2", fa, act)) (void (solveFactEqs SplitNow [Equal fa act]))
                                                         return ru
   where
     -- If the fact in the action goal has annotations, then consider annotated
@@ -335,6 +340,7 @@ solvePremise rules p faPrem
   | isKdhFact faPrem = (solveDHInd rules p faPrem)
   | (isInFact faPrem && isDHFact faPrem) = solveDHInd rules p faPrem
   | isProtoDHFact faPrem =  trace (show ("SOLVINGPREMISEDH:", faPrem)) $ solveDHIndProto rules p faPrem
+  -- | TODO: ADD MIXED FACTS HERE!!
   | isKDFact faPrem = do
       iLearn    <- freshLVar "vl" LSortNode
       mLearn    <- varTerm <$> freshLVar "t" LSortMsg -- why do we not care about the term here??

@@ -253,6 +253,7 @@ ppTheory msig = BC.unlines $
     (if enableDHMult msig
        then
         [ "sort DH G E NZE BG FrNZE VarE VarG."
+        , "  subsort DH < Msg ."
         , "  subsort G < DH ."
         , "  subsort E < DH ."
         , "  subsort NZE < E ."
