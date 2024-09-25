@@ -102,6 +102,7 @@ simplifyraw t= case viewTerm2 t of
   FdhMinus t1 -> (case viewTerm2 t1 of
     FdhMinus t2 -> simplifyraw t2
     DHZero -> fAppdhZero
+    FdhPlus t2 t3 -> fAppdhPlus (simplifyraw (fAppdhMinus t2), simplifyraw (fAppdhMinus t3))
     _      -> t
     )
   _ -> t

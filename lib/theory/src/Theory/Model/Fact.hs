@@ -87,6 +87,7 @@ module Theory.Model.Fact (
   , isDHFact
   , isMixedFact
   , isProtoDHFact
+  , isProtoMixedFact
 
   , convertKUtoKD
   , convertKDtoKU
@@ -526,6 +527,9 @@ isDHFact fa1 = all isOfDHSort (factTerms fa1)
 isMixedFact :: LNFact -> Bool
 isMixedFact fa1 = (any isOfDHSort varsof)
     where varsof = (map (\x -> LIT (Var x) ) (concatMap varsVTerm (factTerms fa1)))++(map (\x -> LIT (Con x) ) (concatMap constsVTerm (factTerms fa1)))
+
+isProtoMixedFact :: LNFact -> Bool
+isProtoMixedFact fa1 = (isMixedFact fa1) && (isProtoFact fa1)
 
 isProtoDHFact :: LNFact -> Bool
 isProtoDHFact fa1 = (isDHFact fa1) && (isProtoFact fa1)
