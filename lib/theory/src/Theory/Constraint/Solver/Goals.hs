@@ -340,6 +340,7 @@ solvePremise rules p faPrem
   | isKdhFact faPrem = (solveDHInd rules p faPrem)
   | (isInFact faPrem && isDHFact faPrem) = solveDHInd rules p faPrem
   | isProtoDHFact faPrem =  trace (show ("SOLVINGPREMISEDH:", faPrem)) $ solveDHIndProto rules p faPrem
+  | isProtoMixedFact faPrem = trace (show ("YEAHWATSON:", faPrem)) $ solveDHMixedPremise rules p faPrem
   -- | TODO: ADD MIXED FACTS HERE!!
   | isKDFact faPrem = do
       iLearn    <- freshLVar "vl" LSortNode
@@ -524,6 +525,15 @@ solveDHIndProto rules p faPrem = do
       insertDHEdge True (c, faConc, faPrem, p) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) -- instead of root indicator this should be Y.ind^Z.
       return $ showRuleCaseName ru
 
+solveDHMixedPremise ::  [RuleAC]        -- ^ All rules that have an Out fact containing a boxed term as conclusion. 
+             -> NodePrem       -- ^ Premise to solve.
+             ->LNFact
+             -> Reduction String -- ^ Case name to use.
+solveDHMixedPremise rules p faPrem = do
+      nodes <- getM sNodes
+      (ru, c, faConc) <-  insertFreshNodeConcMixed rules (M.assocs nodes)
+      insertDHMixedEdge (c, faConc, faPrem, p) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) -- instead of root indicator this should be Y.ind^Z.
+      return $ showRuleCaseName ru
 
 
 solveIndicator :: LNTerm -> LNTerm -> Reduction String
@@ -543,34 +553,6 @@ solveIndicator t1 t2  = do
           return ("Safe,cannot combine from (leaked set, terms):"++ show (union exps (S.toList nbset), terms, t2))
 
 
-normalizeSubstList :: MaudeHandle -> [(LVar, LNTerm)] -> [(LVar, LNTerm)]    
-normalizeSubstList hnd [] = []
-normalizeSubstList hnd [(t,t2)] = [(t, runReader ( norm' t2) hnd)]
-normalizeSubstList hnd ((t,t2) : xs) = (t, runReader ( norm' t2) hnd):(normalizeSubstList hnd xs)
-
-solveIndicatorProto :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
-solveIndicatorProto nb t1 t2 = do 
-  case (solveIndicatorGaussProto nb t1 t2) of 
-   Just subst ->  do 
-        markGoalAsSolved ("Found exponent with:" ++ show subst) (IndicatorGExp nb (t1, t2))
-        eqStore <- getM sEqStore
-        hnd  <- getMaudeHandle
-        setM sEqStore $ applyEqStore hnd (substFromList $ normalizeSubstList hnd subst) eqStore
-        --substCheck <- gets (substCreatesNonNormalTerms hnd)
-        --store <- getM sEqStore
-        --store'     <- simp hnd substCheck store 
-        void substSystem
-        void normSystem
-        nodes <- getM sNodes
-        setM sNodes $ M.map (\r -> runReader (normRule r) hnd) nodes
-        return ("Matched" ++ show (normalizeSubstList hnd subst))
-   Nothing -> do 
-          setNotReachable
-          return "Contradiction! Cannot find exponent"
-  where 
-    terms = [t1]
-        
-  
 
 --how do I make a case distinction _within_ a solve function?? use disjunction monad!
 

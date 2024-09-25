@@ -169,7 +169,7 @@ addToMap currmap vars t@(FAPP (DHMult o) ts) = case ts of
 
 
 parseToMap ::  [LNTerm] -> LNTerm  -> Map.Map (S.Set LNTerm) LNTerm 
-parseToMap = addToMap Map.empty
+parseToMap ts t = trace (show ("parsingPoly vars term,", ts, t)) (addToMap Map.empty ts t)
 
 getvalue :: Map.Map (S.Set LNTerm) LNTerm -> (S.Set LNTerm) -> LNTerm 
 getvalue somemap key = case Map.lookup key somemap of
@@ -220,8 +220,8 @@ constCoeff t@(FAPP (DHMult o) ts) = case ts of
     _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
 
 
-splitVars :: [LNTerm] -> LNTerm -> (LNTerm, LNTerm, LNTerm) -- (coeff of X, coeff of Y, constant factor)
-splitVars [v1,v2] t = (stripVars v1 t, stripVars v2 t, constCoeff t )
+splitVars :: [LNTerm] -> LNTerm -> ([LNTerm], LNTerm) -- (coeff of X, coeff of Y, constant factor)
+splitVars vs t = (map (\v -> stripVars v t) vs, constCoeff t)
 -- stripVars nbset t = stripVarsAux nbset t (fAppdhZero, [])
 
 oneIfOne :: LNTerm -> LNTerm
@@ -232,8 +232,8 @@ createMatrixProto :: [LNTerm] -> LNTerm -> LNTerm -> ([LNTerm], Matrix LNTerm)
 createMatrixProto nb term target = 
     let (nbexp, vars) = allNBExponents nb (allExponentsOf [term] target)
         matrixvars = getVariablesOf [term, target]
-        (coeffX, coeffY, const) = splitVars matrixvars term
-        polynomials = [parseToMap vars coeffX, parseToMap vars coeffY] -- this term now contains the introduced W and V variables. 
+        (coeffVars, const) = splitVars matrixvars term
+        polynomials = map (\coeffX -> parseToMap vars coeffX) coeffVars -- this term now contains the introduced W and V variables. 
         targetpoly = parseToMap vars (simplifyraw $ fAppdhPlus(target, simplifyraw $ fAppdhMinus const))
         allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetpoly):(map Map.keys polynomials))
         resultmatrix = map (\key -> ((map (\p -> getvalue p key) polynomials )++ [getvalue targetpoly key])) allkeys
