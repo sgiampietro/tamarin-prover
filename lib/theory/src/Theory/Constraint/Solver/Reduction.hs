@@ -1045,17 +1045,23 @@ solveDHProtoEqsAux :: SplitStrategy -> S.Set LNTerm  -> S.Set LNTerm -> MaudeHan
 solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 outterms= do
     case xindterms of 
         [indt] -> do
-            outterm <- trace (show ("SHERLLL:gothereFIRST", indt, outterms)) $ disjunctionOfList outterms
-            (eqs2, maySplitId) <- addDHProtoEqs hnd outterm indt =<< getM sEqStore
-            se  <- trace (show ("SHERLLL:gothereLAST", indt, outterm, eqs2)) $  gets id
-            setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
-            noContradictoryEqStore
+            subst <- getM sSubst   
+            outterm <- trace (show ("SHERLLL:gothereFIRST", ta1, indt, ta2, outterms)) $ disjunctionOfList outterms
+            let sindt = (apply subst indt)
+                soutterm = (apply subst outterm)     
+            (if (sindt == soutterm) 
+                then noContradictoryEqStore
+                else do 
+                (eqs2, maySplitId) <- addDHProtoEqs hnd soutterm sindt =<< getM sEqStore
+                se  <- trace (show ("SHERLLL:gothereLAST", ta1, sindt, ta2, soutterm, eqs2)) $  gets id
+                setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
+                noContradictoryEqStore)
             --setM sEqStore eqs2
             --insertContIndProto ta2 ta1
             subst <- getM sSubst
-            let sta2 = (apply subst ta2)
-                sta1 = (apply subst ta1)
-            case varTermsOf sta2 of 
+            let sta2 =  (runReader (norm' $ apply subst ta2) hndNormal)
+                sta1 = (runReader (norm' $ apply subst ta1) hndNormal)
+            case trace (show ("applyGAUSSor not", sta1,sta2)) varTermsOf sta2 of 
                 [] -> case varTermsOf (sta1) of
                         [] -> do 
                                 void substSystem
@@ -1071,11 +1077,17 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 outterm
                         void substSystem
                         void normSystem
         (indt:indts) -> do 
+            subst <- getM sSubst   
             outterm <- trace (show ("SHERLLL:gothere", indt, outterms)) $ disjunctionOfList outterms
-            (eqs2, maySplitId) <- addDHProtoEqs hnd outterm indt =<< getM sEqStore
-            se  <- trace (show ("SHERLLL:gothereTOO", eqs2)) $ gets id
-            setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
-            noContradictoryEqStore
+            let sindt = (apply subst indt)
+                soutterm = (apply subst outterm)     
+            (if (sindt == soutterm) 
+                then noContradictoryEqStore
+                else do 
+                    (eqs2, maySplitId) <- addDHProtoEqs hnd soutterm sindt =<< getM sEqStore
+                    se  <- trace (show ("SHERLLL:gothereTOO", eqs2)) $ gets id
+                    setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
+                    noContradictoryEqStore)
             -- insertContIndProto ta2 ta1
             solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd indts ta1 ta2 (delete outterm outterms)
 
