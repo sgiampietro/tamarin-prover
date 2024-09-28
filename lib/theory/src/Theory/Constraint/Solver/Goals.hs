@@ -229,7 +229,7 @@ solveGoal goal = do
       SplitG i      -> solveSplit i
       DisjG disj    -> solveDisjunction disj
       SubtermG st   -> solveSubterm st
-      DHIndG p fa -> solveDHInd (get crProtocol rules) p fa 
+      DHIndG p fa -> if (isDHFact fa) then (solveDHInd (get crProtocol rules) p fa) else (solveDHIndMixed (get crProtocol rules) p fa)
       NoCancG (t1, t2) -> solveNoCanc t1 t2
       NeededG x i    -> solveNeeded (get crProtocol rules) x i
       IndicatorG (t1, t2) -> solveIndicator t1 t2
@@ -272,7 +272,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
             _ | (isMixedFact fa)                       -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList (filter isMixedFact $ get rActs ru)
-                   trace (show ("HELPPP here", fa, act)) (void (solveMixedFactEqs SplitNow (Equal fa act) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
+                   (void (solveMixedFactEqs True SplitNow (Equal fa act) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
                    void substSystem
                    --void normSystem
                    return ru
@@ -292,7 +292,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                                                         return ru
             _ | (isMixedFact fa)                  -> do unless (fa `elem` get rActs ru) $ do
                                                           act <- disjunctionOfList (filter isMixedFact $ get rActs ru)
-                                                          trace (show ("HELPPP here1", fa, act)) (void (solveMixedFactEqs SplitNow (Equal fa act) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
+                                                          trace (show ("HELPPP here1", fa, act)) (void (solveMixedFactEqs True SplitNow (Equal fa act) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
                                                           void substSystem
                                                         return ru
             _                                     -> do unless (fa `elem` get rActs ru) $ do
@@ -337,8 +337,10 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
              -> LNFact         -- ^ Fact required at this premise.
              -> Reduction String -- ^ Case name to use.
 solvePremise rules p faPrem
-  | isKdhFact faPrem = (solveDHInd rules p faPrem)
-  | (isInFact faPrem && isDHFact faPrem) = solveDHInd rules p faPrem
+  | isKdhFact faPrem && isDHFact faPrem = (solveDHInd rules p faPrem)
+  | isKdhFact faPrem && isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
+  | (isInFact faPrem && isDHFact faPrem) = trace (show ("Why am IO here?", faPrem))  solveDHInd rules p faPrem
+  | (isInFact faPrem && isMixedFact faPrem) = trace (show ("HELPPP here", faPrem)) $ solveDHIndMixed rules p faPrem
   | isProtoDHFact faPrem =  trace (show ("SOLVINGPREMISEDH:", faPrem)) $ solveDHIndProto rules p faPrem
   | isProtoMixedFact faPrem = trace (show ("YEAHWATSON:", faPrem)) $ solveDHMixedPremise rules p faPrem
   -- | TODO: ADD MIXED FACTS HERE!!
@@ -491,8 +493,6 @@ solveNoCanc x y = do
         else error "NoCanc does not hold"  -- TODO: not sure what to do if you don't have this condition? maybe add y and inv(x) to the DH-equation store? 
       )
 
-
-
 solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact containing a boxed term as conclusion. 
              -> NodePrem       -- ^ Premise to solve.
              ->LNFact       -- ^ Product term of which we have to find the indicator  
@@ -502,6 +502,29 @@ solveDHInd rules p faPrem =  do
         nbset <- getM sNotBasis
         nodes <- getM sNodes
         solveDHIndaux bset nbset (factTerms faPrem) p faPrem rules (M.assocs nodes)
+
+solveDHIndMixed ::  [RuleAC]        -- ^ All rules that have an Out fact containing a boxed term as conclusion. 
+             -> NodePrem       -- ^ Premise to solve.
+             ->LNFact       -- ^ Product term of which we have to find the indicator  
+             -> Reduction String -- ^ Case name to use.
+solveDHIndMixed rules p faPrem =  do
+        bset <- getM sBasis
+        nbset <- getM sNotBasis
+        nodes <- getM sNodes
+        solveDHIndauxMixed bset nbset (factTerms faPrem) p faPrem rules (M.assocs nodes)
+
+solveDHIndauxMixed :: S.Set LNTerm -> S.Set LNTerm -> [LNTerm] -> NodePrem -> LNFact -> [RuleAC] -> [(NodeId,RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
+solveDHIndauxMixed bset nbset terms p faPrem rules instrules =
+  case neededexponentslist bset nbset terms of
+      (Just es) -> do
+          trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem
+          return "NeededInserted"
+      Nothing -> do 
+          (ru, c, faConc) <- insertFreshNodeConcOutInstMixed rules instrules
+          insertDHMixedEdge False (c, faConc, faPrem, p) bset nbset -- instead of root indicator this should be Y.ind^Z.
+          return $ showRuleCaseName ru -- (return "done") 
+
+
 
 solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> [LNTerm] -> NodePrem -> LNFact -> [RuleAC] -> [(NodeId,RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
 solveDHIndaux bset nbset terms p faPrem rules instrules =
@@ -532,7 +555,7 @@ solveDHMixedPremise ::  [RuleAC]        -- ^ All rules that have an Out fact con
 solveDHMixedPremise rules p faPrem = do
       nodes <- getM sNodes
       (ru, c, faConc) <-  insertFreshNodeConcMixed rules (M.assocs nodes)
-      insertDHMixedEdge (c, faConc, faPrem, p) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) -- instead of root indicator this should be Y.ind^Z.
+      insertDHMixedEdge True (c, faConc, faPrem, p) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) -- instead of root indicator this should be Y.ind^Z.
       return $ showRuleCaseName ru
 
 
@@ -544,13 +567,16 @@ solveIndicator t1 t2  = do
       terms = (concatMap enumConcsDhOut rules)
       exps = (concatMap enumConcsDhExpOut rules)
    in 
-    case trace (show ("SOLVING GAUSS", terms, exps)) (solveIndicatorGauss (union exps (S.toList nbset)) terms t2) of 
-      Just vec -> do
-          markGoalAsSolved ("Found indicators! attack by result:" ++ show (vec, terms, t2)) (IndicatorG (t1,t2))
-          return ("Found indicators! attack by result:" ++ show (vec, terms, t2))
-      Nothing -> do 
-          setNotReachable
-          return ("Safe,cannot combine from (leaked set, terms):"++ show (union exps (S.toList nbset), terms, t2))
+    if (t1 == t2) 
+      then return "Found indicators"
+      else do 
+        case trace (show ("SOLVING GAUSS", terms, exps)) (solveIndicatorGauss (union exps (S.toList nbset)) terms t2) of 
+          Just vec -> do
+              markGoalAsSolved ("Found indicators! attack by result:" ++ show (vec, terms, t2)) (IndicatorG (t1,t2))
+              return ("Found indicators! attack by result:" ++ show (vec, terms, t2))
+          Nothing -> do 
+              setNotReachable
+              return ("Safe,cannot combine from (leaked set, terms):"++ show (union exps (S.toList nbset), terms, t2))
 
 
 
