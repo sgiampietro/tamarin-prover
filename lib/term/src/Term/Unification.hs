@@ -107,7 +107,7 @@ import qualified Term.Maude.Process as UM
 import           Term.Maude.Process
                    (MaudeHandle, WithMaude, startMaude, startMaudeDH, getMaudeStats, mhMaudeSig, mhFilePath)
 import           Term.Maude.Signature
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 -- Unification modulo AC
 ----------------------------------------------------------------------
@@ -120,7 +120,7 @@ unifyLTermFactored :: (IsConst c)
 unifyLTermFactored sortOf eqs =  (reader $ \h -> (\res -> trace (unlines $ ["unifyLTerm: "++ show eqs, "result = "++  show res]) res) $ do
     (solve h $ execRWST unif sortOf M.empty) )
   where
-    unif = sequence [ trace (show ("PARSING", t , p)) (unifyRaw t p) | Equal t p <- eqs ]
+    unif = sequence [ (unifyRaw t p) | Equal t p <- eqs ]
     solve _ Nothing         = (emptySubst, [])
     solve _ (Just (m, []))  = (substFromMap m, [emptySubstVFresh])
     solve h (Just (m, leqs)) =
@@ -167,7 +167,7 @@ unifyLDHProtoTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ 
 
 unifyLNDHProtoTermFactored :: [Equal LNTerm]
                     -> WithMaude [SubstVFresh Name LVar]
-unifyLNDHProtoTermFactored = unifyLDHProtoTermFactored sortOfName             
+unifyLNDHProtoTermFactored eq = trace (show ("TRYINGTOUNIFYIND+ROOTof", eq)) $ unifyLDHProtoTermFactored sortOfName  eq            
 
 -- | @unifyLNTerm eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLTerm :: (IsConst c)
@@ -188,7 +188,7 @@ unifiableLNTerms t1 t2 = (not . null) <$> unifyLNTerm [Equal t1 t2]
 -- | Flatten a factored substitution to a list of substitutions.
 flattenUnif :: IsConst c => (LSubst c, [LSubstVFresh c]) -> [LSubstVFresh c]
 flattenUnif (subst, substs) =
-    (\res -> trace (show ("flattenUnif",subst, substs,res )) res) $ map (`composeVFresh` subst) substs
+    (\res ->  res) $ map (`composeVFresh` subst) substs
 
 -- Unification without AC
 ----------------------------------------------------------------------
