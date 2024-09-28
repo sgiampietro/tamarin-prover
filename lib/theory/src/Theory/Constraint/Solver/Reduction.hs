@@ -1017,7 +1017,7 @@ normalizeSubstList hnd ((t,t2) : xs) = (t, runReader ( norm' t2) hnd):(normalize
 
 solveIndicatorProto :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
 solveIndicatorProto nb t1 t2 = do 
-  case (solveIndicatorGaussProto nb t1 t2) of 
+  case trace (show ("solvingGausswith",t1,t2)) (solveIndicatorGaussProto nb t1 t2) of 
    Just subst ->  do 
         markGoalAsSolved ("Found exponent with:" ++ show subst) (IndicatorGExp nb (t1, t2))
         eqStore <- getM sEqStore
@@ -1045,25 +1045,35 @@ solveDHProtoEqsAux :: SplitStrategy -> S.Set LNTerm  -> S.Set LNTerm -> MaudeHan
 solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 outterms= do
     case xindterms of 
         [indt] -> do
-            se  <- gets id
-            outterm <- disjunctionOfList outterms
+            outterm <- trace (show ("SHERLLL:gothereFIRST", indt, outterms)) $ disjunctionOfList outterms
             (eqs2, maySplitId) <- addDHProtoEqs hnd outterm indt =<< getM sEqStore
+            se  <- trace (show ("SHERLLL:gothereLAST", indt, outterm, eqs2)) $  gets id
             setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
             noContradictoryEqStore
             --setM sEqStore eqs2
             --insertContIndProto ta2 ta1
             subst <- getM sSubst
-            case varTermsOf (apply subst ta2) of 
-                [] -> void $ solveIndicatorProto (S.toList nbset) (apply subst ta1) (apply subst ta2)
-                _  -> void $ solveIndicatorProto (S.toList nbset) (apply subst ta2) (apply subst ta1)
+            let sta2 = (apply subst ta2)
+                sta1 = (apply subst ta1)
+            case varTermsOf sta2 of 
+                [] -> case varTermsOf (sta1) of
+                        [] -> do 
+                                void substSystem
+                                void normSystem
+                        _  -> do
+                                void $ solveIndicatorProto (S.toList nbset) sta1 sta2
+                                void substSystem
+                                void normSystem
+                _  -> do
+                        void $ solveIndicatorProto (S.toList nbset) sta2 sta1
             -- insertGoal (IndicatorGExp (S.toList nbset) (ta2,ta1)) False
             --noContradictoryEqStore
-            void substSystem
-            void normSystem
+                        void substSystem
+                        void normSystem
         (indt:indts) -> do 
-            se  <- gets id
-            outterm <- disjunctionOfList outterms
+            outterm <- trace (show ("SHERLLL:gothere", indt, outterms)) $ disjunctionOfList outterms
             (eqs2, maySplitId) <- addDHProtoEqs hnd outterm indt =<< getM sEqStore
+            se  <- trace (show ("SHERLLL:gothereTOO", eqs2)) $ gets id
             setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
             noContradictoryEqStore
             -- insertContIndProto ta2 ta1
@@ -1140,15 +1150,18 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
                             void normSystem
                             return Changed
             _          -> do
+                        subst <- getM sEqStore
+                        let ta11 = applyVTerm (_eqsSubst subst) ta1
+                            ta22 = applyVTerm (_eqsSubst subst) ta2
                         nocancs <- getM sNoCanc
                         hndNormal <- getMaudeHandle
-                        case prodTerms ta1 of
+                        case prodTerms ta11 of
                             Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
                                           else do
-                                            let xrooterms = multRootList ta1
+                                            let xrooterms = multRootList ta11
                                                 xindterms = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) xrooterms
-                                            hnd <- trace (show ("solvingTERMEQUALITY", ta1, ta2)) getMaudeHandleDH 
-                                            solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 (multRootList ta2)
+                                            hnd <- trace (show ("solvingTERMEQUALITY", ta11, ta22, subst)) getMaudeHandleDH 
+                                            solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta11 ta22 (multRootList ta22)
                                             return Changed
                             _ -> error "TODO")
 solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =

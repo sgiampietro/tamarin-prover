@@ -65,6 +65,7 @@ module Theory.Tools.EquationStore (
 import           GHC.Generics          (Generic)
 import           Logic.Connectives
 import Term.Unification
+import           Term.Rewriting.Norm (norm')
 import           Theory.Text.Pretty
 
 import           Control.Monad.Fresh
@@ -263,7 +264,7 @@ addMixedEqs hnd eqs0 dhvars eqStore =
             (return (set eqsConj falseEqConstrConj eqStore, Nothing, []))
         (subst, [substFresh]) | substFresh == emptySubstVFresh ->
             trace (show ("SHERLOCK BACK1", substdh, subst')) $ (return (eqStore', Nothing, map (\(a,b) -> (LIT (Var a), b)) substdh))
-              where eqStore' =(applyEqStore hnd subst' eqStore)
+              where eqStore' = if (subst' ==  emptySubst) then eqStore else (applyEqStore hnd subst' eqStore)
                     subst' = substFromList ( filter (\(a,b) -> not $ elem a dhvars) $ substToList subst)
                     substdh = ( filter (\(a,b) -> elem a dhvars) $ substToList subst)
         (subst, substs) -> do
@@ -637,8 +638,10 @@ addDHEqs2 hnd t1 indt eqdhstore =
 
 addDHProtoEqs :: MonadFresh m
        => MaudeHandle -> LNTerm -> LNTerm -> EqStore -> m (EqStore, Maybe SplitId)
-addDHProtoEqs hnd t1 indt eqdhstore =
-    case unifyLNDHProtoTermFactored eqs `runReader` hnd of
+addDHProtoEqs hnd t1 indt eqdhstore = do
+    zz <- freshLVar "zz" LSortE
+    let genindt = runReader (norm' $ fAppdhExp (indt, LIT (Var zz)) ) hnd
+    case unifyLNDHProtoTermFactored (apply (L.get eqsSubst eqdhstore) $ [Equal t1 genindt]) `runReader` hnd of
         []->
             return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
         [substFresh] | substFresh == emptySubstVFresh ->
@@ -649,22 +652,25 @@ addDHProtoEqs hnd t1 indt eqdhstore =
             --(eqStore', sid) <- liftM (addDisj eqdhstore) (liftM S.fromList (mapM generalize substs)) -- TODO: fix this!!
             -- TODO: instead of adding disjunctions here, need to directly add them as substitutions!
             return (eqStore', Nothing)
-  where
-    eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
-    addsubsts sub eqst= applyEqStore hnd sub eqst
-    changeqstore [x] eq = addsubsts x eq
-    changeqstore (x:xs) eq = changeqstore xs (addsubsts x eq)
-    generaltup (c, cterm) = case (sortOfLNTerm (varTerm c)) of 
-      a | a == LSortE  -> do 
-          w1 <- freshLVar "yk" LSortVarE
-          v1 <- freshLVar "zk" LSortVarE
-          trace (show ("gentup:", v1, w1)) $ return (c, fAppdhPlus (fAppdhTimesE (cterm, varTerm v1), varTerm w1))
-      a | a == LSortG  -> do 
+          where
+            addsubsts sub eqst= applyEqStore hnd sub eqst
+            changeqstore [x] eq = addsubsts x eq
+            changeqstore (x:xs) eq = changeqstore xs (addsubsts x eq)
+            generaltup (c, cterm) = case (sortOfLNTerm (varTerm c)) of 
+              a | a == LSortE  -> do 
+                  w1 <- freshLVar "yk" LSortVarE
+                  v1 <- freshLVar "zk" LSortVarE
+                  trace (show ("gentup:", v1, w1)) $ return (c, fAppdhPlus (fAppdhTimesE (cterm, varTerm v1), varTerm w1))
+              a | a == LSortG  -> do 
+                  w1 <- freshLVar "wk" LSortVarG
+                  v1 <- freshLVar "vk" LSortVarE
+                  return (c, fAppdhMult (fAppdhExp (cterm,varTerm v1), varTerm w1))
+      {-a | a == LSortPubG  -> do 
           w1 <- freshLVar "wk" LSortVarG
           v1 <- freshLVar "vk" LSortVarE
-          return (c, fAppdhMult (fAppdhExp (cterm,varTerm v1), varTerm w1))
-      _ -> return (c, cterm)
-    generalize sub = liftM substFromListVFresh $ mapM generaltup $ substToListVFresh sub
+          return (c, fAppdhMult (fAppdhExp (cterm,varTerm v1), varTerm w1)) -}
+              _ -> return (c, cterm)
+            generalize sub = liftM substFromListVFresh $ mapM generaltup $ filter (\(a,b)-> a /= zz) (substToListVFresh sub)
     -- TODO: transform these "fresh" substitutons into Free ones!!
 
 
