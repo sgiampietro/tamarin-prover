@@ -262,6 +262,13 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                             modM sNodes (M.insert i ru)
                             mapM_ requiresKU [a, b] *> return ru
             -- Distinguish DH term cases!!
+            (Fact KUFact _ [m]) | (isMixedFact fa)      -> do
+                   ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
+                   act <- disjunctionOfList (get rActs ru)
+                   (void (solveMixedFactEqs False SplitNow (Equal fa act) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
+                   void substSystem
+                   --void normSystem
+                   return ru
             _ | (isDHFact fa)                       -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList (filter isDHFact $ get rActs ru)
@@ -283,6 +290,12 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                    return ru
 
         Just ru ->  case fa of
+            (Fact KUFact _ [m]) | (isMixedFact fa)      -> do
+                   act <- disjunctionOfList (get rActs ru)
+                   (void (solveMixedFactEqs False SplitNow (Equal fa act) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
+                   void substSystem
+                   --void normSystem
+                   return ru
             --Distinguish DH Term cases!!
             _ | isDHFact fa                       -> do unless (fa `elem` get rActs ru) $ do
                                                           act <- disjunctionOfList (filter isDHFact $ get rActs ru)
@@ -340,7 +353,7 @@ solvePremise rules p faPrem
   | isKdhFact faPrem && isDHFact faPrem = (solveDHInd rules p faPrem)
   | isKdhFact faPrem && isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
   | (isInFact faPrem && isDHFact faPrem) = trace (show ("Why am IO here?", faPrem))  solveDHInd rules p faPrem
-  | (isInFact faPrem && isMixedFact faPrem) = trace (show ("HELPPP here", faPrem)) $ solveDHIndMixed rules p faPrem
+  -- | (isInFact faPrem && isMixedFact faPrem) = trace (show ("HELPPP here", faPrem)) $ solveDHIndMixed rules p faPrem
   | isProtoDHFact faPrem =  trace (show ("SOLVINGPREMISEDH:", faPrem)) $ solveDHIndProto rules p faPrem
   | isProtoMixedFact faPrem = trace (show ("YEAHWATSON:", faPrem)) $ solveDHMixedPremise rules p faPrem
   -- | TODO: ADD MIXED FACTS HERE!!

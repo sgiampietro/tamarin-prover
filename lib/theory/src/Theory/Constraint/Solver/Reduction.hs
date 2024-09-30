@@ -337,6 +337,13 @@ labelNodeId = \i rules parent -> do
             modM sNodes (M.insert j ruKnows)
             modM sEdges (S.insert $ Edge (j, ConcIdx 0) (i, v))
             exploitPrems j ruKnows
+        {-Fact InFact ann [m] |  (isMixedFact fa) -> do
+            j <- freshLVar "vf" LSortNode
+            (cleanedm, mDHvars) <- clean m
+            ruKnows <- mkISendRuleAC ann cleanedm
+            modM sNodes (M.insert j ruKnows)
+            modM sEdges (S.insert $ Edge (j, ConcIdx 0) (i, v))
+            exploitPrems j ruKnows -}
 
         -- CR-rule *DG2_2* specialized for *Fr* facts.
         Fact FreshFact _ [m] -> do
@@ -355,7 +362,7 @@ labelNodeId = \i rules parent -> do
                 -- 'm' must be of sort fresh ==> enforce via unification
                 n <- varTerm <$> freshLVar "n" LSortFrNZE
                 void (solveTermEqs SplitNow [Equal m n])
-            modM sEdges (S.insert $ Edge (j, ConcIdx 0) (i,v)) 
+            modM sEdges (S.insert $ Edge (j, ConcIdx 0) (i,v))
 
           -- CR-rule *DG2_{2,u}*: solve a KU-premise by inserting the
           -- corresponding KU-actions before this node.
@@ -981,7 +988,7 @@ solveTermEqs splitStrat eqs0 =
         se  <- gets id
         (eqs2, maySplitId) <- addEqs hnd eqs1 =<< getM sEqStore
         setM sEqStore
-            =<< simp hnd (substCreatesNonNormalTerms hnd se) 
+            =<< simp hnd (substCreatesNonNormalTerms hnd se)
             =<< case (maySplitId, splitStrat) of
                   (Just splitId, SplitNow) -> disjunctionOfList
                                                 $ fromJustNote "solveTermEqs"
@@ -994,7 +1001,7 @@ solveTermEqs splitStrat eqs0 =
         return Changed
 
 solveMixedTermEqs :: Bool -> SplitStrategy -> S.Set LNTerm -> S.Set LNTerm  ->  (LNTerm, LNTerm) -> Reduction ChangeIndicator
-solveMixedTermEqs b splitStrat bset nbset (lhs,rhs) =
+solveMixedTermEqs True splitStrat bset nbset (lhs,rhs) =
     if (evalEqual (Equal lhs rhs)) then
       return Unchanged
     else (do
@@ -1013,14 +1020,36 @@ solveMixedTermEqs b splitStrat bset nbset (lhs,rhs) =
                       insertGoal (SplitG splitId) False
                       return eqs2
                   _                        -> return eqs2
-        let substdhvars = map (\(a,b) -> (applyVTerm compsubst a, applyVTerm compsubst b)) dheqs   
+        let substdhvars = map (\(a,b) -> (applyVTerm compsubst a, applyVTerm compsubst b)) dheqs
             compsubst = substFromList (lhsDHvars ++ rhsDHvars)
-        trace (show ("Watson,", cleanedlhs, lhsDHvars, cleanedrhs, rhsDHvars, "listdh", substdhvars)) $ solveListDHEqs (solveTermDHEqs b splitStrat bset nbset) substdhvars
+        trace (show ("Watson,", cleanedlhs, lhsDHvars, cleanedrhs, rhsDHvars, "listdh", substdhvars)) $ solveListDHEqs (solveTermDHEqs True splitStrat bset nbset) substdhvars
         noContradictoryEqStore
         return Changed)
+solveMixedTermEqs False splitStrat bset nbset (lhs,rhs)
+  | (evalEqual (Equal lhs rhs)) = return Unchanged
+  | (isMixedTerm rhs) = solveMixedTermEqs True splitStrat bset nbset (lhs,rhs)
+  | otherwise = do
+            (cleanedlhs, lhsDHvars) <- clean lhs
+            hnd <- getMaudeHandle
+            se  <- gets id
+            (eqs2, maySplitId) <- addEqs hnd [Equal cleanedlhs rhs] =<< getM sEqStore
+            let compsubst = substFromList (lhsDHvars)
+                eqs2'= applyEqStore hnd compsubst eqs2
+            setM sEqStore
+                =<< simp hnd (substCreatesNonNormalTerms hnd se) -- (\x y -> False) this solves the NORMAL FORM ISSUE!! check that. 
+                =<< case (maySplitId, splitStrat) of
+                  (Just splitId, SplitNow) -> disjunctionOfList
+                                                $ fromJustNote "solveTermEqs"
+                                                $ performSplit eqs2' splitId
+                  (Just splitId, SplitLater) -> do
+                      insertGoal (SplitG splitId) False
+                      return eqs2
+                  _                        -> return eqs2'
+            -- trace (show ("WEIRDCASE,", cleanedlhs, lhsDHvars, "listdh", substdhvars)) $ solveListDHEqs (solveTermDHEqs False splitStrat bset nbset) substdhvars
+            noContradictoryEqStore
+            return Changed
 
-
-normalizeSubstList :: MaudeHandle -> [(LVar, LNTerm)] -> [(LVar, LNTerm)]    
+normalizeSubstList :: MaudeHandle -> [(LVar, LNTerm)] -> [(LVar, LNTerm)]
 normalizeSubstList hnd [] = []
 normalizeSubstList hnd [(t,t2)] = [(t, runReader ( norm' t2) hnd)]
 normalizeSubstList hnd ((t,t2) : xs) = (t, runReader ( norm' t2) hnd):(normalizeSubstList hnd xs)
@@ -1028,9 +1057,9 @@ normalizeSubstList hnd ((t,t2) : xs) = (t, runReader ( norm' t2) hnd):(normalize
 
 
 solveIndicatorProto :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
-solveIndicatorProto nb t1 t2 = do 
-  case trace (show ("solvingGausswith",t1,t2)) (solveIndicatorGaussProto nb t1 t2) of 
-   Just subst ->  do 
+solveIndicatorProto nb t1 t2 = do
+  case trace (show ("solvingGausswith",t1,t2)) (solveIndicatorGaussProto nb t1 t2) of
+   Just subst ->  do
         markGoalAsSolved ("Found exponent with:" ++ show subst) (IndicatorGExp nb (t1, t2))
         eqStore <- getM sEqStore
         hnd  <- getMaudeHandle
@@ -1047,23 +1076,23 @@ solveIndicatorProto nb t1 t2 = do
         nodes <- getM sNodes
         setM sNodes $ M.map (\r -> runReader (normRule r) hnd) nodes
         return ("Matched" ++ show (normalizeSubstList hnd subst))
-   Nothing -> do 
+   Nothing -> do
           setNotReachable
           return "Contradiction! Cannot find exponent"
-  where 
+  where
     terms = [t1]
 
 solveDHProtoEqsAux :: SplitStrategy -> S.Set LNTerm  -> S.Set LNTerm -> MaudeHandle -> MaudeHandle -> [LNTerm] -> LNTerm -> LNTerm -> [LNTerm] -> StateT System (FreshT (DisjT (Reader ProofContext))) ()
 solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 outterms= do
-    case xindterms of 
+    case xindterms of
         [indt] -> do
-            subst <- getM sSubst   
+            subst <- getM sSubst
             outterm <- trace (show ("SHERLLL:gothereFIRST", ta1, indt, ta2, outterms)) $ disjunctionOfList outterms
             let sindt = (apply subst indt)
-                soutterm = (apply subst outterm)     
-            (if (sindt == soutterm) 
+                soutterm = (apply subst outterm)
+            (if (sindt == soutterm)
                 then noContradictoryEqStore
-                else do 
+                else do
                 (eqs2, maySplitId) <- addDHProtoEqs hnd soutterm sindt =<< getM sEqStore
                 se  <- trace (show ("SHERLLL:gothereLAST", ta1, sindt, ta2, soutterm, eqs2)) $  gets id
                 setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
@@ -1073,9 +1102,9 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 outterm
             subst <- getM sSubst
             let sta2 =  (runReader (norm' $ apply subst ta2) hndNormal)
                 sta1 = (runReader (norm' $ apply subst ta1) hndNormal)
-            case trace (show ("applyGAUSSor not", sta1,sta2)) varTermsOf sta2 of 
+            case trace (show ("applyGAUSSor not", sta1,sta2)) varTermsOf sta2 of
                 [] -> case varTermsOf (sta1) of
-                        [] -> do 
+                        [] -> do
                                 void substSystem
                                 void normSystem
                         _  -> do
@@ -1088,14 +1117,14 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 outterm
             --noContradictoryEqStore
                         void substSystem
                         void normSystem
-        (indt:indts) -> do 
-            subst <- getM sSubst   
+        (indt:indts) -> do
+            subst <- getM sSubst
             outterm <- trace (show ("SHERLLL:gothere", indt, outterms)) $ disjunctionOfList outterms
             let sindt = (apply subst indt)
-                soutterm = (apply subst outterm)     
-            (if (sindt == soutterm) 
+                soutterm = (apply subst outterm)
+            (if (sindt == soutterm)
                 then noContradictoryEqStore
-                else do 
+                else do
                     (eqs2, maySplitId) <- addDHProtoEqs hnd soutterm sindt =<< getM sEqStore
                     se  <- trace (show ("SHERLLL:gothereTOO", eqs2)) $ gets id
                     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
@@ -1105,7 +1134,7 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 outterm
 
 solveDHEqsAux :: SplitStrategy -> S.Set LNTerm  -> S.Set LNTerm -> MaudeHandle -> MaudeHandle -> [LNTerm] -> LNTerm -> LNTerm -> [LNTerm] -> StateT System (FreshT (DisjT (Reader ProofContext))) ()
 solveDHEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 rootsta2 = do
-    case xindterms of 
+    case xindterms of
         [indt] -> do
             case viewTerm2 (indt) of
                 (DHOne) -> trace (show ("GotHEREDHOne")) return ()
@@ -1184,7 +1213,7 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
                                           else do
                                             let xrooterms = multRootList ta11
                                                 xindterms = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) xrooterms
-                                            hnd <- trace (show ("solvingTERMEQUALITY", ta11, ta22, subst)) getMaudeHandleDH 
+                                            hnd <- trace (show ("solvingTERMEQUALITY", ta11, ta22, subst)) getMaudeHandleDH
                                             solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta11 ta22 (multRootList ta22)
                                             return Changed
                             _ -> error "TODO")
@@ -1208,8 +1237,8 @@ solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
                     Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
                      else do
                         let xrooterms = multRootList ta1
-                            xindterms = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) xrooterms                
-                        hnd <- getMaudeHandleDH 
+                            xindterms = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) xrooterms
+                        hnd <- getMaudeHandleDH
                         solveDHEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 (multRootList ta2)
                         return Changed
                     _ -> error "TODO")
@@ -1232,15 +1261,16 @@ solveFactEqs split eqs = do
     (solveListEqs (solveTermEqs split) $ map (fmap factTerms) eqs)
 
 solveMixedFactEqs :: Bool -> SplitStrategy -> Equal LNFact -> S.Set LNTerm -> S.Set LNTerm -> Reduction ChangeIndicator
-solveMixedFactEqs b split (Equal fa1 fa2) bset nbset 
+solveMixedFactEqs b split (Equal fa1 fa2) bset nbset
     | b =  do
             contradictoryIf (not (factTag fa1 == factTag fa2))
             contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
             solveListDHEqs (solveMixedTermEqs b split bset nbset) $ zip (factTerms fa1) (factTerms fa2)
     | otherwise = do
-            contradictoryIf (not (factTag fa1 == OutFact) && (factTag fa2 == KdhFact || factTag fa2 == InFact) )
+            contradictoryIf (not (factTag fa1 == factTag fa2))
+            contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
             solveListDHEqs (solveMixedTermEqs b split bset nbset) $ zip (factTerms fa1) (factTerms fa2)
-   
+
 
 factDHTag ::  EqInd LNFact LNTerm -> Equal FactTag
 factDHTag (EqInd e indt t) =  (fmap factTag) e
