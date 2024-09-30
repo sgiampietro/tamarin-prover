@@ -346,6 +346,7 @@ elemNotBelowReducible _ _ _ = False
 -- | Convert a function symbol to its name.
 showFunSymName :: FunSym -> String
 showFunSymName (NoEq (bs, _)) = BC.unpack bs
+showFunSymName (DHMult (bs, _)) = BC.unpack bs
 showFunSymName (AC op)        = show op
 showFunSymName (C op )           = show op
 showFunSymName List              = "List"
