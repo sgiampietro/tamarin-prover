@@ -74,7 +74,7 @@ import           Control.Monad.Reader
 import           Extension.Prelude
 import           Utils.Misc
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 
 import           Control.Basics
 import           Control.DeepSeq
@@ -263,7 +263,7 @@ addMixedEqs hnd eqs0 dhvars eqStore =
         (_, []) ->
             (return (set eqsConj falseEqConstrConj eqStore, Nothing, []))
         (subst, [substFresh]) | substFresh == emptySubstVFresh ->
-            trace (show ("SHERLOCK BACK1", substdh, subst')) $ (return (eqStore', Nothing, map (\(a,b) -> (LIT (Var a), b)) substdh))
+            (return (eqStore', Nothing, map (\(a,b) -> (LIT (Var a), b)) substdh))
               where eqStore' = if (subst' ==  emptySubst) then eqStore else (applyEqStore hnd subst' eqStore)
                     subst' = substFromList ( filter (\(a,b) -> not $ elem a dhvars) $ substToList subst)
                     substdh = ( filter (\(a,b) -> elem a dhvars) $ substToList subst)
@@ -272,7 +272,7 @@ addMixedEqs hnd eqs0 dhvars eqStore =
                                           (S.fromList substs)
                 subst' = substFromList ( filter (\(a,b) -> not $ elem a dhvars) $ substToList subst)
                 substdh = ( filter (\(a,b) -> elem a dhvars) $ substToList subst)
-            trace (show ("SHERLOCK BACK2", substdh, subst')) $ return (eqStore', Just sid, map (\(a,b) -> (LIT (Var a), b)) substdh)
+            return (eqStore', Just sid, map (\(a,b) -> (LIT (Var a), b)) substdh)
             -- TODO: check if we need to filter out elements in dhvars also in the addDisj
             )
   where
@@ -614,7 +614,7 @@ addDHEqs hnd t1 indt eqdhstore =
             (return (eqdhStore', Nothing))
               where eqdhStore' =(applyEqStore hnd subst eqdhstore)
         (subst, substs) -> do
-            let (eqStore', sid) = trace (show "IGOTHERESHERLOCK") $ addDisj (applyEqStore hnd subst eqdhstore) (S.fromList substs)
+            let (eqStore', sid) = addDisj (applyEqStore hnd subst eqdhstore) (S.fromList substs)
             (return (eqStore', Just sid))
   where
     eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
