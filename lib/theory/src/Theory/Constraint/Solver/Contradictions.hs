@@ -54,7 +54,7 @@ import           Theory.Text.Pretty
 
 import           Term.Rewriting.Norm            (maybeNotNfSubterms, nf')
 
--- import           Debug.Trace
+import           Debug.Trace
 
 ------------------------------------------------------------------------------
 -- Contradictions
@@ -140,7 +140,7 @@ hasForbiddenKD sys = (not $ isDiffSystem sys) &&
     isForbiddenKD ru = fromMaybe False $ do
         [conc] <- return $ L.get rConcs ru
         (DnK, t) <- kFactView conc
-        return $ neverContainsFreshPriv t
+        return $ (not (isMixedTerm t)) && (neverContainsFreshPriv t)
 
 
 -- | True iff there are terms in the node constraints that are not in normal form wrt.
@@ -228,7 +228,7 @@ nodesAfterLast sys = case L.get sLastAtom sys of
 -- chain-start by extending the chain or replacing
 -- it with an edge.
 hasImpossibleChain :: ProofContext -> System -> Bool
-hasImpossibleChain ctxt sys = {-trace (show (L.get pcTrueSubterm ctxt)) $-}
+hasImpossibleChain ctxt sys = trace (show (L.get pcTrueSubterm ctxt)) $
     any impossibleChain [ (c,p) | ChainG c p <- M.keys $ L.get sGoals sys ]
   where
     impossibleChain (c,p) = fromMaybe False $ do
@@ -255,6 +255,8 @@ hasImpossibleChain ctxt sys = {-trace (show (L.get pcTrueSubterm ctxt)) $-}
       case viewTerm t of
         FApp sym _                           -> return $ Right sym
         Lit _ | sortOfLNTerm t == LSortMsg   -> Nothing
+              | sortOfLNTerm t == LSortG   -> Nothing
+              | sortOfLNTerm t == LSortE   -> Nothing
                   -- we cannot determine the root symbols of a message-variable
               | otherwise                    -> return $ Left (sortOfLNTerm t)
                   -- a public or fresh name or variable
@@ -271,7 +273,7 @@ hasImpossibleChain ctxt sys = {-trace (show (L.get pcTrueSubterm ctxt)) $-}
                  FApp o args -> ((Right o):) . concat <$> mapM possibleEndSyms args
 
     possibleRootSyms :: LNTerm -> Maybe [Either LSort FunSym]
-    possibleRootSyms t | neverContainsFreshPriv t = return []
+    possibleRootSyms t | not (isMixedTerm t) && (neverContainsFreshPriv t) = return []
       -- this is an 'isForbiddenDeconstruction'
     possibleRootSyms t = case viewTerm2 t of
         FExp   a _b -> -- cannot obtain a subterm of the exponents @_b@

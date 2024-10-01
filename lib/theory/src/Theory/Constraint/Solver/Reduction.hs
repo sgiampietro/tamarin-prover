@@ -38,9 +38,9 @@ module Theory.Constraint.Solver.Reduction (
   -- ** Inserting nodes, edges, and atoms
   , labelNodeId
   , insertFreshNode
+  , insertFreshNodeMixed
   , insertFreshNodeConc
   , insertFreshNodeConcInst
-  , insertFreshNodeConcOut
   , insertFreshNodeConcOutInst
   , insertFreshNodeConcOutInstMixed
   , insertFreshNodeConcMixed
@@ -255,17 +255,11 @@ insertFreshNodeConcMixed rules instrules = do
     b <- disjunctionOfList [True, False]
     (if b then (do
             (i,ru) <- disjunctionOfList instrules
-            (v, fa) <- disjunctionOfList $ [(c,f)|  (c,f) <- enumConcs ru, isProtoMixedFact f ]
+            (v, fa) <- disjunctionOfList $ [(c,f)|  (c,f) <- enumConcs ru, isMixedFact f ]
             return (ru, (i, v), fa)) else (do
             (i, ru) <- insertFreshNode rules Nothing
-            (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru,  isProtoMixedFact f ]
+            (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru,  isMixedFact f ]
             return (ru, (i, v), fa)))
-
-insertFreshNodeConcOut :: [RuleAC] -> Reduction (RuleACInst, NodeConc, LNFact)
-insertFreshNodeConcOut rules = do
-    (i, ru) <- insertFreshNode rules Nothing
-    (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru, (factTag f == OutFact || factTag f == KdhFact), isDHFact f ]
-    return (ru, (i, v), fa)
 
 insertFreshNodeConcOutInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, LNFact)
 insertFreshNodeConcOutInst rules instrules = do
@@ -288,6 +282,17 @@ insertFreshNodeConcOutInstMixed rules instrules = do
             (i, ru) <- insertFreshNode rules Nothing
             (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru, (factTag f == OutFact || factTag f == KdhFact), not $ isDHFact f, isMixedFact f ]
             return (ru, (i, v), fa)))
+
+insertFreshNodeMixed :: [RuleAC] -> [(NodeId,RuleACInst)] -> Maybe RuleACInst -> Reduction (NodeId, RuleACInst)
+insertFreshNodeMixed rules instrules parent = do
+    b <- disjunctionOfList [True, False]
+    (if b then do
+            (i,ru) <- disjunctionOfList instrules
+            return (i,ru)
+        else (do
+            i <- freshLVar "vr" LSortNode
+            (,) i <$> labelNodeId i rules parent) ) 
+
 
 -- | Insert a fresh rule node labelled with a fresh instance of one of the rules
 -- and solve it's 'Fr', 'In', and 'KU' premises immediately.
@@ -331,7 +336,7 @@ labelNodeId = \i rules parent -> do
 
     exploitPrem i ru (v, fa) = case fa of
         -- CR-rule *DG2_2* specialized for *In* facts.
-        Fact InFact ann [m] | (not $ isDHFact fa) && (not $ isMixedFact fa) -> do
+        Fact InFact ann [m] | (not $ isDHFact fa) -> do
             j <- freshLVar "vf" LSortNode
             ruKnows <- mkISendRuleAC ann m
             modM sNodes (M.insert j ruKnows)
@@ -1022,7 +1027,7 @@ solveMixedTermEqs True splitStrat bset nbset (lhs,rhs) =
                   _                        -> return eqs2
         let substdhvars = map (\(a,b) -> (applyVTerm compsubst a, applyVTerm compsubst b)) dheqs
             compsubst = substFromList (lhsDHvars ++ rhsDHvars)
-        trace (show ("Watson,", cleanedlhs, lhsDHvars, cleanedrhs, rhsDHvars, "listdh", substdhvars)) $ solveListDHEqs (solveTermDHEqs True splitStrat bset nbset) substdhvars
+        solveListDHEqs (solveTermDHEqs True splitStrat bset nbset) substdhvars
         noContradictoryEqStore
         return Changed)
 solveMixedTermEqs False splitStrat bset nbset (lhs,rhs)
@@ -1045,7 +1050,6 @@ solveMixedTermEqs False splitStrat bset nbset (lhs,rhs)
                       insertGoal (SplitG splitId) False
                       return eqs2
                   _                        -> return eqs2'
-            -- trace (show ("WEIRDCASE,", cleanedlhs, lhsDHvars, "listdh", substdhvars)) $ solveListDHEqs (solveTermDHEqs False splitStrat bset nbset) substdhvars
             noContradictoryEqStore
             return Changed
 
@@ -1261,15 +1265,10 @@ solveFactEqs split eqs = do
     (solveListEqs (solveTermEqs split) $ map (fmap factTerms) eqs)
 
 solveMixedFactEqs :: Bool -> SplitStrategy -> Equal LNFact -> S.Set LNTerm -> S.Set LNTerm -> Reduction ChangeIndicator
-solveMixedFactEqs b split (Equal fa1 fa2) bset nbset
-    | b =  do
-            contradictoryIf (not (factTag fa1 == factTag fa2))
-            contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
-            solveListDHEqs (solveMixedTermEqs b split bset nbset) $ zip (factTerms fa1) (factTerms fa2)
-    | otherwise = do
-            contradictoryIf (not (factTag fa1 == factTag fa2))
-            contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
-            solveListDHEqs (solveMixedTermEqs b split bset nbset) $ zip (factTerms fa1) (factTerms fa2)
+solveMixedFactEqs b split (Equal fa1 fa2) bset nbset = do
+    contradictoryIf (not (factTag fa1 == factTag fa2))
+    contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
+    solveListDHEqs (solveMixedTermEqs b split bset nbset) $ zip (factTerms fa1) (factTerms fa2)
 
 
 factDHTag ::  EqInd LNFact LNTerm -> Equal FactTag
@@ -1298,18 +1297,6 @@ solveFactDHEqs b split fa1 fa2 bset nbset
          -- but be careful because that should hold only for G terms. E terms should be handled differrently.
 
 
--- need to take care of indicators here. Trying to do this in the "solveIndEqTermDHEqs" function. 
-{-solveActionFactDHEqs :: SplitStrategy -> Equal LNFact -> RuleACInst -> Reduction ChangeIndicator
-solveActionFactDHEqs split eq@(Equal fa1 fa2) ru = do
-    contradictoryIf (not (factTag fa1 == factTag fa2) )
-    contradictoryIf (not $ evalEqual $ (fmap length) eq1)
-    (solveListDHEqs (solveIndEqTermDHEqs split b nb) $ flatten eq1)
-        where 
-            eq1 = ((fmap factTerms) eq)
-            flatten (Equal l r) = zipWith Equal l r
-            b = S.fromList $ basisOfRule ru
-            nb = S.fromList $ notBasisOfRule ru
--}
 
 -- | Add a list of rule equalities to the equation store, if possible.
 solveRuleEqs :: SplitStrategy -> [Equal RuleACInst] -> Reduction ChangeIndicator
@@ -1329,24 +1316,14 @@ solveListEqs solver eqs = do
     flatten (Equal l r) = zipWith Equal l r
     -- on RHS "Equal" is a function that from two lists of terms, returns the list of pair of Equal of terms.
 
-solveListDHEqs :: ( (a,a) -> Reduction b) -> [(a,a)] -> Reduction b
+solveListDHEqs :: ( (a,a) -> Reduction ChangeIndicator) -> [(a,a)] -> Reduction ChangeIndicator
 solveListDHEqs solver eqs = do
     case eqs of
+        [] -> return Unchanged
         [a] -> solver a
         (a : as) -> do
             solver a
             solveListDHEqs solver as
-    -- on RHS "Equal" 
-
--- | Solve a number of equalities between lists interpreted as free terms
--- using the given solver for solving the entailed per-element equalities.
-{-solveListDHEqs :: ([EqInd a b] -> Reduction c) -> [EqInd [a] [b]] -> Reduction c
-solveListDHEqs solver eqs = do
-    contradictoryIf (not $ all evalEqual $ map (fmap length) (map geteq eqs)) -- TODO: what is the length doing here?
-    solver $ concatMap flatten eqs -- flatten eqs
-  where
-    flatten (EqInd eqp indt t) = zipWith (EqInd eqp indt t)
--}
 
 -- | Solve the constraints associated with a rule.
 solveRuleConstraints :: Maybe RuleACConstrs -> Reduction ()
