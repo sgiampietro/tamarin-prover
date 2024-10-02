@@ -20,6 +20,7 @@ module Term.DHMultiplication (
   , isDHTerm
   --, isDHFact
   , isDHLit
+  , isPubExp
   -- , isVarEGTerm
   , compatibleLits
   , neededexponents
@@ -217,6 +218,13 @@ isDHLit :: LNTerm -> Bool
 -- isDHLit t@(viewTerm3 -> BoxE dht) = isDHLit dht
 isDHLit t@(viewTerm -> Lit (Var _)) = isOfDHSort t
 isDHLit _ = False
+
+
+isPubExp :: LNTerm -> Maybe (LNTerm, LNTerm)
+-- isDHLit t@(viewTerm3 -> Box dht) = isDHLit dht
+-- isDHLit t@(viewTerm3 -> BoxE dht) = isDHLit dht
+isPubExp t@(viewTerm2 -> FdhExp t1 t2) = if (isPubGVar t1 || isGConst t1) then (Just (t1,t2)) else Nothing
+isPubExp _ = Nothing
 
 compatibleLits :: LNTerm -> LNTerm -> Bool
 compatibleLits ta1 ta2 = sortCompare (sortOfLNTerm ta1) (sortOfLNTerm ta2) /= Nothing
