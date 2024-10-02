@@ -33,6 +33,7 @@ module Theory.Model.Fact (
   , isPersistentFact
   , isProtoFact
   , isInFact
+  , isOut
   , isKLogFact
 
   , factTagName
@@ -321,10 +322,6 @@ isKIFact :: LNFact -> Bool
 isKIFact (Fact KIFact _ _) = True
 isKIFact _                 = False
 
---isOutFact :: LNFact -> Bool
----isOutFact (Fact OutFact _ _) = True
---isOutFact _                 = False
-
 -- | True if the fact is a KD-fact.
 --isKdhIndFact :: LNFact -> Bool
 --isKdhIndFact (Fact KdhIndFact _ _) = True
@@ -412,6 +409,10 @@ isProtoFact _                            = False
 isInFact :: Fact t -> Bool
 isInFact (Fact InFact _ _) = True
 isInFact _                 = False
+
+isOut :: Fact t -> Bool
+isOut (Fact OutFact _ _) = True
+isOut _                 = False
 
 -- | True iff the fact is the non-special Log-fact K() from the intruder rule isend
 isKLogFact :: Fact t -> Bool

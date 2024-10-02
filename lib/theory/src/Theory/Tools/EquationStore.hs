@@ -647,7 +647,7 @@ addDHProtoEqs hnd t1 indt eqdhstore = do
         [substFresh] | substFresh == emptySubstVFresh ->
             return (eqdhstore, Nothing)
         substs -> do
-            substs' <- mapM generalize substs
+            substs' <- trace (show ("ISHOULDGETHERE", t1, indt)) $ mapM generalize substs
             let  eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs' ) eqdhstore
             --(eqStore', sid) <- liftM (addDisj eqdhstore) (liftM S.fromList (mapM generalize substs)) -- TODO: fix this!!
             -- TODO: instead of adding disjunctions here, need to directly add them as substitutions!

@@ -241,57 +241,56 @@ insertFreshNodeConc rules = do
 
 insertFreshNodeConcInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, LNFact)
 insertFreshNodeConcInst rules instrules = do
-    b <- disjunctionOfList [True, False]
-    (if b then (do
-            (i,ru) <- disjunctionOfList instrules
-            (v, fa) <- disjunctionOfList $ [(c,f)|  (c,f) <- enumConcs ru, isDHFact f ]
-            return (ru, (i, v), fa)) else (do
-            (i, ru) <- insertFreshNode rules Nothing
-            (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru,  isDHFact f ]
-            return (ru, (i, v), fa)))
+     (i,ru) <- disjunctionOfList instrules
+     (v, fa) <- disjunctionOfList $ [(c,f)|  (c,f) <- enumConcs ru, isDHFact f ]
+     return (ru, (i, v), fa)
+    `disjunction`
+    (do
+        (i, ru) <- insertFreshNode rules Nothing
+        (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru,  isDHFact f ]
+        return (ru, (i, v), fa))
 
 insertFreshNodeConcMixed ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, LNFact)
 insertFreshNodeConcMixed rules instrules = do
-    b <- disjunctionOfList [True, False]
-    (if b then (do
-            (i,ru) <- disjunctionOfList instrules
-            (v, fa) <- disjunctionOfList $ [(c,f)|  (c,f) <- enumConcs ru, isMixedFact f ]
-            return (ru, (i, v), fa)) else (do
-            (i, ru) <- insertFreshNode rules Nothing
-            (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru,  isMixedFact f ]
-            return (ru, (i, v), fa)))
+      (i,ru) <- disjunctionOfList instrules
+      (v, fa) <- disjunctionOfList $ [(c,f)|  (c,f) <- enumConcs ru, isMixedFact f ]
+      return (ru, (i, v), fa)
+    `disjunction`        
+    (do
+        (i, ru) <- insertFreshNode rules Nothing
+        (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru,  isMixedFact f ]
+        return (ru, (i, v), fa))
 
 insertFreshNodeConcOutInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, LNFact)
 insertFreshNodeConcOutInst rules instrules = do
-    b <- disjunctionOfList [True, False]
-    (if b then (do
-            (i,ru) <- disjunctionOfList instrules
-            (v, fa) <- disjunctionOfList $ [(c,f)|  (c,f) <- enumConcs ru, (factTag f == OutFact || factTag f == KdhFact), isDHFact f ]
-            return (ru, (i, v), fa)) else (do
+      (i,ru) <- disjunctionOfList instrules
+      (v, fa) <- disjunctionOfList $ [(c,f)|  (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f ]
+      return (ru, (i, v), fa)
+    `disjunction`
+    (do
             (i, ru) <- insertFreshNode rules Nothing
-            (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru, (factTag f == OutFact || factTag f == KdhFact), isDHFact f ]
-            return (ru, (i, v), fa)))
+            (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f ]
+            return (ru, (i, v), fa))
 
 insertFreshNodeConcOutInstMixed ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, LNFact)
 insertFreshNodeConcOutInstMixed rules instrules = do
-    b <- disjunctionOfList [True, False]
-    (if b then (do
-            (i,ru) <- disjunctionOfList instrules
-            (v, fa) <- disjunctionOfList $ [(c,f)|  (c,f) <- enumConcs ru, (factTag f == OutFact || factTag f == KdhFact), not $ isDHFact f, isMixedFact f ]
-            return (ru, (i, v), fa)) else (do
+      (i,ru) <- disjunctionOfList instrules
+      (v, fa) <- disjunctionOfList $ [(c,f)|  (c,f) <- enumConcs ru, (factTag f == OutFact), not $ isDHFact f, isMixedFact f ]
+      trace (show ("GOTTHISINSTARULE", ru,fa)) $ return (ru, (i, v), fa)
+    `disjunction`
+    (do
             (i, ru) <- insertFreshNode rules Nothing
-            (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru, (factTag f == OutFact || factTag f == KdhFact), not $ isDHFact f, isMixedFact f ]
-            return (ru, (i, v), fa)))
+            (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru, (factTag f == OutFact), not $ isDHFact f, isMixedFact f ]
+            trace (show ("GOTTHISRULE", ru,fa)) $ return (ru, (i, v), fa))
 
 insertFreshNodeMixed :: [RuleAC] -> [(NodeId,RuleACInst)] -> Maybe RuleACInst -> Reduction (NodeId, RuleACInst)
 insertFreshNodeMixed rules instrules parent = do
-    b <- disjunctionOfList [True, False]
-    (if b then do
-            (i,ru) <- disjunctionOfList instrules
-            return (i,ru)
-        else (do
-            i <- freshLVar "vr" LSortNode
-            (,) i <$> labelNodeId i rules parent) ) 
+     (i,ru) <- disjunctionOfList instrules
+     return (i,ru)
+    `disjunction`
+    (do
+        i <- freshLVar "vr" LSortNode
+        (,) i <$> labelNodeId i rules parent) 
 
 
 -- | Insert a fresh rule node labelled with a fresh instance of one of the rules
@@ -1005,8 +1004,8 @@ solveTermEqs splitStrat eqs0 =
         noContradictoryEqStore
         return Changed
 
-solveMixedTermEqs :: Bool -> SplitStrategy -> S.Set LNTerm -> S.Set LNTerm  ->  (LNTerm, LNTerm) -> Reduction ChangeIndicator
-solveMixedTermEqs True splitStrat bset nbset (lhs,rhs) =
+solveMixedTermEqs :: Bool -> Bool -> SplitStrategy -> S.Set LNTerm -> S.Set LNTerm  ->  (LNTerm, LNTerm) -> Reduction ChangeIndicator
+solveMixedTermEqs True b splitStrat bset nbset (lhs,rhs) =
     if (evalEqual (Equal lhs rhs)) then
       return Unchanged
     else (do
@@ -1027,12 +1026,12 @@ solveMixedTermEqs True splitStrat bset nbset (lhs,rhs) =
                   _                        -> return eqs2
         let substdhvars = map (\(a,b) -> (applyVTerm compsubst a, applyVTerm compsubst b)) dheqs
             compsubst = substFromList (lhsDHvars ++ rhsDHvars)
-        solveListDHEqs (solveTermDHEqs True splitStrat bset nbset) substdhvars
+        solveListDHEqs (solveTermDHEqs b splitStrat bset nbset) substdhvars
         noContradictoryEqStore
         return Changed)
-solveMixedTermEqs False splitStrat bset nbset (lhs,rhs)
+solveMixedTermEqs False _ splitStrat bset nbset (lhs,rhs)
   | (evalEqual (Equal lhs rhs)) = return Unchanged
-  | (isMixedTerm rhs) = solveMixedTermEqs True splitStrat bset nbset (lhs,rhs)
+  | (isMixedTerm rhs) = solveMixedTermEqs True False splitStrat bset nbset (lhs,rhs)
   | otherwise = do
             (cleanedlhs, lhsDHvars) <- clean lhs
             hnd <- getMaudeHandle
@@ -1193,20 +1192,23 @@ solveDHEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 rootsta2 = d
                         solveDHEqsAux splitStrat bset nbset hndNormal hnd indts ta1 ta2 (delete outterm rootsta2)
 
 solveTermDHEqs ::  Bool -> SplitStrategy -> S.Set LNTerm -> S.Set LNTerm -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
-solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
-        if ta1 == ta2 then (do return Unchanged) else (
-        case (isDHLit ta1, isDHLit ta2) of
-            (True, _) | compatibleLits ta1 ta2 -> do
+solveTermDHEqs True splitStrat bset nbset (ta1, ta2)
+        | ta1 == ta2 = return Unchanged
+        | (isDHLit ta1 && compatibleLits ta1 ta2) = (do
                             solveTermEqs splitStrat [(Equal ta1 ta2)]
                             void substSystem
                             void normSystem
-                            return Changed
-            (_, True) | compatibleLits ta1 ta2 -> do
+                            return Changed)
+        | (isDHLit ta2 && compatibleLits ta1 ta2) = ( do
                             solveTermEqs splitStrat [(Equal ta1 ta2)]
                             void substSystem
                             void normSystem
-                            return Changed
-            _          -> do
+                            return Changed)
+        | otherwise = case (isPubExp ta1, isPubExp ta2) of
+                (Just (pg1,e1), Just (pg2,e2)) -> do
+                    solveTermEqs splitStrat [(Equal pg1 pg2)]
+                    solveTermDHEqs False splitStrat bset nbset (e1, e2) 
+                _ ->  do
                         subst <- getM sEqStore
                         let ta11 = applyVTerm (_eqsSubst subst) ta1
                             ta22 = applyVTerm (_eqsSubst subst) ta2
@@ -1220,32 +1222,35 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)=
                                             hnd <- trace (show ("solvingTERMEQUALITY", ta11, ta22, subst)) getMaudeHandleDH
                                             solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta11 ta22 (multRootList ta22)
                                             return Changed
-                            _ -> error "TODO")
-solveTermDHEqs False splitStrat bset nbset (ta1, ta2) =
-        if ta1 == ta2 then (do return Unchanged) else (
-        case (isDHLit ta1, isDHLit ta2) of
-            (True, _) | compatibleLits ta1 ta2 -> do
+                            _ -> error "TODO"
+solveTermDHEqs False splitStrat bset nbset (ta1, ta2) 
+        | ta1 == ta2 = return Unchanged
+        | isDHLit ta1 && compatibleLits ta1 ta2 = do
                                                 solveTermEqs splitStrat [(Equal ta1 ta2)]
                                                 void substSystem
                                                 void normSystem
                                                 return Changed
-            (_, True) | compatibleLits ta1 ta2 ->  do
+        | isDHLit ta2 && compatibleLits ta1 ta2 = do
                                                 solveTermEqs splitStrat [(Equal ta1 ta2)]
                                                 void substSystem
                                                 void normSystem
                                                 return Changed
-            _ -> do
-                nocancs <- getM sNoCanc
-                hndNormal <- getMaudeHandle
-                case prodTerms ta1 of
-                    Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
-                     else do
-                        let xrooterms = multRootList ta1
-                            xindterms = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) xrooterms
-                        hnd <- getMaudeHandleDH
-                        solveDHEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 (multRootList ta2)
-                        return Changed
-                    _ -> error "TODO")
+        | otherwise = case (isPubExp ta1, isPubExp ta2) of
+                (Just (pg1,e1), Just (pg2,e2)) -> do
+                        solveTermEqs splitStrat [(Equal pg1 pg2)]
+                        solveTermDHEqs False splitStrat bset nbset (e1, e2) 
+                _ ->  do
+                    nocancs <- getM sNoCanc
+                    hndNormal <- getMaudeHandle
+                    case prodTerms ta1 of
+                        Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
+                                      else do
+                                        let xrooterms = multRootList ta1
+                                            xindterms = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) xrooterms
+                                        hnd <- getMaudeHandleDH
+                                        solveDHEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 (multRootList ta2)
+                                        return Changed
+                        _ -> error "TODO"
 
 
 -- | Add a list of equalities in substitution form to the equation store
@@ -1268,7 +1273,7 @@ solveMixedFactEqs :: Bool -> SplitStrategy -> Equal LNFact -> S.Set LNTerm -> S.
 solveMixedFactEqs b split (Equal fa1 fa2) bset nbset = do
     contradictoryIf (not (factTag fa1 == factTag fa2))
     contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
-    solveListDHEqs (solveMixedTermEqs b split bset nbset) $ zip (factTerms fa1) (factTerms fa2)
+    solveListDHEqs (solveMixedTermEqs b b split bset nbset) $ zip (factTerms fa1) (factTerms fa2)
 
 
 factDHTag ::  EqInd LNFact LNTerm -> Equal FactTag

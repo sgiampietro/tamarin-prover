@@ -60,6 +60,7 @@ module Term.LTerm (
   , isFrNZEVar
   , isGVar
   , isPubGVar
+  , isGConst
   , isPubConst
   --, isBoxTerm
   --, isBoxETerm
@@ -480,6 +481,10 @@ isGVar _                         = False
 isPubGVar :: LNTerm -> Bool
 isPubGVar (viewTerm -> Lit (Var v)) = (lvarSort v == LSortPubG)
 isPubGVar _                         = False
+
+isGConst :: LNTerm -> Bool
+isGConst (viewTerm -> Lit (Con c)) = (sortOfName c == LSortPubG) || (sortOfName c == LSortPubG)
+isGConst _                         = False
 
 {-
 isBoxTerm :: LNTerm -> Bool

@@ -112,7 +112,7 @@ openGoals sys = do
               Just (DnK,  m) | isMsgVar m          -> (not solved) &&
                                                       (chainToEquality m c p)
                              | otherwise           -> not solved
-              fa -> error $ "openChainGoals: impossible fact: " ++ show fa
+              fa -> error $ "openChainGoals: impossible fact: " ++ show fa ++ (show $ nodeConcFact c sys)
 
         -- FIXME: Split goals may be duplicated, we always have to check
         -- explicitly if they still exist.
@@ -225,7 +225,7 @@ solveGoal goal = do
       ActionG i fa  -> solveAction  (nonSilentRules rules) (i, fa)
       PremiseG p fa ->
            solvePremise (get crProtocol rules ++ get crConstruct rules) p fa
-      ChainG c p    -> solveChain False (get crDestruct  rules) (c, p)
+      ChainG c p    -> solveChain (get crDestruct rules) (c, p)
       SplitG i      -> solveSplit i
       DisjG disj    -> solveDisjunction disj
       SubtermG st   -> solveSubterm st
@@ -359,25 +359,11 @@ solvePremise rules p faPrem
       return $ showRuleCaseName ru -}
   | isProtoDHFact faPrem =  trace (show ("SOLVINGPREMISEDH:", faPrem)) $ solveDHIndProto rules p faPrem
   | isProtoMixedFact faPrem = solveDHMixedPremise True rules p faPrem
-  -- | TODO: ADD MIXED FACTS HERE!!
   | isKDFact faPrem && isMixedFact faPrem = do
-      nodes <- getM sNodes
+      -- nodes <- getM sNodes
+      ruless <- askM pcRules
       iLearn    <- freshLVar "vl" LSortNode
-      mLearn    <- varTerm <$> freshLVar "t" LSortMsg -- why do we not care about the term here??
-      let concLearn = kdFact mLearn
-          premLearn = outFact mLearn
-          -- !! Make sure that you construct the correct rule!
-          ruLearn = Rule (IntrInfo IRecvRule) [premLearn] [concLearn] [] []
-          allrus = (M.assocs nodes) ++ [(iLearn, ruLearn)] -- filter only Out conclusions!!
-      (iLearn2, ruLearn2) <- disjunctionOfList allrus
-      let cLearn = (iLearn2, ConcIdx 0)
-          pLearn = (iLearn2, PremIdx 0)
-      modM sNodes  (M.insert iLearn2 ruLearn2)
-      insertChain  cLearn p
-      solvePremise rules pLearn premLearn
-  | isKDFact faPrem = do
-      iLearn    <- freshLVar "vl" LSortNode
-      mLearn    <- varTerm <$> freshLVar "t" LSortMsg -- why do we not care about the term here??
+      mLearn    <- varTerm <$> freshLVar "t" LSortMsg 
       let concLearn = kdFact mLearn
           premLearn = outFact mLearn
           -- !! Make sure that you construct the correct rule!
@@ -387,18 +373,136 @@ solvePremise rules p faPrem
       modM sNodes  (M.insert iLearn ruLearn)
       insertChain cLearn p
       solvePremise rules pLearn premLearn
-  | (isMixedFact faPrem) = solveDHMixedPremise False rules p faPrem
+      --insertGoal (PremiseG pLearn premLearn) False
+      --solveChain (get crDestruct ruless) (cLearn,p) 
+  | isKDFact faPrem = do
+      iLearn    <- freshLVar "vl" LSortNode
+      mLearn    <- varTerm <$> freshLVar "t" LSortMsg
+      let concLearn = kdFact mLearn
+          premLearn = outFact mLearn
+          -- !! Make sure that you construct the correct rule!
+          ruLearn = Rule (IntrInfo IRecvRule) [premLearn] [concLearn] [] []
+          cLearn = (iLearn, ConcIdx 0)
+          pLearn = (iLearn, PremIdx 0)
+      modM sNodes  (M.insert iLearn ruLearn)
+      insertChain cLearn p
+      solvePremise rules pLearn premLearn
+  | isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
+  | isOut faPrem = do
+      nodes <- getM sNodes
+      (ru, c, faConc) <- insertFreshNodeConcOutInstMixed rules (M.assocs nodes)
+      trace (show ("SOLVINGOUTPREMISE:", faPrem)) $ insertEdges [(c, faConc, faPrem, p)]
+      return $ showRuleCaseName ru
   | otherwise = do
       (ru, c, faConc) <- insertFreshNodeConc rules
       trace (show ("SOLVINGNORMALPREMISE:", faPrem)) $ insertEdges [(c, faConc, faPrem, p)]
       return $ showRuleCaseName ru
 
 -- | CR-rule *DG2_chain*: solve a chain constraint.
-solveChain :: Bool -> [RuleAC]              -- ^ All destruction rules.
+solveChain :: [RuleAC]              -- ^ All destruction rules.
+           -> (NodeConc, NodePrem)  -- ^ The chain to extend by one step.
+           -> Reduction String      -- ^ Case name to use.
+solveChain rules (c, p) = do
+    faConc  <- gets $ nodeConcFact c
+    do -- solve it by a direct edge
+        cRule <- gets $ nodeRule (nodeConcNode c)
+        pRule <- gets $ nodeRule (nodePremNode p)
+        faPrem <- gets $ nodePremFact p
+        contradictoryIf (forbiddenEdge cRule pRule)
+        if (isMixedFact faPrem) 
+          then do
+            trace (show ("I am inserting this edge:", faConc, faPrem)) insertDHMixedEdge True (c, faConc, faPrem, p) (S.fromList $ basisOfRule pRule) (S.fromList $ notBasisOfRule pRule)
+            void substSystem
+            void normSystem
+          else insertEdges [(c, faConc, faPrem, p)]
+        let mPrem = case kFactView faConc of
+                      Just (DnK, m') -> m'
+                      _              -> error $ "solveChain: impossible"
+            caseName (viewTerm -> FApp o _)    = showFunSymName o
+            caseName (viewTerm -> Lit l)       = showLitName l
+        contradictoryIf (illegalCoerce pRule mPrem)
+        return (caseName mPrem)
+     `disjunction`
+     -- extend it with one step
+     case kFactView faConc of
+         Just (DnK, viewTerm2 -> FUnion args) ->
+             do -- If the chain starts at a union message, we
+                -- compute the applicable destruction rules directly.
+                i <- freshLVar "vr" LSortNode
+                let rus = map (ruleACIntrToRuleACInst . mkDUnionRule args)
+                              (filter (not . isMsgVar) args)
+                -- NOTE: We rely on the check that the chain is open here.
+                ru <- disjunctionOfList rus
+                modM sNodes (M.insert i ru)
+                -- FIXME: Do we have to add the PremiseG here so it
+                -- marked as solved?
+                let v = PremIdx 0
+                faPrem <- gets $ nodePremFact (i,v)
+                extendAndMark i ru v faPrem faConc
+         Just (DnK, m) ->
+             do -- If the chain does not start at a union message,
+                -- the usual *DG2_chain* extension is perfomed.
+                -- But we ignore open chains, as we only resolve
+                -- open chains with a direct chain
+                contradictoryIf (isMsgVar m || isGVar m || isEVar m)
+                cRule <- gets $ nodeRule (nodeConcNode c)
+                (i, ru) <- insertFreshNode rules (Just cRule)
+                contradictoryIf (forbiddenEdge cRule ru)
+                -- This requires a modified chain constraint def:
+                -- path via first destruction premise of rule ...
+                (v, faPrem) <- disjunctionOfList $ take 1 $ enumPrems ru
+                --bset <- getM sBasis
+                --nbset <- getM sNotBasis
+                --if (isMixedFact faConc) 
+                --  then extendAndMarkMixed i ru v faPrem faConc bset nbset
+                extendAndMark i ru v faPrem faConc
+         _ -> error "solveChain: not a down fact"
+  where
+    extendAndMark :: NodeId -> RuleACInst -> PremIdx -> LNFact -> LNFact
+      -> Control.Monad.Trans.State.Lazy.StateT System
+      (Control.Monad.Trans.FastFresh.FreshT
+      (DisjT (Control.Monad.Trans.Reader.Reader ProofContext))) String
+    extendAndMark i ru v faPrem faConc = do
+        insertEdges [(c, faConc, faPrem, (i, v))]
+        markGoalAsSolved "directly" (PremiseG (i, v) faPrem)
+        insertChain (i, ConcIdx 0) p
+        return (showRuleCaseName ru)
+    {-extendAndMarkMixed :: NodeId -> RuleACInst -> PremIdx -> LNFact -> LNFact -> S.Set LNTerm -> S.Set LNTerm
+      -> Control.Monad.Trans.State.Lazy.StateT System
+      (Control.Monad.Trans.FastFresh.FreshT
+      (DisjT (Control.Monad.Trans.Reader.Reader ProofContext))) String
+    extendAndMarkMixed i ru v faPrem faConc bset nbset= do
+        insertDHMixedEdge True (c, faConc, faPrem, (i, v)) bset nbset
+        markGoalAsSolved "directly" (PremiseG (i, v) faPrem)
+        insertChain (i, ConcIdx 0) p
+        return (showRuleCaseName ru) -}
+
+    -- contradicts normal form condition:
+    -- no edge from dexp to dexp KD premise, no edge from dpmult
+    -- to dpmult KD premise, and no edge from dpmult to demap KD premise
+    -- (this condition replaces the exp/noexp tags)
+    -- no more than the allowed consecutive rule applications
+    forbiddenEdge :: RuleACInst -> RuleACInst -> Bool
+    forbiddenEdge cRule pRule = isDExpRule   cRule && isDExpRule  pRule  ||
+                                isDPMultRule cRule && isDPMultRule pRule ||
+                                isDPMultRule cRule && isDEMapRule  pRule ||
+                                (getRuleName cRule == getRuleName pRule)
+                                    && (getRemainingRuleApplications cRule == 1)
+
+    -- Contradicts normal form condition N2:
+    -- No coerce of a pair of inverse.
+    illegalCoerce pRule mPrem = isCoerceRule pRule && isPair    mPrem ||
+                                isCoerceRule pRule && isInverse mPrem ||
+    -- Also: Coercing of products is unnecessary, since the protocol is *-restricted.
+                                isCoerceRule pRule && isProduct mPrem
+
+
+
+{-solveChain :: Bool -> [RuleAC]              -- ^ All destruction rules.
            -> (NodeConc, NodePrem)  -- ^ The chain to extend by one step.
            -> Reduction String      -- ^ Case name to use.
 solveChain b rules (c, p) = do
-    faConc  <- gets $ nodeConcFact c
+    faConc  <- trace (show (b, "SOLVINGCHAING WITH C,P=", c, p)) (gets $ nodeConcFact c)
     bset <- getM sBasis
     nbset <- getM sNotBasis
     nodes <- getM sNodes
@@ -440,10 +544,11 @@ solveChain b rules (c, p) = do
                 -- the usual *DG2_chain* extension is perfomed.
                 -- But we ignore open chains, as we only resolve
                 -- open chains with a direct chain
-                contradictoryIf (isMsgVar m)
+                trace (show ("TILLHERE", (isMsgVar m), m)) $ contradictoryIf (isMsgVar m && not b)
                 cRule <- gets $ nodeRule (nodeConcNode c)
-                (i, ru) <- if b then insertFreshNodeMixed rules (M.assocs nodes) (Just cRule)
-                                else insertFreshNode rules (Just cRule)
+                {-(i, ru) <- if b then insertFreshNodeMixed rules (M.assocs nodes) (Just cRule)
+                                else insertFreshNode rules (Just cRule) -}
+                (i, ru) <- insertFreshNode rules (Just cRule)
                 trace (show ("SHERLOCKHERE", ru, faConc)) contradictoryIf (forbiddenEdge cRule ru)
                 -- This requires a modified chain constraint def:
                 -- path via first destruction premise of rule ...
@@ -459,7 +564,6 @@ solveChain b rules (c, p) = do
         (if b then (insertDHMixedEdge False (c, faConc, faPrem, (i, v)) bset nbset) 
           else insertEdges [(c, faConc, faPrem, (i, v))])
         markGoalAsSolved "directly" (PremiseG (i, v) faPrem)
-        insertChain (i, ConcIdx 0) p
         return (showRuleCaseName ru)
     -- contradicts normal form condition:
     -- no edge from dexp to dexp KD premise, no edge from dpmult
@@ -479,9 +583,7 @@ solveChain b rules (c, p) = do
                                 isCoerceRule pRule && isInverse mPrem ||
       -- Also: Coercing of products is unnecessary, since the protocol is *-restricted.
                                 isCoerceRule pRule && isProduct mPrem
-
-
-
+-}
 
 -- | Solve an equation split. There is no corresponding CR-rule in the rule
 -- system on paper because there we eagerly split over all variants of a rule.
