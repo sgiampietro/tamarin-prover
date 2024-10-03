@@ -275,7 +275,7 @@ insertFreshNodeConcOutInst rules instrules = do
 insertFreshNodeConcOutInstMixed ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, LNFact)
 insertFreshNodeConcOutInstMixed rules instrules = do
       (i,ru) <- disjunctionOfList instrules
-      (v, fa) <- disjunctionOfList $ [(c,f)|  (c,f) <- enumConcs ru, (factTag f == OutFact), not $ isDHFact f, isMixedFact f ]
+      (v, fa) <- disjunctionOfList $ [(c,f)|  (c,f) <- enumConcs ru, (factTag f == OutFact), isMixedFact f ]
       trace (show ("GOTTHISINSTARULE", ru,fa)) $ return (ru, (i, v), fa)
     `disjunction`
     (do
@@ -1031,7 +1031,7 @@ solveMixedTermEqs True b splitStrat bset nbset (lhs,rhs) =
         return Changed)
 solveMixedTermEqs False _ splitStrat bset nbset (lhs,rhs)
   | (evalEqual (Equal lhs rhs)) = return Unchanged
-  | (isMixedTerm rhs) = solveMixedTermEqs True False splitStrat bset nbset (lhs,rhs)
+  | (isMixedTerm rhs) = trace (show ("ISHOULDGETHERE?", lhs, rhs)) $ solveMixedTermEqs True False splitStrat bset nbset (lhs,rhs)
   | otherwise = do
             (cleanedlhs, lhsDHvars) <- clean lhs
             hnd <- getMaudeHandle

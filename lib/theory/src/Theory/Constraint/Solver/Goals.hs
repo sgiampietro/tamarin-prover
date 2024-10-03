@@ -219,7 +219,7 @@ plainOpenGoals sys = openGoalsLeft
 solveGoal :: Goal -> Reduction String
 solveGoal goal = do
     -- mark before solving, as representation might change due to unification
-    markGoalAsSolved "directly" goal
+    trace (show ("IAMSOLVINGGOALNOW", goal)) $ markGoalAsSolved "directly" goal
     rules <- askM pcRules
     case goal of
       ActionG i fa  -> solveAction  (nonSilentRules rules) (i, fa)
@@ -265,7 +265,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
             (Fact KUFact _ [m]) | (isMixedFact fa)      -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList (get rActs ru)
-                   (void (solveMixedFactEqs False SplitNow (Equal fa act) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
+                   trace (show ("tryingwithRULE:", fa, ru, act)) (void (solveMixedFactEqs False SplitNow (Equal fa act) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
                    void substSystem
                    --void normSystem
                    return ru
@@ -387,15 +387,15 @@ solvePremise rules p faPrem
       modM sNodes  (M.insert iLearn ruLearn)
       insertChain cLearn p
       solvePremise rules pLearn premLearn
-  | isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
+  -- | isMixedFact faPrem && not (isKIFact faPrem) = trace (show ("SOLVINMixedPREMISE:", faPrem)) $ (solveDHIndMixed rules p faPrem)
   | isOut faPrem = do
-      nodes <- getM sNodes
+      nodes <- trace (show ("SOLVINGOUTPREMISE:", faPrem)) $ getM sNodes
       (ru, c, faConc) <- insertFreshNodeConcOutInstMixed rules (M.assocs nodes)
-      trace (show ("SOLVINGOUTPREMISE:", faPrem)) $ insertEdges [(c, faConc, faPrem, p)]
+      trace (show ("withedge:", faPrem, faConc)) $ insertEdges [(c, faConc, faPrem, p)]
       return $ showRuleCaseName ru
   | otherwise = do
       (ru, c, faConc) <- insertFreshNodeConc rules
-      trace (show ("SOLVINGNORMALPREMISE:", faPrem)) $ insertEdges [(c, faConc, faPrem, p)]
+      trace (show ("SOLVINGNORMALPREMISE:", faPrem, faConc)) $ insertEdges [(c, faConc, faPrem, p)]
       return $ showRuleCaseName ru
 
 -- | CR-rule *DG2_chain*: solve a chain constraint.
@@ -623,20 +623,15 @@ solveIndicator t1 t2  = do
 solveNeeded ::  [RuleAC] -> LNTerm ->  NodeId ->        -- exponent that is needed.
                 Reduction String -- ^ Case name to use.
 solveNeeded rules x i = do
-    -- markGoalAsSolved "case split: basis or not" (NeededG x i )
-    basisornot <- disjunctionOfList [True, False] -- this should return a list of True and False
-    case basisornot of
-      True -> do
-                insertBasisElem x
+     insertBasisElem x
                 --insertGoal (PremiseG (i, PremIdx 0) (kdFact x)) False !!(adversary shouldn't know x? check if we actually _need_ to prove it CANNOT)
                 -- TODO: insertSecret x
-                return "case Secret Set"
-      False -> do
-                trace "IAMHEREYES" (insertNotBasisElem x)
-                insertGoal (PremiseG (i, PremIdx 0) (kIFact x)) False
-                return "case Leaked Set" 
-
-
+     return "case Secret Set"
+    `disjunction`
+    (do 
+          trace "IAMHEREYES" (insertNotBasisElem x)
+          insertGoal (PremiseG (i, PremIdx 0) (kIFact x)) False
+          return "case Leaked Set" )
 
 
 -- | remove from subterms

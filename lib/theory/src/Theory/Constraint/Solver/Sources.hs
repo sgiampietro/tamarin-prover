@@ -439,7 +439,7 @@ precomputeSources parameters ctxt restrictions =
         ru <- joinAllRules rules
         fa@(tag,_) <- absFact <$> (getProtoFact =<< (get rConcs ru ++ get rPrems ru))
         -- exclude facts handled specially by the prover
-        guard (not $ tag `elem` [OutFact, InFact, FreshFact, FreshDHFact, KdhFact, KIFact])
+        guard (not $ tag `elem` [OutFact, InFact, FreshFact, FreshDHFact, KdhFact]) --, KIFact
         return fa
 
     absMsgFacts :: [LNTerm]
