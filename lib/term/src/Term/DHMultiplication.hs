@@ -227,7 +227,11 @@ isPubExp t@(viewTerm2 -> FdhExp t1 t2) = if (isPubGVar t1 || isGConst t1) then (
 isPubExp _ = Nothing
 
 compatibleLits :: LNTerm -> LNTerm -> Bool
-compatibleLits ta1 ta2 = sortCompare (sortOfLNTerm ta1) (sortOfLNTerm ta2) /= Nothing
+compatibleLits ta1 ta2 = case sortCompare (sortOfLNTerm ta1) (sortOfLNTerm ta2) of
+                          Just GT -> True
+                          Just EQ -> True
+                          Just LT -> False
+                          Nothing -> False
 
 
 {-
