@@ -1230,7 +1230,7 @@ solveTermDHEqs False splitStrat bset nbset (ta1, ta2)
                                                 void substSystem
                                                 void normSystem
                                                 return Changed
-        | isDHLit ta2 && compatibleLits ta1 ta2 = do
+        | isDHLit ta2 && compatibleLits ta2 ta1 = do
                                                 solveTermEqs splitStrat [(Equal ta1 ta2)]
                                                 void substSystem
                                                 void normSystem
@@ -1238,7 +1238,7 @@ solveTermDHEqs False splitStrat bset nbset (ta1, ta2)
         | otherwise = case (isPubExp ta1, isPubExp ta2) of
                 (Just (pg1,e1), Just (pg2,e2)) -> do
                         solveTermEqs splitStrat [(Equal pg1 pg2)]
-                        solveTermDHEqs False splitStrat bset nbset (e1, e2) 
+                        trace (show ("butitshjere", ta1, ta2, e1,e2)) solveTermDHEqs False splitStrat bset nbset (e1, e2) 
                 _ ->  do
                     nocancs <- getM sNoCanc
                     hndNormal <- getMaudeHandle
@@ -1247,7 +1247,7 @@ solveTermDHEqs False splitStrat bset nbset (ta1, ta2)
                                       else do
                                         let xrooterms = multRootList ta1
                                             xindterms = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) xrooterms
-                                        hnd <- getMaudeHandleDH
+                                        hnd <- trace (show ("didwegethere?", xindterms, ta1, ta2, (multRootList ta2))) getMaudeHandleDH
                                         solveDHEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 (multRootList ta2)
                                         return Changed
                         _ -> error "TODO"
@@ -1297,7 +1297,7 @@ solveFactDHEqs b split fa1 fa2 bset nbset
             solveListDHEqs (solveTermDHEqs b split bset nbset) $ zip (factTerms fa1) (factTerms fa2)
           --      outterm <- disjunctionOfList (multRootList t)
     | otherwise = do
-            contradictoryIf (not (factTag fa1 == OutFact) && (factTag fa2 == KdhFact || factTag fa2 == InFact) )
+            trace (show ("FACTSSARE", fa1, fa2) )$ contradictoryIf (not (factTag fa1 == OutFact) && (factTag fa2 == KdhFact || factTag fa2 == InFact) )
             solveListDHEqs (solveTermDHEqs b split bset nbset) $ zip (factTerms fa2) (factTerms fa1)
          -- but be careful because that should hold only for G terms. E terms should be handled differrently.
 

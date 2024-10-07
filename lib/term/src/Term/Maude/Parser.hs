@@ -252,10 +252,11 @@ ppTheory msig = BC.unlines $
     ++
     (if enableDHMult msig
        then
-        [ "sort DH G E NZE BG FrNZE VarE VarG."
-        , "  subsort DH < Msg ."
-        , "  subsort G < DH ."
-        , "  subsort E < DH ."
+        [ "sort G E NZE BG FrNZE VarE VarG."
+        , "  subsort G < Msg ."
+        , "  subsort E < Msg ."
+        --, "  subsort G < DH ."
+        --, "  subsort E < DH ."
         , "  subsort NZE < E ."
         , "  subsort FrNZE < NZE ."
         , "  subsort VarE < E ."
@@ -436,7 +437,7 @@ parseSubstitution msig = do
 -- | @parseReduceReply l@ parses a single solution returned by Maude.
 parseReduceReply :: MaudeSig -> ByteString -> Either String MTerm
 parseReduceReply msig reply = flip parseOnly reply $ do
-    string "result " *> choice [ string "TOP" *> pure LSortMsg, parseSort ] -- we ignore the sort
+    string "result " *> choice [ string "TOP" *> pure LSortMsg, string "[DH]" *> pure LSortDH, parseSort ] -- we ignore the sort
         *> string ": " *> parseTerm msig <* endOfLine <* endOfInput
 
 -- | Parse an 'MSort'.
