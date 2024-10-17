@@ -62,6 +62,7 @@ module Theory.Constraint.Solver.Reduction (
   , insertDHEdge
   , insertDHMixedEdge
   , insertNeeded
+  , insertNeededList'
   , insertNeededList
   , insertDHInd
   , setNotReachable
