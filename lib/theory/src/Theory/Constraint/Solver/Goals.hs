@@ -231,7 +231,7 @@ solveGoal goal = do
       SubtermG st   -> solveSubterm st
       DHIndG p fa -> if (isDHFact fa) then (solveDHInd (get crProtocol rules) p fa) else (solveDHIndMixed (get crProtocol rules) p fa)
       NoCancG (t1, t2) -> solveNoCanc t1 t2
-      NeededG x i    -> solveNeeded (get crProtocol rules) x i
+      NeededG x i    -> solveNeeded (get crProtocol rules ++ get crConstruct rules) x i
       IndicatorG (t1, t2) -> solveIndicator t1 t2
       IndicatorGExp nb (t1, t2) -> solveIndicatorProto nb t1 t2 -- todo do we also need the basis sets here?
 
@@ -411,7 +411,16 @@ solveChain rules (c, p) = do
         contradictoryIf (forbiddenEdge cRule pRule)
         if (isMixedFact faPrem) 
           then do
-            trace (show ("I am inserting this edge:", faConc, faPrem)) insertDHMixedEdge True (c, faConc, faPrem, p) (S.fromList $ basisOfRule pRule) (S.fromList $ notBasisOfRule pRule)
+            bset <- getM sBasis
+            nbset <- getM sNotBasis
+            nodes <- getM sNodes
+            case neededexponentslist bset nbset (factTerms faPrem) of
+              (Just es) -> do
+                            solveNeededList rules (S.toList es)
+                            solveChain rules (c, p)
+              Nothing -> do 
+                          trace (show ("I am inserting this edge:",bset, nbset, (factTerms faPrem), faConc, faPrem)) insertDHMixedEdge True (c, faConc, faPrem, p) bset nbset
+                          return "edgeinserted"
             void substSystem
             void normSystem
           else insertEdges [(c, faConc, faPrem, p)]
@@ -558,21 +567,24 @@ solveDHIndauxMixed :: S.Set LNTerm -> S.Set LNTerm -> [LNTerm] -> NodePrem -> LN
 solveDHIndauxMixed bset nbset terms p faPrem rules instrules =
   case neededexponentslist bset nbset terms of
       (Just es) -> do
-          trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem
-          return "NeededInserted"
+          --trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem
+          solveNeededList rules (S.toList es)
+          insertDHInd p faPrem
+          return "LeakedSetInserted"
       Nothing -> do 
           (ru, c, faConc) <- insertFreshNodeConcOutInstMixed rules instrules
           insertDHMixedEdge False (c, faConc, faPrem, p) bset nbset -- instead of root indicator this should be Y.ind^Z.
           return $ showRuleCaseName ru -- (return "done") 
 
 
-
 solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> [LNTerm] -> NodePrem -> LNFact -> [RuleAC] -> [(NodeId,RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
 solveDHIndaux bset nbset terms p faPrem rules instrules =
   case neededexponentslist bset nbset terms of
       (Just es) -> do
-          trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem
-          return "NeededInserted"
+          --trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem
+          solveNeededList rules (S.toList es)
+          insertDHInd p faPrem
+          return "LeakedSetInserted"
       Nothing -> do 
           (ru, c, faConc) <- insertFreshNodeConcOutInst rules instrules
           insertDHEdge False (c, faConc, faPrem, p) bset nbset -- instead of root indicator this should be Y.ind^Z.
@@ -620,7 +632,7 @@ solveIndicator t1 t2  = do
               return ("Safe,cannot combine from (leaked set, terms):"++ show (union exps (S.toList nbset), terms, t2))
 
 
-solveNeeded ::  [RuleAC] -> LNTerm ->  NodeId ->        -- exponent that is needed.
+solveNeeded :: [RuleAC] -> LNTerm ->  NodeId ->        -- exponent that is needed.
                 Reduction String -- ^ Case name to use.
 solveNeeded rules x i = do
      insertBasisElem x
@@ -630,8 +642,18 @@ solveNeeded rules x i = do
     `disjunction`
     (do 
           trace "IAMHEREYES" (insertNotBasisElem x)
-          insertGoal (PremiseG (i, PremIdx 0) (kIFact x)) False
+          solvePremise rules (i, PremIdx 0) (kIFact x)
           return "case Leaked Set" )
+
+solveNeededList ::  [RuleAC] -> [LNTerm] ->        -- exponent that is needed.
+                Reduction String -- ^ Case name to use.
+solveNeededList rules [x] = do
+      i <- freshLVar "vk" LSortNode
+      solveNeeded rules x i
+solveNeededList rules (x:xs) = do
+      i  <- freshLVar "vk" LSortNode
+      solveNeeded rules x i
+      solveNeededList rules xs
 
 
 -- | remove from subterms
