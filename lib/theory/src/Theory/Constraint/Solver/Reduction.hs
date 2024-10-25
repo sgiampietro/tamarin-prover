@@ -62,8 +62,8 @@ module Theory.Constraint.Solver.Reduction (
   , insertDHEdge
   , insertDHMixedEdge
   , insertNeeded
-  , insertNeededList'
-  , insertNeededList
+  --, insertNeededList'
+  --, insertNeededList
   , insertDHInd
   , setNotReachable
 
@@ -112,7 +112,7 @@ import qualified Data.Map                                as M
 import qualified Data.Map.Strict                         as M'
 import qualified Data.Set                                as S
 import qualified Data.ByteString.Char8                   as BC
-import           Data.List                               (mapAccumL, delete)
+import           Data.List                               (mapAccumL, delete , subsequences, length )
 import           Safe
 
 import           Control.Basics
@@ -262,16 +262,14 @@ insertFreshNodeConcMixed rules instrules = do
         (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru,  isMixedFact f ]
         return (ru, (i, v), fa))
 
-insertFreshNodeConcOutInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, LNFact)
-insertFreshNodeConcOutInst rules instrules = do
-      (i,ru) <- disjunctionOfList instrules
-      (v, fa) <- disjunctionOfList $ [(c,f)|  (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f ]
-      return (ru, (i, v), fa)
-    `disjunction`
-    (do
-            (i, ru) <- insertFreshNode rules Nothing
-            (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f ]
-            return (ru, (i, v), fa))
+combinations :: Int -> [a] -> [[a]]
+combinations k ns = filter ((k==).length) $ subsequences ns
+
+insertFreshNodeConcOutInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Int -> Reduction [(RuleACInst, NodeConc, LNFact, LNTerm)]
+insertFreshNodeConcOutInst rules instrules n = do
+      irulist <- replicateM n $ insertFreshNode rules Nothing
+      let pairs = [(ru, (i,c), f, rterm) | (i, ru) <- (instrules++irulist), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, rterm <- multRootList (head $ factTerms f)]
+      disjunctionOfList (combinations n pairs)  -- todo: this should actually also consider the fresh ones
 
 insertFreshNodeConcOutInstMixed ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, LNFact)
 insertFreshNodeConcOutInstMixed rules instrules = do
@@ -736,7 +734,7 @@ insertNeeded x = do
     j <- freshLVar "vk" LSortNode
     insertGoal (NeededG x j) False
 
-
+{-}
 insertNeededList' :: [LNTerm] -> Reduction ()
 insertNeededList' [x] = do
         insertNeeded x
@@ -750,7 +748,7 @@ insertNeededList xs p faPrem = do
     insertNeededList' xs
     insertDHInd p faPrem
     return Changed
-
+-}
 {-
 -- | Insert a fresh rule node labelled with a fresh instance of one of the
 -- rules and return one of the conclusions.

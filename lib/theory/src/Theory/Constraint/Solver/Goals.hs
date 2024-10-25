@@ -551,7 +551,9 @@ solveDHInd rules p faPrem =  do
         bset <- getM sBasis
         nbset <- getM sNotBasis
         nodes <- getM sNodes
-        solveDHIndaux bset nbset (factTerms faPrem) p faPrem rules (M.assocs nodes)
+        case factTerms faPrem of 
+          [x] -> solveDHIndaux bset nbset x p faPrem rules (M.assocs nodes)
+          _   -> error "In Fact should have arity 1"
 
 solveDHIndMixed ::  [RuleAC]        -- ^ All rules that have an Out fact containing a boxed term as conclusion. 
              -> NodePrem       -- ^ Premise to solve.
@@ -577,18 +579,20 @@ solveDHIndauxMixed bset nbset terms p faPrem rules instrules =
           return $ showRuleCaseName ru -- (return "done") 
 
 
-solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> [LNTerm] -> NodePrem -> LNFact -> [RuleAC] -> [(NodeId,RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
-solveDHIndaux bset nbset terms p faPrem rules instrules =
-  case neededexponentslist bset nbset terms of
-      (Just es) -> do
+solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> NodePrem -> LNFact -> [RuleAC] -> [(NodeId,RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
+solveDHIndaux bset nbset term p faPrem rules instrules =
+  case neededexponents bset nbset term of
+      [] -> do  -- TODO: this is where we need to check multiple Out facts!! 
+          let n = length (multRootList term)
+          [(ru, c, faConc)] <- insertFreshNodeConcOutInst rules instrules n
+          insertDHEdge False (c, faConc, faPrem, p) bset nbset 
+          return $ showRuleCaseName ru -- (return "done") 
+      _ -> do
           --trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem
           solveNeededList rules (S.toList es)
           insertDHInd p faPrem
           return "LeakedSetInserted"
-      Nothing -> do 
-          (ru, c, faConc) <- insertFreshNodeConcOutInst rules instrules
-          insertDHEdge False (c, faConc, faPrem, p) bset nbset -- instead of root indicator this should be Y.ind^Z.
-          return $ showRuleCaseName ru -- (return "done") 
+
 
 
 solveDHIndProto ::  [RuleAC]        -- ^ All rules that have an Out fact containing a boxed term as conclusion. 
