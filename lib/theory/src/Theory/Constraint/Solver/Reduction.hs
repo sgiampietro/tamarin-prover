@@ -60,6 +60,7 @@ module Theory.Constraint.Solver.Reduction (
   , insertNotBasisElem
   , insertBasisElem
   , insertDHEdge
+  , insertDHEdges
   , insertDHMixedEdge
   , insertNeeded
   --, insertNeededList'
@@ -112,7 +113,7 @@ import qualified Data.Map                                as M
 import qualified Data.Map.Strict                         as M'
 import qualified Data.Set                                as S
 import qualified Data.ByteString.Char8                   as BC
-import           Data.List                               (mapAccumL, delete , subsequences, length )
+import           Data.List                               (mapAccumL, delete , subsequences, length , nubBy)
 import           Safe
 
 import           Control.Basics
@@ -695,6 +696,15 @@ insertDHEdge ::  Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> S.Set LNTerm ->
 insertDHEdge b (c, fa1, fa2, p) bset nbset = do --fa1 should be an Out fact
     void (solveFactDHEqs b SplitNow fa1 fa2 bset nbset)
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
+
+insertDHEdges :: [(RuleACInst, NodeConc, LNFact, LNTerm)] -> LNFact -> NodePrem -> S.Set LNTerm -> S.Set LNTerm -> Reduction ()
+insertDHEdges tuplelist faPrem p bset nbset = do
+    let premroot = multRootList (head $ factTerms faPrem)
+        rootpairs = zip (map (\(a,b,c,d)-> (c,d)) tuplelist) premroot
+        cllist = nubBy (\(a,b,c,d) (a2,b2,c2,d4) -> b == b2) tuplelist
+    forM_ rootpairs (\c -> solveIndFactDH SplitNow c faPrem bset nbset)
+    forM_ (map (\(_,b,_,_)->b) cllist) $ (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
+
 
 insertDHMixedEdge :: Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> S.Set LNTerm -> S.Set LNTerm -> Reduction ()
 insertDHMixedEdge b (c, fa1, fa2, p) bset nbset = do --fa1 should be an Out fact
@@ -1300,7 +1310,8 @@ solveFactDHEqs b split fa1 fa2 bset nbset
             solveListDHEqs (solveTermDHEqs b split bset nbset) $ zip (factTerms fa2) (factTerms fa1)
          -- but be careful because that should hold only for G terms. E terms should be handled differrently.
 
-
+solveIndFactDH :: SplitStrategy -> ((LNFact, LNTerm), LNTerm) -> LNFact -> S.Set LNTerm -> S.Set LNTerm -> Reduction ChangeIndicator
+solveIndFactDH _ _ _ _ _ = return Unchanged
 
 -- | Add a list of rule equalities to the equation store, if possible.
 solveRuleEqs :: SplitStrategy -> [Equal RuleACInst] -> Reduction ChangeIndicator

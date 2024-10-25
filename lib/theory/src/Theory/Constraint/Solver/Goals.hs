@@ -584,9 +584,9 @@ solveDHIndaux bset nbset term p faPrem rules instrules =
   case neededexponents bset nbset term of
       [] -> do  -- TODO: this is where we need to check multiple Out facts!! 
           let n = length (multRootList term)
-          [(ru, c, faConc)] <- insertFreshNodeConcOutInst rules instrules n
-          insertDHEdge False (c, faConc, faPrem, p) bset nbset 
-          return $ showRuleCaseName ru -- (return "done") 
+          possibletuple <- insertFreshNodeConcOutInst rules instrules n
+          insertDHEdges possibletuple faPrem p bset nbset 
+          return $ "addedrules" 
       _ -> do
           --trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem
           solveNeededList rules (S.toList es)
