@@ -50,6 +50,7 @@ import           GHC.Generics (Generic)
 import           Data.Binary
 import           Data.Data
 -- import           Extension.Data.Monoid            (Monoid(..))
+import           Data.Map as M
 
 -- import           Control.Basics
 import           Control.DeepSeq
@@ -121,7 +122,7 @@ instance HasFrees Edge where
 type NoCanc = (LNTerm, LNTerm)
    -- deriving (Show, Ord, Eq, Data, Typeable, Generic, NFData, Binary)
 
-type ContInd = (LNTerm, LNTerm)
+type ContInd = M.Map LNTerm [LNTerm]
    -- deriving (Show, Ord, Eq, Data, Typeable, Generic, NFData, Binary)
 
 
@@ -149,7 +150,7 @@ data Goal =
      | DHIndG NodePrem LNFact -- I think this might be unnecessary.
      | NoCancG (LNTerm, LNTerm)
      | NeededG LNTerm NodeId
-     | IndicatorG (LNTerm, LNTerm)
+     | IndicatorG (LNTerm, [LNTerm])
      | IndicatorGExp [LNTerm] (LNTerm, LNTerm)
      deriving( Eq, Ord, Show, Generic, NFData, Binary )
 

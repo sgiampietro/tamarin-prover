@@ -21,6 +21,7 @@ module Term.DHMultiplication (
   --, isDHFact
   , isDHLit
   , isPubExp
+  , isPublic
   -- , isVarEGTerm
   , compatibleLits
   , neededexponents
@@ -257,7 +258,12 @@ neededexponentslist b nb terms
   | otherwise = Just es
       where es = S.fromList $ concatMap (neededexponents b nb) terms
 
-
+isPublic :: LNTerm -> Bool
+isPublic indt = case viewTerm2 (indt) of
+                (DHOne) -> True
+                (DHEg) -> True
+                (Lit2 t) | (isPubGVar (LIT t))  -> True
+                _ -> False
 
 rootIndicator :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> (LNTerm, [(LVar, VTerm Name LVar)])
 rootIndicator b nb t
