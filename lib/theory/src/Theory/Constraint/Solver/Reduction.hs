@@ -95,6 +95,7 @@ module Theory.Constraint.Solver.Reduction (
   , solveRuleEqs
   , solveSubstEqs
   , solveIndicatorProto
+  , solveIndicator
   --, solveActionFactDHEqs
 
   -- ** Conjunction with another constraint 'System'
@@ -658,14 +659,14 @@ markGoalAsSolved how goal =
       DHIndG _ _    -> modM sGoals $ M.delete goal
       NoCancG _       -> modM sGoals $ M.delete goal
       NeededG _ _       -> modM sGoals $ M.delete goal
-      IndicatorG (t1,terms)       -> do 
-                                mayStatus <- M.lookup goal <$> getM sGoals
-                                let newgoal = M.delete t1 goal
-                                if M.empty newgoal then
-                                    (modM sGoals $ M.delete goal)
-                                else(
-                                    modM sGoals $ M.insert newgoal mayStatus
-                                    modM sGoals $ M.delete goal)
+      IndicatorG (t1,terms)       -> modM sGoals $ M.delete goal
+                                -- mayStatus <- M.lookup goal <$> getM sGoals
+                                -- let newgoal = M.delete t1 goal
+                                --if M.empty newgoal then
+                                --    (modM sGoals $ M.delete goal)
+                                --else(
+                                --    modM sGoals $ M.insert newgoal mayStatus
+                                --    modM sGoals $ M.delete goal)
       IndicatorGExp _ _      -> modM sGoals $ M.delete goal
   where
     updateStatus = do
@@ -708,8 +709,8 @@ insertDHEdges :: [(RuleACInst, NodeConc, LNFact, LNTerm)] -> [LNTerm] -> LNTerm 
 insertDHEdges tuplelist indts premTerm p bset nbset = do
     let rootpairs = zip (map (\(a,b,c,d)-> (head $ factTerms c,d)) tuplelist) indts
         cllist = nubBy (\(a,b,c,d) (a2,b2,c2,d4) -> b == b2) tuplelist
-    (faPremsubst, listterms) <- foldlM (\faP c -> solveIndFactDH SplitNow c faP) (premTerm,[]) rootpairs
-    solveIndicator (IndicatorG (faPremsubst, listterms))
+    (faPremsubst, listterms) <- foldM (\faP c -> solveIndFactDH SplitNow c faP) (premTerm,[]) rootpairs
+    solveIndicator faPremsubst listterms
     forM_ (map (\(_,b,_,_)->b) cllist) $ (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
 
 
@@ -732,10 +733,10 @@ setNotReachable  = do
     setM sNotReach True
 
 insertContInd :: LNTerm -> LNTerm -> Reduction ()
-insertContInd x y = modM sContInd (M.insertWith (++) x y)
+insertContInd x y = modM sContInd (M.insertWith (++) x [y])
 
 insertContIndProto :: LNTerm -> LNTerm -> Reduction ()
-insertContIndProto x y = modM sContIndProto ( M.insertWith (++) x y )
+insertContIndProto x y = modM sContIndProto ( M.insertWith (++) x [y])
 
 
 -- TODO: the following not needed ?
@@ -963,7 +964,7 @@ normalizeGoal hnd goal = case goal of
         DHIndG prem fact -> DHIndG prem $ normalizeFact hnd fact
         NoCancG (t1, t2) -> NoCancG (runReader (norm' t1) hnd, runReader (norm' t2) hnd)
         NeededG t2 nid -> NeededG (runReader (norm' t2) hnd) nid
-        IndicatorG (t1, t2) -> IndicatorG (runReader (norm' t1) hnd, runReader (norm' t2) hnd)
+        IndicatorG (t1, t2s) -> IndicatorG (runReader (norm' t1) hnd, map (\t2 ->runReader (norm' t2) hnd) t2s)
         IndicatorGExp terms (t1,t2) -> IndicatorGExp (map (\t->runReader (norm' t) hnd) terms) (runReader (norm' t1) hnd, runReader (norm' t2) hnd)
         _ -> goal
 
@@ -1074,6 +1075,23 @@ normalizeSubstList hnd [] = []
 normalizeSubstList hnd [(t,t2)] = [(t, runReader ( norm' t2) hnd)]
 normalizeSubstList hnd ((t,t2) : xs) = (t, runReader ( norm' t2) hnd):(normalizeSubstList hnd xs)
 
+solveIndicator ::  LNTerm -> [LNTerm] -> Reduction String
+solveIndicator t2 terms  = do 
+  nbset <- getM sNotBasis
+  --irules <- getM sNodes
+  --let rules = M.elems irules
+  --    terms = (concatMap enumConcsDhOut rules)
+  --    exps = (concatMap enumConcsDhExpOut rules)-
+  if (elem t2 terms) 
+    then return "Found indicators"
+    else do 
+        case trace (show ("SOLVING GAUSS", terms, t2)) (solveIndicatorGauss (S.toList nbset) terms t2) of 
+          Just vec -> do
+              markGoalAsSolved ("Found indicators! attack by result:" ++ show (vec, terms, t2)) (IndicatorG (t2,terms))
+              return ("Found indicators! attack by result:" ++ show (vec, terms, t2))
+          Nothing -> do 
+              setNotReachable
+              return ("Safe,cannot combine from (leaked set, terms):"++ show ((S.toList nbset), terms, t2))
 
 
 solveIndicatorProto :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
@@ -1151,7 +1169,7 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 outterm
                     noContradictoryEqStore)
             -- insertContIndProto ta2 ta1
             solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd indts ta1 ta2 (delete outterm outterms)
-
+{-
 solveDHEqsAux :: SplitStrategy -> S.Set LNTerm  -> S.Set LNTerm -> MaudeHandle -> MaudeHandle -> [LNTerm] -> LNTerm -> LNTerm -> [LNTerm] -> StateT System (FreshT (DisjT (Reader ProofContext))) ()
 solveDHEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 rootsta2 = do
     case xindterms of
@@ -1178,7 +1196,7 @@ solveDHEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 rootsta2 = d
                                 _                        -> return eqs2 -}
                         noContradictoryEqStore
                         insertContInd ta2 ta1
-                        trace (show ("INSERTINGGOAL", ta2,ta2)) $ insertGoal (IndicatorG (ta2,ta1)) False
+                        --trace (show ("INSERTINGGOAL", ta2,ta2)) $ insertGoal (IndicatorG (ta2,ta1)) False
                         trace (show ("MATCHED IND with SINGLETON", indt,ta1,ta2, outterm)) $ void substSystem
                         void normSystem
         (indt:indts) -> do
@@ -1207,7 +1225,7 @@ solveDHEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 rootsta2 = d
                         void substSystem
                         trace (show ("MATCHed IND with", indt,ta1,ta2,outterm)) $ void normSystem
                         solveDHEqsAux splitStrat bset nbset hndNormal hnd indts ta1 ta2 (delete outterm rootsta2)
-
+-}
 solveTermDHEqs ::  Bool -> SplitStrategy -> S.Set LNTerm -> S.Set LNTerm -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
 solveTermDHEqs True splitStrat bset nbset (ta1, ta2)
         | ta1 == ta2 = return Unchanged
@@ -1240,7 +1258,7 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)
                                             solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta11 ta22 (multRootList ta22)
                                             return Changed
                             _ -> error "TODO"
-solveTermDHEqs False splitStrat bset nbset (ta1, ta2) 
+{-solveTermDHEqs False splitStrat bset nbset (ta1, ta2) 
         | ta1 == ta2 = return Unchanged
         | isDHLit ta1 && compatibleLits ta1 ta2 = do
                                                 solveTermEqs splitStrat [(Equal ta1 ta2)]
@@ -1268,7 +1286,7 @@ solveTermDHEqs False splitStrat bset nbset (ta1, ta2)
                                         solveDHEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 (multRootList ta2)
                                         return Changed
                         _ -> error "TODO"
-
+-}
 
 -- | Add a list of equalities in substitution form to the equation store
 solveSubstEqs :: SplitStrategy -> LNSubst -> Reduction ChangeIndicator
@@ -1322,7 +1340,7 @@ substituteFact :: MaudeHandle -> LNFact -> LNFact
 substituteFact hnd fa@(Fact f1 f2 faterms) = Fact f1 f2 (map (\t-> runReader (norm' t) hnd) faterms)
 
 
-solveIndFactDH :: SplitStrategy -> ((LNTerm, LNTerm), LNTerm) -> (LNTerm, [LNTerm]) -> Reduction LNTerm
+solveIndFactDH :: SplitStrategy -> ((LNTerm, LNTerm), LNTerm) -> (LNTerm, [LNTerm]) -> Reduction (LNTerm, [LNTerm])
 solveIndFactDH split ((fa1, t1), t2) (fa2, acclist)= 
     case (isPubExp t1, isPubExp t2) of
         (Just (pg1,e1), Just (pg2,e2)) -> do
@@ -1338,7 +1356,7 @@ solveIndFactDH split ((fa1, t1), t2) (fa2, acclist)=
                 void substSystem
                 void normSystem
                 subst <- getM sEqStore
-                return $ (applyVTerm subst fa2, map (\y -> applyVTerm subst y) $ acclist++[fa1])
+                return $ (applyVTerm (_eqsSubst subst) fa2, map (\y -> applyVTerm (_eqsSubst subst) y) $ acclist++[fa1])
 
 
 -- | Add a list of rule equalities to the equation store, if possible.

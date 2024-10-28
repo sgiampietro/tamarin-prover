@@ -587,9 +587,12 @@ solveDHIndaux bset nbset term p faPrem rules instrules =
           let indlist = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList term)
               neededInds = filter (not . isPublic) indlist
               n = length neededInds
-          possibletuple <- insertFreshNodeConcOutInst rules instrules n
-          insertDHEdges possibletuple neededInds term p bset nbset 
-          return $ "addedrules" 
+          if null neededInds 
+            then return "Indicators are public"
+            else do
+              possibletuple <- insertFreshNodeConcOutInst rules instrules n
+              insertDHEdges possibletuple neededInds term p bset nbset 
+              return $ "addedrules" 
       es -> do
           --trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem
           solveNeededList rules es
@@ -619,23 +622,6 @@ solveDHMixedPremise b rules p faPrem = do
       return $ showRuleCaseName ru
 
 
-solveIndicator :: [LNTerm] -> LNTerm -> Reduction String
-solveIndicator terms t2  = do 
-  nbset <- getM sNotBasis
-  --irules <- getM sNodes
-  --let rules = M.elems irules
-  --    terms = (concatMap enumConcsDhOut rules)
-  --    exps = (concatMap enumConcsDhExpOut rules)-
-  if (elem t1 terms) 
-    then return "Found indicators"
-  else do 
-    case trace (show ("SOLVING GAUSS", terms, exps)) (solveIndicatorGauss nbset terms t2) of 
-          Just vec -> do
-              markGoalAsSolved ("Found indicators! attack by result:" ++ show (vec, terms, t2)) (IndicatorG (t2,terms))
-              return ("Found indicators! attack by result:" ++ show (vec, terms, t2))
-          Nothing -> do 
-              setNotReachable
-              return ("Safe,cannot combine from (leaked set, terms):"++ show (union exps (S.toList nbset), terms, t2))
 
 
 solveNeeded :: [RuleAC] -> LNTerm ->  NodeId ->        -- exponent that is needed.
