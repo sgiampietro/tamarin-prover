@@ -389,8 +389,8 @@ data System = System
     , _sNoCanc         :: S.Set NoCanc
     , _sBasis          :: S.Set LNTerm
     , _sNotBasis       :: S.Set LNTerm
-    , _sContInd        :: S.Set ContInd
-    , _sContIndProto   :: S.Set ContInd
+    , _sContInd        :: ContInd
+    , _sContIndProto   :: ContInd
     , _sNotReach       :: Bool
     , _sLessAtoms      :: S.Set (NodeId, NodeId, Reason)
     , _sLastAtom       :: Maybe NodeId

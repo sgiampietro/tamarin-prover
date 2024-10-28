@@ -583,13 +583,16 @@ solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> NodePrem -> LNFact ->
 solveDHIndaux bset nbset term p faPrem rules instrules =
   case neededexponents bset nbset term of
       [] -> do  -- TODO: this is where we need to check multiple Out facts!! 
-          let n = length (multRootList term)
+          hndNormal <- getMaudeHandle
+          let indlist = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList term)
+              neededInds = filter (not . isPublic) indlist
+              n = length neededInds
           possibletuple <- insertFreshNodeConcOutInst rules instrules n
-          insertDHEdges possibletuple faPrem p bset nbset 
+          insertDHEdges possibletuple neededInds term p bset nbset 
           return $ "addedrules" 
-      _ -> do
+      es -> do
           --trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem
-          solveNeededList rules (S.toList es)
+          solveNeededList rules es
           insertDHInd p faPrem
           return "LeakedSetInserted"
 
@@ -616,20 +619,19 @@ solveDHMixedPremise b rules p faPrem = do
       return $ showRuleCaseName ru
 
 
-solveIndicator :: LNTerm -> LNTerm -> Reduction String
-solveIndicator t1 t2  = do 
+solveIndicator :: [LNTerm] -> LNTerm -> Reduction String
+solveIndicator terms t2  = do 
   nbset <- getM sNotBasis
-  irules <- getM sNodes
-  let rules = M.elems irules
-      terms = (concatMap enumConcsDhOut rules)
-      exps = (concatMap enumConcsDhExpOut rules)
-   in 
-    if (t1 == t2) 
-      then return "Found indicators"
-      else do 
-        case trace (show ("SOLVING GAUSS", terms, exps)) (solveIndicatorGauss (union exps (S.toList nbset)) terms t2) of 
+  --irules <- getM sNodes
+  --let rules = M.elems irules
+  --    terms = (concatMap enumConcsDhOut rules)
+  --    exps = (concatMap enumConcsDhExpOut rules)-
+  if (elem t1 terms) 
+    then return "Found indicators"
+  else do 
+    case trace (show ("SOLVING GAUSS", terms, exps)) (solveIndicatorGauss nbset terms t2) of 
           Just vec -> do
-              markGoalAsSolved ("Found indicators! attack by result:" ++ show (vec, terms, t2)) (IndicatorG (t1,t2))
+              markGoalAsSolved ("Found indicators! attack by result:" ++ show (vec, terms, t2)) (IndicatorG (t2,terms))
               return ("Found indicators! attack by result:" ++ show (vec, terms, t2))
           Nothing -> do 
               setNotReachable

@@ -658,7 +658,14 @@ markGoalAsSolved how goal =
       DHIndG _ _    -> modM sGoals $ M.delete goal
       NoCancG _       -> modM sGoals $ M.delete goal
       NeededG _ _       -> modM sGoals $ M.delete goal
-      IndicatorG _       -> modM sGoals $ M.delete goal
+      IndicatorG (t1,terms)       -> do 
+                                mayStatus <- M.lookup goal <$> getM sGoals
+                                let newgoal = M.delete t1 goal
+                                if M.empty newgoal then
+                                    (modM sGoals $ M.delete goal)
+                                else(
+                                    modM sGoals $ M.insert newgoal mayStatus
+                                    modM sGoals $ M.delete goal)
       IndicatorGExp _ _      -> modM sGoals $ M.delete goal
   where
     updateStatus = do
@@ -697,12 +704,12 @@ insertDHEdge b (c, fa1, fa2, p) bset nbset = do --fa1 should be an Out fact
     void (solveFactDHEqs b SplitNow fa1 fa2 bset nbset)
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
-insertDHEdges :: [(RuleACInst, NodeConc, LNFact, LNTerm)] -> LNFact -> NodePrem -> S.Set LNTerm -> S.Set LNTerm -> Reduction ()
-insertDHEdges tuplelist faPrem p bset nbset = do
-    let premroot = multRootList (head $ factTerms faPrem)
-        rootpairs = zip (map (\(a,b,c,d)-> (c,d)) tuplelist) premroot
+insertDHEdges :: [(RuleACInst, NodeConc, LNFact, LNTerm)] -> [LNTerm] -> LNTerm -> NodePrem -> S.Set LNTerm -> S.Set LNTerm -> Reduction ()
+insertDHEdges tuplelist indts premTerm p bset nbset = do
+    let rootpairs = zip (map (\(a,b,c,d)-> (head $ factTerms c,d)) tuplelist) indts
         cllist = nubBy (\(a,b,c,d) (a2,b2,c2,d4) -> b == b2) tuplelist
-    forM_ rootpairs (\c -> solveIndFactDH SplitNow c faPrem bset nbset)
+    (faPremsubst, listterms) <- foldlM (\faP c -> solveIndFactDH SplitNow c faP) (premTerm,[]) rootpairs
+    solveIndicator (IndicatorG (faPremsubst, listterms))
     forM_ (map (\(_,b,_,_)->b) cllist) $ (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
 
 
@@ -725,10 +732,11 @@ setNotReachable  = do
     setM sNotReach True
 
 insertContInd :: LNTerm -> LNTerm -> Reduction ()
-insertContInd x y = modM sContInd (S.insert (x,y))
+insertContInd x y = modM sContInd (M.insertWith (++) x y)
 
 insertContIndProto :: LNTerm -> LNTerm -> Reduction ()
-insertContIndProto x y = modM sContIndProto (S.insert (x,y))
+insertContIndProto x y = modM sContIndProto ( M.insertWith (++) x y )
+
 
 -- TODO: the following not needed ?
 insertDHInd :: NodePrem -> LNFact ->  Reduction ()
@@ -1070,7 +1078,7 @@ normalizeSubstList hnd ((t,t2) : xs) = (t, runReader ( norm' t2) hnd):(normalize
 
 solveIndicatorProto :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
 solveIndicatorProto nb t1 t2 = do
-  case trace (show ("solvingGausswith",t1,t2)) (solveIndicatorGaussProto nb t1 t2) of
+  case (solveIndicatorGaussProto nb t1 t2) of
    Just subst ->  do
         markGoalAsSolved ("Found exponent with:" ++ show subst) (IndicatorGExp nb (t1, t2))
         eqStore <- getM sEqStore
@@ -1081,9 +1089,9 @@ solveIndicatorProto nb t1 t2 = do
         neweqstore <- getM sEqStore
         let oldsubsts =  _eqsSubst neweqstore
             newsubst = substFromList $ normalizeSubstList hnd (substToList oldsubsts)
-        trace (show ("settingeqstoreOMG", subst, neweqstore, newsubst)) $ setM sEqStore ( neweqstore{_eqsSubst = newsubst} )
+        setM sEqStore ( neweqstore{_eqsSubst = newsubst} )
         neweqstore2 <- getM sEqStore
-        trace (show ("settingeqstoreCONTR", neweqstore2)) $ void substSystem
+        void substSystem
         void normSystem
         nodes <- getM sNodes
         setM sNodes $ M.map (\r -> runReader (normRule r) hnd) nodes
@@ -1216,7 +1224,7 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)
         | otherwise = case (isPubExp ta1, isPubExp ta2) of
                 (Just (pg1,e1), Just (pg2,e2)) -> do
                     solveTermEqs splitStrat [(Equal pg1 pg2)]
-                    solveTermDHEqs False splitStrat bset nbset (e1, e2) 
+                    solveTermDHEqs True splitStrat bset nbset (e1, e2) 
                 _ ->  do
                         subst <- getM sEqStore
                         let ta11 = applyVTerm (_eqsSubst subst) ta1
@@ -1247,7 +1255,7 @@ solveTermDHEqs False splitStrat bset nbset (ta1, ta2)
         | otherwise = case (isPubExp ta1, isPubExp ta2) of
                 (Just (pg1,e1), Just (pg2,e2)) -> do
                         solveTermEqs splitStrat [(Equal pg1 pg2)]
-                        trace (show ("butitshjere", ta1, ta2, e1,e2)) solveTermDHEqs False splitStrat bset nbset (e1, e2) 
+                        solveTermDHEqs False splitStrat bset nbset (e1, e2) 
                 _ ->  do
                     nocancs <- getM sNoCanc
                     hndNormal <- getMaudeHandle
@@ -1284,7 +1292,7 @@ solveMixedFactEqs b split (Equal fa1 fa2) bset nbset = do
     contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
     solveListDHEqs (solveMixedTermEqs b b split bset nbset) $ zip (factTerms fa1) (factTerms fa2)
 
-
+{-
 factDHTag ::  EqInd LNFact LNTerm -> Equal FactTag
 factDHTag (EqInd e indt t) =  (fmap factTag) e
 
@@ -1295,7 +1303,7 @@ solveActionFactEqs :: SplitStrategy -> LNFact -> LNFact -> Reduction ChangeIndic
 solveActionFactEqs split fa1 fa2 = do
     contradictoryIf (not $ all evalEqual $ map (fmap factTag) ([Equal fa1 fa2]) )
     return Changed
-
+-}
 -- t1 here is the result of factTerms fa2, and indt1 the indicator of one product term of t1. 
 solveFactDHEqs ::  Bool -> SplitStrategy -> LNFact -> LNFact -> S.Set LNTerm -> S.Set LNTerm -> Reduction ChangeIndicator
 solveFactDHEqs b split fa1 fa2 bset nbset
@@ -1310,8 +1318,28 @@ solveFactDHEqs b split fa1 fa2 bset nbset
             solveListDHEqs (solveTermDHEqs b split bset nbset) $ zip (factTerms fa2) (factTerms fa1)
          -- but be careful because that should hold only for G terms. E terms should be handled differrently.
 
-solveIndFactDH :: SplitStrategy -> ((LNFact, LNTerm), LNTerm) -> LNFact -> S.Set LNTerm -> S.Set LNTerm -> Reduction ChangeIndicator
-solveIndFactDH _ _ _ _ _ = return Unchanged
+substituteFact :: MaudeHandle -> LNFact -> LNFact
+substituteFact hnd fa@(Fact f1 f2 faterms) = Fact f1 f2 (map (\t-> runReader (norm' t) hnd) faterms)
+
+
+solveIndFactDH :: SplitStrategy -> ((LNTerm, LNTerm), LNTerm) -> (LNTerm, [LNTerm]) -> Reduction LNTerm
+solveIndFactDH split ((fa1, t1), t2) (fa2, acclist)= 
+    case (isPubExp t1, isPubExp t2) of
+        (Just (pg1,e1), Just (pg2,e2)) -> do
+                solveTermEqs split [(Equal pg1 pg2)]
+                solveIndFactDH split ((fa1, e1), e2) (fa2, acclist)
+        _ ->  do
+                se  <- gets id
+                hnd <- getMaudeHandleDH
+                (eqs2, maySplitId) <- addDHEqs2 hnd t1 t2 =<< getM sEqStore
+                setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
+                noContradictoryEqStore
+                --insertContInd fa2 (head $ factTerms fa1)
+                void substSystem
+                void normSystem
+                subst <- getM sEqStore
+                return $ (applyVTerm subst fa2, map (\y -> applyVTerm subst y) $ acclist++[fa1])
+
 
 -- | Add a list of rule equalities to the equation store, if possible.
 solveRuleEqs :: SplitStrategy -> [Equal RuleACInst] -> Reduction ChangeIndicator
