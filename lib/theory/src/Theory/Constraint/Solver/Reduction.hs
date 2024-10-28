@@ -269,10 +269,10 @@ combinations k ns = filter ((k==).length) $ subsequences ns
 
 insertFreshNodeConcOutInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Int -> Reduction [(RuleACInst, NodeConc, LNFact, LNTerm)]
 insertFreshNodeConcOutInst rules instrules n = do
-      --irulist <- replicateM n $ insertFreshNode rules Nothing
-      --let pairs = [(ru, (i,c), f, rterm) | (i, ru) <- (instrules++irulist), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, rterm <- multRootList (head $ factTerms f)]
-      let pairs = [(ru, (i,c), f, rterm) | (i, ru) <- (instrules), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, rterm <- multRootList (head $ factTerms f)]
-      disjunctionOfList (concatMap permutations (combinations n pairs))  -- todo: this should actually also consider the fresh ones
+      irulist <- replicateM n $ insertFreshNode rules Nothing
+      let pairs = [(ru, (i,c), f, rterm) | (i, ru) <- (instrules++irulist), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, rterm <- multRootList (head $ factTerms f)]
+      --let pairs = [(ru, (i,c), f, rterm) | (i, ru) <- (instrules), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, rterm <- multRootList (head $ factTerms f)]
+      disjunctionOfList (concatMap permutations (combinations n pairs)) 
 
 insertFreshNodeConcOutInstMixed ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, LNFact)
 insertFreshNodeConcOutInstMixed rules instrules = do
@@ -701,9 +701,9 @@ insertEdge (c, fa1, fa2, p) = do
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
 
-insertDHEdge ::  Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> S.Set LNTerm -> S.Set LNTerm -> Reduction ()
-insertDHEdge b (c, fa1, fa2, p) bset nbset = do --fa1 should be an Out fact
-    void (solveFactDHEqs b SplitNow fa1 fa2 bset nbset)
+insertDHEdge ::   (NodeConc, LNFact, LNFact, NodePrem) -> S.Set LNTerm -> S.Set LNTerm -> Reduction ()
+insertDHEdge (c, fa1, fa2, p) bset nbset = do --fa1 should be an Out fact
+    void (solveFactDHEqs SplitNow fa1 fa2 bset nbset)
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
 insertDHEdges :: [(RuleACInst, NodeConc, LNFact, LNTerm)] -> [LNTerm] -> LNTerm -> NodePrem -> S.Set LNTerm -> S.Set LNTerm -> Reduction ()
@@ -717,7 +717,7 @@ insertDHEdges tuplelist indts premTerm p bset nbset = do
 
 insertDHMixedEdge :: Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> S.Set LNTerm -> S.Set LNTerm -> Reduction ()
 insertDHMixedEdge b (c, fa1, fa2, p) bset nbset = do --fa1 should be an Out fact
-    void (solveMixedFactEqs b SplitNow (Equal fa1 fa2) bset nbset)
+    void (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset)
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
 
@@ -753,33 +753,6 @@ insertNeeded :: LNTerm  -> Reduction ()
 insertNeeded x = do
     j <- freshLVar "vk" LSortNode
     insertGoal (NeededG x j) False
-
-{-}
-insertNeededList' :: [LNTerm] -> Reduction ()
-insertNeededList' [x] = do
-        insertNeeded x
-insertNeededList' (x:xs) = do
-        insertNeeded x
-        insertNeededList' xs
-
-
-insertNeededList :: [LNTerm] -> NodePrem -> LNFact -> Reduction ChangeIndicator
-insertNeededList xs p faPrem = do
-    insertNeededList' xs
-    insertDHInd p faPrem
-    return Changed
--}
-{-
--- | Insert a fresh rule node labelled with a fresh instance of one of the
--- rules and return one of the conclusions.
-insertOutConc :: [RuleAC] -> Reduction (RuleACInst, NodeConc, LNFact)
-insertOutConc rules = do
-    (i, ru) <- insertFreshNode rules Nothing
-    (v, fa) <- disjunctionOfList $ enumConcs ru
-    return (ru, (i, v), fa)
--}
-
-
 
 
 ------------------------------------------------------------------------------
@@ -1023,8 +996,8 @@ solveTermEqs splitStrat eqs0 =
         noContradictoryEqStore
         return Changed
 
-solveMixedTermEqs :: Bool -> Bool -> SplitStrategy -> S.Set LNTerm -> S.Set LNTerm  ->  (LNTerm, LNTerm) -> Reduction ChangeIndicator
-solveMixedTermEqs True b splitStrat bset nbset (lhs,rhs) =
+solveMixedTermEqs :: SplitStrategy -> S.Set LNTerm -> S.Set LNTerm  ->  (LNTerm, LNTerm) -> Reduction ChangeIndicator
+solveMixedTermEqs splitStrat bset nbset (lhs,rhs) =
     if (evalEqual (Equal lhs rhs)) then
       return Unchanged
     else (do
@@ -1045,12 +1018,12 @@ solveMixedTermEqs True b splitStrat bset nbset (lhs,rhs) =
                   _                        -> return eqs2
         let substdhvars = map (\(a,b) -> (applyVTerm compsubst a, applyVTerm compsubst b)) dheqs
             compsubst = substFromList (lhsDHvars ++ rhsDHvars)
-        solveListDHEqs (solveTermDHEqs b splitStrat bset nbset) substdhvars
+        solveListDHEqs (solveTermDHEqs splitStrat bset nbset) substdhvars
         noContradictoryEqStore
         return Changed)
-solveMixedTermEqs False _ splitStrat bset nbset (lhs,rhs)
+{-solveMixedTermEqs False _ splitStrat bset nbset (lhs,rhs)
   | (evalEqual (Equal lhs rhs)) = return Unchanged
-  | (isMixedTerm rhs) = trace (show ("ISHOULDGETHERE?", lhs, rhs)) $ solveMixedTermEqs True False splitStrat bset nbset (lhs,rhs)
+  | (isMixedTerm rhs) = solveMixedTermEqs True False splitStrat bset nbset (lhs,rhs)
   | otherwise = do
             (cleanedlhs, lhsDHvars) <- clean lhs
             hnd <- getMaudeHandle
@@ -1069,7 +1042,7 @@ solveMixedTermEqs False _ splitStrat bset nbset (lhs,rhs)
                       return eqs2
                   _                        -> return eqs2'
             noContradictoryEqStore
-            return Changed
+            return Changed -}
 
 normalizeSubstList :: MaudeHandle -> [(LVar, LNTerm)] -> [(LVar, LNTerm)]
 normalizeSubstList hnd [] = []
@@ -1227,8 +1200,8 @@ solveDHEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 rootsta2 = d
                         trace (show ("MATCHed IND with", indt,ta1,ta2,outterm)) $ void normSystem
                         solveDHEqsAux splitStrat bset nbset hndNormal hnd indts ta1 ta2 (delete outterm rootsta2)
 -}
-solveTermDHEqs ::  Bool -> SplitStrategy -> S.Set LNTerm -> S.Set LNTerm -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
-solveTermDHEqs True splitStrat bset nbset (ta1, ta2)
+solveTermDHEqs :: SplitStrategy -> S.Set LNTerm -> S.Set LNTerm -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
+solveTermDHEqs splitStrat bset nbset (ta1, ta2)
         | ta1 == ta2 = return Unchanged
         | (isDHLit ta1 && compatibleLits ta1 ta2) = (do
                             solveTermEqs splitStrat [(Equal ta1 ta2)]
@@ -1243,7 +1216,7 @@ solveTermDHEqs True splitStrat bset nbset (ta1, ta2)
         | otherwise = case (isPubExp ta1, isPubExp ta2) of
                 (Just (pg1,e1), Just (pg2,e2)) -> do
                     solveTermEqs splitStrat [(Equal pg1 pg2)]
-                    solveTermDHEqs True splitStrat bset nbset (e1, e2) 
+                    solveTermDHEqs splitStrat bset nbset (e1, e2) 
                 _ ->  do
                         subst <- getM sEqStore
                         let ta11 = applyVTerm (_eqsSubst subst) ta1
@@ -1305,11 +1278,11 @@ solveFactEqs split eqs = do
     --trace ("DEBUG-FACTS" ++ show eqs) 
     (solveListEqs (solveTermEqs split) $ map (fmap factTerms) eqs)
 
-solveMixedFactEqs :: Bool -> SplitStrategy -> Equal LNFact -> S.Set LNTerm -> S.Set LNTerm -> Reduction ChangeIndicator
-solveMixedFactEqs b split (Equal fa1 fa2) bset nbset = do
+solveMixedFactEqs :: SplitStrategy -> Equal LNFact -> S.Set LNTerm -> S.Set LNTerm -> Reduction ChangeIndicator
+solveMixedFactEqs split (Equal fa1 fa2) bset nbset = do
     contradictoryIf (not (factTag fa1 == factTag fa2))
     contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
-    solveListDHEqs (solveMixedTermEqs b b split bset nbset) $ zip (factTerms fa1) (factTerms fa2)
+    solveListDHEqs (solveMixedTermEqs split bset nbset) $ zip (factTerms fa1) (factTerms fa2)
 
 {-
 factDHTag ::  EqInd LNFact LNTerm -> Equal FactTag
@@ -1324,18 +1297,15 @@ solveActionFactEqs split fa1 fa2 = do
     return Changed
 -}
 -- t1 here is the result of factTerms fa2, and indt1 the indicator of one product term of t1. 
-solveFactDHEqs ::  Bool -> SplitStrategy -> LNFact -> LNFact -> S.Set LNTerm -> S.Set LNTerm -> Reduction ChangeIndicator
-solveFactDHEqs b split fa1 fa2 bset nbset
-    -- if one of fa1 or fa2 is a variable here we should apply substitution immediately!!
-    | b =  do
+solveFactDHEqs ::  SplitStrategy -> LNFact -> LNFact -> S.Set LNTerm -> S.Set LNTerm -> Reduction ChangeIndicator
+solveFactDHEqs split fa1 fa2 bset nbset = do
             contradictoryIf (not (factTag fa1 == factTag fa2))
             contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
-            solveListDHEqs (solveTermDHEqs b split bset nbset) $ zip (factTerms fa1) (factTerms fa2)
+            solveListDHEqs (solveTermDHEqs split bset nbset) $ zip (factTerms fa1) (factTerms fa2)
           --      outterm <- disjunctionOfList (multRootList t)
-    | otherwise = do
-            trace (show ("FACTSSARE", fa1, fa2) )$ contradictoryIf (not (factTag fa1 == OutFact) && (factTag fa2 == KdhFact || factTag fa2 == InFact) )
-            solveListDHEqs (solveTermDHEqs b split bset nbset) $ zip (factTerms fa2) (factTerms fa1)
-         -- but be careful because that should hold only for G terms. E terms should be handled differrently.
+    -- | otherwise = do
+    --        trace (show ("FACTSSARE", fa1, fa2) )$ contradictoryIf (not (factTag fa1 == OutFact) && (factTag fa2 == KdhFact || factTag fa2 == InFact) )
+    --        solveListDHEqs (solveTermDHEqs split bset nbset) $ zip (factTerms fa2) (factTerms fa1)
 
 substituteFact :: MaudeHandle -> LNFact -> LNFact
 substituteFact hnd fa@(Fact f1 f2 faterms) = Fact f1 f2 (map (\t-> runReader (norm' t) hnd) faterms)
