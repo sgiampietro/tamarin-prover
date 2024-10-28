@@ -277,7 +277,7 @@ prettyGoal (PremiseG (i, (PremIdx v)) fa) =
     -- prettyNodePrem p <> brackets (prettyLNFact fa)
 prettyGoal (DisjG (Disj []))  = text "Disj" <-> operator_ "(⊥)"
 prettyGoal (DisjG (Disj gfs)) = fsep $
-    punctuate (operator_ "  ∥") (map (nest 1 . parens . prettyGuarded) gfs)
+    punctuate (operator_ "  ∥") (Prelude.map (nest 1 . parens . prettyGuarded) gfs)
     -- punctuate (operator_ " |") (map (nest 1 . parens . prettyGuarded) gfs)
 prettyGoal (SplitG x) =
     text "splitEqs" <> parens (text $ show (unSplitId x))
@@ -286,5 +286,5 @@ prettyGoal (SubtermG (l,r)) =
 prettyGoal (DHIndG i fa) =  text "SearchForIndicator" <-> prettyLNFact fa
 prettyGoal (NoCancG (l,r) ) = prettyLNTerm l <-> text "NoCanc" <-> prettyLNTerm r
 prettyGoal (NeededG ta p ) = prettyLNTerm ta <-> text "Needed" <-> prettyNodeId p
-prettyGoal (IndicatorG (l,r) ) = prettyLNTerm l <-> text "contains indicator of" <-> prettyLNTerm r
+prettyGoal (IndicatorG (l,r) ) = prettyLNTerm l <-> text "is contained in" <-> prettyLNTerm (head r)
 prettyGoal (IndicatorGExp nb (l,r) ) = prettyLNTerm l <-> text "contains indicator of" <-> prettyLNTerm r

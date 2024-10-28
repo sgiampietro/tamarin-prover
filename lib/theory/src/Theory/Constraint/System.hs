@@ -808,7 +808,7 @@ $(mkLabels [''DiffSystem])
 -- | The empty constraint system, which is logically equivalent to true.
 emptySystem :: SourceKind -> Bool -> System
 emptySystem d isdiff = System
-    M.empty S.empty S.empty S.empty S.empty S.empty S.empty False S.empty Nothing emptySubtermStore emptyEqStore
+    M.empty S.empty S.empty S.empty S.empty M.empty M.empty False S.empty Nothing emptySubtermStore emptyEqStore
     S.empty S.empty S.empty
     M.empty 0 d isdiff
 
