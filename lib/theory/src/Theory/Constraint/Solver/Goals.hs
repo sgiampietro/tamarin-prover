@@ -592,7 +592,7 @@ solveDHIndaux bset nbset term p faPrem rules instrules =
             else do
               possibletuple <- insertFreshNodeConcOutInst rules instrules n
               insertDHEdges possibletuple neededInds term p bset nbset 
-              return $ "addedrules" 
+              return $ "MatchingEachIndicatorWithOutFacts" 
       es -> do
           --trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem
           solveNeededList rules es

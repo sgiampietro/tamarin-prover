@@ -114,7 +114,7 @@ import qualified Data.Map                                as M
 import qualified Data.Map.Strict                         as M'
 import qualified Data.Set                                as S
 import qualified Data.ByteString.Char8                   as BC
-import           Data.List                               (mapAccumL, delete , subsequences, length , nubBy)
+import           Data.List                               (mapAccumL, delete , subsequences, length , nubBy, permutations)
 import           Safe
 
 import           Control.Basics
@@ -269,9 +269,10 @@ combinations k ns = filter ((k==).length) $ subsequences ns
 
 insertFreshNodeConcOutInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Int -> Reduction [(RuleACInst, NodeConc, LNFact, LNTerm)]
 insertFreshNodeConcOutInst rules instrules n = do
-      irulist <- replicateM n $ insertFreshNode rules Nothing
-      let pairs = [(ru, (i,c), f, rterm) | (i, ru) <- (instrules++irulist), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, rterm <- multRootList (head $ factTerms f)]
-      disjunctionOfList (combinations n pairs)  -- todo: this should actually also consider the fresh ones
+      --irulist <- replicateM n $ insertFreshNode rules Nothing
+      --let pairs = [(ru, (i,c), f, rterm) | (i, ru) <- (instrules++irulist), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, rterm <- multRootList (head $ factTerms f)]
+      let pairs = [(ru, (i,c), f, rterm) | (i, ru) <- (instrules), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, rterm <- multRootList (head $ factTerms f)]
+      disjunctionOfList (concatMap permutations (combinations n pairs))  -- todo: this should actually also consider the fresh ones
 
 insertFreshNodeConcOutInstMixed ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, LNFact)
 insertFreshNodeConcOutInstMixed rules instrules = do
