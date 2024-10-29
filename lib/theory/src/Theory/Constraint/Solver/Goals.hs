@@ -265,7 +265,8 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
             (Fact KUFact _ [m]) | (isMixedFact fa)      -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList (get rActs ru)
-                   (void (solveMixedFactEqs SplitNow (Equal fa act) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
+                   (void (solveFactEqs SplitNow [Equal fa act]))
+                   --(void (solveMixedFactEqs SplitNow (Equal fa act) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
                    void substSystem
                    --void normSystem
                    return ru
@@ -292,7 +293,8 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
         Just ru ->  case fa of
             (Fact KUFact _ [m]) | (isMixedFact fa)      -> do
                    act <- disjunctionOfList (get rActs ru)
-                   (void (solveMixedFactEqs SplitNow (Equal fa act) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
+                   --(void (solveMixedFactEqs SplitNow (Equal fa act) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
+                   (void (solveFactEqs SplitNow [Equal fa act]))
                    void substSystem
                    --void normSystem
                    return ru
@@ -371,12 +373,15 @@ solvePremise rules p faPrem
           cLearn = (iLearn, ConcIdx 0)
           pLearn = (iLearn, PremIdx 0)
       modM sNodes  (M.insert iLearn ruLearn)
-      drules <- askM pcRules
-      solveChain (get crDestruct drules) (cLearn,p)
-      (insertGoal (PremiseG pLearn premLearn) False)
+      --drules <- askM pcRules
+      --solveChain (get crDestruct drules) (cLearn,p)
+      --(insertGoal (PremiseG pLearn premLearn) False)
+      insertChain cLearn p
+      solvePremise rules pLearn premLearn
       void substSystem
       void normSystem
-      return "chain inserted"
+      seqst <- getM sEqStore
+      trace (show ("currenteqstore", seqst)) $ return "chain inserted"
       --solvePremise rules pLearn premLearn
       --insertGoal (PremiseG pLearn premLearn) False
       --solveChain (get crDestruct ruless) (cLearn,p)  -}
@@ -393,12 +398,12 @@ solvePremise rules p faPrem
       insertChain cLearn p
       solvePremise rules pLearn premLearn
   -- | isMixedFact faPrem && not (isKIFact faPrem) = trace (show ("SOLVINMixedPREMISE:", faPrem)) $ (solveDHIndMixed rules p faPrem)
-  | isOut faPrem && isDHFact faPrem = trace (show ("IAMHERE>fiomd_", faPrem)) $ solveDHInd rules p faPrem
+  {-| isOut faPrem && isDHFact faPrem = trace (show ("IAMHERE>fiomd_", faPrem)) $ solveDHInd rules p faPrem
   | isOut faPrem && isMixedFact faPrem = do    
       nodes <- trace (show ("SOLVINGOUTPREMISE:", faPrem)) $ getM sNodes
       (ru, c, faConc) <- insertFreshNodeConcOutInstMixed rules (M.assocs nodes)
       trace (show ("withedge:", faPrem, faConc)) $ insertEdges [(c, faConc, faPrem, p)]
-      return $ showRuleCaseName ru  
+      return $ showRuleCaseName ru  -}
   | isKIFact faPrem && isDHFact faPrem = do 
       (ru, c, faConc) <- insertFreshNodeConc rules
       trace (show ("SOLVINGKIPREMISE:", faPrem, faConc)) $ insertOutKIEdge (c, faConc, faPrem, p)
@@ -413,28 +418,29 @@ solveChain :: [RuleAC]              -- ^ All destruction rules.
            -> (NodeConc, NodePrem)  -- ^ The chain to extend by one step.
            -> Reduction String      -- ^ Case name to use.
 solveChain rules (c, p) = do
-    faConc  <- gets $ nodeConcFact c
+    faConc  <- gets $ nodeConcFact c -- instantiated KD conclusion!
     do -- solve it by a direct edge
         cRule <- gets $ nodeRule (nodeConcNode c)
         pRule <- gets $ nodeRule (nodePremNode p)
         faPrem <- gets $ nodePremFact p
         contradictoryIf (forbiddenEdge cRule pRule)
-        insertEdges [(c, faConc, faPrem, p)]
-        {-if (isMixedFact faPrem) 
+        --insertEdges [(c, faConc, faPrem, p)]
+        if (isMixedFact faPrem) 
           then do
             bset <- getM sBasis
             nbset <- getM sNotBasis
             nodes <- getM sNodes
             case neededexponentslist bset nbset (factTerms faPrem) of
               (Just es) -> do
-                            solveNeededList rules (S.toList es)
+                            trace (show ("esponents not known", faConc, faPrem)) $ solveNeededList rules (S.toList es)
                             solveChain rules (c, p)
               Nothing -> do 
-                          insertDHMixedEdge True (c, faConc, faPrem, p) bset nbset -- this is where probably you want to do insertDHEdges!
+                          --insertDHMixedEdge True (c, faConc, faPrem, p) bset nbset -- this is where probably you want to do insertDHEdges!
+                          trace (show ("esponents YES known", faConc, faPrem)) $ solveDHIndaux bset nbset (head $ factTerms faPrem) p faPrem rules (M.assocs nodes)
                           return "edgeinserted"
             void substSystem
             void normSystem
-          else insertEdges [(c, faConc, faPrem, p)] -}
+          else insertEdges [(c, faConc, faPrem, p)] 
         let mPrem = case kFactView faConc of
                       Just (DnK, m') -> m'
                       _              -> error $ "solveChain: impossible"
@@ -464,7 +470,7 @@ solveChain rules (c, p) = do
                 -- the usual *DG2_chain* extension is perfomed.
                 -- But we ignore open chains, as we only resolve
                 -- open chains with a direct chain
-                trace (show ("AHA", (isMsgVar m || isGVar m || isEVar m))) $ contradictoryIf (isMsgVar m || isGVar m || isEVar m)
+                contradictoryIf (isMsgVar m || isGVar m || isEVar m)
                 cRule <- gets $ nodeRule (nodeConcNode c)
                 (i, ru) <- insertFreshNode rules (Just cRule)
                 contradictoryIf (forbiddenEdge cRule ru)
@@ -483,7 +489,7 @@ solveChain rules (c, p) = do
       (Control.Monad.Trans.FastFresh.FreshT
       (DisjT (Control.Monad.Trans.Reader.Reader ProofContext))) String
     extendAndMark i ru v faPrem faConc = do
-        insertEdges [(c, faConc, faPrem, (i, v))]
+        trace (show ("tryingEDGEMark", faConc, faPrem)) $ insertEdges [(c, faConc, faPrem, (i, v))]
         markGoalAsSolved "directly" (PremiseG (i, v) faPrem)
         insertChain (i, ConcIdx 0) p
         return (showRuleCaseName ru)
