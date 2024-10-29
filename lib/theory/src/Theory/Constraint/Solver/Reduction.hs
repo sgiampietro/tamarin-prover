@@ -48,6 +48,7 @@ module Theory.Constraint.Solver.Reduction (
   , insertGoal
   , insertAtom
   , insertEdges
+  , insertOutKIEdge
   , insertChain
   , insertAction
   , insertLess
@@ -393,6 +394,11 @@ insertEdges edges = do
     void (solveFactEqs SplitNow [ Equal fa1 fa2 | (_, fa1, fa2, _) <- edges ])
     modM sEdges (\es -> foldr S.insert es [ Edge c p | (c,_,_,p) <- edges])
 
+insertOutKIEdge :: (NodeConc, LNFact, LNFact, NodePrem) -> Reduction ()
+insertOutKIEdge (c, fa1,fa2,p) = do
+    void (solveFactOutKIEqs SplitNow (Equal fa1 fa2))
+    modM sEdges (\es -> foldr S.insert es [ Edge c p ])
+
 
 -- | Insert an 'Action' atom. Ensures that (almost all) trivial *KU* actions
 -- are solved immediately using rule *S_{at,u,triv}*. We currently avoid
@@ -716,10 +722,12 @@ insertDHEdges tuplelist indts premTerm p bset nbset = do
 
 
 insertDHMixedEdge :: Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> S.Set LNTerm -> S.Set LNTerm -> Reduction ()
-insertDHMixedEdge b (c, fa1, fa2, p) bset nbset = do --fa1 should be an Out fact
+insertDHMixedEdge True (c, fa1, fa2, p) bset nbset = do --fa1 should be an Out fact
     void (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset)
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
-
+insertDHMixedEdge False (c, fa1, fa2, p) bset nbset = do --fa1 should be an Out fact
+    void (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset)
+    modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
 insertBasisElem :: LNTerm -> Reduction ()
 insertBasisElem x = do
@@ -1277,6 +1285,14 @@ solveFactEqs split eqs = do
     contradictoryIf (not $ all evalEqual $ map (fmap factTag) eqs)
     --trace ("DEBUG-FACTS" ++ show eqs) 
     (solveListEqs (solveTermEqs split) $ map (fmap factTerms) eqs)
+
+solveFactOutKIEqs :: SplitStrategy -> Equal LNFact -> Reduction ChangeIndicator
+solveFactOutKIEqs split (Equal fa1 fa2) = do
+    contradictoryIf (not (factTag fa1 == OutFact) && (factTag fa2 == KIFact ) )
+    contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
+    --trace ("DEBUG-FACTS" ++ show eqs) 
+    (solveTermEqs split) $ (zipWith (\a b-> Equal a b) (factTerms fa1) (factTerms fa2))
+
 
 solveMixedFactEqs :: SplitStrategy -> Equal LNFact -> S.Set LNTerm -> S.Set LNTerm -> Reduction ChangeIndicator
 solveMixedFactEqs split (Equal fa1 fa2) bset nbset = do

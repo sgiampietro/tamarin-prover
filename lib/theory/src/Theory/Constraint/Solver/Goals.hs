@@ -359,7 +359,7 @@ solvePremise rules p faPrem
       return $ showRuleCaseName ru -}
   | isProtoDHFact faPrem =  trace (show ("SOLVINGPREMISEDH:", faPrem)) $ solveDHIndProto rules p faPrem
   | isProtoMixedFact faPrem = solveDHMixedPremise rules p faPrem
-  {-| isKDFact faPrem && isMixedFact faPrem = do
+  | isKDFact faPrem && isMixedFact faPrem = do
       -- nodes <- getM sNodes
       -- ruless <- askM pcRules
       iLearn    <- freshLVar "vl" LSortNode
@@ -371,8 +371,13 @@ solvePremise rules p faPrem
           cLearn = (iLearn, ConcIdx 0)
           pLearn = (iLearn, PremIdx 0)
       modM sNodes  (M.insert iLearn ruLearn)
-      insertChain cLearn p
-      solvePremise rules pLearn premLearn
+      drules <- askM pcRules
+      solveChain (get crDestruct drules) (cLearn,p)
+      (insertGoal (PremiseG pLearn premLearn) False)
+      void substSystem
+      void normSystem
+      return "chain inserted"
+      --solvePremise rules pLearn premLearn
       --insertGoal (PremiseG pLearn premLearn) False
       --solveChain (get crDestruct ruless) (cLearn,p)  -}
   | isKDFact faPrem = do
@@ -388,10 +393,15 @@ solvePremise rules p faPrem
       insertChain cLearn p
       solvePremise rules pLearn premLearn
   -- | isMixedFact faPrem && not (isKIFact faPrem) = trace (show ("SOLVINMixedPREMISE:", faPrem)) $ (solveDHIndMixed rules p faPrem)
-  | isOut faPrem = do
+  | isOut faPrem && isDHFact faPrem = trace (show ("IAMHERE>fiomd_", faPrem)) $ solveDHInd rules p faPrem
+  | isOut faPrem && isMixedFact faPrem = do    
       nodes <- trace (show ("SOLVINGOUTPREMISE:", faPrem)) $ getM sNodes
       (ru, c, faConc) <- insertFreshNodeConcOutInstMixed rules (M.assocs nodes)
       trace (show ("withedge:", faPrem, faConc)) $ insertEdges [(c, faConc, faPrem, p)]
+      return $ showRuleCaseName ru  
+  | isKIFact faPrem && isDHFact faPrem = do 
+      (ru, c, faConc) <- insertFreshNodeConc rules
+      trace (show ("SOLVINGKIPREMISE:", faPrem, faConc)) $ insertOutKIEdge (c, faConc, faPrem, p)
       return $ showRuleCaseName ru
   | otherwise = do
       (ru, c, faConc) <- insertFreshNodeConc rules
@@ -409,7 +419,8 @@ solveChain rules (c, p) = do
         pRule <- gets $ nodeRule (nodePremNode p)
         faPrem <- gets $ nodePremFact p
         contradictoryIf (forbiddenEdge cRule pRule)
-        if (isMixedFact faPrem) 
+        insertEdges [(c, faConc, faPrem, p)]
+        {-if (isMixedFact faPrem) 
           then do
             bset <- getM sBasis
             nbset <- getM sNotBasis
@@ -423,7 +434,7 @@ solveChain rules (c, p) = do
                           return "edgeinserted"
             void substSystem
             void normSystem
-          else insertEdges [(c, faConc, faPrem, p)]
+          else insertEdges [(c, faConc, faPrem, p)] -}
         let mPrem = case kFactView faConc of
                       Just (DnK, m') -> m'
                       _              -> error $ "solveChain: impossible"
@@ -453,7 +464,7 @@ solveChain rules (c, p) = do
                 -- the usual *DG2_chain* extension is perfomed.
                 -- But we ignore open chains, as we only resolve
                 -- open chains with a direct chain
-                contradictoryIf (isMsgVar m || isGVar m || isEVar m)
+                trace (show ("AHA", (isMsgVar m || isGVar m || isEVar m))) $ contradictoryIf (isMsgVar m || isGVar m || isEVar m)
                 cRule <- gets $ nodeRule (nodeConcNode c)
                 (i, ru) <- insertFreshNode rules (Just cRule)
                 contradictoryIf (forbiddenEdge cRule ru)
@@ -552,7 +563,8 @@ solveDHInd rules p faPrem =  do
         nbset <- getM sNotBasis
         nodes <- getM sNodes
         case factTerms faPrem of 
-          [x] -> solveDHIndaux bset nbset x p faPrem (filter isProtocolRule rules) (M.assocs nodes)
+          -- [x] -> solveDHIndaux bset nbset x p faPrem (filter isProtocolRule rules) (M.assocs nodes)
+          [x] -> solveDHIndaux bset nbset x p faPrem rules (M.assocs nodes)
           _   -> error "In Fact should have arity 1"
 
 solveDHIndMixed ::  [RuleAC]        -- ^ All rules that have an Out fact containing a boxed term as conclusion. 
@@ -590,7 +602,7 @@ solveDHIndaux bset nbset term p faPrem rules instrules =
           if trace (show ("thisisthenumberwewant", n)) $ null neededInds 
             then return "Indicators are public"
             else do
-              possibletuple <- insertFreshNodeConcOutInst rules instrules n
+              possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n
               insertDHEdges possibletuple neededInds term p bset nbset 
               return $ "MatchingEachIndicatorWithOutFacts" 
       es -> do
