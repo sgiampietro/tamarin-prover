@@ -373,7 +373,8 @@ labelNodeId = \i rules parent -> do
 
           -- CR-rule *DG2_{2,u}*: solve a KU-premise by inserting the
           -- corresponding KU-actions before this node.
-        _ | (isKUFact fa && (not (isDHFact fa))) -> do
+        --_ | (isKUFact fa && (not (isDHFact fa))) -> do
+        _ | (isKUFact fa) -> do
               j <- freshLVar "vk" LSortNode
               insertLess j i Adversary
               void (insertAction j fa)
