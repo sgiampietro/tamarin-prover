@@ -231,7 +231,7 @@ solveGoal goal = do
       SubtermG st   -> solveSubterm st
       DHIndG p fa -> if (isDHFact fa) then (solveDHInd (get crProtocol rules) p fa) else (solveDHIndMixed (get crProtocol rules) p fa)
       NoCancG (t1, t2) -> solveNoCanc t1 t2
-      NeededG x i    -> solveNeeded (get crProtocol rules ++ get crConstruct rules) (\x i -> solvePremise (get crProtocol rules ++ get crConstruct rules) (i, PremIdx 0) (kIFact x)) x i
+      NeededG x i    -> solveNeeded (\x i -> solvePremise (get crProtocol rules ++ get crConstruct rules) (i, PremIdx 0) (kIFact x)) x i
       IndicatorG (t1, t2) -> solveIndicator t1 t2
       IndicatorGExp nb (t1, t2) -> solveIndicatorProto nb t1 t2 -- todo do we also need the basis sets here?
 
@@ -273,7 +273,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
             _ | (isDHFact fa)                       -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList (filter isDHFact $ get rActs ru)
-                   (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
+                   (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
                    void substSystem
                    --void normSystem
                    return ru
@@ -301,7 +301,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
             --Distinguish DH Term cases!!
             _ | isDHFact fa                       -> do unless (fa `elem` get rActs ru) $ do
                                                           act <- disjunctionOfList (filter isDHFact $ get rActs ru)
-                                                          (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
+                                                          (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
                                                           void substSystem
                                                           --void normSystem
                                                         return ru
@@ -373,9 +373,6 @@ solvePremise rules p faPrem
           cLearn = (iLearn, ConcIdx 0)
           pLearn = (iLearn, PremIdx 0)
       modM sNodes  (M.insert iLearn ruLearn)
-      --drules <- askM pcRules
-      --solveChain (get crDestruct drules) (cLearn,p)
-      --(insertGoal (PremiseG pLearn premLearn) False)
       insertChain cLearn p
       solvePremise rules pLearn premLearn
       void substSystem
@@ -432,10 +429,10 @@ solveChain rules (c, p) = do
             nodes <- getM sNodes
             case neededexponentslist bset nbset (factTerms faPrem) of
               (Just es) -> do
-                            trace (show ("esponents not known", faConc, faPrem)) $ solveNeededList rules (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) (S.toList es)
+                            trace (show ("esponents not known", faConc, faPrem)) $ solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) (S.toList es)
                             solveChain rules (c, p)
               Nothing -> do 
-                          insertDHMixedEdge False (c, faConc, faPrem, p) bset nbset -- this is where probably you want to do insertDHEdges!
+                          insertDHMixedEdge False (c, faConc, faPrem, p) cRule pRule bset nbset -- this is where probably you want to do insertDHEdges!
                           --trace (show ("esponents YES known", faConc, faPrem)) $ solveDHIndaux bset nbset (head $ factTerms faPrem) p faPrem rules (M.assocs nodes)
                           return "edgeinserted"
             void substSystem
@@ -588,12 +585,12 @@ solveDHIndauxMixed bset nbset terms p faPrem rules instrules =
   case neededexponentslist bset nbset terms of
       (Just es) -> do
           --trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem
-          solveNeededList rules (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) (S.toList es)
+          solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) (S.toList es)
           (solveDHIndMixed  rules p faPrem)
           return "LeakedSetInserted"
       Nothing -> do 
           (ru, c, faConc) <- insertFreshNodeConcOutInstMixed rules instrules
-          insertDHMixedEdge False (c, faConc, faPrem, p) bset nbset -- instead of root indicator this should be Y.ind^Z.
+          insertDHMixedEdge False (c, faConc, faPrem, p) ru ru bset nbset -- instead of root indicator this should be Y.ind^Z.
           return $ showRuleCaseName ru -- (return "done") 
 
 
@@ -605,7 +602,7 @@ solveDHIndaux bset nbset term p faPrem rules instrules =
           let indlist = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList term)
               neededInds = filter (not . isPublic) indlist
               n = length neededInds
-          if trace (show ("thisisthenumberwewant", n)) $ null neededInds 
+          if null neededInds 
             then return "Indicators are public"
             else do
               possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n Nothing
@@ -613,7 +610,7 @@ solveDHIndaux bset nbset term p faPrem rules instrules =
               return $ "MatchingEachIndicatorWithOutFacts" 
       es -> do
           --trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem
-          solveNeededList rules (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) es
+          solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) es
           (solveDHInd rules p faPrem)
           return "LeakedSetInserted"
 
@@ -636,7 +633,7 @@ solveDHMixedPremise ::  [RuleAC]        -- ^ All rules that have an Out fact con
 solveDHMixedPremise rules p faPrem = do
       nodes <- getM sNodes
       (ru, c, faConc) <-  insertFreshNodeConcMixed rules (M.assocs nodes)
-      insertDHMixedEdge True (c, faConc, faPrem, p) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) -- instead of root indicator this should be Y.ind^Z.
+      insertDHMixedEdge True (c, faConc, faPrem, p)  ru ru (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) -- instead of root indicator this should be Y.ind^Z.
       return $ showRuleCaseName ru
 
 
