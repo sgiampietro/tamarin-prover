@@ -231,7 +231,7 @@ solveGoal goal = do
       SubtermG st   -> solveSubterm st
       DHIndG p fa -> if (isDHFact fa) then (solveDHInd (get crProtocol rules) p fa) else (solveDHIndMixed (get crProtocol rules) p fa)
       NoCancG (t1, t2) -> solveNoCanc t1 t2
-      NeededG x i    -> solveNeeded (get crProtocol rules ++ get crConstruct rules) x i
+      NeededG x i    -> solveNeeded (get crProtocol rules ++ get crConstruct rules) (\x i -> solvePremise (get crProtocol rules ++ get crConstruct rules) (i, PremIdx 0) (kIFact x)) x i
       IndicatorG (t1, t2) -> solveIndicator t1 t2
       IndicatorGExp nb (t1, t2) -> solveIndicatorProto nb t1 t2 -- todo do we also need the basis sets here?
 
@@ -432,7 +432,7 @@ solveChain rules (c, p) = do
             nodes <- getM sNodes
             case neededexponentslist bset nbset (factTerms faPrem) of
               (Just es) -> do
-                            trace (show ("esponents not known", faConc, faPrem)) $ solveNeededList rules (S.toList es)
+                            trace (show ("esponents not known", faConc, faPrem)) $ solveNeededList rules (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) (S.toList es)
                             solveChain rules (c, p)
               Nothing -> do 
                           insertDHMixedEdge False (c, faConc, faPrem, p) bset nbset -- this is where probably you want to do insertDHEdges!
@@ -588,7 +588,7 @@ solveDHIndauxMixed bset nbset terms p faPrem rules instrules =
   case neededexponentslist bset nbset terms of
       (Just es) -> do
           --trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem
-          solveNeededList rules (S.toList es)
+          solveNeededList rules (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) (S.toList es)
           (solveDHIndMixed  rules p faPrem)
           return "LeakedSetInserted"
       Nothing -> do 
@@ -613,7 +613,7 @@ solveDHIndaux bset nbset term p faPrem rules instrules =
               return $ "MatchingEachIndicatorWithOutFacts" 
       es -> do
           --trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem
-          solveNeededList rules es
+          solveNeededList rules (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) es
           (solveDHInd rules p faPrem)
           return "LeakedSetInserted"
 
@@ -639,28 +639,7 @@ solveDHMixedPremise rules p faPrem = do
       insertDHMixedEdge True (c, faConc, faPrem, p) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) -- instead of root indicator this should be Y.ind^Z.
       return $ showRuleCaseName ru
 
-solveNeeded :: [RuleAC] -> LNTerm ->  NodeId ->        -- exponent that is needed.
-                Reduction String -- ^ Case name to use.
-solveNeeded rules x i = do
-     insertBasisElem x
-                --insertGoal (PremiseG (i, PremIdx 0) (kdFact x)) False !!(adversary shouldn't know x? check if we actually _need_ to prove it CANNOT)
-                -- TODO: insertSecret x
-     return "case Secret Set"
-    `disjunction`
-    (do 
-          trace "IAMHEREYES" (insertNotBasisElem x)
-          solvePremise rules (i, PremIdx 0) (kIFact x)
-          return "case Leaked Set" )
 
-solveNeededList ::  [RuleAC] -> [LNTerm] ->        -- exponent that is needed.
-                Reduction String -- ^ Case name to use.
-solveNeededList rules [x] = do
-      i <- freshLVar "vk" LSortNode
-      solveNeeded rules x i
-solveNeededList rules (x:xs) = do
-      i  <- freshLVar "vk" LSortNode
-      solveNeeded rules x i
-      solveNeededList rules xs
 
 -- | remove from subterms
 -- get split
