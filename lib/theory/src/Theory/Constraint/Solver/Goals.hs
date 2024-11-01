@@ -353,7 +353,7 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
              -> Reduction String -- ^ Case name to use.
 solvePremise rules p faPrem
   | isKdhFact faPrem && isDHFact faPrem = (solveDHInd rules p faPrem)
-  | isKdhFact faPrem && isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
+  | isKdhFact faPrem && isMixedFact faPrem = error "Do I get here?"-- (solveDHIndMixed rules p faPrem)
   | (isInFact faPrem && isDHFact faPrem) = solveDHInd rules p faPrem
   {-| (isInFact faPrem && isMixedFact faPrem) = do
       (ru, c, faConc) <- insertFreshNodeConc rules
@@ -435,8 +435,8 @@ solveChain rules (c, p) = do
                             trace (show ("esponents not known", faConc, faPrem)) $ solveNeededList rules (S.toList es)
                             solveChain rules (c, p)
               Nothing -> do 
-                          --insertDHMixedEdge True (c, faConc, faPrem, p) bset nbset -- this is where probably you want to do insertDHEdges!
-                          trace (show ("esponents YES known", faConc, faPrem)) $ solveDHIndaux bset nbset (head $ factTerms faPrem) p faPrem rules (M.assocs nodes)
+                          insertDHMixedEdge False (c, faConc, faPrem, p) bset nbset -- this is where probably you want to do insertDHEdges!
+                          --trace (show ("esponents YES known", faConc, faPrem)) $ solveDHIndaux bset nbset (head $ factTerms faPrem) p faPrem rules (M.assocs nodes)
                           return "edgeinserted"
             void substSystem
             void normSystem
@@ -589,7 +589,7 @@ solveDHIndauxMixed bset nbset terms p faPrem rules instrules =
       (Just es) -> do
           --trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem
           solveNeededList rules (S.toList es)
-          insertDHInd p faPrem
+          (solveDHIndMixed  rules p faPrem)
           return "LeakedSetInserted"
       Nothing -> do 
           (ru, c, faConc) <- insertFreshNodeConcOutInstMixed rules instrules
@@ -608,13 +608,13 @@ solveDHIndaux bset nbset term p faPrem rules instrules =
           if trace (show ("thisisthenumberwewant", n)) $ null neededInds 
             then return "Indicators are public"
             else do
-              possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n
-              insertDHEdges possibletuple neededInds term p bset nbset 
+              possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n Nothing
+              insertDHEdges possibletuple neededInds term p
               return $ "MatchingEachIndicatorWithOutFacts" 
       es -> do
           --trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem
           solveNeededList rules es
-          insertDHInd p faPrem
+          (solveDHInd rules p faPrem)
           return "LeakedSetInserted"
 
 
@@ -639,9 +639,6 @@ solveDHMixedPremise rules p faPrem = do
       insertDHMixedEdge True (c, faConc, faPrem, p) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) -- instead of root indicator this should be Y.ind^Z.
       return $ showRuleCaseName ru
 
-
-
-
 solveNeeded :: [RuleAC] -> LNTerm ->  NodeId ->        -- exponent that is needed.
                 Reduction String -- ^ Case name to use.
 solveNeeded rules x i = do
@@ -664,7 +661,6 @@ solveNeededList rules (x:xs) = do
       i  <- freshLVar "vk" LSortNode
       solveNeeded rules x i
       solveNeededList rules xs
-
 
 -- | remove from subterms
 -- get split
