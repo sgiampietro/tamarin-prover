@@ -268,10 +268,10 @@ insertFreshNodeConcMixed rules instrules = do
 combinations :: Int -> [a] -> [[a]]
 combinations k ns = filter ((k==).length) $ subsequences ns
 
-insertFreshNodeConcOutInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Int -> Reduction [(RuleACInst, NodeConc, LNFact, LNTerm)]
+insertFreshNodeConcOutInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Int -> Reduction [(RuleACInst, NodeConc, LNFact, LNTerm, Maybe RuleACConstrs)]
 insertFreshNodeConcOutInst rules instrules n = do
-      irulist <- replicateM n $ insertFreshNode rules Nothing
-      let pairs = [(ru, (i,c), f, rterm) | (i, ru) <- (instrules++irulist), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, rterm <- multRootList (head $ factTerms f)]
+      irulist <- replicateM n $ traverseDHNodes rules
+      let pairs = [(ru, (i,c), f, rterm, mconstrs) | (i, ru, mconstrs) <- ((map (\(a,b)->(a,b,Nothing)) instrules)++irulist), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, rterm <- multRootList (head $ factTerms f)]
       --let pairs = [(ru, (i,c), f, rterm) | (i, ru) <- (instrules), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, rterm <- multRootList (head $ factTerms f)]
       disjunctionOfList (concatMap permutations (combinations n pairs)) 
 
@@ -296,6 +296,15 @@ insertFreshNodeMixed rules instrules parent = do
         (,) i <$> labelNodeId i rules parent) 
 
 
+traverseDHNodes :: [RuleAC] -> Reduction (NodeId, RuleACInst, Maybe RuleACConstrs)
+traverseDHNodes rules = do
+    i <- freshLVar "vr" LSortNode
+    (ru, mrconstrs) <- importRule =<< disjunctionOfList rules 
+    return (i,ru, mrconstrs)   
+  where
+    -- | Import a rule with all its variables renamed to fresh variables.
+    importRule ru = someRuleACInst ru `evalBindT` noBindings
+
 -- | Insert a fresh rule node labelled with a fresh instance of one of the rules
 -- and solve it's 'Fr', 'In', and 'KU' premises immediately.
 -- If a parent node is given, updates the remaining rule applications.
@@ -309,6 +318,7 @@ insertFreshNode rules parent = do
 -- If a parent node is given, updates the remaining rule applications.
 --
 -- PRE: Node must not yet be labelled with a rule.
+
 labelNodeId :: NodeId -> [RuleAC] -> Maybe RuleACInst -> Reduction RuleACInst
 labelNodeId = \i rules parent -> do
     (ru1, mrconstrs) <- importRule =<< disjunctionOfList rules
@@ -316,14 +326,19 @@ labelNodeId = \i rules parent -> do
                 Just pa | (getRuleName pa == getRuleName ru1) && (getRemainingRuleApplications pa > 1)
                     -> setRemainingRuleApplications ru1 ((getRemainingRuleApplications pa) - 1)
                 _   -> ru1
+    exploitNodeId i ru mrconstrs
+  where
+    -- | Import a rule with all its variables renamed to fresh variables.
+    importRule ru = someRuleACInst ru `evalBindT` noBindings
+
+
+exploitNodeId :: NodeId ->  RuleACInst -> Maybe RuleACConstrs -> Reduction RuleACInst
+exploitNodeId i ru mrconstrs = do
     solveRuleConstraints mrconstrs
     modM sNodes (M.insert i ru)
     exploitPrems i ru
     return ru
   where
-    -- | Import a rule with all its variables renamed to fresh variables.
-    importRule ru = someRuleACInst ru `evalBindT` noBindings
-
     mkISendRuleAC ann m = return $ Rule (IntrInfo (ISendRule))
                                     [kuFactAnn ann m] [inFact m] [kLogFact m] []
 
@@ -713,14 +728,14 @@ insertDHEdge (c, fa1, fa2, p) bset nbset = do --fa1 should be an Out fact
     void (solveFactDHEqs SplitNow fa1 fa2 bset nbset)
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
-insertDHEdges :: [(RuleACInst, NodeConc, LNFact, LNTerm)] -> [LNTerm] -> LNTerm -> NodePrem -> S.Set LNTerm -> S.Set LNTerm -> Reduction ()
+insertDHEdges :: [(RuleACInst, NodeConc, LNFact, LNTerm, Maybe RuleACConstrs)] -> [LNTerm] -> LNTerm -> NodePrem -> S.Set LNTerm -> S.Set LNTerm -> Reduction ()
 insertDHEdges tuplelist indts premTerm p bset nbset = do
-    let rootpairs = zip (map (\(a,b,c,d)-> (head $ factTerms c,d)) tuplelist) indts
-        cllist = nubBy (\(a,b,c,d) (a2,b2,c2,d4) -> b == b2) tuplelist
+    let rootpairs = zip (map (\(a,b,c,d,e)-> (head $ factTerms c,d)) tuplelist) indts
+        cllist = nubBy (\(a,b,c,d,e) (a2,b2,c2,d2,e2) -> b == b2) tuplelist
     (faPremsubst, listterms) <- foldM (\faP c -> solveIndFactDH SplitNow c faP) (premTerm,[]) rootpairs
     solveIndicator faPremsubst listterms
-    forM_ (map (\(_,b,_,_)->b) cllist) $ (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
-
+    forM_ (map (\(_,b,_,_, _)->b) cllist) $ (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
+    forM_ (map (\(ru,(i,b),_,_, mc)->(i,ru, mc)) cllist) $ (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
 
 insertDHMixedEdge :: Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> S.Set LNTerm -> S.Set LNTerm -> Reduction ()
 insertDHMixedEdge True (c, fa1, fa2, p) bset nbset = do --fa1 should be an Out fact
