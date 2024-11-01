@@ -64,6 +64,8 @@ module Theory.Constraint.Solver.Reduction (
   , insertDHEdges
   , insertDHMixedEdge
   , insertNeeded
+  , solveNeeded
+  , solveNeededList
   --, insertNeededList'
   --, insertNeededList
   , insertDHInd
@@ -1232,25 +1234,49 @@ solveDHEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 rootsta2 = d
                         solveDHEqsAux splitStrat bset nbset hndNormal hnd indts ta1 ta2 (delete outterm rootsta2)
 -}
 
-solveTermDHEqsChain :: SplitStrategy -> [RuleAC] -> [(NodeId,RuleACInst, LNFact, ConcIdx)] -> (NodeId, RuleACInst)-> (LNTerm, LNTerm) -> Reduction ChangeIndicator
-solveTermDHEqsChain splitStrat rules instrules (j,ruj, fa1, c) (ta1,ta2) = do
+-- solvePremise rules (i, PremIdx 0) (kIFact x)
+
+solveNeeded :: [RuleAC] -> (LNTerm -> NodeId -> StateT  System (FreshT (DisjT (Reader ProofContext))) a0) -> LNTerm ->  NodeId ->        -- exponent that is needed.
+                Reduction String -- ^ Case name to use.
+solveNeeded rules fun x i = do
+     insertBasisElem x
+                --insertGoal (PremiseG (i, PremIdx 0) (kdFact x)) False !!(adversary shouldn't know x? check if we actually _need_ to prove it CANNOT)
+                -- TODO: insertSecret x
+     return "case Secret Set"
+    `disjunction`
+    (do 
+          trace "IAMHEREYES" (insertNotBasisElem x)
+          fun x i
+          return "case Leaked Set" )
+
+solveNeededList ::  [RuleAC] -> (LNTerm -> NodeId -> StateT  System (FreshT (DisjT (Reader ProofContext))) a0) -> [LNTerm] ->        -- exponent that is needed.
+                Reduction String -- ^ Case name to use.
+solveNeededList rules fun [x] = do
+      i <- freshLVar "vk" LSortNode
+      solveNeeded rules fun x i
+solveNeededList rules fun (x:xs) = do
+      i  <- freshLVar "vk" LSortNode
+      solveNeeded rules fun x i
+      solveNeededList rules fun xs
+
+solveTermDHEqsChain :: SplitStrategy -> [RuleAC] -> [(NodeId,RuleACInst)] -> NodePrem -> LNFact -> (NodeId, RuleACInst, LNFact, ConcIdx)-> (LNTerm, LNTerm) -> Reduction ChangeIndicator
+solveTermDHEqsChain splitStrat rules instrules p faPrem (j,ruj, fa1, c) (ta1,ta2) = do
     bset <- getM sBasis
     nbset <- getM sNotBasis
-    case neededexponents ta1 of
+    case neededexponents bset nbset ta1 of
       [] -> do  -- TODO: this is where we need to check multiple Out facts!! 
           hndNormal <- getMaudeHandle
-          let indlist = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList term)
+          let indlist = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList ta1)
               neededInds = filter (not . isPublic) indlist
               n = length neededInds
           if null neededInds 
-            then insertDHEdge ta1 ta2 -- TODO: fix this
+            then insertDHEdge ((j,c), fa1, faPrem, p) bset nbset -- TODO: fix this
             else do
               possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n (Just (j,ruj, fa1, c))
-              insertDHEdges possibletuple neededInds term p
-              return $ "MatchingEachIndicatorWithOutFacts" 
+              insertDHEdges possibletuple neededInds ta1 p
       es -> do
           --trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem
-          _ <- solveNeededList rules es
+          solveNeededList rules es
           (solveTermDHEqsChain splitStrat rules instrules (j,ruj, fa1,c) (ta1,ta2))
     return Changed         
 
