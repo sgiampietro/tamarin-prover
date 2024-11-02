@@ -378,7 +378,7 @@ solvePremise rules p faPrem
           pLearn = (iLearn, PremIdx 0)
       modM sNodes  (M.insert iLearn ruLearn)
       insertChain cLearn p
-      solvePremise rules pLearn premLearn
+      solveDHMixedPremise rules pLearn premLearn
       void substSystem
       void normSystem
       seqst <- getM sEqStore
@@ -419,6 +419,7 @@ solveChain :: [RuleAC]              -- ^ All destruction rules.
            -> (NodeConc, NodePrem)  -- ^ The chain to extend by one step.
            -> Reduction String      -- ^ Case name to use.
 solveChain rules (c, p) = do
+    rules2 <- askM pcRules
     faConc  <- gets $ nodeConcFact c -- instantiated KD conclusion!
     do -- solve it by a direct edge
         cRule <- gets $ nodeRule (nodeConcNode c)
@@ -436,7 +437,7 @@ solveChain rules (c, p) = do
                             trace (show ("esponents not known", faConc, faPrem)) $ solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) (S.toList es)
                             solveChain rules (c, p)
               Nothing -> do 
-                          insertDHMixedEdge False (c, faConc, faPrem, p) cRule pRule bset nbset -- this is where probably you want to do insertDHEdges!
+                          insertDHMixedEdge False (c, faConc, faPrem, p) cRule pRule bset nbset (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) -- this is where probably you want to do insertDHEdges!
                           --trace (show ("esponents YES known", faConc, faPrem)) $ solveDHIndaux bset nbset (head $ factTerms faPrem) p faPrem rules (M.assocs nodes)
                           return "edgeinserted"
             void substSystem
@@ -594,7 +595,7 @@ solveDHIndauxMixed bset nbset terms p faPrem rules instrules =
           return "LeakedSetInserted"
       Nothing -> do 
           (ru, c, faConc) <- insertFreshNodeConcOutInstMixed rules instrules
-          insertDHMixedEdge False (c, faConc, faPrem, p) ru ru bset nbset -- instead of root indicator this should be Y.ind^Z.
+          insertDHMixedEdge False (c, faConc, faPrem, p) ru ru bset nbset rules instrules (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x))-- instead of root indicator this should be Y.ind^Z.
           return $ showRuleCaseName ru -- (return "done") 
 
 
@@ -637,7 +638,7 @@ solveDHMixedPremise ::  [RuleAC]        -- ^ All rules that have an Out fact con
 solveDHMixedPremise rules p faPrem = do
       nodes <- getM sNodes
       (ru, c, faConc) <-  insertFreshNodeConcMixed rules (M.assocs nodes)
-      insertDHMixedEdge True (c, faConc, faPrem, p)  ru ru (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) -- instead of root indicator this should be Y.ind^Z.
+      insertDHMixedEdge True (c, faConc, faPrem, p)  ru ru (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x))-- instead of root indicator this should be Y.ind^Z.
       return $ showRuleCaseName ru
 
 
