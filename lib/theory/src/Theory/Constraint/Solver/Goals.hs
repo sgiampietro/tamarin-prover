@@ -437,12 +437,12 @@ solveChain rules (c, p) = do
                             trace (show ("esponents not known", faConc, faPrem)) $ solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) (S.toList es)
                             solveChain rules (c, p)
               Nothing -> do 
-                          insertDHMixedEdge False (c, faConc, faPrem, p) cRule pRule bset nbset (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) -- this is where probably you want to do insertDHEdges!
+                          trace (show ("insertingMIXEDEdge", faConc, faPrem, cRule, pRule)) $  insertDHMixedEdge False (c, faConc, faPrem, p) cRule pRule bset nbset (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) -- this is where probably you want to do insertDHEdges!
                           --trace (show ("esponents YES known", faConc, faPrem)) $ solveDHIndaux bset nbset (head $ factTerms faPrem) p faPrem rules (M.assocs nodes)
                           return "edgeinserted"
             void substSystem
             void normSystem
-          else insertEdges [(c, faConc, faPrem, p)] 
+          else trace (show ("insertingNORMALEdge", faConc, faPrem, cRule, pRule)) $  insertEdges [(c, faConc, faPrem, p)] 
         let mPrem = case kFactView faConc of
                       Just (DnK, m') -> m'
                       _              -> error $ "solveChain: impossible"
