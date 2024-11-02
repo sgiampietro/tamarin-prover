@@ -747,10 +747,10 @@ insertDHEdges tuplelist indts premTerm p = do
 
 insertDHMixedEdge :: Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> RuleACInst -> RuleACInst -> S.Set LNTerm -> S.Set LNTerm -> Reduction ()
 insertDHMixedEdge True (c, fa1, fa2, p) cRule pRule bset nbset = do --fa1 should be an Out fact
-    void (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset)
+    void (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset (protoCase SplitNow bset nbset) )
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 insertDHMixedEdge False (c, fa1, fa2, p) cRule pRule bset nbset = do --fa1 should be an Out fact
-    void (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset)
+    void (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset (protoCase SplitNow bset nbset)) -- TODO: FIX THIS!!!!
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
 insertBasisElem :: LNTerm -> Reduction ()
@@ -1028,8 +1028,8 @@ solveTermEqs splitStrat eqs0 =
         noContradictoryEqStore
         return Changed
 
-solveMixedTermEqs :: SplitStrategy -> S.Set LNTerm -> S.Set LNTerm  ->  (LNTerm, LNTerm) -> Reduction ChangeIndicator
-solveMixedTermEqs splitStrat bset nbset (lhs,rhs) =
+solveMixedTermEqs :: SplitStrategy -> S.Set LNTerm -> S.Set LNTerm  -> ((LNTerm,LNTerm)->Reduction ChangeIndicator) -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
+solveMixedTermEqs splitStrat bset nbset fun (lhs,rhs) =
     if (evalEqual (Equal lhs rhs)) then
       return Unchanged
     else (do
@@ -1050,7 +1050,7 @@ solveMixedTermEqs splitStrat bset nbset (lhs,rhs) =
                   _                        -> return eqs2
         let substdhvars = map (\(a,b) -> (applyVTerm compsubst a, applyVTerm compsubst b)) dheqs
             compsubst = substFromList (lhsDHvars ++ rhsDHvars)
-        solveListDHEqs (solveTermDHEqs splitStrat bset nbset (protoCase splitStrat bset nbset)) substdhvars
+        solveListDHEqs (solveTermDHEqs splitStrat bset nbset fun) substdhvars
         noContradictoryEqStore
         return Changed)
 {-solveMixedTermEqs False _ splitStrat bset nbset (lhs,rhs)
@@ -1348,11 +1348,11 @@ solveFactOutKIEqs split (Equal fa1 fa2) = do
     (solveTermEqs split) $ (zipWith (\a b-> Equal a b) (factTerms fa1) (factTerms fa2))
 
 
-solveMixedFactEqs :: SplitStrategy -> Equal LNFact -> S.Set LNTerm -> S.Set LNTerm -> Reduction ChangeIndicator
-solveMixedFactEqs split (Equal fa1 fa2) bset nbset = do
+solveMixedFactEqs :: SplitStrategy -> Equal LNFact -> S.Set LNTerm -> S.Set LNTerm -> ((LNTerm, LNTerm) -> Reduction ChangeIndicator) -> Reduction ChangeIndicator
+solveMixedFactEqs split (Equal fa1 fa2) bset nbset fun = do
     contradictoryIf (not (factTag fa1 == factTag fa2))
     contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
-    solveListDHEqs (solveMixedTermEqs split bset nbset) $ zip (factTerms fa1) (factTerms fa2)
+    solveListDHEqs (solveMixedTermEqs split bset nbset fun) $ zip (factTerms fa1) (factTerms fa2)
 
 
 -- t1 here is the result of factTerms fa2, and indt1 the indicator of one product term of t1. 

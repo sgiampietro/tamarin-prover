@@ -280,7 +280,9 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
             _ | (isMixedFact fa)                       -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList (filter isMixedFact $ get rActs ru)
-                   (void (solveMixedFactEqs SplitNow (Equal fa act) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
+                   let bset = (S.fromList $ basisOfRule ru)
+                       nbset = (S.fromList $ notBasisOfRule ru) 
+                   (void (solveMixedFactEqs SplitNow (Equal fa act) bset nbset (protoCase SplitNow bset nbset)))
                    void substSystem
                    --void normSystem
                    return ru
@@ -307,7 +309,9 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                                                         return ru
             _ | (isMixedFact fa)                  -> do unless (fa `elem` get rActs ru) $ do
                                                           act <- disjunctionOfList (filter isMixedFact $ get rActs ru)
-                                                          trace (show ("HELPPP here1", fa, act)) (void (solveMixedFactEqs SplitNow (Equal fa act) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
+                                                          let bset = (S.fromList $ basisOfRule ru)
+                                                              nbset = (S.fromList $ notBasisOfRule ru)
+                                                          trace (show ("HELPPP here1", fa, act)) (void (solveMixedFactEqs SplitNow (Equal fa act) bset nbset (protoCase SplitNow bset nbset)))
                                                           void substSystem
                                                         return ru
             _                                     -> do unless (fa `elem` get rActs ru) $ do
