@@ -277,10 +277,10 @@ insertFreshNodeConcOutInst rules instrules n Nothing = do
       let pairs = [(ru, (i,c), f, rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, rterm <- multRootList (head $ factTerms f)]
       disjunctionOfList (concatMap permutations (combinations n pairs)) 
 insertFreshNodeConcOutInst rules instrules n (Just (j,ruj,faConc,cj)) = do
-      irulist <- replicateM n $ traverseDHNodes rules
+      irulist <- trace (show ("whyamInotehere", n , rules)) $ replicateM n $ traverseDHNodes rules
       let pairs = [(ru, (i,c), f, rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, rterm <- multRootList (head $ factTerms f)]
-          pairs2 = [(ruj, (j,cj), faConc, rterm , Nothing,False) | rterm <- multRootList (head $ factTerms faConc) ]
-      disjunctionOfList (concatMap permutations (filter ( any (\(a,(i,b),c,d,e,f) -> i==j && a ==ruj)) (combinations n $ pairs++pairs2)) )
+          pairs2 =  [(ruj, (j,cj), faConc, rterm , Nothing,False) | rterm <- multRootList (head $ factTerms faConc) ]
+      trace (show ("this is j,jc", (j,ruj,faConc,cj))) $ disjunctionOfList (concatMap permutations (filter ( any (\(a,(i,b),c,d,e,f) -> i==j && a ==ruj)) (combinations n $ pairs++pairs2)) )
 
 
 insertFreshNodeConcOutInstMixed ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, LNFact)
@@ -745,13 +745,24 @@ insertDHEdges tuplelist indts premTerm p = do
     forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
     forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
 
-insertDHMixedEdge :: Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> RuleACInst -> RuleACInst -> S.Set LNTerm -> S.Set LNTerm -> Reduction ()
-insertDHMixedEdge True (c, fa1, fa2, p) cRule pRule bset nbset = do --fa1 should be an Out fact
+insertDHMixedEdge :: Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> RuleACInst -> RuleACInst 
+                    -> S.Set LNTerm -> S.Set LNTerm -> [RuleAC] -> [(NodeId, RuleACInst)] ->
+                    (LNTerm -> NodeId -> StateT System (FreshT (DisjT (Reader ProofContext))) a0) -> Reduction ()
+insertDHMixedEdge True (c, fa1, fa2, p) cRule pRule bset nbset rules rulesinst fun = do --fa1 should be an Out fact
     void (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset (protoCase SplitNow bset nbset) )
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
-insertDHMixedEdge False (c, fa1, fa2, p) cRule pRule bset nbset = do --fa1 should be an Out fact
-    void (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset (protoCase SplitNow bset nbset)) -- TODO: FIX THIS!!!!
-    modM sEdges (\es -> foldr S.insert es [ Edge c p ])
+insertDHMixedEdge False ((ic,c), fa1, fa2, p) cRule pRule bset nbset rules rulesinst fun= do --fa1 should be an Out fact
+    let chainFun = solveTermDHEqsChain SplitNow rules rulesinst fun p fa2 (ic, cRule, fa1, c)
+    trace (show ("mixedCHAIN:fa1 fa2", fa1,fa2)) (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset chainFun) -- TODO: FIX THIS!!!!
+    modM sEdges (\es -> foldr S.insert es [ Edge (ic,c) p ])
+
+{-
+solveTermDHEqsChain :: SplitStrategy -> [RuleAC] -> [(NodeId,RuleACInst)] -> 
+                        (LNTerm -> NodeId -> StateT  System (FreshT (DisjT (Reader ProofContext))) a0) 
+                        -> NodePrem -> LNFact -> (NodeId, RuleACInst, LNFact, ConcIdx)
+                        -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
+solveTermDHEqsChain
+-}
 
 insertBasisElem :: LNTerm -> Reduction ()
 insertBasisElem x = do
@@ -1032,7 +1043,7 @@ solveMixedTermEqs :: SplitStrategy -> S.Set LNTerm -> S.Set LNTerm  -> ((LNTerm,
 solveMixedTermEqs splitStrat bset nbset fun (lhs,rhs) =
     if (evalEqual (Equal lhs rhs)) then
       return Unchanged
-    else (do
+    else trace (show ("PROBLEMO?",lhs, rhs)) (do
         (cleanedlhs, lhsDHvars) <- clean lhs
         (cleanedrhs, rhsDHvars) <- clean rhs 
         hnd <- getMaudeHandle
@@ -1274,10 +1285,10 @@ solveTermDHEqsChain splitStrat rules instrules fun p faPrem (j,ruj, fa1, c) (ta1
               neededInds = filter (not . isPublic) indlist
               n = length neededInds
           if null neededInds 
-            then insertDHEdge ((j,c), fa1, faPrem, p) bset nbset -- TODO: fix this
+            then trace (show "reallynotgood") $ insertDHEdge ((j,c), fa1, faPrem, p) bset nbset -- TODO: fix this
             else do
-              possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n (Just (j,ruj, fa1, c))
-              insertDHEdges possibletuple neededInds ta1 p
+              possibletuple <- trace (show ("herewithTUPLE2", (j,ruj, fa1, c), faPrem, fa1)) $ insertFreshNodeConcOutInst rules instrules n (Just (j,ruj, fa1, c))
+              trace (show ("herewithTUPLE", possibletuple, faPrem, fa1)) $ insertDHEdges possibletuple neededInds ta1 p
           return Changed
       es -> do
           --trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem
@@ -1319,8 +1330,8 @@ solveTermDHEqs splitStrat bset nbset fun (ta1, ta2)
         | otherwise = case (isPubExp ta1, isPubExp ta2) of
                 (Just (pg1,e1), Just (pg2,e2)) -> do
                     solveTermEqs splitStrat [(Equal pg1 pg2)]
-                    solveTermDHEqs splitStrat bset nbset fun (e1, e2)
-                _ -> fun (ta1,ta2)
+                    trace (show ("Exponenntsmatching", e1,e2)) $ solveTermDHEqs splitStrat bset nbset fun (e1, e2)
+                _ -> trace (show ("Applying functio on", ta1, ta2)) $ fun (ta1,ta2)
 
 
 
