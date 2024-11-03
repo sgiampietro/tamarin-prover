@@ -118,11 +118,6 @@ openGoals sys = do
         -- explicitly if they still exist.
         SplitG idx -> splitExists (get sEqStore sys) idx
         SubtermG st -> st `elem` L.get (posSubterms . sSubtermStore) sys
-        DHIndG _ _ -> not solved
-        NoCancG _ -> not solved
-        NeededG _ _ -> not solved
-        IndicatorG _ -> not solved
-        IndicatorGExp _ _ -> not solved
 
     let
         useful = case goal of
@@ -229,11 +224,7 @@ solveGoal goal = do
       SplitG i      -> solveSplit i
       DisjG disj    -> solveDisjunction disj
       SubtermG st   -> solveSubterm st
-      DHIndG p fa -> if (isDHFact fa) then (solveDHInd (get crProtocol rules) p fa) else (solveDHIndMixed (get crProtocol rules) p fa)
       NoCancG (t1, t2) -> solveNoCanc t1 t2
-      NeededG x i    -> solveNeeded (\x i -> solvePremise (get crProtocol rules ++ get crConstruct rules) (i, PremIdx 0) (kIFact x)) x i
-      IndicatorG (t1, t2) -> solveIndicator t1 t2
-      IndicatorGExp nb (t1, t2) -> solveIndicatorProto nb t1 t2 -- todo do we also need the basis sets here?
 
 -- The following functions are internal to 'solveGoal'. Use them with great
 -- care.
@@ -589,7 +580,6 @@ solveDHIndauxMixed :: S.Set LNTerm -> S.Set LNTerm -> [LNTerm] -> NodePrem -> LN
 solveDHIndauxMixed bset nbset terms p faPrem rules instrules =
   case neededexponentslist bset nbset terms of
       (Just es) -> do
-          --trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem
           solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) (S.toList es)
           (solveDHIndMixed  rules p faPrem)
           return "LeakedSetInserted"
@@ -614,7 +604,6 @@ solveDHIndaux bset nbset term p faPrem rules instrules =
               insertDHEdges possibletuple neededInds term p
               return $ "MatchingEachIndicatorWithOutFacts" 
       es -> do
-          --trace (show ("NEEDEDEXPO", es)) insertNeededList (S.toList es) p faPrem
           solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) es
           (solveDHInd rules p faPrem)
           return "LeakedSetInserted"

@@ -163,11 +163,7 @@ solveAllSafeGoals ths' openChainsLimit =
         SplitG _      -> doSplit --extensiveSplitting &&
         -- SplitG _      -> False
         SubtermG _    -> doSplit
-        DHIndG _ _ -> False 
         NoCancG _ -> False 
-        NeededG _ _ -> False 
-        IndicatorG _ -> False
-        IndicatorGExp _ _ -> False
 
     usefulGoal (_, (_, Useful)) = True
     usefulGoal _                = False
