@@ -22,7 +22,6 @@ module Theory.Constraint.System.Constraints (
   , NodeConc
   , Edge(..)
   , NoCanc(..)
-  , ContInd(..)
   , Reason(..)
   , Less
 
@@ -122,10 +121,6 @@ instance HasFrees Edge where
 type NoCanc = (LNTerm, LNTerm)
    -- deriving (Show, Ord, Eq, Data, Typeable, Generic, NFData, Binary)
 
-type ContInd = M.Map LNTerm [LNTerm]
-   -- deriving (Show, Ord, Eq, Data, Typeable, Generic, NFData, Binary)
-
-
 ------------------------------------------------------------------------------
 -- Goals
 ------------------------------------------------------------------------------
@@ -147,11 +142,7 @@ data Goal =
        -- ^ A case split over a disjunction.
      | SubtermG (LNTerm, LNTerm)
        -- ^ A split of a Subterm which is in SubtermStore -> _subterms
-     | DHIndG NodePrem LNFact -- I think this might be unnecessary.
      | NoCancG (LNTerm, LNTerm)
-     | NeededG LNTerm NodeId
-     | IndicatorG (LNTerm, [LNTerm])
-     | IndicatorGExp [LNTerm] (LNTerm, LNTerm)
      deriving( Eq, Ord, Show, Generic, NFData, Binary )
 
 -- Indicators
@@ -198,11 +189,7 @@ instance HasFrees Goal where
         SplitG i      -> foldFrees f i
         DisjG x       -> foldFrees f x
         SubtermG p    -> foldFrees f p
-        DHIndG i fa  -> foldFrees f i <> foldFrees f fa -- <> foldFrees f ta -- I think this might be unnecessary.
         NoCancG p    -> foldFrees f p
-        NeededG ta p -> foldFrees f ta <> foldFrees f p
-        IndicatorG p    -> foldFrees f p
-        IndicatorGExp nb p    -> foldFrees f nb <> foldFrees f p
 
     foldFreesOcc  f c goal = case goal of
         ActionG i fa -> foldFreesOcc f ("ActionG":c) (i, fa)
@@ -216,11 +203,7 @@ instance HasFrees Goal where
         SplitG i      -> SplitG   <$> mapFrees f i
         DisjG x       -> DisjG    <$> mapFrees f x
         SubtermG p    -> SubtermG <$> mapFrees f p
-        DHIndG i fa -> DHIndG <$> mapFrees f i <*> mapFrees f fa -- <*> mapFrees f ta -- I think this might be unnecessary.
         NoCancG p    -> NoCancG <$> mapFrees f p
-        NeededG ta p -> NeededG <$> mapFrees f ta <*> mapFrees f p
-        IndicatorG p    -> IndicatorG <$> mapFrees f p
-        IndicatorGExp nb p    -> IndicatorGExp <$> mapFrees f nb <*> mapFrees f p
 
 instance Apply LNSubst Goal where
     apply subst goal = case goal of
@@ -230,12 +213,7 @@ instance Apply LNSubst Goal where
         SplitG i      -> SplitG   (apply subst i)
         DisjG x       -> DisjG    (apply subst x)
         SubtermG p    -> SubtermG (apply subst p)
-        DHIndG i fa  -> DHIndG (apply subst i) (apply subst fa) -- (apply subst ta) -- I think this might be unnecessary.
         NoCancG p    -> NoCancG (apply subst p)
-        NeededG ta p -> NeededG (apply subst ta) (apply subst p)
-        IndicatorG p    -> IndicatorG (apply subst p)
-        IndicatorGExp nb p    -> IndicatorGExp (apply subst nb) (apply subst p)
-
 
 
 ------------------------------------------------------------------------------
@@ -283,8 +261,4 @@ prettyGoal (SplitG x) =
     text "splitEqs" <> parens (text $ show (unSplitId x))
 prettyGoal (SubtermG (l,r)) =
     prettyLNTerm l <-> operator_ "⊏" <-> prettyLNTerm r
-prettyGoal (DHIndG i fa) =  text "SearchForIndicator" <-> prettyLNFact fa
 prettyGoal (NoCancG (l,r) ) = prettyLNTerm l <-> text "NoCanc" <-> prettyLNTerm r
-prettyGoal (NeededG ta p ) = prettyLNTerm ta <-> text "Needed" <-> prettyNodeId p
-prettyGoal (IndicatorG (l,r) ) = prettyLNTerm l <-> text "is contained in" <-> prettyLNTerm (head r)
-prettyGoal (IndicatorGExp nb (l,r) ) = prettyLNTerm l <-> text "contains indicator of" <-> prettyLNTerm r
