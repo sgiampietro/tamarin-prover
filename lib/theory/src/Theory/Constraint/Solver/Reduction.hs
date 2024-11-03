@@ -274,7 +274,8 @@ insertFreshNodeConcOutInst rules instrules n (Just (j,ruj,faConc,cj)) = do
       irulist <- replicateM n $ traverseDHNodes rules
       let pairs = [(ru, (i,c), f, rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, rterm <- multRootList (head $ factTerms f)]
           pairs2 =  [(ruj, (j,cj), faConc, rterm , Nothing,False) | rterm <- multRootList (head $ factTerms faConc) ]
-      disjunctionOfList (concatMap permutations (filter ( any (\(a,(i,b),c,d,e,f) -> i==j && a ==ruj)) (combinations n $ pairs++pairs2)) )
+          finallist = (concatMap permutations (filter ( any (\(a,(i,b),c,d,e,f) -> i==j && a ==ruj)) (combinations n $ pairs++pairs2)) )
+      trace (show ("lengthofdisjunctions", length finallist)) $ disjunctionOfList finallist
 
 
 insertFreshNodeConcOutInstMixed ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, LNFact)
@@ -731,6 +732,7 @@ insertDHEdges tuplelist indts premTerm p = do
 insertDHMixedEdge :: Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> RuleACInst -> RuleACInst 
                     -> S.Set LNTerm -> S.Set LNTerm -> [RuleAC] -> [(NodeId, RuleACInst)] ->
                     (LNTerm -> NodeId -> StateT System (FreshT (DisjT (Reader ProofContext))) a0) -> Reduction ()
+-- fa1 is conclusion, fa2 is premise
 insertDHMixedEdge True (c, fa1, fa2, p) cRule pRule bset nbset rules rulesinst fun = do --fa1 should be an Out fact
     (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset (protoCase SplitNow bset nbset) )
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
@@ -739,13 +741,6 @@ insertDHMixedEdge False ((ic,c), fa1, fa2, p) cRule pRule bset nbset rules rules
     (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset chainFun) -- TODO: FIX THIS!!!!
     modM sEdges (\es -> foldr S.insert es [ Edge (ic,c) p ])
 
-{-
-solveTermDHEqsChain :: SplitStrategy -> [RuleAC] -> [(NodeId,RuleACInst)] -> 
-                        (LNTerm -> NodeId -> StateT  System (FreshT (DisjT (Reader ProofContext))) a0) 
-                        -> NodePrem -> LNFact -> (NodeId, RuleACInst, LNFact, ConcIdx)
-                        -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
-solveTermDHEqsChain
--}
 
 insertBasisElem :: LNTerm -> Reduction ()
 insertBasisElem x = do
@@ -1150,7 +1145,7 @@ solveTermDHEqsChain :: SplitStrategy -> [RuleAC] -> [(NodeId,RuleACInst)] ->
 solveTermDHEqsChain splitStrat rules instrules fun p faPrem (j,ruj, fa1, c) (ta1,ta2) = do
     bset <- getM sBasis
     nbset <- getM sNotBasis
-    case neededexponents bset nbset ta1 of
+    case neededexponents bset nbset ta2 of -- ta2 is a term of faPrem
       [] -> do  -- TODO: this is where we need to check multiple Out facts!! 
           hndNormal <- getMaudeHandle
           let indlist = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList ta1)
@@ -1160,7 +1155,7 @@ solveTermDHEqsChain splitStrat rules instrules fun p faPrem (j,ruj, fa1, c) (ta1
             then insertDHEdge ((j,c), fa1, faPrem, p) bset nbset -- TODO: fix this
             else do
               possibletuple <- insertFreshNodeConcOutInst rules instrules n (Just (j,ruj, fa1, c))
-              insertDHEdges possibletuple neededInds ta1 p
+              insertDHEdges possibletuple neededInds ta2 p
           return Changed
       es -> do
           solveNeededList fun es
