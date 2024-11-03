@@ -348,7 +348,7 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
              -> Reduction String -- ^ Case name to use.
 solvePremise rules p faPrem
   | isKdhFact faPrem && isDHFact faPrem = (solveDHInd rules p faPrem)
-  | isKdhFact faPrem && isMixedFact faPrem = error "Do I get here?"-- (solveDHIndMixed rules p faPrem)
+  | isKdhFact faPrem && isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
   | (isInFact faPrem && isDHFact faPrem) = solveDHInd rules p faPrem
   {-| (isInFact faPrem && isMixedFact faPrem) = do
       (ru, c, faConc) <- insertFreshNodeConc rules
@@ -466,7 +466,7 @@ solveChain rules (c, p) = do
                 contradictoryIf (isMsgVar m || isGVar m || isEVar m)
                 cRule <- gets $ nodeRule (nodeConcNode c)
                 (i, ru) <- insertFreshNode rules (Just cRule)
-                contradictoryIf (forbiddenEdge cRule ru)
+                trace (show ("lengthruleshere", length rules)) $ contradictoryIf (forbiddenEdge cRule ru)
                 -- This requires a modified chain constraint def:
                 -- path via first destruction premise of rule ...
                 (v, faPrem) <- disjunctionOfList $ take 1 $ enumPrems ru
