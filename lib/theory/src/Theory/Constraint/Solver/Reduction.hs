@@ -37,6 +37,7 @@ module Theory.Constraint.Solver.Reduction (
   , enumConcsDhExpOut
   -- ** Inserting nodes, edges, and atoms
   , labelNodeId
+  , exploitNodeId
   , insertFreshNode
   , insertFreshNodeMixed
   , insertFreshNodeConc
@@ -286,7 +287,7 @@ insertFreshNodeConcOutInstMixed rules instrules = do
     `disjunction`
     (do
             (i, ru) <- insertFreshNode rules Nothing
-            (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru, (factTag f == OutFact), not $ isDHFact f, isMixedFact f ]
+            (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru, (factTag f == OutFact)]
             return (ru, (i, v), fa))
 
 insertFreshNodeMixed :: [RuleAC] -> [(NodeId,RuleACInst)] -> Maybe RuleACInst -> Reduction (NodeId, RuleACInst)
@@ -356,7 +357,8 @@ exploitNodeId i ru mrconstrs = do
 
     exploitPrem i ru (v, fa) = case fa of
         -- CR-rule *DG2_2* specialized for *In* facts.
-        Fact InFact ann [m] | (not $ isDHFact fa) -> do
+        -- Fact InFact ann [m] | (not $ isDHFact fa) -> do
+        Fact InFact ann [m]  -> do
             j <- freshLVar "vf" LSortNode
             ruKnows <- mkISendRuleAC ann m
             modM sNodes (M.insert j ruKnows)

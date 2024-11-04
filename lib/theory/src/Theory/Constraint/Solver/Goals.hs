@@ -40,6 +40,7 @@ import           Data.List                               (union)
 import           Control.Basics
 import           Control.Category
 import           Control.Monad.Disj
+import           Control.Monad.Bind
 import           Control.Monad.State                     (gets)
 import           Control.Monad.Trans.State.Lazy          hiding (get,gets)
 import           Control.Monad.Trans.FastFresh           -- GHC7.10 needs: hiding (get,gets)
@@ -235,7 +236,7 @@ solveAction :: [RuleAC]          -- ^ All rules labelled with an action
             -> (NodeId, LNFact)  -- ^ The action we are looking for.
             -> Reduction String  -- ^ A sensible case name.
 solveAction rules (i, fa@(Fact _ ann _)) = do
-    mayRu <- trace (show ("SOLVINGACTION:", fa)) $ M.lookup i <$> getM sNodes
+    mayRu <- M.lookup i <$> getM sNodes
     showRuleCaseName <$> case mayRu of
         Nothing -> case fa of
             (Fact KUFact _ [m@(viewTerm2 -> FXor ts)]) -> do
@@ -253,13 +254,11 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                             modM sNodes (M.insert i ru)
                             mapM_ requiresKU [a, b] *> return ru
             -- Distinguish DH term cases!!
-            (Fact KUFact _ [m]) | (isMixedFact fa)      -> do
-                   ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
+            (Fact KUFact _ [m]) | (isMixedFact fa) -> do
+                   ru  <- labelNodeId i (annotatePrems <$> rules) Nothing -- TODO:probably want to also check existing rules
                    act <- disjunctionOfList (get rActs ru)
-                   (void (solveFactEqs SplitNow [Equal fa act]))
-                   --(void (solveMixedFactEqs SplitNow (Equal fa act) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
+                   trace (show ("I'm hereee", fa)) (void (solveFactEqs SplitNow [Equal fa act]))
                    void substSystem
-                   --void normSystem
                    return ru
             _ | (isDHFact fa)                       -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing -- TODO:probably want to also check existing rules
@@ -267,7 +266,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                    (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
                    void substSystem
                    --void normSystem
-                   return ru
+                   return ru 
             _ | (isMixedFact fa)                       -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList (filter isMixedFact $ get rActs ru)
@@ -286,18 +285,16 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
         Just ru ->  case fa of
             (Fact KUFact _ [m]) | (isMixedFact fa)      -> do
                    act <- disjunctionOfList (get rActs ru)
-                   --(void (solveMixedFactEqs SplitNow (Equal fa act) (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru)))
                    (void (solveFactEqs SplitNow [Equal fa act]))
                    void substSystem
                    --void normSystem
-                   return ru
-            --Distinguish DH Term cases!!
+                   return ru 
             _ | isDHFact fa                       -> do unless (fa `elem` get rActs ru) $ do
                                                           act <- disjunctionOfList (filter isDHFact $ get rActs ru)
                                                           (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
                                                           void substSystem
                                                           --void normSystem
-                                                        return ru
+                                                        return ru 
             _ | (isMixedFact fa)                  -> do unless (fa `elem` get rActs ru) $ do
                                                           act <- disjunctionOfList (filter isMixedFact $ get rActs ru)
                                                           let bset = (S.fromList $ basisOfRule ru)
@@ -322,19 +319,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
         let faKU = kuFact t
         insertLess j i Adversary
         void (insertAction j faKU)
-    {-solveKUAction = do
-                   ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
-                   act <- disjunctionOfList $ get rActs ru
-                   (void (solveActionFactDHEqs SplitNow (Equal fa act) ru)) 
-                   return ru
-    solveKU ruk =  do unless (fa `elem` get rActs ruk) $ do
-                            act <- disjunctionOfList $ get rActs ruk
-                            (void (solveActionFactDHEqs SplitNow (Equal fa act) ruk)) 
-                      return ruk
-    solveProto = do
-                   ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
-                   act <- disjunctionOfList $ get rActs ru
-                   solveProtoAction ru -}
+
 
 -- | CR-rules *DG_{2,P}* and *DG_{2,d}*: solve a premise with a direct edge
 -- from a unifying conclusion or using a destruction chain.
@@ -347,12 +332,12 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
              -> LNFact         -- ^ Fact required at this premise.
              -> Reduction String -- ^ Case name to use.
 solvePremise rules p faPrem
-  | isKdhFact faPrem && isDHFact faPrem = (solveDHInd rules p faPrem)
-  | isKdhFact faPrem && isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
-  | (isInFact faPrem && isDHFact faPrem) = trace (show ("solvingINFACT here", faPrem)) solveDHInd rules p faPrem
+  -- | isKdhFact faPrem && isDHFact faPrem = (solveDHInd rules p faPrem)
+  -- | isKdhFact faPrem && isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
+  -- | (isInFact faPrem && isDHFact faPrem) = trace (show ("solvingINFACT here", faPrem)) solveDHInd rules p faPrem
   | isProtoDHFact faPrem =  trace (show ("SOLVINGPREMISEDH:", faPrem)) $ solveDHIndProto rules p faPrem
   | isProtoMixedFact faPrem = solveDHMixedPremise rules p faPrem
-  | isKDFact faPrem && isMixedFact faPrem = do
+  {-| isKDFact faPrem && isMixedFact faPrem = do
       -- nodes <- getM sNodes
       -- ruless <- askM pcRules
       iLearn    <- freshLVar "vl" LSortNode
@@ -369,10 +354,7 @@ solvePremise rules p faPrem
       void substSystem
       void normSystem
       seqst <- getM sEqStore
-      trace (show ("currenteqstore", seqst)) $ return "chain inserted"
-      --solvePremise rules pLearn premLearn
-      --insertGoal (PremiseG pLearn premLearn) False
-      --solveChain (get crDestruct ruless) (cLearn,p)  -}
+      trace (show ("currenteqstore", seqst)) $ return "chain inserted" -}
   | isKDFact faPrem = do
       iLearn    <- freshLVar "vl" LSortNode
       mLearn    <- varTerm <$> freshLVar "t" LSortMsg
@@ -385,17 +367,16 @@ solvePremise rules p faPrem
       modM sNodes  (M.insert iLearn ruLearn)
       insertChain cLearn p
       solvePremise rules pLearn premLearn
-  -- | isMixedFact faPrem && not (isKIFact faPrem) = trace (show ("SOLVINMixedPREMISE:", faPrem)) $ (solveDHIndMixed rules p faPrem)
-  {-| isOut faPrem && isDHFact faPrem = trace (show ("IAMHERE>fiomd_", faPrem)) $ solveDHInd rules p faPrem
-  | isOut faPrem && isMixedFact faPrem = do    
+  | isOut faPrem = do    
       nodes <- trace (show ("SOLVINGOUTPREMISE:", faPrem)) $ getM sNodes
       (ru, c, faConc) <- insertFreshNodeConcOutInstMixed rules (M.assocs nodes)
       trace (show ("withedge:", faPrem, faConc)) $ insertEdges [(c, faConc, faPrem, p)]
-      return $ showRuleCaseName ru  -}
+      return $ showRuleCaseName ru  
   | isKIFact faPrem && isDHFact faPrem = do 
       (ru, c, faConc) <- insertFreshNodeConc rules
       trace (show ("SOLVINGKIPREMISE:", faPrem, faConc)) $ insertOutKIEdge (c, faConc, faPrem, p)
       return $ showRuleCaseName ru
+  | isMixedFact faPrem = trace (show ("SOLVINMixedPREMISE:", faPrem)) $ (solveDHIndMixed rules p faPrem)
   | otherwise = do
       (ru, c, faConc) <- insertFreshNodeConc rules
       trace (show ("SOLVINGNORMALPREMISE:", faPrem, faConc)) $ insertEdges [(c, faConc, faPrem, p)]
