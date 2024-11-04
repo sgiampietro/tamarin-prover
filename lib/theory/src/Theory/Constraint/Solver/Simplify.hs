@@ -296,7 +296,7 @@ solveUniqueActions = do
            && null [ () | t <- ts, FUnion _ <- return (viewTerm2 t) ]
 
         trySolve (i, fa)
-          | isUnique fa && (not $ isDHFact fa) = trace (show ("SOLVINGFROMHERE", fa)) (solveGoal (ActionG i fa) >> return Changed)
+          | isUnique fa && (not $ isDHFact fa) && (not $ isMixedFact fa)= trace (show ("SOLVINGFROMHERE", fa)) (solveGoal (ActionG i fa) >> return Changed)
           | otherwise   = return Unchanged
 
     mconcat <$> mapM trySolve actionAtoms

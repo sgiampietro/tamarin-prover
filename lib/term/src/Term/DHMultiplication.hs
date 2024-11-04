@@ -300,6 +300,10 @@ rootIndUnknown n nb t = ( LIT (Var newv), [(newv, t)])
     where newv = getNewSimilarVar (LVar "t" LSortG 0) tvars
           tvars =  varsVTerm t
 
+{-
+isNoCanc :: LNTerm -> LNTerm -> Bool
+isNoCanc _ _ = True
+-}
 
 isNoCanc :: LNTerm -> LNTerm -> Bool
 isNoCanc t1 t2 | isFrNZEVar t1 = True

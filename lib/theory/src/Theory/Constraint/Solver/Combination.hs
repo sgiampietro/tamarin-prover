@@ -38,7 +38,7 @@ import Term.DHMultiplication
 import Term.LTerm -- (LNTerm)
 
 -- import Theory.Constraint.System.Constraints
-import Debug.Trace -- .Ignore
+import Debug.Trace.Ignore
 import Data.ByteString.Builder (word16BE)
 
 
@@ -188,7 +188,7 @@ createMatrix nb terms target =
   trace (show ("thisistheresultingmatrix", createdmatrix, "vars", vars)) createdmatrix -- todo: double check if row/column is ok or needs to be switched
 
 solveIndicatorGauss :: [LNTerm] -> [LNTerm] -> LNTerm -> Maybe [LNTerm]
-solveIndicatorGauss nb terms target = trace (show ("solving matrix for terms and target", terms,(map gTerm2Exp terms), target, (gTerm2Exp target))) $ solveMatrix fAppdhZero $ createMatrix (nb) (map gTerm2Exp terms) (gTerm2Exp target)
+solveIndicatorGauss nb terms target = solveMatrix fAppdhZero $ createMatrix (nb) (map gTerm2Exp terms) (gTerm2Exp target)
 -- TODO: these terms are possible G, terms. We assume here that our terms are always of the form
 -- 'g'^x for some fixed g, so we need to transform them to their exponent values. 
 

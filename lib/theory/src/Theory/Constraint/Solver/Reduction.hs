@@ -738,7 +738,7 @@ insertDHMixedEdge True (c, fa1, fa2, p) cRule pRule bset nbset rules rulesinst f
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 insertDHMixedEdge False ((ic,c), fa1, fa2, p) cRule pRule bset nbset rules rulesinst fun= do --fa1 should be an Out fact
     let chainFun = solveTermDHEqsChain SplitNow rules rulesinst fun p fa2 (ic, cRule, fa1, c)
-    (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset chainFun) -- TODO: FIX THIS!!!!
+    trace (show ("MixedEQUAL fa1, fa2", fa1, fa2)) (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset chainFun) -- TODO: FIX THIS!!!!
     modM sEdges (\es -> foldr S.insert es [ Edge (ic,c) p ])
 
 
@@ -995,6 +995,7 @@ solveTermEqs splitStrat eqs0 =
 solveMixedTermEqs :: SplitStrategy -> S.Set LNTerm -> S.Set LNTerm  -> ((LNTerm,LNTerm)->Reduction ChangeIndicator) -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
 solveMixedTermEqs splitStrat bset nbset fun (lhs,rhs) 
     | (evalEqual (Equal lhs rhs)) = return Unchanged
+    | isDHTerm lhs && isDHTerm rhs = (solveTermDHEqs splitStrat bset nbset fun) (lhs,rhs)
     | isMixedTerm rhs = do
         (cleanedlhs, lhsDHvars) <- clean lhs
         (cleanedrhs, rhsDHvars) <- clean rhs 
@@ -1169,7 +1170,7 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
         let ta11 = applyVTerm (_eqsSubst subst) ta1
             ta22 = applyVTerm (_eqsSubst subst) ta2
         nocancs <- getM sNoCanc
-        hndNormal <- getMaudeHandle
+        hndNormal <- trace (show ("ERRORHEREWHY?:", ta11, ta1, ta2)) getMaudeHandle
         case prodTerms ta11 of
             Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
                           else do
@@ -1184,19 +1185,23 @@ solveTermDHEqs :: SplitStrategy -> S.Set LNTerm -> S.Set LNTerm -> ((LNTerm,LNTe
 solveTermDHEqs splitStrat bset nbset fun (ta1, ta2)
         | ta1 == ta2 = return Unchanged
         | (isDHLit ta1 && compatibleLits ta1 ta2) = (do
-                            solveTermEqs splitStrat [(Equal ta1 ta2)]
+                            trace (show ("MARK1", ta1, ta2)) $ solveTermEqs splitStrat [(Equal ta1 ta2)]
                             void substSystem
-                            void normSystem
+                            trace (show ("solveeed1", ta1, ta2)) $ void normSystem
                             return Changed)
-        | (isDHLit ta2 && compatibleLits ta1 ta2) = ( do
-                            solveTermEqs splitStrat [(Equal ta1 ta2)]
+        | (isDHLit ta2 && compatibleLits ta2 ta1) = ( do
+                            trace (show ("MARK2", ta1, ta2)) $ solveTermEqs splitStrat [(Equal ta1 ta2)]
                             void substSystem
-                            void normSystem
+                            trace (show ("solveeed2", ta1, ta2)) $ void normSystem
                             return Changed)
         | otherwise = case (isPubExp ta1, isPubExp ta2) of
                 (Just (pg1,e1), Just (pg2,e2)) -> do
-                    solveTermEqs splitStrat [(Equal pg1 pg2)]
-                    solveTermDHEqs splitStrat bset nbset fun (e1, e2)
+                    if pg1 == pg2 
+                     then do
+                        trace (show ("nowhere", ta1, ta2)) $ solveTermDHEqs splitStrat bset nbset fun (e1, e2)
+                     else do
+                        trace (show ("shouldbegettinghere", ta1, ta2)) $ solveTermEqs splitStrat [(Equal pg1 pg2)]
+                        solveTermDHEqs splitStrat bset nbset fun (e1, e2)
                 _ -> fun (ta1,ta2)
 
 
@@ -1227,8 +1232,13 @@ solveMixedFactEqs :: SplitStrategy -> Equal LNFact -> S.Set LNTerm -> S.Set LNTe
 solveMixedFactEqs split (Equal fa1 fa2) bset nbset fun = do
     contradictoryIf (not (factTag fa1 == factTag fa2))
     contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
-    solveListDHEqs (solveMixedTermEqs split bset nbset fun) $ zip (factTerms fa1) (factTerms fa2)
-
+    let normalfacts = filter (\a -> not $ isMixedTerm a) (factTerms fa1) 
+        normalfacts2 = filter (\a -> not $ isMixedTerm a) (factTerms fa2) 
+    solveTermEqs split $ zipWith (\a b -> (Equal a b)) normalfacts normalfacts2 
+    subst <- getM sEqStore
+    let dhfacts1 = map (applyVTerm (_eqsSubst subst)) (factTerms fa1) -- filter isMixedTerm (factTerms fa1) 
+        dhfacts2 = map (applyVTerm (_eqsSubst subst)) (factTerms fa2) -- filter isMixedTerm (factTerms fa2)
+    solveListDHEqs (solveMixedTermEqs split bset nbset fun) $ zip dhfacts1 dhfacts2
 
 -- t1 here is the result of factTerms fa2, and indt1 the indicator of one product term of t1. 
 solveFactDHEqs ::  SplitStrategy -> LNFact -> LNFact -> S.Set LNTerm -> S.Set LNTerm  -> ((LNTerm,LNTerm)->Reduction ChangeIndicator) ->  Reduction ChangeIndicator
