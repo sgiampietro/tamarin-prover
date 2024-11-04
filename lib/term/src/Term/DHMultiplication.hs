@@ -171,7 +171,7 @@ rootSet operator t@(FAPP (DHMult o) ts) = case ts of
     [ t1 ]                        -> S.singleton t
     []                            -> S.singleton t
     _         -> error $ "malformed term `"++show t++"'"
-rootSet operator t = error ("rootSet applied on non DH term'"++show t++"'")
+rootSet operator t = error ("rootSet applied on non DH term'"++show t++"Done")
 
 multRootList :: (Show a, Ord a ) => Term a ->  [(Term a)]
 multRootList a = S.toList (rootSet dhMultSym a)
@@ -290,7 +290,7 @@ rootIndKnown b nb t@(viewTerm2 -> Lit2 (Var t1))
 rootIndKnown b nb t@(viewTerm2 -> DHZero) = (FAPP (DHMult dhOneSym) [])
 rootIndKnown b nb t@(viewTerm2 -> DHOne) = (FAPP (DHMult dhOneSym) [])
 rootIndKnown b nb t@(viewTerm2 -> DHEg) = (FAPP (DHMult dhEgSym) [])
-rootIndKnown b nb _ = error "rootSet applied on non DH term'"
+rootIndKnown b nb t = error ("rootSet applied on non DH"++show t++"term")
 
 rootIndKnownMaude::  S.Set LNTerm -> S.Set LNTerm -> LNTerm -> WithMaude LNTerm
 rootIndKnownMaude b nb t = norm' (rootIndKnown b nb t)
