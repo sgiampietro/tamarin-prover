@@ -332,8 +332,8 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
              -> LNFact         -- ^ Fact required at this premise.
              -> Reduction String -- ^ Case name to use.
 solvePremise rules p faPrem
-  -- | isKdhFact faPrem && isDHFact faPrem = (solveDHInd rules p faPrem)
-  -- | isKdhFact faPrem && isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
+  | isKdhFact faPrem && isDHFact faPrem = (solveDHInd rules p faPrem)
+  | isKdhFact faPrem && isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
   -- | (isInFact faPrem && isDHFact faPrem) = trace (show ("solvingINFACT here", faPrem)) solveDHInd rules p faPrem
   | isProtoDHFact faPrem =  trace (show ("SOLVINGPREMISEDH:", faPrem)) $ solveDHIndProto rules p faPrem
   | isProtoMixedFact faPrem = solveDHMixedPremise rules p faPrem
