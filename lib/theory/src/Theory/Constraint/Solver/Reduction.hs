@@ -737,10 +737,10 @@ insertDHMixedEdge :: Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> RuleACInst 
 -- fa1 is conclusion, fa2 is premise
 insertDHMixedEdge True (c, fa1, fa2, p) cRule pRule bset nbset rules rulesinst fun = do --fa1 should be an Out fact
     (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset (protoCase SplitNow bset nbset) )
-    modM sEdges (\es -> foldr S.insert es [ Edge c p ])
+    trace (show "this is solvedddd") modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 insertDHMixedEdge False ((ic,c), fa1, fa2, p) cRule pRule bset nbset rules rulesinst fun= do --fa1 should be an Out fact
     let chainFun = solveTermDHEqsChain SplitNow rules rulesinst fun p fa2 (ic, cRule, fa1, c)
-    trace (show ("MixedEQUAL fa1, fa2", fa1, fa2)) (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset chainFun) -- TODO: FIX THIS!!!!
+    (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset chainFun) -- TODO: FIX THIS!!!!
     modM sEdges (\es -> foldr S.insert es [ Edge (ic,c) p ])
 
 
@@ -1151,7 +1151,7 @@ solveTermDHEqsChain splitStrat rules instrules fun p faPrem (j,ruj, fa1, c) (ta1
     case neededexponents bset nbset ta2 of -- ta2 is a term of faPrem
       [] -> do  -- TODO: this is where we need to check multiple Out facts!! 
           hndNormal <- getMaudeHandle
-          let indlist = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList ta1)
+          let indlist = trace (show ("computingmultroot1", ta2)) $ map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' ta2) hndNormal)
               neededInds = filter (not . isPublic) indlist
               n = length neededInds
           if null neededInds 
@@ -1176,7 +1176,7 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
         case prodTerms ta11 of
             Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
                           else do
-                            let xrooterms = multRootList ta11
+                            let xrooterms = trace (show ("computingmultroot2", ta11, runReader (norm' ta11) hndNormal)) $(multRootList $ runReader (norm' ta11) hndNormal)
                                 xindterms = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) xrooterms
                             hnd <- getMaudeHandleDH
                             solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta11 ta22 (multRootList ta22)
@@ -1232,7 +1232,7 @@ solveFactOutKIEqs split (Equal fa1 fa2) = do
 
 solveMixedFactEqs :: SplitStrategy -> Equal LNFact -> S.Set LNTerm -> S.Set LNTerm -> ((LNTerm, LNTerm) -> Reduction ChangeIndicator) -> Reduction ChangeIndicator
 solveMixedFactEqs split (Equal fa1 fa2) bset nbset fun = do
-    contradictoryIf (not (factTag fa1 == factTag fa2))
+    trace (show ("mystery", fa1, fa2)) contradictoryIf (not (factTag fa1 == factTag fa2))
     contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
     let normalfacts = filter (\a -> not $ isMixedTerm a) (factTerms fa1) 
         normalfacts2 = filter (\a -> not $ isMixedTerm a) (factTerms fa2) 
@@ -1240,7 +1240,8 @@ solveMixedFactEqs split (Equal fa1 fa2) bset nbset fun = do
     subst <- getM sEqStore
     let dhfacts1 = map (applyVTerm (_eqsSubst subst)) (factTerms fa1) -- filter isMixedTerm (factTerms fa1) 
         dhfacts2 = map (applyVTerm (_eqsSubst subst)) (factTerms fa2) -- filter isMixedTerm (factTerms fa2)
-    solveListDHEqs (solveMixedTermEqs split bset nbset fun) $ zip dhfacts1 dhfacts2
+    trace (show ("mystery?", dhfacts1, dhfacts2)) $ solveListDHEqs (solveMixedTermEqs split bset nbset fun) $ zip dhfacts1 dhfacts2
+    return Changed
 
 -- t1 here is the result of factTerms fa2, and indt1 the indicator of one product term of t1. 
 solveFactDHEqs ::  SplitStrategy -> LNFact -> LNFact -> S.Set LNTerm -> S.Set LNTerm  -> ((LNTerm,LNTerm)->Reduction ChangeIndicator) ->  Reduction ChangeIndicator

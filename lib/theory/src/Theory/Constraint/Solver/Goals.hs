@@ -336,7 +336,7 @@ solvePremise rules p faPrem
   | isKdhFact faPrem && isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
   -- | (isInFact faPrem && isDHFact faPrem) = trace (show ("solvingINFACT here", faPrem)) solveDHInd rules p faPrem
   | isProtoDHFact faPrem =  trace (show ("SOLVINGPREMISEDH:", faPrem)) $ solveDHIndProto rules p faPrem
-  | isProtoMixedFact faPrem = solveDHMixedPremise rules p faPrem
+  | isProtoMixedFact faPrem = do solveDHMixedPremise rules p faPrem
   {-| isKDFact faPrem && isMixedFact faPrem = do
       -- nodes <- getM sNodes
       -- ruless <- askM pcRules
@@ -571,7 +571,7 @@ solveDHIndaux bset nbset term p faPrem rules instrules =
   case neededexponents bset nbset term of
       [] -> do  -- TODO: this is where we need to check multiple Out facts!! 
           hndNormal <- getMaudeHandle
-          let indlist = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList term)
+          let indlist = trace (show ("computingmultroot1", term)) $ map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' term) hndNormal)
               neededInds = filter (not . isPublic) indlist
               n = length neededInds
           if null neededInds 
@@ -604,8 +604,8 @@ solveDHMixedPremise ::  [RuleAC]        -- ^ All rules that have an Out fact con
 solveDHMixedPremise rules p faPrem = do
       nodes <- getM sNodes
       (ru, c, faConc) <-  insertFreshNodeConcMixed rules (M.assocs nodes)
-      insertDHMixedEdge True (c, faConc, faPrem, p)  ru ru (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x))-- instead of root indicator this should be Y.ind^Z.
-      return $ showRuleCaseName ru
+      trace (show ("CURIOUS", faConc, faPrem, showRuleCaseName ru)) $ insertDHMixedEdge True (c, faConc, faPrem, p)  ru ru (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x))-- instead of root indicator this should be Y.ind^Z.
+      trace (show "whyamInotappearing?") (return $ showRuleCaseName ru)
 
 
 
