@@ -262,7 +262,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                    --void normSystem
                    return ru
             _ | (isDHFact fa)                       -> do
-                   ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
+                   ru  <- labelNodeId i (annotatePrems <$> rules) Nothing -- TODO:probably want to also check existing rules
                    act <- disjunctionOfList (filter isDHFact $ get rActs ru)
                    (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
                    void substSystem
@@ -273,7 +273,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                    act <- disjunctionOfList (filter isMixedFact $ get rActs ru)
                    let bset = (S.fromList $ basisOfRule ru)
                        nbset = (S.fromList $ notBasisOfRule ru) 
-                   (void (solveMixedFactEqs SplitNow (Equal fa act) bset nbset (protoCase SplitNow bset nbset)))
+                   trace (show ("combign from here? fa,act", fa, act)) (void (solveMixedFactEqs SplitNow (Equal fa act) bset nbset (protoCase SplitNow bset nbset)))
                    void substSystem
                    --void normSystem
                    return ru
@@ -349,11 +349,7 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
 solvePremise rules p faPrem
   | isKdhFact faPrem && isDHFact faPrem = (solveDHInd rules p faPrem)
   | isKdhFact faPrem && isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
-  | (isInFact faPrem && isDHFact faPrem) = solveDHInd rules p faPrem
-  {-| (isInFact faPrem && isMixedFact faPrem) = do
-      (ru, c, faConc) <- insertFreshNodeConc rules
-      trace (show ("SOLVINGINDMIXEDPREMISE:", faPrem)) $ insertEdges [(c, faConc, faPrem, p)]
-      return $ showRuleCaseName ru -}
+  | (isInFact faPrem && isDHFact faPrem) = trace (show ("solvingINFACT here", faPrem)) solveDHInd rules p faPrem
   | isProtoDHFact faPrem =  trace (show ("SOLVINGPREMISEDH:", faPrem)) $ solveDHIndProto rules p faPrem
   | isProtoMixedFact faPrem = solveDHMixedPremise rules p faPrem
   | isKDFact faPrem && isMixedFact faPrem = do
@@ -474,7 +470,7 @@ solveChain rules (c, p) = do
                 --nbset <- getM sNotBasis
                 --if (isMixedFact faConc) 
                 --  then extendAndMarkMixed i ru v faPrem faConc bset nbset
-                extendAndMark i ru v faPrem faConc
+                trace (show ("tryingEDGEMark", faConc, faPrem)) $ extendAndMark i ru v faPrem faConc
          _ -> error "solveChain: not a down fact"
   where
     extendAndMark :: NodeId -> RuleACInst -> PremIdx -> LNFact -> LNFact
@@ -482,7 +478,7 @@ solveChain rules (c, p) = do
       (Control.Monad.Trans.FastFresh.FreshT
       (DisjT (Control.Monad.Trans.Reader.Reader ProofContext))) String
     extendAndMark i ru v faPrem faConc = do
-        trace (show ("tryingEDGEMark", faConc, faPrem)) $ insertEdges [(c, faConc, faPrem, (i, v))]
+        insertEdges [(c, faConc, faPrem, (i, v))]
         markGoalAsSolved "directly" (PremiseG (i, v) faPrem)
         insertChain (i, ConcIdx 0) p
         return (showRuleCaseName ru)
@@ -574,7 +570,7 @@ solveDHIndMixed rules p faPrem =  do
         bset <- getM sBasis
         nbset <- getM sNotBasis
         nodes <- getM sNodes
-        solveDHIndauxMixed bset nbset (factTerms faPrem) p faPrem rules (M.assocs nodes)
+        solveDHIndauxMixed bset nbset (filter isMixedTerm $ factTerms faPrem) p faPrem rules (M.assocs nodes)
 
 solveDHIndauxMixed :: S.Set LNTerm -> S.Set LNTerm -> [LNTerm] -> NodePrem -> LNFact -> [RuleAC] -> [(NodeId,RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
 solveDHIndauxMixed bset nbset terms p faPrem rules instrules =
