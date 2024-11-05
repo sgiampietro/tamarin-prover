@@ -1180,7 +1180,7 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
                           else do
                             let xrooterms = multRootList nta1
                                 xindterms = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) xrooterms
-                            hnd <- getMaudeHandleDH
+                            hnd <- trace (show ("thesearethecomputedindicators", xindterms, map (sortOfLNTerm) xindterms, xrooterms)) getMaudeHandleDH
                             solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms nta1 nta2 (multRootList nta2)
                             return Changed
             _ -> error "TODO"

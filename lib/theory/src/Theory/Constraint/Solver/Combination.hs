@@ -26,6 +26,7 @@ where
 import qualified Data.Set                          as S
 import Data.List ( (\\), intersect )
 import qualified Data.Map                          as Map
+import Data.Maybe ( fromJust, isJust )
 -- we use maps to construct the linear system of equation we will need to solve. 
 
 --import qualified Data.Vector                       as V
@@ -38,7 +39,7 @@ import Term.DHMultiplication
 import Term.LTerm -- (LNTerm)
 
 -- import Theory.Constraint.System.Constraints
-import Debug.Trace.Ignore
+import Debug.Trace -- .Ignore
 import Data.ByteString.Builder (word16BE)
 
 
@@ -53,7 +54,7 @@ gTerm2Exp t@(FAPP (DHMult o) ts) = case ts of
     [ t1 ]     | o == dhGinvSym    ->  simplifyraw $ (FAPP (DHMult dhMinusSym) [gTerm2Exp t1])
     [ t1 ]     | o == dhInvSym    -> t
     [ t1 ]     | o == dhMinusSym    -> t
-    [ t1 ]     | o == dhMuSym    -> t
+    [ t1 ]     | o == dhMuSym    -> FAPP (DHMult dhMuSym) [simplifyraw t1]
     --[ t1 ]     | o == dhBoxSym    -> gTerm2Exp t1
     --[ t1 ]     | o == dhBoxESym    -> gTerm2Exp t1
     []         | o == dhZeroSym    -> t
@@ -82,6 +83,7 @@ coeffTermsOf t@(FAPP (DHMult o) ts) vart =     case ts of
     [ t1, t2 ] | o == dhPlusSym   -> error $ "term not in normal form?: `"++show t++"'"
     [ t1, t2 ] | o == dhTimesESym   -> simplifyraw $ fAppdhTimesE ( coeffTermsOf t1 vart, coeffTermsOf t2 vart)
     [ t1, t2 ] | o == dhTimesSym   -> simplifyraw $ fAppdhTimesE ( coeffTermsOf t1 vart, coeffTermsOf t2 vart)
+    [t1]       | o == dhMuSym  -> t
     _                               -> error $ "term not in normal form?: `"++show t++"'"
 
 
@@ -208,6 +210,7 @@ stripVars var t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhTimesESym   -> if (elem var (varTermsOf t)) then (coeffTermsOf t var) else fAppdhZero 
     [ t1, t2 ] | o == dhTimesSym   -> if (elem var (varTermsOf t)) then (coeffTermsOf t var) else fAppdhZero 
     [ t1 ]     | o == dhMinusSym   -> simplifyraw $ fAppdhMinus (stripVars var t1)
+    [ t1 ]     | o == dhMuSym      -> if (elem var (varTermsOf t)) then error ("variables inside mu term" ++ show t) else fAppdhZero
     _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
 
 constCoeff :: LNTerm -> LNTerm -- (coeff of X, coeff of Y, constant factor)
@@ -217,6 +220,7 @@ constCoeff t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhTimesESym   -> if (null $ varTermsOf t ) then t else fAppdhZero 
     [ t1, t2 ] | o == dhTimesSym   -> if (null $ varTermsOf t) then t else fAppdhZero 
     [ t1 ]     | o == dhMinusSym   -> simplifyraw $ fAppdhMinus (constCoeff t1)
+    [ t1 ]     | o == dhMuSym      -> if (null $ varTermsOf t) then t else fAppdhZero
     _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
 
 
@@ -246,14 +250,18 @@ createMatrixProto nb term target =
 
 solveIndicatorGaussProto :: [LNTerm] -> LNTerm -> LNTerm -> Maybe [(LVar, LNTerm)]
 solveIndicatorGaussProto nb term target = 
-    let ([w1, z2], matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)
+    let (wzs, matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)       
+      -- ([w1, z2], matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)
         solution = solveMatrix fAppdhZero matriz
     in
   case solution of 
     Nothing -> Nothing
-    Just ([t1,t2]) -> case (getVar w1, getVar z2) of
-                        (Just varw1, Just varz2) -> Just [(varw1, t1), (varz2, t2)]
-                        _ -> Nothing
+    Just (ts) -> (if all (isJust) wzvars then
+                 Just (zip (map fromJust wzvars) ts) else Nothing)
+                    where wzvars = map getVar wzs
+      --case (getVar w1, getVar z2) of
+                --        (Just varw1, Just varz2) -> Just [(varw1, t1), (varz2, t2)]
+                 --       _ -> Nothing
 
 
 -- TODO: these terms are possible G, terms. We assume here that our terms are always of the form
