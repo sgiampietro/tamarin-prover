@@ -66,6 +66,7 @@ import           GHC.Generics          (Generic)
 import           Logic.Connectives
 import Term.Unification
 import           Term.Rewriting.Norm (norm')
+import            Term.DHMultiplication
 import           Theory.Text.Pretty
 
 import           Control.Monad.Fresh
@@ -74,7 +75,7 @@ import           Control.Monad.Reader
 import           Extension.Prelude
 import           Utils.Misc
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Control.Basics
 import           Control.DeepSeq
@@ -639,8 +640,9 @@ addDHEqs2 hnd t1 indt eqdhstore =
 addDHProtoEqs :: MonadFresh m
        => MaudeHandle -> LNTerm -> LNTerm -> EqStore -> m (EqStore, Maybe SplitId)
 addDHProtoEqs hnd t1 indt eqdhstore = do
-    zz <- freshLVar "zz" LSortE
+    zz <- trace (show ("unifyingthesetwo",t1,indt, sortOfLNTerm t1, sortOfLNTerm indt)) $ freshLVar "zz" LSortE
     let genindt = runReader (norm' $ fAppdhExp (indt, LIT (Var zz)) ) hnd
+        muvariables = (varInMu t1) ++ (varInMu indt)
     case unifyLNDHProtoTermFactored ([Equal t1 genindt]) `runReader` hnd of
         []->
             return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
@@ -657,11 +659,11 @@ addDHProtoEqs hnd t1 indt eqdhstore = do
             changeqstore [x] eq = addsubsts x eq
             changeqstore (x:xs) eq = changeqstore xs (addsubsts x eq)
             generaltup (c, cterm) = case (sortOfLNTerm (varTerm c)) of 
-              a | a == LSortE  -> do 
+              a | a == LSortE  && (not $ elem c muvariables) -> do 
                   w1 <- freshLVar "yk" LSortVarE
                   v1 <- freshLVar "zk" LSortVarE
                   trace (show ("gentup:", v1, w1)) $ return (c, fAppdhPlus (fAppdhTimesE (cterm, varTerm v1), varTerm w1))
-              a | a == LSortG  -> do 
+              a | a == LSortG && (not $ elem c muvariables)  -> do 
                   w1 <- freshLVar "wk" LSortVarG
                   v1 <- freshLVar "vk" LSortVarE
                   return (c, fAppdhMult (fAppdhExp (cterm,varTerm v1), varTerm w1))

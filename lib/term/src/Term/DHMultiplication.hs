@@ -31,6 +31,7 @@ module Term.DHMultiplication (
   , rootIndUnknown
   , eTermsOf
   , varTermsOf
+  , varInMu
   --, unbox
   , isNoCanc
 
@@ -93,30 +94,6 @@ getVarGAvoid t vs= getNewSimilarVar (LVar "t" LSortG 0) (t ++ vs)
 getVarEAvoid:: [LVar]  -> [LVar] -> LVar
 getVarEAvoid t vs= getNewSimilarVar (LVar "t" LSortE 0) (t ++ vs)
 
--- | @clean@ returns the message term cleaned of its diffie-hellman terms,
--- replacing them by fresh variables
-
--- TODO: double check that the list of variables used in the returned substitutions are fresh 
--- the function @freshToFree@ (in Substitution.hs) seems to take care of this
--- by converting a SubstVFree (which can be obtained from a [(LVar, VTerm Name LVar)] list) to one with free variables
-{-
-composeVFresh2 :: (IsConst c) => LSubstVFresh c -> LSubstVFresh c -> LSubstVFresh c
-composeVFresh2 s1_0 s2 = composeVFresh  s1_0 s2_0
-  where
-    s2_0 = freshToFreeAvoiding s2 s1_0 
-
-composeVFresh3 :: (IsConst c) => LSubstVFresh c -> LSubstVFresh c -> LSubstVFresh c
-composeVFresh3 s1_0 s2 = composeVFresh  s1_0 s2_0
-  where
-    s2_0 = domainToFreeAvoidingFast s2 s1_0 
-
-clean :: Term (Lit Name LVar) -> (Term (Lit Name LVar), LNSubstVFresh)
-clean t@(viewTerm3 -> MsgLit l) = (LIT l, emptySubstVFresh)
-clean t@(viewTerm3 -> MsgFApp f ts) = (FAPP f (map (fst.clean) ts), foldl composeVFresh2 emptySubstVFresh (map (snd.clean) ts ) )
-clean t@(viewTerm3 -> Box dht) = (FAPP (NoEq dhBoxSym) [LIT (Var (LVar "t" LSortG 0))], substFromListVFresh [(LVar "t" LSortG 0 , dht)] )
-clean t@(viewTerm3 -> BoxE dht) = (FAPP (NoEq dhBoxESym) [LIT (Var (LVar "t" LSortE 0))], substFromListVFresh [(LVar "t" LSortE 0, dht)] )
-clean t@(viewTerm3 -> DH f dht) = (FAPP f dht, emptySubstVFresh )
--}
 
 
 applyTermSubst:: Map.Map LVar LVar -> Term (Lit Name LVar) -> Term (Lit Name LVar)
@@ -198,8 +175,14 @@ eTermsOf t@(LIT l)
   | otherwise = []
 eTermsOf t@(FAPP f ts) = concatMap eTermsOf ts
 
-
-
+varInMu :: LNTerm -> [LVar]
+varInMu t@(LIT l) = []
+varInMu t@(viewTerm2 -> FdhMu t1) =  varsVTerm t1
+varInMu t@(FAPP (DHMult o) []) = []
+varInMu t@(FAPP (DHMult o) ts) = concatMap varInMu ts
+varInMu t@(FAPP (DHMult dhEgSym) ts) = error ("soitisthis:"++(show ts))
+varInMu t@(FAPP (NoEq o) []) = [] -- TODO: FIX THIS. Unclear why Maude normalized a term into sort Msg instead of G??
+varInMu t = error ("shouldn't get to this term"++(show t))
 
 varTermsOf :: LNTerm -> [ LNTerm ]
 --varTermsOf t@(viewTerm3 -> Box dht) = varTermsOf dht
@@ -322,45 +305,5 @@ isDHTerm t = case viewTerm3 t of
       MsgFApp _ _ -> False
       DH _ _ -> True
 
---isVarEGTerm :: LNTerm -> Bool
---isVarEGTerm t = (sortOfLNTerm t == LSortVarE || sortOfLNTerm == LSortVarG)
 
 
---isDHFact :: LNFact -> Bool
---isDHFact ft = all isDHTerm $ getFactTerms ft 
-
-{-
-isDHTerm :: LNTerm -> Bool
-isDHTerm t = case viewTerm3 t of
-      MsgLit _ -> False
-      MsgFApp _ _ -> False
-      DH _ _ -> True
-      Box _ -> True
-      BoxE _ -> True -}
-
-
-
-{-
--- instead of just returning the indicator, we also return a list of variables that is unempty only if
--- the function cannot yet be evaluated, in which case it contains the exponents that don't belong to N neither NB yet.  
-rootIndicator :: Show a => Set (Term a) -> Set (Term a) -> Term a -> (Term a, [(LVar, VTerm Name LVar)])
-rootIndicator b nb t@(viewTerm2 -> FdhExp t1 t2) = (FAPP (NoEq dhExpSym) [fst $ rootIndicator b nb t1, fst $ rootIndicator b nb t2], concat (snd $ rootIndicator b nb t1) (snd $ rootIndicator b nb t1) )
-rootIndicator b nb t@(viewTerm2 -> FdhGinv dht) = (FAPP (NoEq FdhGinv) [fst $ rootIndicator b nb dht], snd $ rootIndicator b nb dht)
-rootIndicator b nb t@(viewTerm2 -> FdhTimes t1 t2) = (FAPP (NoEq dhTimesSym) [fst $ rootIndicator b nb t1, fst $ rootIndicator b nb t2], concat (snd $ rootIndicator b nb t1) (snd $ rootIndicator b nb t1) )
-rootIndicator b nb t@(viewTerm2 -> FdhTimesE t1 t2) = (FAPP (NoEq dhTimesESym) [fst $ rootIndicator b nb t1, fst $ rootIndicator b nb t2], concat (snd $ rootIndicator b nb t1) (snd $ rootIndicator b nb t1) )
-rootIndicator b nb t@(viewTerm2 -> FdhMu t1) = (FAPP (NoEq dhOne) [], [])
-rootIndicator b nb t@(viewTerm2 -> FdhBoxE (LIT t1))
-  | S.member t nb = (FAPP (NoEq dhOne) [], [])
-  | S.member t b = (t, [])
-  | otherwise = (LIT (Var ), [(LVar "t" LSortE, dht)])
-rootIndicator b nb t@(viewTerm2 -> LitG (Con c)) = t
-rootIndicator b nb _ = error "rootSet applied on non DH term'"
-
-indicator :: Show a => Set (Term a) -> Set (Term a) -> Term a -> Term a
-indicator b nb t@(isRoot dhMultSym -> True) = rootIndicator b nb t
-indicator b nb t@(isRoot dhMultSym -> False) = error "indicator applied on non root term"
--}
--- TODO missing auxiliary functions: 
--- but first check how unification in simplified theory (should be able to leveage)
--- on current DH unification approach. 
--- simplify
