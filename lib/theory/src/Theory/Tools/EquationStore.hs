@@ -641,7 +641,7 @@ addDHProtoEqs :: MonadFresh m
 addDHProtoEqs hnd t1 indt eqdhstore = do
     zz <- freshLVar "zz" LSortE
     let genindt = runReader (norm' $ fAppdhExp (indt, LIT (Var zz)) ) hnd
-    case unifyLNDHProtoTermFactored (apply (L.get eqsSubst eqdhstore) $ [Equal t1 genindt]) `runReader` hnd of
+    case unifyLNDHProtoTermFactored ([Equal t1 genindt]) `runReader` hnd of
         []->
             return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
         [substFresh] | substFresh == emptySubstVFresh ->
