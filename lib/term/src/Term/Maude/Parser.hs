@@ -38,7 +38,6 @@ import qualified Data.ByteString.Char8 as BC
 
 import Data.Attoparsec.ByteString.Char8
 
---import Debug.Trace
 
 -- import Extension.Data.Monoid
 
@@ -387,7 +386,7 @@ parseVariantsReply msig reply = flip parseOnly reply $ do
     parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
                      <*> (string " --> " *> parseTerm msig <* endOfLine)
 
-
+-- for the maude command "variant-unify [1]"
 parseUnifyDHReply :: MaudeSig -> ByteString -> Either String [MSubst]
 parseUnifyDHReply msig reply = flip parseOnly reply $
      choice [ endOfLine *> string "No unifiers." <* endOfLine <* string "rewrites: "
@@ -402,34 +401,20 @@ parseUnifyDHReply msig reply = flip parseOnly reply $
 
 {-
 parseUnifyDHReply :: MaudeSig -> ByteString -> Either String [MSubst]
-parseUnifyDHReply msig reply = parseOnly (
-     choice [ endOfLine *> string "No unifiers." <* endOfLine <* string "rewrites: "
-              <* takeWhile1 isDigit <* endOfLine *> pure []      <* endOfInput
-           ,  endOfLine *> string "rewrites: " *> takeWhile1 isDigit *> endOfLine  *>  endOfLine  *>
-              many1 (parseUnifier) <*  endOfLine <* (string "No more unifiers. ") 
-           <* choice[endOfLine <* takeWhile1 isDigit <* endOfLine <* endOfInput,endOfLine <* endOfInput, endOfInput ] ] ) reply
+parseUnifyDHReply msig reply = flip parseOnly reply $
+     choice [  
+              string "rewrites: " *> takeWhile1 isDigit *> endOfLine *>  endOfLine *>  string "No unifiers." *>
+              endOfLine *> pure [], -- *> manyTill (manyTill anyChar endOfLine) endOfInput *> pure []  -- string "rewrites: " *> takeWhile1 isDigit *> endOfLine *>
+              
+              string "rewrites: " *> takeWhile1 isDigit *> endOfLine  *>  endOfLine  *>
+              many1 (parseUnifier)<*  endOfLine <* (string "No more unifiers." ) <* endOfLine <* endOfInput  ]
               where
                     parseUnifier = string "Unifier " *> takeWhile1 isDigit *> endOfLine *>             
                                     many1 parseEntry 
                     parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
-                                    <*> (string " --> " *> parseTerm msig <* endOfLine)
+                                    <*> (string " --> " *> parseTerm msig <* endOfLine)  
 -}
 
-{-
-parseUnifyDHReply :: MaudeSig -> ByteString -> Either String [MSubst]
-parseUnifyDHReply msig reply = flip parseOnly reply $
-     choice [ endOfLine *> string "No unifiers." <* endOfLine <* string "rewrites: "
-              <* takeWhile1 isDigit <* endOfLine *> pure []
-           , endOfLine *> many1 (parseUnifier) <* (string "No more unifiers. ")
-            <* endOfInput ]
-      <* endOfInput
-              where
-                    parseUnifier = string "rewrites: " *> takeWhile1 isDigit *> endOfLine *>
-                                  string "Unifier " *> optional (char '#') *> takeWhile1 isDigit *> endOfLine *>
-                                    manyTill parseEntry endOfLine
-                    parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
-                                    <*> (string " --> " *> parseTerm msig <* endOfLine)
--}
 
 -- | @parseSubstitution l@ parses a single substitution returned by Maude.
 parseSubstitution :: MaudeSig -> Parser MSubst
