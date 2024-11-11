@@ -47,35 +47,35 @@ module Term.DHMultiplication (
   --, module Term.Term.Raw
   ) where
 
-import           Control.Basics hiding (empty)
-import           Control.Monad.Reader
+--import           Control.Basics hiding (empty)
+--import           Control.Monad.Reader
 import Control.Monad.Fresh
 
-import           Data.List
+--import           Data.List
 import qualified Data.Map                         as Map
 import qualified Data.Set                          as S
-import           Data.ByteString.Char8 (ByteString, append, pack, empty)
+--import           Data.ByteString.Char8 (ByteString, append, pack, empty)
 
 -- import           Extension.Data.Label
 
-import           Utils.Misc
+--import           Utils.Misc
 
 import           Term.Term
-import           Term.Term.FunctionSymbols
+--import           Term.Term.FunctionSymbols
 import           Term.LTerm
 --import           Term.Term.Raw
-import           Term.Maude.Signature
-import           Term.Narrowing.Variants.Compute
+--import           Term.Maude.Signature
+--import           Term.Narrowing.Variants.Compute
 import           Term.Rewriting.Norm
 import Term.Maude.Process
-import           Term.SubtermRule
+--import           Term.SubtermRule
 --import           Term.Subsumption
-import           Term.Substitution
-import           Term.Positions
+--import           Term.Substitution
+--import           Term.Positions
 
 
 -- import           Theory.Model
-import Data.Bool (Bool)
+--import Data.Bool (Bool)
 --import Theory.Model (getFactTerms)
 
 -- import           Debug.Trace

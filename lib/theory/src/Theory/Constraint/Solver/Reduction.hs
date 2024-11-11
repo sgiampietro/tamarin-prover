@@ -1074,7 +1074,32 @@ solveIndicatorProto nb t1 t2 = do
 
 solveDHProtoEqsAux :: SplitStrategy -> S.Set LNTerm  -> S.Set LNTerm -> MaudeHandle -> MaudeHandle -> [LNTerm] -> LNTerm -> LNTerm -> [LNTerm] -> StateT System (FreshT (DisjT (Reader ProofContext))) ()
 solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 outterms= do
-    case xindterms of
+    permutedlist <- disjunctionOfList $ permutations outterms
+    zzs <- replicateM (length xindterms) $ freshLVar "zz" LSortE
+    let genindterms = zipWith (\i z-> runReader (norm' $ fAppdhExp (i, LIT (Var z)) ) hndNormal) xindterms zzs
+    (eqs2, maySplitId) <- addDHProtoEqs hnd permutedlist genindterms zzs =<< getM sEqStore
+    se  <- gets id
+    setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
+    noContradictoryEqStore
+    subst <- getM sSubst
+    let sta2 =  (runReader (norm' $ apply subst ta2) hndNormal)
+        sta1 = (runReader (norm' $ apply subst ta1) hndNormal)
+    case varTermsOf sta2 of
+        [] -> case varTermsOf (sta1) of
+                [] -> do
+                        void substSystem
+                        void normSystem
+                _  -> do
+                        -- TODO: fix basis set to take into account the substituions .
+                        -- (maybe you can directly consider all exponents in the matrix combination function directly?)
+                        void $ solveIndicatorProto (S.toList nbset) sta1 sta2 -- (concatMap eTermsOf $ map (\x -> runReader (norm' $ apply subst x) hndNormal) (S.toList nbset))
+                        void substSystem
+                        void normSystem
+        _  -> do
+                trace (show ("NOWGOINGTOMATRIXSOLVE: sta2:", sta2, "otherterm sta1:", sta1, "from ta2:", ta2, "and ta1:", ta1, nbset)) $ void $ solveIndicatorProto (S.toList nbset) sta2 sta1
+                void substSystem
+                void normSystem
+    {-case xindterms of
         [indt] -> do
             -- subst <- getM sSubst
             outterm <- disjunctionOfList outterms
@@ -1120,7 +1145,11 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 outterm
                     se  <- gets id
                     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
                     noContradictoryEqStore)
-            solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd indts ta1 ta2 (delete outterm outterms)
+            subst <- getM sSubst
+            let sindts = map ( \i -> runReader (norm' $ apply subst i) hndNormal) indts
+                soutterms = map ( \i -> runReader (norm' $ apply subst i) hndNormal) (delete outterm outterms)
+            solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd sindts ta1 ta2 soutterms
+-}
 
 solveNeeded ::  (LNTerm -> NodeId -> StateT  System (FreshT (DisjT (Reader ProofContext))) a0) -> LNTerm ->  NodeId ->        -- exponent that is needed.
                 Reduction String -- ^ Case name to use.
