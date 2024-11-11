@@ -75,7 +75,7 @@ import           Control.Monad.Reader
 import           Extension.Prelude
 import           Utils.Misc
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 
 import           Control.Basics
 import           Control.DeepSeq
@@ -629,7 +629,7 @@ addDHEqs2 hnd t1 indt eqdhstore =
             return (eqdhstore, Nothing)
         substs -> do
             let  eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs ) eqdhstore
-            trace (show ("THIS IS SUBSTRETURNED FOR MATCH", t1, indt, substs)) $ return (eqStore', Nothing)
+            return (eqStore', Nothing)
   where
     eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
     addsubsts sub eqst= applyEqStore hnd sub eqst
@@ -642,11 +642,11 @@ addDHProtoEqs :: MonadFresh m
 addDHProtoEqs hnd t1 indt zz eqdhstore = do
     -- todo: here 
     let muvariables = (varInMu t1) ++ (varInMu indt)
-    case trace (show ("tryingtounifyHERE2", t1,indt, eqdhstore)) $ unifyLNDHProtoTermFactored ([Equal t1 indt]) `runReader` hnd of
+    case unifyLNDHProtoTermFactored ([Equal t1 indt]) `runReader` hnd of
         []->
-            trace (show ("whydoIgetnounifiers?", eqdhstore)) $ return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
+            return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
         [substFresh] | substFresh == emptySubstVFresh ->
-            trace (show ("notsurewhatthiscasemeans", eqdhstore)) $ return (eqdhstore, Nothing)
+            return (eqdhstore, Nothing)
         substs -> do
             substs' <- trace (show ("ISHOULDGETHERE", t1, indt)) $ mapM generalize substs
             let  eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs' ) eqdhstore
