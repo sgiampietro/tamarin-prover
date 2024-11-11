@@ -1083,7 +1083,9 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 outterm
             (if (indt == outterm)
                 then noContradictoryEqStore
                 else do
-                (eqs2, maySplitId) <- addDHProtoEqs hnd outterm indt =<< getM sEqStore
+                zz <- trace (show ("UNIFYINGTHIS", indt, outterm)) $ freshLVar "zz" LSortE
+                genindt <- disjunctionOfList [indt, runReader (norm' $ fAppdhExp (indt, LIT (Var zz)) ) hndNormal]
+                (eqs2, maySplitId) <- addDHProtoEqs hnd outterm genindt zz =<< getM sEqStore
                 se  <- gets id
                 setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
                 noContradictoryEqStore)
@@ -1112,7 +1114,9 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 outterm
             (if (indt == outterm)
                 then noContradictoryEqStore
                 else do
-                    (eqs2, maySplitId) <- addDHProtoEqs hnd outterm indt =<< getM sEqStore
+                    zz <- trace (show ("UNIFYINGTHIS2", indt, outterm)) $ freshLVar "zz" LSortE
+                    genindt <- disjunctionOfList [indt, runReader (norm' $ fAppdhExp (indt, LIT (Var zz)) ) hndNormal]
+                    (eqs2, maySplitId) <- addDHProtoEqs hnd outterm genindt zz =<< getM sEqStore
                     se  <- gets id
                     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
                     noContradictoryEqStore)
@@ -1180,7 +1184,8 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
                           else do
                             let xrooterms = multRootList nta1
                                 xindterms = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) xrooterms
-                            hnd <- trace (show ("thesearethecomputedindicators", xindterms, map (sortOfLNTerm) xindterms, xrooterms)) getMaudeHandleDH
+                            hnd <- getMaudeHandleDH
+                            -- permutedlist <- disjunctionOfList $ permutations (multRootList nta2)
                             solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms nta1 nta2 (multRootList nta2)
                             return Changed
             _ -> error "TODO"
@@ -1234,15 +1239,15 @@ solveFactOutKIEqs split (Equal fa1 fa2) = do
 
 solveMixedFactEqs :: SplitStrategy -> Equal LNFact -> S.Set LNTerm -> S.Set LNTerm -> ((LNTerm, LNTerm) -> Reduction ChangeIndicator) -> Reduction ChangeIndicator
 solveMixedFactEqs split (Equal fa1 fa2) bset nbset fun = do
-    contradictoryIf (not (factTag fa1 == factTag fa2))
+    trace (show ("mixedfacteqs",fa1,fa2)) $ contradictoryIf (not (factTag fa1 == factTag fa2))
     contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
     let normalfacts = filter (\a -> not $ isMixedTerm a) (factTerms fa1) 
         normalfacts2 = filter (\a -> not $ isMixedTerm a) (factTerms fa2) 
     solveTermEqs split $ zipWith (\a b -> (Equal a b)) normalfacts normalfacts2 
-    subst <- getM sEqStore
+    subst <- trace (show ("gothere", normalfacts, normalfacts2)) $ getM sEqStore
     let dhfacts1 = map (applyVTerm (_eqsSubst subst)) (factTerms fa1) -- filter isMixedTerm (factTerms fa1) 
         dhfacts2 = map (applyVTerm (_eqsSubst subst)) (factTerms fa2) -- filter isMixedTerm (factTerms fa2)
-    solveListDHEqs (solveMixedTermEqs split bset nbset fun) $ zip dhfacts1 dhfacts2
+    trace (show ("trying to unify", dhfacts1, (map sortOfLNTerm dhfacts1), dhfacts2, (map sortOfLNTerm dhfacts2))) $ solveListDHEqs (solveMixedTermEqs split bset nbset fun) $ zip dhfacts1 dhfacts2
     return Changed
 
 -- t1 here is the result of factTerms fa2, and indt1 the indicator of one product term of t1. 

@@ -107,7 +107,7 @@ import qualified Term.Maude.Process as UM
 import           Term.Maude.Process
                    (MaudeHandle, WithMaude, startMaude, startMaudeDH, getMaudeStats, mhMaudeSig, mhFilePath)
 import           Term.Maude.Signature
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 -- Unification modulo AC
 ----------------------------------------------------------------------
@@ -139,7 +139,7 @@ unifyLDHTermFactored :: (IsConst c)
                    => (c -> LSort)
                    -> [Equal (LTerm c)]
                    -> WithMaude (LSubst c, [SubstVFresh c LVar])
-unifyLDHTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTermDH: "++ show eqs, "result = "++  show res]) res) $ do
+unifyLDHTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTermDHproblematic: "++ show eqs, "result = "++  show res]) res) $ do
     solve h -- $ execRWST unif sortOf M.empty
   where
     -- unif = sequence [ unifyRaw t p | (Equal t p) <- eqs ]
@@ -159,7 +159,7 @@ unifyLDHProtoTermFactored :: (IsConst c)
                    => (c -> LSort)
                    -> [Equal (LTerm c)]
                    -> WithMaude [SubstVFresh c LVar]
-unifyLDHProtoTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTermDH: "++ show eqs, "result = "++  show res]) res) $ do
+unifyLDHProtoTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTermDHproblemeaticproto: "++ show eqs, "result = "++  show res]) res) $ do
     solve h 
   where
     solve h = unsafePerformIO (UM.unifyViaMaudeDH h sortOf 
