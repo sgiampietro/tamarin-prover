@@ -228,7 +228,7 @@ nodesAfterLast sys = case L.get sLastAtom sys of
 -- chain-start by extending the chain or replacing
 -- it with an edge.
 hasImpossibleChain :: ProofContext -> System -> Bool
-hasImpossibleChain ctxt sys = trace (show ("isitthis?",L.get pcTrueSubterm ctxt)) $
+hasImpossibleChain ctxt sys = -- trace (show ("isitthis?",L.get pcTrueSubterm ctxt)) $
     any impossibleChain [ (c,p) | ChainG c p <- M.keys $ L.get sGoals sys ]
   where
     impossibleChain (c,p) = fromMaybe False $ do

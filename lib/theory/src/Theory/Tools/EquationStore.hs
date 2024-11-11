@@ -638,16 +638,15 @@ addDHEqs2 hnd t1 indt eqdhstore =
 
 
 addDHProtoEqs :: MonadFresh m
-       => MaudeHandle -> LNTerm -> LNTerm -> EqStore -> m (EqStore, Maybe SplitId)
-addDHProtoEqs hnd t1 indt eqdhstore = do
-    zz <- trace (show ("unifyingthesetwo",t1,indt, sortOfLNTerm t1, sortOfLNTerm indt)) $ freshLVar "zz" LSortE
-    let genindt = runReader (norm' $ fAppdhExp (indt, LIT (Var zz)) ) hnd
-        muvariables = (varInMu t1) ++ (varInMu indt)
-    case unifyLNDHProtoTermFactored ([Equal t1 genindt]) `runReader` hnd of
+       => MaudeHandle -> LNTerm -> LNTerm -> LVar -> EqStore -> m (EqStore, Maybe SplitId)
+addDHProtoEqs hnd t1 indt zz eqdhstore = do
+    -- todo: here 
+    let muvariables = (varInMu t1) ++ (varInMu indt)
+    case trace (show ("tryingtounifyHERE2", t1,indt, eqdhstore)) $ unifyLNDHProtoTermFactored ([Equal t1 indt]) `runReader` hnd of
         []->
-            return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
+            trace (show ("whydoIgetnounifiers?", eqdhstore)) $ return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
         [substFresh] | substFresh == emptySubstVFresh ->
-            return (eqdhstore, Nothing)
+            trace (show ("notsurewhatthiscasemeans", eqdhstore)) $ return (eqdhstore, Nothing)
         substs -> do
             substs' <- trace (show ("ISHOULDGETHERE", t1, indt)) $ mapM generalize substs
             let  eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs' ) eqdhstore

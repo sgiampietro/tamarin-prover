@@ -21,7 +21,7 @@ import           Utils.Misc
 import           Control.Monad.Reader
 
 import           Data.List
-import           Debug.Trace
+import           Debug.Trace.Ignore
 import qualified Data.Set             as S
 
 import           System.IO.Unsafe     (unsafePerformIO)
