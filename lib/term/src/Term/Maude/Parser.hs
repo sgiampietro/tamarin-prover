@@ -38,7 +38,7 @@ import qualified Data.ByteString.Char8 as BC
 
 import Data.Attoparsec.ByteString.Char8
 
-import Debug.Trace
+-- import Debug.Trace
 
 -- import Extension.Data.Monoid
 
@@ -389,7 +389,7 @@ parseVariantsReply msig reply = flip parseOnly reply $ do
 
 -- for the maude command "variant-unify [1]"
 parseUnifyDHReply :: MaudeSig -> ByteString -> Either String [MSubst]
-parseUnifyDHReply msig reply = trace (show ("TRYINGTHIS", reply)) $ flip parseOnly reply $
+parseUnifyDHReply msig reply = flip parseOnly reply $ -- trace (show ("TRYINGTHIS", reply)) $ 
      choice [ endOfLine *> string "No unifiers." <* endOfLine <* string "rewrites: "
               <* takeWhile1 isDigit <* endOfLine *> pure []      <* endOfInput
            , endOfLine *> many1 (parseUnifier) ]
@@ -573,7 +573,7 @@ ppTheoryDHsimp = BC.unlines $
       , "subsort NZE < E ."
       , "subsort FrNZE < NZE ."
       , "subsort BG < G ."
-      , "op tamXCdhGinv : G -> G"
+      , "op tamXCdhGinv : G -> G ."
       , "op tamXCdhZero : -> E ."
       , "op tamXCdhInv : NZE -> NZE ."
       , "op tamXCdhEg : -> G ."
@@ -587,7 +587,7 @@ ppTheoryDHsimp = BC.unlines $
       , "vars A B : G ."
       , "vars X Y : E ."
       , "vars U V W : NZE ."
-      , "eq tamXCdhExp(tamXCdhExp(A, X), Y) = tamXCdhdhExp(A, tamXCdhTimesE(X, Y)) [variant] ."
+      , "eq tamXCdhExp(tamXCdhExp(A, X), Y) = tamXCdhExp(A, tamXCdhTimesE(X, Y)) [variant] ."
       , "eq tamXCdhExp(A, tamXCdhOne ) = A [variant] ."
       , "eq tamXCdhExp(tamXCdhEg, X) = tamXCdhEg [variant] ."
       , "eq tamXCdhTimesE(X, tamXCdhOne) = X [variant] ."
@@ -601,7 +601,7 @@ ppTheoryDHsimp = BC.unlines $
       , "eq tamXCdhTimes( U, tamXCdhTimes(tamXCdhInv(U),V)) = V [variant] ."
       , "eq tamXCdhTimes( tamXCdhInv(U), tamXCdhTimes(tamXCdhInv(V),W)) = tamXCdhTimes( tamXCdhInv(tamXCdhTimes(U,V)),W) [variant] ."
       , "eq tamXCdhTimes( tamXCdhInv(tamXCdhTimes(U,V)), tamXCdhTimes(V,W)) = tamXCdhTimes( tamXCdhInv(U),W) [variant] ."
-      , "eq tamXCdhTimesE(U,V) = tamXCdhTimes(U,V) [variant] ."
+      , "eq tamXCdhTimes(U,V) = tamXCdhTimesE(U,V) [variant] ."
       , "endfm"] 
 
 {-
