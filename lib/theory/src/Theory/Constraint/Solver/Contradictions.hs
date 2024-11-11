@@ -54,7 +54,6 @@ import           Theory.Text.Pretty
 
 import           Term.Rewriting.Norm            (maybeNotNfSubterms, nf')
 
-import           Debug.Trace
 
 ------------------------------------------------------------------------------
 -- Contradictions

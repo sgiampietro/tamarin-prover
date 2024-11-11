@@ -638,12 +638,12 @@ addDHEqs2 hnd t1 indt eqdhstore =
 
 
 addDHProtoEqs :: MonadFresh m
-       => MaudeHandle -> LNTerm -> LNTerm -> LVar -> EqStore -> m (EqStore, Maybe SplitId)
+       => MaudeHandle -> [LNTerm] -> [LNTerm] -> [LVar] -> EqStore -> m (EqStore, Maybe SplitId)
 addDHProtoEqs hnd t1 indt zz eqdhstore = do
     -- todo: here 
-    let muvariables = (varInMu t1) ++ (varInMu indt)
-    case unifyLNDHProtoTermFactored ([Equal t1 indt]) `runReader` hnd of
-        []->
+    let muvariables = (concatMap varInMu t1) ++ (concatMap varInMu indt)
+    case unifyLNDHProtoTermFactored (zipWith Equal t1 indt) `runReader` hnd of
+        []-> 
             return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
         [substFresh] | substFresh == emptySubstVFresh ->
             return (eqdhstore, Nothing)
@@ -671,7 +671,7 @@ addDHProtoEqs hnd t1 indt zz eqdhstore = do
           v1 <- freshLVar "vk" LSortVarE
           return (c, fAppdhMult (fAppdhExp (cterm,varTerm v1), varTerm w1)) -}
               _ -> return (c, cterm)
-            generalize sub = liftM substFromListVFresh $ mapM generaltup $ filter (\(a,b)-> a /= zz) (substToListVFresh sub)
+            generalize sub = liftM substFromListVFresh $ mapM generaltup $ filter (\(a,b)-> not $ elem a zz) (substToListVFresh sub)
     -- TODO: transform these "fresh" substitutons into Free ones!!
 
 
