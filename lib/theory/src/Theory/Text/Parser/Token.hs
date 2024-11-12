@@ -403,9 +403,11 @@ pubName = singleQuoted identifier
 natName :: Parser String
 natName = try (symbol "%" *> singleQuoted identifier)
 
+-- | Parse a literal freshNZE name, e.g. @F'n'@.
 freshNZEName :: Parser String
 freshNZEName = try (symbol "F" *> singleQuoted identifier)
 
+-- | Parse a literal pubG name, e.g. @P'n'@.
 pubGName :: Parser String
 pubGName = try (symbol "P" *> singleQuoted identifier)
 

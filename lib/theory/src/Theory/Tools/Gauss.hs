@@ -37,7 +37,7 @@ int2LNTerm n = fAppdhPlus (fAppdhOne, int2LNTerm $ n-1)
 
 rationalLNTerm :: Integer -> Integer -> LNTerm
 rationalLNTerm n 0 = error "division by zero"
-rationalLNTerm n d = fAppdhMult (fromInteger n, fAppdhInv $ fromInteger d)
+rationalLNTerm n d = fAppdhTimesE (fromInteger n, fAppdhInv $ fromInteger d)
 
 instance Num (Term (Lit Name LVar)) where
   t1 + t2 = simplifyraw $ fAppdhPlus (t1,t2)

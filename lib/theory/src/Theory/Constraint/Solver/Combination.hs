@@ -234,7 +234,7 @@ oneIfOne _ = fAppdhZero
 
 createMatrixProto :: [LNTerm] -> LNTerm -> LNTerm -> ([LNTerm], Matrix LNTerm)
 createMatrixProto nb term target = 
-    let (nbexp, vars) = allNBExponents nb (allExponentsOf [term] target)
+    let (nbexp, vars) = (allExponentsOf [term] target, [])-- allNBExponents nb (allExponentsOf [term] target)
         matrixvars = getVariablesOf [term, target]
         (coeffVars, const) = splitVars matrixvars term
         polynomials = map (\coeffX -> parseToMap vars coeffX) coeffVars -- this term now contains the introduced W and V variables. 
