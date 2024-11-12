@@ -37,7 +37,7 @@ import Data.Functor (($>))
 
 -- | Parse a lit with logical variables parsed by @varp@
 vlit :: Parser v -> Parser (NTerm v)
-vlit varp = asum [freshTerm <$> freshName, pubTerm <$> pubName, natTerm <$> natName, freshNZETerm <$> freshNZEName, pubGTerm <$> pubGName, varTerm <$> varp]
+vlit varp = asum [freshTerm <$> freshName, freshNZETerm <$> freshNZEName, pubGTerm <$> pubGName, pubTerm <$> pubName, natTerm <$> natName,  varTerm <$> varp]
 
 -- | Parse a lit with logical variables.
 llit :: Parser LNTerm
@@ -175,7 +175,7 @@ term plit eqn = asum
       maudeSig <- sig <$> getState
       -- FIXME: This try should not be necessary.
       asum [ try (symbol (BC.unpack sym)) $> fApp fs []
-           | fs@(NoEq (sym,(0,_,_))) <- S.toList $ funSyms maudeSig ]
+           | fs@(NoEq (sym,(0,_,_))) <- S.toList $ funSyms maudeSig ] --TODO: check if you need to adapt this to consider DH nullary applications?
 
 -- | A left-associative sequence of exponentations.
 expterm :: Ord l => Bool -> Parser (Term l) -> Parser (Term l)
