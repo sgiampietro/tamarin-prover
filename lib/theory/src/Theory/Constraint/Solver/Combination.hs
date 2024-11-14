@@ -42,6 +42,26 @@ import Term.LTerm -- (LNTerm)
 import Debug.Trace -- .Ignore
 import Data.ByteString.Builder (word16BE)
 
+{-
+gTerm2ExpInfo ::  LNTerm -> LNTerm
+gTerm2ExpInfo t@(LIT l) = if (isGVar t || isPubGVar t) then (t) else t
+gTerm2ExpInfo t@(FAPP (DHMult o) ts) = case ts of
+    [ t1, t2 ] | o == dhMultSym   -> simplifyraw $ (FAPP (DHMult dhPlusSym) [gTerm2Exp t1, gTerm2Exp t2])
+    [ t1, t2 ] | o == dhTimesSym   -> t
+    [ t1, t2 ] | o == dhTimesESym   -> t
+    [ t1, t2 ] | o == dhExpSym   ->  simplifyraw $ (FAPP (DHMult dhTimesESym) [gTerm2Exp t1, gTerm2Exp t2])
+    [ t1, t2 ] | o == dhPlusSym   -> t
+    [ t1 ]     | o == dhGinvSym    ->  simplifyraw $ (FAPP (DHMult dhMinusSym) [gTerm2Exp t1])
+    [ t1 ]     | o == dhInvSym    -> t
+    [ t1 ]     | o == dhMinusSym    -> t
+    [ t1 ]     | o == dhMuSym    -> FAPP (DHMult dhMuSym) [simplifyraw t1]
+    --[ t1 ]     | o == dhBoxSym    -> gTerm2Exp t1
+    --[ t1 ]     | o == dhBoxESym    -> gTerm2Exp t1
+    []         | o == dhZeroSym    -> t
+    []         | o == dhEgSym    ->  simplifyraw $ (FAPP (DHMult dhZeroSym) [])
+    []         | o == dhOneSym    -> t
+    _                               -> error $ "unexpected term form: `"++show t++"'"
+-}
 
 gTerm2Exp ::  LNTerm -> LNTerm
 gTerm2Exp t@(LIT l) = if (isGVar t || isPubGVar t) then (fAppdhOne) else t
@@ -257,11 +277,15 @@ solveIndicatorGaussProto nb term target =
   case solution of 
     Nothing -> Nothing
     Just (ts) -> (if all (isJust) wzvars then
-                 Just (zip (map fromJust wzvars) ts) else Nothing)
+                 Just (zipWith zipfun wzvars ts) else Nothing)
                     where wzvars = map getVar wzs
-      --case (getVar w1, getVar z2) of
-                --        (Just varw1, Just varz2) -> Just [(varw1, t1), (varz2, t2)]
-                 --       _ -> Nothing
+                          pubg = LIT (Var ( LVar "pg" LSortPubG 1))
+                          getsubst v t = case sortOfLit (Var v) of
+                                        LSortVarG -> simplifyraw $ fAppdhExp( pubg, t)
+                                        _ -> t
+                          zipfun a b = (fromJust a, getsubst (fromJust a) b)
+
+-- TODO: this should then be re-transformed into a g element!
 
 
 -- TODO: these terms are possible G, terms. We assume here that our terms are always of the form
