@@ -260,6 +260,9 @@ insertFreshNodeConcMixed rules instrules = do
     `disjunction`        
     (do
         (i, ru) <- insertFreshNode rules Nothing
+        subst <- getM sEqStore
+        -- applyVTerm (_eqsSubst subst) ta1
+        trace (show ("i", i, subst)) $ contradictoryIf (elem i [i | (i,ru) <- instrules])
         (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru, isMixedFact f ]
         return (ru, (i, v), fa))
 
@@ -1004,7 +1007,7 @@ solveMixedTermEqs splitStrat bset nbset fun (lhs,rhs)
         hnd <- getMaudeHandle
         se  <- gets id
         (eqs2, maySplitId,dheqs) <- addMixedEqs hnd [Equal cleanedlhs cleanedrhs] ((map fst lhsDHvars) ++ (map fst rhsDHvars)) =<< getM sEqStore
-        setM sEqStore
+        trace (show "caseheree") $ setM sEqStore
             =<< simp hnd (substCreatesNonNormalTerms hnd se) -- (\x y -> False) this solves the NORMAL FORM ISSUE!! check that. 
             =<< case (maySplitId, splitStrat) of
                   (Just splitId, SplitNow) -> disjunctionOfList

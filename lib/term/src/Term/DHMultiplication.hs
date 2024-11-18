@@ -54,6 +54,7 @@ import Control.Monad.Fresh
 --import           Data.List
 import qualified Data.Map                         as Map
 import qualified Data.Set                          as S
+import qualified Data.Maybe                       as Maybe
 --import           Data.ByteString.Char8 (ByteString, append, pack, empty)
 
 -- import           Extension.Data.Label
@@ -193,8 +194,25 @@ varTermsOf t@(LIT l)
   | otherwise = []
 varTermsOf t@(FAPP f ts) = concatMap varTermsOf ts
 
-indComputable :: S.Set LNTerm -> LNTerm -> Bool
-indComputable bs t = S.fromList ( eTermsOf t ) `S.isSubsetOf` bs
+{-}
+varTermOf :: LNTerm -> LNTerm -> [(LNTerm, LNTerm)]
+varTermOf t@(LIT l) var
+  | isvarGVar t = (t, acc) 
+  | isvarEVar t = []
+  | otherwise =  []
+varTermOf t@(FAPP (DHMult o) ts) acc =     case ts of 
+    [ t1, t2 ] | o == dhMultSym   -> (case sortOfLNTerm t2 
+                                        LsortVarG -> (t1, basisOf t2)
+                                        _ -> ) 
+    [ t1, t2 ] | o == dhPlusSym   -> varTermOf t1 acc ++ varTermOf t2 acc
+    [ t1, t2 ] | o == dhTimesESym   -> ( Just ( (Maybe.fromMaybe [] $ fst $ varTermOf t1) ++ (Maybe.fromMaybe [] $ fst $ varTermOf t2)) , Nothing)
+    [ t1, t2 ] | o == dhTimesSym   -> ( Just ( (Maybe.fromMaybe [] $ fst $ varTermOf t1) ++ (Maybe.fromMaybe [] $ fst $ varTermOf t2)) , Nothing)
+    [t1]       | o == dhMuSym  -> (Nothing, Nothing)
+    _                               -> error $ "term not in normal form?: `"++show t++"'"
+-}
+
+--indComputable :: S.Set LNTerm -> LNTerm -> Bool
+--indComputable bs t = S.fromList ( eTermsOf t ) `S.isSubsetOf` bs
 
 
 isDHLit :: LNTerm -> Bool
@@ -248,10 +266,10 @@ isPublic indt = case viewTerm2 (indt) of
                 (Lit2 t) | (isPubGVar (LIT t))  -> True
                 _ -> False
 
-rootIndicator :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> (LNTerm, [(LVar, VTerm Name LVar)])
-rootIndicator b nb t
-  | indComputable (b `S.union` nb) t = (rootIndKnown b nb t,[])
-  | otherwise = rootIndUnknown b nb t
+--rootIndicator :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> (LNTerm, [(LVar, VTerm Name LVar)])
+--rootIndicator b nb t
+--  | indComputable (b `S.union` nb) t = (rootIndKnown b nb t,[])
+--  | otherwise = rootIndUnknown b nb t
 
 
 rootIndKnown :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> LNTerm

@@ -21,13 +21,7 @@ import qualified Data.Map     as Map
 import qualified Data.Set     as S
 
 import GHC.Real
-import Term.Maude.Process
-import Control.Monad.Trans.Reader   
-import Term.Rewriting.Norm
-
 import Term.LTerm -- (LNTerm)
-import Term.Term.Raw
-
 import Debug.Trace.Ignore
 
 int2LNTerm :: Integer -> LNTerm
@@ -111,8 +105,8 @@ simplifyraw t= case viewTerm2 t of
 
 
 -- Gauss Elimination: Solve matrix equation Ax = B
-gaussEliminationFromEquation :: LNTerm -> Matrix LNTerm -> Matrix LNTerm -> Vector LNTerm
-gaussEliminationFromEquation zero a b = gaussEliminationFromMatrix zero $ zipMatrix a b
+-- gaussEliminationFromEquation :: LNTerm -> Matrix LNTerm -> Matrix LNTerm -> Vector LNTerm
+-- gaussEliminationFromEquation zero a b = gaussEliminationFromMatrix zero $ zipMatrix a b
 
 -- Create augmented matrix from A and B
 zipMatrix :: Matrix LNTerm -> Matrix LNTerm -> Matrix LNTerm
@@ -120,12 +114,14 @@ zipMatrix [] [] = []
 zipMatrix (x:xs) (y:ys) = (x ++ y) : (zipMatrix xs ys)
 
 -- Compute the row-reduced-echelon form of the matrix
-gaussReduction :: LNTerm -> Matrix LNTerm -> Matrix LNTerm
-gaussReduction zero [] = []
-gaussReduction zero matrix | null $ head (allzerosCheck zero matrix) = matrix
-gaussReduction zero matrix = trace (show ("REMOVEDZEROS", allzerosCheck zero matrix, null $ head $ allzerosCheck zero matrix, head $ allzerosCheck zero matrix)) $ r: gaussReduction zero rs
+gaussReduction :: LNTerm -> Matrix LNTerm -> [LNTerm] -> (Matrix LNTerm, [LNTerm])
+gaussReduction zero [] vars = ([], vars)
+gaussReduction zero matrix vars | null $ head (allzerosCheck zero matrix) = (matrix, vars)
+gaussReduction zero matrix vars | null vars = gaussReduction zero matrix (replicate (length matrix) zero)
+gaussReduction zero matrix vars =  (r: ( fst nextstep ), snd nextstep)
     where
-        (r:rows) = pivotCheck zero (allzerosCheck zero matrix) (length matrix)
+        nextstep = gaussReduction zero rs varsP
+        ((r:rows), varsP) = pivotCheck zero (allzerosCheck zero matrix) (length matrix) vars
         rs = map reduceRow $ rows
         -- Row reduction using row operations
         reduceRow row
@@ -143,16 +139,19 @@ allzerosCheck zero m
   | otherwise = m
 
 -- Check and swap row if pivot element is zero
-pivotCheck :: LNTerm -> Matrix LNTerm -> Int -> Matrix LNTerm
-pivotCheck zero (r:rs) counter
-    | rs == [] = (r:rs)
-    | counter == 0 = (r:rs)
-    | (head r /= zero) = (r:rs)
-    | otherwise = pivotCheck zero (rs ++ [r]) (counter-1)
+pivotCheck :: LNTerm -> Matrix LNTerm -> Int -> [LNTerm] -> (Matrix LNTerm, [LNTerm])
+pivotCheck zero (r:rs) counter vars@(v:vs)
+    | rs == [] = ((r:rs), vars)
+    | counter == 0 = ((r:rs), vars)
+    | (head r /= zero) = ((r:rs), vars)
+    | otherwise = trace (show "swappedrow!!!!") (fst $ pivotCheck zero (rs ++ [r]) (counter-1) (vs ++ [v]), vs ++ [v])
 
 
-removeZeroRows :: LNTerm -> Matrix LNTerm -> Matrix LNTerm
-removeZeroRows zero = filter (\row -> not (all (== zero) row))
+removeZeroRows :: LNTerm -> Matrix LNTerm -> [LNTerm] -> (Matrix LNTerm, [LNTerm], [LNTerm])
+removeZeroRows zero matrix vars = (map fst filtered, map snd filtered, subst)
+      where 
+        subst = map snd $ filter (\(row, v) -> (all (== zero) row) ) $ zip matrix vars 
+        filtered = filter (\(row, v) -> not (all (== zero) row) ) $ zip matrix vars 
 
 -- check if matrix is inconsistent - it will have all zeroes except last column in at least one row
 inconsistentMatrix :: LNTerm -> Matrix LNTerm -> Bool
@@ -166,7 +165,7 @@ traceBack :: LNTerm -> Matrix LNTerm -> Vector LNTerm
 traceBack zero = reverse . (traceBack' zero 2) . reverse . map reverse
 
 
-
+{-
 -- Use back substitution to calculate the solutions
 traceBack' :: LNTerm -> Int -> Matrix LNTerm -> Vector LNTerm
 traceBack' zero _ [] = []
@@ -177,20 +176,32 @@ traceBack' zero prevlength (r:rows) = (pad ++ (var : (traceBack' zero currlength
         substituteVariable (x:(y:ys)) = ((simplifyraw $ x +(simplifyraw $ negate (simplifyraw $ var*y) ) ):ys)
         currlength = (length r)
         pad = if (currlength - prevlength > 0) then (replicate (currlength - prevlength) zero) else []
+-}
+
+-- Use back substitution to calculate the solutions
+traceBack' :: LNTerm -> Int -> Matrix LNTerm -> Vector LNTerm
+traceBack' zero _ [] = []
+traceBack' zero prevlength (r:rows) =  (var : (traceBack' zero currlength rs))
+    where
+        var = simplifyraw $ (head r)/(last r)
+        rs = map substituteVariable rows
+        substituteVariable (x:(y:ys)) = ((simplifyraw $ x +(simplifyraw $ negate (simplifyraw $ var*y) ) ):ys)
+        currlength = (length r)
+        -- pad = if (currlength - prevlength > 0) then (replicate (currlength - prevlength) zero) else []
 
 
 -- Gauss Elimination: Solve a given augmented matrix
-gaussEliminationFromMatrix :: LNTerm -> Matrix LNTerm -> Vector LNTerm
-gaussEliminationFromMatrix zero matrix = traceBack zero $ gaussReduction zero matrix
+gaussEliminationFromMatrix :: LNTerm -> Matrix LNTerm -> [LNTerm] -> Vector LNTerm
+gaussEliminationFromMatrix zero matrix vars = traceBack zero $ fst $ gaussReduction zero matrix vars
 
 
-solveMatrix :: LNTerm -> Matrix LNTerm -> Maybe (Vector LNTerm)
-solveMatrix zero matrix  
-  | inconsistentMatrix zero cleanmatrix = Nothing
-  | otherwise = Just (traceBack zero cleanmatrix)
+solveMatrix :: LNTerm -> Matrix LNTerm -> [LNTerm] -> (Maybe (Vector LNTerm), [LNTerm], [LNTerm])
+solveMatrix zero matrix variables 
+  | inconsistentMatrix zero cleanmatrix = (Nothing, variables, [])
+  | otherwise = (Just (traceBack zero cleanmatrix) , variablesP, subst)
     where 
-      redmatrix = trace (show ("IGetTillHere", gaussReduction zero matrix)) $ gaussReduction zero matrix
-      cleanmatrix =  trace (show ("IGetTillHere2", removeZeroRows zero redmatrix)) $ removeZeroRows zero redmatrix
+      (redmatrix, variables2) = gaussReduction zero matrix variables
+      (cleanmatrix, variablesP, subst) =  removeZeroRows zero redmatrix variables2
       
 
 {-

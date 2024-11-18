@@ -25,7 +25,7 @@ module Theory.Constraint.Solver.Goals (
   , plainOpenGoals
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Prelude                                 hiding (id, (.))
 
@@ -35,7 +35,7 @@ import qualified Data.DAG.Simple                         as D (reachableSet)
 import qualified Data.Map                                as M
 import qualified Data.Monoid                             as Mono
 import qualified Data.Set                                as S
-import           Data.List                               (union)
+import           Data.List                               (nub)
 
 import           Control.Basics
 import           Control.Category
@@ -335,8 +335,8 @@ solvePremise rules p faPrem
   | isKdhFact faPrem && isDHFact faPrem = (solveDHInd rules p faPrem)
   | isKdhFact faPrem && isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
   -- | (isInFact faPrem && isDHFact faPrem) = trace (show ("solvingINFACT here", faPrem)) solveDHInd rules p faPrem
-  | isProtoDHFact faPrem =  trace (show ("SOLVINGPREMISEDH:", faPrem)) $ solveDHIndProto rules p faPrem
-  | isProtoMixedFact faPrem = do solveDHMixedPremise rules p faPrem
+  | isProtoDHFact faPrem =  solveDHIndProto rules p faPrem
+  | isProtoMixedFact faPrem = trace (show ("SOLVINGPREMISEDH:", faPrem)) $  solveDHMixedPremise rules p faPrem
   {-| isKDFact faPrem && isMixedFact faPrem = do
       -- nodes <- getM sNodes
       -- ruless <- askM pcRules
@@ -603,9 +603,14 @@ solveDHMixedPremise ::  [RuleAC]        -- ^ All rules that have an Out fact con
              -> Reduction String -- ^ Case name to use.
 solveDHMixedPremise rules p faPrem = do
       nodes <- getM sNodes
-      (ru, c, faConc) <-  insertFreshNodeConcMixed rules (M.assocs nodes)
-      trace (show ("CURIOUS", faConc, faPrem, showRuleCaseName ru)) $ insertDHMixedEdge True (c, faConc, faPrem, p)  ru ru (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x))-- instead of root indicator this should be Y.ind^Z.
-      trace (show "whyamInotappearing?") (return $ showRuleCaseName ru)
+      _ <- trace (show ("all asscisc", M.assocs nodes)) $ return ()
+      (ru, c@(i,ci), faConc) <-  insertFreshNodeConcMixed rules (M.assocs nodes)
+      -- trace (show ("CURIOUS", faConc, faPrem, i, showRuleCaseName ru)) $ 
+      insertDHMixedEdge True (c, faConc, faPrem, p)  ru ru (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x))-- instead of root indicator this should be Y.ind^Z.
+      newnodes <- getM sNodes
+      let newlist = [ t | (_, ru2) <- M.assocs newnodes, (isFreshRule ru2), (_,fa) <- enumConcs ru2 , t<- factTerms fa ]
+      contradictoryIf (nub newlist /= newlist)
+      trace (show ("whyamInotappearing?", i, showRuleCaseName ru, newlist)) (return $ showRuleCaseName ru)
 
 
 
