@@ -39,8 +39,7 @@ import Term.DHMultiplication
 import Term.LTerm -- (LNTerm)
 
 -- import Theory.Constraint.System.Constraints
-import Debug.Trace -- .Ignore
-import Data.ByteString.Builder (word16BE)
+import Debug.Trace.Ignore
 
 {-
 gTerm2ExpInfo ::  LNTerm -> LNTerm
@@ -210,10 +209,7 @@ createMatrix nb terms target =
   trace (show ("thisistheresultingmatrix", createdmatrix, "vars", vars)) createdmatrix -- todo: double check if row/column is ok or needs to be switched
 
 solveIndicatorGauss :: [LNTerm] -> [LNTerm] -> LNTerm -> Maybe [LNTerm]
-solveIndicatorGauss nb terms target = solveMatrix fAppdhZero $ createMatrix (nb) (map gTerm2Exp terms) (gTerm2Exp target)
--- TODO: these terms are possible G, terms. We assume here that our terms are always of the form
--- 'g'^x for some fixed g, so we need to transform them to their exponent values. 
-
+solveIndicatorGauss nb terms target = (\(a,b,c) -> a) $ solveMatrix fAppdhZero (createMatrix (nb) (map gTerm2Exp terms) (gTerm2Exp target)) []
 
 
 -- PART FOR PROTOCOL ACTION INDICATORS
@@ -272,21 +268,20 @@ solveIndicatorGaussProto :: [LNTerm] -> LNTerm -> LNTerm -> Maybe [(LVar, LNTerm
 solveIndicatorGaussProto nb term target = 
     let (wzs, matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)       
       -- ([w1, z2], matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)
-        solution = solveMatrix fAppdhZero matriz
+        (solution, newwzs, subszero) = solveMatrix fAppdhZero matriz wzs
     in
   case solution of 
     Nothing -> Nothing
-    Just (ts) -> (if all (isJust) wzvars then
-                 Just (zipWith zipfun wzvars ts) else Nothing)
-                    where wzvars = map getVar wzs
+    Just (ts) -> (if (all (isJust) wzvars && all isJust zerovars) then
+                 Just ((zipWith zipfun wzvars ts) ++ map ((\i -> (i, fAppdhZero)).fromJust) zerovars) else Nothing)
+                    where wzvars = map getVar newwzs
                           pubg = LIT (Var ( LVar "pg" LSortPubG 1))
                           getsubst v t = case sortOfLit (Var v) of
                                         LSortVarG -> simplifyraw $ fAppdhExp( pubg, t)
                                         _ -> t
                           zipfun a b = (fromJust a, getsubst (fromJust a) b)
+                          zerovars = map getVar subszero
 
--- TODO: this should then be re-transformed into a g element!
+-- TODO: now transforming into PG^x, for a fixed PG element. should be from the PG elements
+-- the exponent came from
 
-
--- TODO: these terms are possible G, terms. We assume here that our terms are always of the form
--- 'g'^x for some fixed g, so we need to transform them to their exponent values. 
