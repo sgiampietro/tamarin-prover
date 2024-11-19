@@ -105,7 +105,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -730,7 +730,7 @@ insertDHEdges tuplelist indts premTerm p = do
     let rootpairs = zip (map (\(a,b,c,d,e,f)-> (head $ factTerms c,d)) tuplelist) indts
         cllist = nubBy (\(a,b,c,d,e,f) (a2,b2,c2,d2,e2,f2) -> b == b2) tuplelist
     (faPremsubst, listterms) <- foldM (\faP c -> solveIndFactDH SplitNow c faP) (premTerm,[]) rootpairs
-    solveIndicator faPremsubst listterms
+    trace (show "insertDHEDGESdone") $ solveIndicator faPremsubst listterms
     forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
     forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
 
@@ -1184,22 +1184,22 @@ solveTermDHEqsChain :: SplitStrategy -> [RuleAC] -> [(NodeId,RuleACInst)] ->
 solveTermDHEqsChain splitStrat rules instrules fun p faPrem (j,ruj, fa1, c) (ta1,ta2) = do
     bset <- getM sBasis
     nbset <- getM sNotBasis
-    case neededexponents bset nbset ta2 of -- ta2 is a term of faPrem
-      [] -> do  -- TODO: this is where we need to check multiple Out facts!! 
-          hndNormal <- getMaudeHandle
-          let indlist = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' ta2) hndNormal)
-              neededInds = filter (not . isPublic) indlist
-              n = length neededInds
-          if null neededInds 
-            then insertDHEdge ((j,c), fa1, faPrem, p) bset nbset -- TODO: fix this
-            else do
-              possibletuple <- insertFreshNodeConcOutInst rules instrules n (Just (j,ruj, fa1, c))
-              insertDHEdges possibletuple neededInds ta2 p
-          return Changed
-      es -> do
-          solveNeededList fun es
-          solveTermDHEqsChain splitStrat rules instrules fun p faPrem (j,ruj, fa1, c) (ta1,ta2)
-          return Changed 
+    -- case neededexponents bset nbset ta2 of 
+    --  [] -> do  
+    hndNormal <- getMaudeHandle
+    let indlist = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' ta2) hndNormal)
+        neededInds = filter (not . isPublic) indlist
+        n = length neededInds
+    if null neededInds 
+     then insertDHEdge ((j,c), fa1, faPrem, p) bset nbset -- TODO: fix this
+     else do
+            possibletuple <- insertFreshNodeConcOutInst rules instrules n (Just (j,ruj, fa1, c))
+            insertDHEdges possibletuple neededInds ta2 p
+    return Changed
+    --  es -> do
+    --      solveNeededList fun es
+    --      solveTermDHEqsChain splitStrat rules instrules fun p faPrem (j,ruj, fa1, c) (ta1,ta2)
+    --      return Changed 
          
 
 protoCase :: SplitStrategy -> S.Set LNTerm -> S.Set LNTerm -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
@@ -1292,7 +1292,7 @@ solveFactDHEqs split fa1 fa2 bset nbset fun= do
 
 solveIndFactDH :: SplitStrategy -> ((LNTerm, LNTerm), LNTerm) -> (LNTerm, [LNTerm]) -> Reduction (LNTerm, [LNTerm])
 solveIndFactDH split ((fa1, t1), t2) (fa2, acclist)= 
-    case (isPubExp t1, isPubExp t2) of
+    case trace (show "HEREYES") (isPubExp t1, isPubExp t2) of
         (Just (pg1,e1), Just (pg2,e2)) -> do
                 solveTermEqs split [(Equal pg1 pg2)]
                 solveIndFactDH split ((fa1, e1), e2) (fa2, acclist)
