@@ -397,8 +397,7 @@ simp1 hnd isContr = do
           b6 <- foreachDisj hnd simpIdentify
           b7 <- foreachDisj hnd simpAbstractFun
           b8 <- foreachDisj hnd simpAbstractName
-          (trace (show ("simp:", [b1, b2, b3, b4, b5, b6, b7, b8]))) $
-              return $ (or [b1, b2, b3, b4, b5, b6, b7, b8])
+          return $ (or [b1, b2, b3, b4, b5, b6, b7, b8])
 
 
 -- | Remove variable renamings in fresh substitutions.
@@ -638,17 +637,18 @@ addDHEqs2 hnd t1 indt eqdhstore =
 
 
 addDHProtoEqs :: MonadFresh m
-       => MaudeHandle -> [LNTerm] -> [LNTerm] -> [LVar] -> EqStore -> m (EqStore, Maybe SplitId)
-addDHProtoEqs hnd t1 indt zz eqdhstore = do
+       => MaudeHandle -> [(LNTerm,LNTerm, LVar)] -> [LNTerm] -> Bool -> EqStore -> m (EqStore, Maybe SplitId)
+addDHProtoEqs hnd t1zzs indt zzbool eqdhstore = do
     -- todo: here 
-    let muvariables = (concatMap varInMu t1) ++ (concatMap varInMu indt)
-    case unifyLNDHProtoTermFactored (zipWith Equal t1 indt) `runReader` hnd of
-        []-> 
-            return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
+    let t1 = (map (\(a,_,_)->a) t1zzs)
+        muvariables = (concatMap varInMu t1) ++ (concatMap varInMu indt)
+    case unifyLNDHProtoTermFactored (zipWith Equal indt t1) `runReader` hnd of
+        [] | zzbool ->  return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
+        [] | not zzbool -> addDHProtoEqs hnd (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) indt True eqdhstore
         [substFresh] | substFresh == emptySubstVFresh ->
             return (eqdhstore, Nothing)
         substs -> do
-            substs' <- trace (show ("ISHOULDGETHERE", t1, indt)) $ mapM generalize substs
+            substs' <- mapM generalize substs
             let  eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs' ) eqdhstore
             --(eqStore', sid) <- liftM (addDisj eqdhstore) (liftM S.fromList (mapM generalize substs)) -- TODO: fix this!!
             -- TODO: instead of adding disjunctions here, need to directly add them as substitutions!
@@ -661,18 +661,14 @@ addDHProtoEqs hnd t1 indt zz eqdhstore = do
               a | a == LSortE  && (not $ elem c muvariables) -> do 
                   w1 <- freshLVar "yk" LSortVarE
                   v1 <- freshLVar "zk" LSortVarE
-                  trace (show ("gentup:", v1, w1)) $ return (c, fAppdhPlus (fAppdhTimesE (cterm, varTerm v1), varTerm w1))
+                  return (c, fAppdhPlus (fAppdhTimesE (cterm, varTerm v1), varTerm w1))
               a | a == LSortG && (not $ elem c muvariables)  -> do 
                   w1 <- freshLVar "wk" LSortVarG
                   v1 <- freshLVar "vk" LSortVarE
                   return (c, fAppdhMult (fAppdhExp (cterm,varTerm v1), varTerm w1))
-      {-a | a == LSortPubG  -> do 
-          w1 <- freshLVar "wk" LSortVarG
-          v1 <- freshLVar "vk" LSortVarE
-          return (c, fAppdhMult (fAppdhExp (cterm,varTerm v1), varTerm w1)) -}
               _ -> return (c, cterm)
-            generalize sub = liftM substFromListVFresh $ mapM generaltup $ filter (\(a,b)-> not $ elem a zz) (substToListVFresh sub)
-    -- TODO: transform these "fresh" substitutons into Free ones!!
+            generalize sub = liftM substFromListVFresh $ mapM generaltup $ filter (\(a,b)-> not $ elem a (map (\(_,_,a)->a) t1zzs)) (substToListVFresh sub)
+
 
 
 ------------------------------------------------------------------------------

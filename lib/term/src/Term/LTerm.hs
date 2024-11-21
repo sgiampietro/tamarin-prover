@@ -483,7 +483,7 @@ isPubGVar (viewTerm -> Lit (Var v)) = (lvarSort v == LSortPubG)
 isPubGVar _                         = False
 
 isGConst :: LNTerm -> Bool
-isGConst (viewTerm -> Lit (Con c)) = (sortOfName c == LSortPubG) || (sortOfName c == LSortPubG)
+isGConst (viewTerm -> Lit (Con c)) = (sortOfName c == LSortPubG) || (sortOfName c == LSortG)
 isGConst _                         = False
 
 {-

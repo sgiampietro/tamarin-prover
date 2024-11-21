@@ -218,7 +218,7 @@ solveGoal goal = do
     trace (show ("IAMSOLVINGGOALNOW", goal)) $ markGoalAsSolved "directly" goal
     rules <- askM pcRules
     case goal of
-      ActionG i fa  -> solveAction  (nonSilentRules rules) (i, fa)
+      ActionG i fa  -> trace (show ("with these rules",(nonSilentRules rules) )) $ solveAction  (nonSilentRules rules) (i, fa)
       PremiseG p fa ->
            solvePremise (get crProtocol rules ++ get crConstruct rules) p fa
       ChainG c p    -> solveChain (get crDestruct rules) (c, p)
@@ -578,7 +578,7 @@ solveDHIndaux bset nbset term p faPrem rules instrules =
             then return "Indicators are public"
             else do
               possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n Nothing
-              trace (show ("INSERTINGEDFEHERE", faPrem)) $ insertDHEdges possibletuple neededInds term p
+              trace (show ("INSERTINGEDFEHERE", faPrem, n)) $ insertDHEdges possibletuple neededInds term p
               return $ "MatchingEachIndicatorWithOutFacts" 
       es -> do
           solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) es

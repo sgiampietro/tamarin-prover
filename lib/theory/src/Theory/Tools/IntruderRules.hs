@@ -318,13 +318,15 @@ normRule' (Rule i ps cs as nvs) = reader $ \hnd ->
 dhmultIntruderRules ::  [IntrRuleAC]
 dhmultIntruderRules = [
     kuRule PubGConstrRule   []                             (x_pub_var)     [(x_pub_var)]
-    , kuRule FreshNZEConstrRule [freshDHFact x_fresh_var] (x_fresh_var)          []
+    --, kuRule FreshNZEConstrRule [freshDHFact x_fresh_var] (x_fresh_var)          []
+    , Rule FreshNZEConstrRule [freshDHFact x_fresh_var] [kuFact x_fresh_var, outFact x_fresh_var] [ kuFact x_fresh_var,  kuFact (fAppdhExp (gname, x_fresh_var)) ]         [] -- kuFact x_fresh_var, kuFact (fAppdhExp (gname, x_fresh_var))
     --Rule PubGConstrRule   [] [ kdhFact (x_pub_var)] [kLogFact (x_pub_var)]  []
     --, kdhRule FreshNZEConstrRule [freshDHFact x_fresh_var] (x_fresh_var) (x_fresh_var)         []
     , Rule ISendRule   [kdhFact x_varG] [inFact x_varG] [kLogFact x_varG]        []
     , Rule ISendRule   [kdhFact x_varE] [inFact x_varE] [kLogFact x_varE]        []
     , Rule IRecvRule [outFact x_varE] [kIFact x_varE] []  [] 
-    , Rule FreshNZEConstrRule [freshDHFact x_fresh_var] [kIFact x_fresh_var] []         []
+    -- , Rule FreshNZEConstrRule [freshDHFact x_fresh_var] [kIFact x_fresh_var] [ ]         []
+    
     --, Rule IRecvRule [outFact x_varE] [kIFact x_varE] []  [] 
     ]
   where
@@ -334,6 +336,7 @@ dhmultIntruderRules = [
     x_fresh_var = varTerm (LVar "x"  LSortFrNZE 0) --FrNZE
     x_varG = varTerm (LVar "x"  LSortG 0) --G
     x_varE = varTerm (LVar "x"  LSortE 0) --E
+    gname = pubGTerm "g"
 
 
 ------------------------------------------------------------------------------
