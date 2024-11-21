@@ -41,29 +41,10 @@ import Term.LTerm -- (LNTerm)
 -- import Theory.Constraint.System.Constraints
 import Debug.Trace.Ignore
 
-{-
-gTerm2ExpInfo ::  LNTerm -> LNTerm
-gTerm2ExpInfo t@(LIT l) = if (isGVar t || isPubGVar t) then (t) else t
-gTerm2ExpInfo t@(FAPP (DHMult o) ts) = case ts of
-    [ t1, t2 ] | o == dhMultSym   -> simplifyraw $ (FAPP (DHMult dhPlusSym) [gTerm2Exp t1, gTerm2Exp t2])
-    [ t1, t2 ] | o == dhTimesSym   -> t
-    [ t1, t2 ] | o == dhTimesESym   -> t
-    [ t1, t2 ] | o == dhExpSym   ->  simplifyraw $ (FAPP (DHMult dhTimesESym) [gTerm2Exp t1, gTerm2Exp t2])
-    [ t1, t2 ] | o == dhPlusSym   -> t
-    [ t1 ]     | o == dhGinvSym    ->  simplifyraw $ (FAPP (DHMult dhMinusSym) [gTerm2Exp t1])
-    [ t1 ]     | o == dhInvSym    -> t
-    [ t1 ]     | o == dhMinusSym    -> t
-    [ t1 ]     | o == dhMuSym    -> FAPP (DHMult dhMuSym) [simplifyraw t1]
-    --[ t1 ]     | o == dhBoxSym    -> gTerm2Exp t1
-    --[ t1 ]     | o == dhBoxESym    -> gTerm2Exp t1
-    []         | o == dhZeroSym    -> t
-    []         | o == dhEgSym    ->  simplifyraw $ (FAPP (DHMult dhZeroSym) [])
-    []         | o == dhOneSym    -> t
-    _                               -> error $ "unexpected term form: `"++show t++"'"
--}
+
 
 gTerm2Exp ::  LNTerm -> LNTerm
-gTerm2Exp t@(LIT l) = if (isGVar t || isPubGVar t) then (fAppdhOne) else t
+gTerm2Exp t@(LIT l) = if (isGVar t || isPubGVar t || isGConst t) then (fAppdhOne) else t
 gTerm2Exp t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhMultSym   -> simplifyraw $ (FAPP (DHMult dhPlusSym) [gTerm2Exp t1, gTerm2Exp t2])
     [ t1, t2 ] | o == dhTimesSym   -> t
@@ -250,7 +231,7 @@ oneIfOne _ = fAppdhZero
 
 createMatrixProto :: [LNTerm] -> LNTerm -> LNTerm -> ([LNTerm], Matrix LNTerm)
 createMatrixProto nb term target = 
-    let (nbexp, vars) = (allExponentsOf [term] target, [])-- allNBExponents nb (allExponentsOf [term] target)
+    let (nbexp, vars) =  allNBExponents nb (allExponentsOf [term] target) -- (allExponentsOf [term] target, [])
         matrixvars = getVariablesOf [term, target]
         (coeffVars, const) = splitVars matrixvars term
         polynomials = map (\coeffX -> parseToMap vars coeffX) coeffVars -- this term now contains the introduced W and V variables. 
@@ -273,14 +254,16 @@ solveIndicatorGaussProto nb term target =
   case solution of 
     Nothing -> Nothing
     Just (ts) -> (if (all (isJust) wzvars && all isJust zerovars) then
-                 Just ((zipWith zipfun wzvars ts) ++ map ((\i -> (i, fAppdhZero)).fromJust) zerovars) else Nothing)
+                 Just ((zipWith zipfun wzvars ts) ++ map ((\i -> (i, getsubst i fAppdhZero)).fromJust) zerovars) else Nothing)
                     where wzvars = map getVar newwzs
-                          pubg = LIT (Var ( LVar "pg" LSortPubG 1))
+                          --pubg = LIT (Var ( LVar "pg" LSortPubG 1))
+                          pubg = pubGTerm "g"
                           getsubst v t = case sortOfLit (Var v) of
-                                        LSortVarG -> simplifyraw $ fAppdhExp( pubg, t)
+                                        LSortVarG -> trace (show ("exponentiating here", v, t)) $ simplifyraw $ fAppdhExp (pubg, t)
                                         _ -> t
                           zipfun a b = (fromJust a, getsubst (fromJust a) b)
-                          zerovars = map getVar subszero
+                          extravars = (map getVar wzs) \\ wzvars
+                          zerovars = map getVar subszero ++ extravars
 
 -- TODO: now transforming into PG^x, for a fixed PG element. should be from the PG elements
 -- the exponent came from
