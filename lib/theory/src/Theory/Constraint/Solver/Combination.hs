@@ -61,6 +61,7 @@ gTerm2Exp t@(FAPP (DHMult o) ts) = case ts of
     []         | o == dhEgSym    ->  simplifyraw $ (FAPP (DHMult dhZeroSym) [])
     []         | o == dhOneSym    -> t
     _                               -> error $ "unexpected term form: `"++show t++"'"
+gTerm2Exp t =  error $ "unexpected term form2: `"++show t++"'"
 
 
 allExponentsOf :: [LNTerm] -> LNTerm -> [LNTerm]

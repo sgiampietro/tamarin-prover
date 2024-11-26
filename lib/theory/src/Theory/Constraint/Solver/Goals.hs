@@ -25,7 +25,7 @@ module Theory.Constraint.Solver.Goals (
   , plainOpenGoals
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Prelude                                 hiding (id, (.))
 
@@ -389,35 +389,44 @@ solveChain :: [RuleAC]              -- ^ All destruction rules.
 solveChain rules (c, p) = do
     rules2 <- askM pcRules
     faConc  <- gets $ nodeConcFact c -- instantiated KD conclusion!
-    do -- solve it by a direct edge
+    (do  -- solve it by a direct edge
         cRule <- gets $ nodeRule (nodeConcNode c)
         pRule <- gets $ nodeRule (nodePremNode p)
         faPrem <- gets $ nodePremFact p
         contradictoryIf (forbiddenEdge cRule pRule)
         --insertEdges [(c, faConc, faPrem, p)]
         if (isMixedFact faPrem) 
-          then do
+          then (do
             bset <- getM sBasis
             nbset <- getM sNotBasis
             nodes <- getM sNodes
             case neededexponentslist bset nbset (factTerms faPrem) of
               (Just es) -> do
-                            trace (show ("esponents not known", faConc, faPrem)) $ solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) (S.toList es)
-                            solveChain rules (c, p)
+                              trace (show ("esponents not known", faConc, faPrem)) $ solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) (S.toList es)
+                              name <- (solveChain rules (c, p))
+                              trace (show ("I'malsohere", name)) $ return name
               Nothing -> do 
                           trace (show ("insertingMIXEDEdge", faConc, faPrem, cRule, pRule)) $  insertDHMixedEdge False (c, faConc, faPrem, p) cRule pRule bset nbset (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) -- this is where probably you want to do insertDHEdges!
+                          let mPrem = case kFactView faConc of
+                                            Just (DnK, m') -> m'
+                                            _              -> error $ "solveChain: impossible"
+                              caseName (viewTerm -> FApp o _)    = showFunSymName o
+                              caseName (viewTerm -> Lit l)       = showLitName l 
                           --trace (show ("esponents YES known", faConc, faPrem)) $ solveDHIndaux bset nbset (head $ factTerms faPrem) p faPrem rules (M.assocs nodes)
-                          return "edgeinserted"
-            void substSystem
-            void normSystem
-          else trace (show ("insertingNORMALEdge", faConc, faPrem, cRule, pRule)) $  insertEdges [(c, faConc, faPrem, p)] 
-        let mPrem = case kFactView faConc of
+                          --return "edgeinserted"
+                          void substSystem
+                          void normSystem
+                          -- contradictoryIf (illegalCoerce pRule mPrem)
+                          trace (show ("I'm here", (caseName mPrem))) $ return (caseName mPrem) )  
+          else (do
+                trace (show ("insertingNORMALEdge", faConc, faPrem, cRule, pRule)) $  insertEdges [(c, faConc, faPrem, p)]  
+                let mPrem = case kFactView faConc of
                       Just (DnK, m') -> m'
                       _              -> error $ "solveChain: impossible"
-            caseName (viewTerm -> FApp o _)    = showFunSymName o
-            caseName (viewTerm -> Lit l)       = showLitName l
-        contradictoryIf (illegalCoerce pRule mPrem)
-        return (caseName mPrem)
+                    caseName (viewTerm -> FApp o _)    = showFunSymName o
+                    caseName (viewTerm -> Lit l)       = showLitName l
+                contradictoryIf (illegalCoerce pRule mPrem)
+                return (caseName mPrem)   )
      `disjunction`
      -- extend it with one step
      case kFactView faConc of
@@ -452,7 +461,7 @@ solveChain rules (c, p) = do
                 --if (isMixedFact faConc) 
                 --  then extendAndMarkMixed i ru v faPrem faConc bset nbset
                 trace (show ("tryingEDGEMark", faConc, faPrem)) $ extendAndMark i ru v faPrem faConc
-         _ -> error "solveChain: not a down fact"
+         _ -> error "solveChain: not a down fact")
   where
     extendAndMark :: NodeId -> RuleACInst -> PremIdx -> LNFact -> LNFact
       -> Control.Monad.Trans.State.Lazy.StateT System

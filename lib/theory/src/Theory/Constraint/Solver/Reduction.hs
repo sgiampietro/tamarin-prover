@@ -105,7 +105,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -280,17 +280,17 @@ traverseDHNodes rules = do
     -- | Import a rule with all its variables renamed to fresh variables.
     importRule ru = someRuleACInst ru `evalBindT` noBindings
 
-insertFreshNodeConcOutInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Int -> Maybe (NodeId, RuleACInst, LNFact, ConcIdx) -> Reduction [(RuleACInst, NodeConc, LNFact, LNTerm, Maybe RuleACConstrs,Bool)]
+insertFreshNodeConcOutInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Int -> Maybe ((NodeId, RuleACInst, LNFact, ConcIdx), LNTerm) -> Reduction [(RuleACInst, NodeConc, (LNFact, LNTerm), LNTerm, Maybe RuleACConstrs,Bool)]
 insertFreshNodeConcOutInst rules instrules n Nothing = do
       -- irulist <- replicateM n $ traverseDHNodes rules
       irulist <- traverseDHNodes rules
-      let pairs = [(ru, (i,c), f, rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, rterm <- multRootList (head $ factTerms f)]
+      let pairs = [(ru, (i,c), (f, head $ factTerms f), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, rterm <- multRootList (head $ factTerms f)]
       disjunctionOfList (concatMap permutations (combinations n pairs)) 
-insertFreshNodeConcOutInst rules instrules n (Just (j,ruj,faConc,cj)) = do
+insertFreshNodeConcOutInst rules instrules n (Just ((j,ruj,faConc,cj), ta)) = do
       -- irulist <- replicateM n $ traverseDHNodes rules
       irulist <- traverseDHNodes rules
-      let pairs = [(ru, (i,c), f, rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, rterm <- multRootList (head $ factTerms f)]
-          pairs2 =  [(ruj, (j,cj), faConc, rterm , Nothing,False) | rterm <- multRootList (head $ factTerms faConc) ]
+      let pairs = [(ru, (i,c), (f, head $ factTerms f), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, rterm <- multRootList (head $ factTerms f)]
+          pairs2 =  [(ruj, (j,cj), (faConc, ta), rterm , Nothing,False) | rterm <- multRootList ta ]
           finallist = (concatMap permutations (filter ( any (\(a,(i,b),c,d,e,f) -> i==j && a ==ruj)) (combinations n $ pairs++pairs2)) )
       disjunctionOfList finallist
 
@@ -731,14 +731,14 @@ insertDHEdge (c, fa1, fa2, p) bset nbset = do --fa1 should be an Out fact
     void (solveFactDHEqs SplitNow fa1 fa2 bset nbset (protoCase SplitNow bset nbset))
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
-insertDHEdges :: [(RuleACInst, NodeConc, LNFact, LNTerm, Maybe RuleACConstrs, Bool)] -> [LNTerm] -> LNTerm -> NodePrem -> Reduction ()
+insertDHEdges :: [(RuleACInst, NodeConc, (LNFact,LNTerm), LNTerm, Maybe RuleACConstrs, Bool)] -> [LNTerm] -> LNTerm -> NodePrem -> Reduction ()
 insertDHEdges tuplelist indts premTerm p = do
-    let rootpairs = zip (map (\(a,b,c,d,e,f)-> (head $ factTerms c,d)) tuplelist) indts
+    let rootpairs = zip (map (\(a,b,(c,t),d,e,f)-> (t,d)) tuplelist) indts
         cllist = nubBy (\(a,b,c,d,e,f) (a2,b2,c2,d2,e2,f2) -> b == b2) tuplelist
     (faPremsubst, listterms) <- foldM (\faP c -> solveIndFactDH SplitNow c faP) (premTerm,[]) rootpairs
-    trace (show "insertDHEDGESdone") $ solveIndicator faPremsubst listterms
-    forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
-    forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
+    _ <- solveIndicator faPremsubst listterms
+    trace (show "gothere") $ forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
+    trace (show "fornewedges") $ forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
 
 insertDHMixedEdge :: Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> RuleACInst -> RuleACInst 
                     -> S.Set LNTerm -> S.Set LNTerm -> [RuleAC] -> [(NodeId, RuleACInst)] ->
@@ -749,8 +749,8 @@ insertDHMixedEdge True (c, fa1, fa2, p) cRule pRule bset nbset rules rulesinst f
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 insertDHMixedEdge False ((ic,c), fa1, fa2, p) cRule pRule bset nbset rules rulesinst fun= do --fa1 should be an Out fact
     let chainFun = solveTermDHEqsChain SplitNow rules rulesinst fun p fa2 (ic, cRule, fa1, c)
-    (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset chainFun) -- TODO: FIX THIS!!!!
-    modM sEdges (\es -> foldr S.insert es [ Edge (ic,c) p ])
+    trace (show "isthiswherewedie?") (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset chainFun) 
+    trace (show "modMEdges") $ modM sEdges (\es -> foldr S.insert es [ Edge (ic,c) p ])
 
 
 insertBasisElem :: LNTerm -> Reduction ()
@@ -1013,7 +1013,7 @@ solveMixedTermEqs splitStrat bset nbset fun (lhs,rhs)
         hnd <- getMaudeHandle
         se  <- gets id
         (eqs2, maySplitId,dheqs) <- addMixedEqs hnd [Equal cleanedlhs cleanedrhs] ((map fst lhsDHvars) ++ (map fst rhsDHvars)) =<< getM sEqStore
-        trace (show "caseheree") $ setM sEqStore
+        trace (show ("caseheree, lhs,rhs", cleanedlhs, cleanedrhs)) $ setM sEqStore
             =<< simp hnd (substCreatesNonNormalTerms hnd se) -- (\x y -> False) this solves the NORMAL FORM ISSUE!! check that. 
             =<< case (maySplitId, splitStrat) of
                   (Just splitId, SplitNow) -> disjunctionOfList
@@ -1025,9 +1025,10 @@ solveMixedTermEqs splitStrat bset nbset fun (lhs,rhs)
                   _                        -> return eqs2
         let substdhvars = map (\(a,b) -> (applyVTerm compsubst a, applyVTerm compsubst b)) dheqs
             compsubst = substFromList (lhsDHvars ++ rhsDHvars)
-        solveListDHEqs (solveTermDHEqs splitStrat bset nbset fun) substdhvars
-        noContradictoryEqStore
-        return Changed
+        trace (show "solvinglist") $ solveListDHEqs (solveTermDHEqs splitStrat bset nbset fun) substdhvars
+        trace (show "contradictory?") $ noContradictoryEqStore
+        beq <- getM sEqStore
+        trace (show ("notcontradictory", lhs, rhs, eqsIsFalse beq)) $ return Changed
     | otherwise =  solveTermEqs splitStrat [(Equal lhs rhs)]
 
 
@@ -1045,22 +1046,22 @@ solveIndicator t2 terms  = do
   --let rules = M.elems irules
   --    terms = (concatMap enumConcsDhOut rules)
   --    exps = (concatMap enumConcsDhExpOut rules)-
-  if (elem t2 terms) 
-    then return "Found indicators"
+  if trace (show ("perforimg gauss", t2, terms) ) (elem t2 terms) 
+    then trace (show "didn't even do gauss") $ return "Found indicators"
     else do 
-        case (solveIndicatorGauss (S.toList nbset) terms t2) of 
+        case solveIndicatorGauss (S.toList nbset) terms t2 of 
           Just vec -> do
-              return ("Found indicators! attack by result:" ++ show (vec, terms, t2))
+              trace (show "actuallysolvedGauss") $ return ("Found indicators! attack by result:" ++ show (vec, terms, t2))
           Nothing -> do 
               -- setNotReachable
               --sbnol <- getM sNotReach
-              contradictoryIf True -- sNotReach
+              trace (show "actuallydidNOTsolveGauss") $ contradictoryIf True -- sNotReach
               return ("Safe,cannot combine from (leaked set, terms):"++ show ((S.toList nbset), terms, t2))
 
 
 solveIndicatorProto :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
 solveIndicatorProto nb t1 t2 = do
-  case (solveIndicatorGaussProto nb t1 t2) of
+  case solveIndicatorGaussProto nb t1 t2 of
    Just subst ->  do
         eqStore <- trace (show ("showsubst", subst)) $ getM sEqStore
         hnd  <- getMaudeHandle
@@ -1071,7 +1072,6 @@ solveIndicatorProto nb t1 t2 = do
         let oldsubsts =  _eqsSubst neweqstore
             newsubst = substFromList $ normalizeSubstList hnd (substToList oldsubsts)
         setM sEqStore ( neweqstore{_eqsSubst = newsubst} )
-        neweqstore2 <- getM sEqStore
         void substSystem
         void normSystem
         nodes <- getM sNodes
@@ -1153,8 +1153,9 @@ solveTermDHEqsChain splitStrat rules instrules fun p faPrem (j,ruj, fa1, c) (ta1
     if null neededInds 
      then insertDHEdge ((j,c), fa1, faPrem, p) bset nbset -- TODO: fix this
      else do
-            possibletuple <- insertFreshNodeConcOutInst rules instrules n (Just (j,ruj, fa1, c))
+            possibletuple <- insertFreshNodeConcOutInst rules instrules n (Just ((j,ruj, fa1, c), ta1))
             insertDHEdges possibletuple neededInds ta2 p
+            trace (show "afterinsertingedges") $ return ()
     return Changed
     --  es -> do
     --      solveNeededList fun es
@@ -1240,7 +1241,7 @@ solveMixedFactEqs split (Equal fa1 fa2) bset nbset fun = do
     let dhfacts1 = map (applyVTerm (_eqsSubst subst)) (factTerms fa1) -- filter isMixedTerm (factTerms fa1) 
         dhfacts2 = map (applyVTerm (_eqsSubst subst)) (factTerms fa2) -- filter isMixedTerm (factTerms fa2)
     trace (show ("trying to unify", dhfacts1, (map sortOfLNTerm dhfacts1), dhfacts2, (map sortOfLNTerm dhfacts2))) $ solveListDHEqs (solveMixedTermEqs split bset nbset fun) $ zip dhfacts1 dhfacts2
-    return Changed
+    trace (show "finished") $ return Changed
 
 -- t1 here is the result of factTerms fa2, and indt1 the indicator of one product term of t1. 
 solveFactDHEqs ::  SplitStrategy -> LNFact -> LNFact -> S.Set LNTerm -> S.Set LNTerm  -> ((LNTerm,LNTerm)->Reduction ChangeIndicator) ->  Reduction ChangeIndicator
@@ -1252,7 +1253,7 @@ solveFactDHEqs split fa1 fa2 bset nbset fun= do
 
 solveIndFactDH :: SplitStrategy -> ((LNTerm, LNTerm), LNTerm) -> (LNTerm, [LNTerm]) -> Reduction (LNTerm, [LNTerm])
 solveIndFactDH split ((fa1, t1), t2) (fa2, acclist)= 
-    case trace (show "HEREYES") (isPubExp t1, isPubExp t2) of
+    case (isPubExp t1, isPubExp t2) of
         (Just (pg1,e1), Just (pg2,e2)) -> do
                 solveTermEqs split [(Equal pg1 pg2)]
                 solveIndFactDH split ((fa1, e1), e2) (fa2, acclist)
@@ -1290,7 +1291,7 @@ solveListDHEqs :: ( (a,a) -> Reduction ChangeIndicator) -> [(a,a)] -> Reduction 
 solveListDHEqs solver eqs = do
     case eqs of
         [] -> return Unchanged
-        [a] -> solver a
+        [a] -> trace (show "thiscase") $ solver a
         (a : as) -> do
             solver a
             solveListDHEqs solver as
