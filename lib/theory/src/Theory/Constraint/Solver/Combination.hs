@@ -16,6 +16,7 @@ module Theory.Constraint.Solver.Combination
     createMatrix,
     solveIndicatorGauss,
     solveIndicatorGaussProto,
+    checkIfEqual,
     parseToMap,
     gTerm2Exp,
     getvalue
@@ -39,7 +40,7 @@ import Term.DHMultiplication
 import Term.LTerm -- (LNTerm)
 
 -- import Theory.Constraint.System.Constraints
-import Debug.Trace.Ignore
+import Debug.Trace -- .Ignore
 
 
 
@@ -254,7 +255,7 @@ solveIndicatorGaussProto nb term target =
     in
   case solution of 
     Nothing -> Nothing
-    Just (ts) -> (if (all (isJust) wzvars && all isJust zerovars) then
+    Just (ts) -> trace (show ("vars", wzs, extravars, newwzs)) (if (all (isJust) wzvars && all isJust zerovars) then
                  Just ((zipWith zipfun wzvars ts) ++ map ((\i -> (i, getsubst i fAppdhZero)).fromJust) zerovars) else Nothing)
                     where wzvars = map getVar newwzs
                           --pubg = LIT (Var ( LVar "pg" LSortPubG 1))
@@ -266,6 +267,15 @@ solveIndicatorGaussProto nb term target =
                           extravars = (map getVar wzs) \\ wzvars
                           zerovars = map getVar subszero ++ extravars
 
--- TODO: now transforming into PG^x, for a fixed PG element. should be from the PG elements
--- the exponent came from
 
+
+checkIfEqual :: [LNTerm] -> LNTerm -> LNTerm -> Maybe [(LNTerm, LNTerm)]
+checkIfEqual nb term target = 
+  if (Map.keys targetpoly == Map.keys polynomials)
+    then Just $ zip (Map.elems targetpoly) (Map.elems polynomials)
+    else Nothing
+   where (nbexp, vars) = allNBExponents nb (allExponentsOf [eterm] $ etarget)
+         polynomials = parseToMap vars eterm
+         targetpoly = parseToMap vars etarget
+         eterm = gTerm2Exp term
+         etarget = gTerm2Exp target

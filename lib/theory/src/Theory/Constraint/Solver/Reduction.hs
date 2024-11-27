@@ -1100,8 +1100,19 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
     case varTermsOf sta2 of
         [] -> case varTermsOf (sta1) of
                 [] -> do
-                        void substSystem
-                        void normSystem
+                        case checkIfEqual (S.toList nbset) sta1 sta2 of
+                            Just (eqs) -> do
+                                    if trace (show ("solving this", eqs, areEq)) (all (\(c,d)-> c==d) $ map unpair areEq)
+                                      then do 
+                                            void substSystem
+                                            void normSystem
+                                      else contradictoryIf True
+                                     where areEq = map isEq eqs
+                                           isEq (a,b) = (runReader (norm' $ fAppPair (a, b)) hndNormal)
+                                           unpair t = case viewTerm t of
+                                                (FApp (NoEq pairSym) [x, y]) -> (x,y)
+                                                _ -> error $ "something went wrong" ++ show t
+                            Nothing -> contradictoryIf True
                 _  -> do
                         -- TODO: fix basis set to take into account the substituions .
                         -- (maybe you can directly consider all exponents in the matrix combination function directly?)
