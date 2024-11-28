@@ -53,7 +53,7 @@ import           Control.Basics
 import           Control.DeepSeq
 import qualified Control.Monad.Trans.PreciseFresh          as Precise
 
-import           Debug.Trace
+import           Debug.Trace.Ignore
 import           Safe
 import           System.IO.Unsafe
 import           System.Process
@@ -284,7 +284,7 @@ execProofMethod ctxt method sys =
     -- solve the given goal
     -- PRE: Goal must be valid in this system.
     execSolveGoal :: Goal -> Maybe (M.Map CaseName System)
-    execSolveGoal goal =
+    execSolveGoal goal = trace (show ("disjunctions are", goal, length $ getDisj $ reduc , M.keys $ makeCaseNames . map fst . getDisj $ reduc)) $
         return . makeCaseNames . removeRedundantCases ctxt [] snd
                . map (second cleanupSystem) . map fst . getDisj
                $ reduc

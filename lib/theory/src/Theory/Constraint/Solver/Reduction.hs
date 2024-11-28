@@ -159,8 +159,7 @@ type Reduction = StateT System (FreshT (DisjT (Reader ProofContext)))
 -- functions of type 'Reduction'.
 runReduction :: Reduction a -> ProofContext -> System -> FreshState
              -> Disj ((a, System), FreshState)
-runReduction m ctxt se fs =
-    Disj $ (`runReader` ctxt) $ runDisjT $ (`runFreshT` fs) $ runStateT m se
+runReduction m ctxt se fs =  Disj $ (`runReader` ctxt) $ runDisjT $ (`runFreshT` fs) $ runStateT m se
 
 -- | Run a constraint reduction returning only the updated constraint systems
 -- and the new freshness states.
@@ -735,8 +734,9 @@ insertDHEdges :: [(RuleACInst, NodeConc, (LNFact,LNTerm), LNTerm, Maybe RuleACCo
 insertDHEdges tuplelist indts premTerm p = do
     let rootpairs = zip (map (\(a,b,(c,t),d,e,f)-> (t,d)) tuplelist) indts
         cllist = nubBy (\(a,b,c,d,e,f) (a2,b2,c2,d2,e2,f2) -> b == b2) tuplelist
+    return ()
     (faPremsubst, listterms) <- foldM (\faP c -> solveIndFactDH SplitNow c faP) (premTerm,[]) rootpairs
-    _ <- solveIndicator faPremsubst listterms
+    trace (show ("IndFactDH produce", faPremsubst, map (\c->("***:",c)) listterms)) $ void $ solveIndicator faPremsubst listterms
     trace (show "gothere") $ forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
     trace (show "fornewedges") $ forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
 
@@ -749,7 +749,7 @@ insertDHMixedEdge True (c, fa1, fa2, p) cRule pRule bset nbset rules rulesinst f
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 insertDHMixedEdge False ((ic,c), fa1, fa2, p) cRule pRule bset nbset rules rulesinst fun= do --fa1 should be an Out fact
     let chainFun = solveTermDHEqsChain SplitNow rules rulesinst fun p fa2 (ic, cRule, fa1, c)
-    trace (show "isthiswherewedie?") (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset chainFun) 
+    (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset chainFun) 
     trace (show "modMEdges") $ modM sEdges (\es -> foldr S.insert es [ Edge (ic,c) p ])
 
 
@@ -1042,11 +1042,17 @@ normalizeSubstList hnd ((t,t2) : xs) = (t, runReader ( norm' t2) hnd):(normalize
 solveIndicator ::  LNTerm -> [LNTerm] -> Reduction String
 solveIndicator t2 terms  = do 
   nbset <- getM sNotBasis
+  hndNormal  <- getMaudeHandle
   --irules <- getM sNodes
   --let rules = M.elems irules
   --    terms = (concatMap enumConcsDhOut rules)
   --    exps = (concatMap enumConcsDhExpOut rules)-
-  if trace (show ("perforimg gauss", t2, terms) ) (elem t2 terms) 
+  let isEq (a,b) = (runReader (norm' $ fAppPair (a, b)) hndNormal)
+      termpairs = map (\x -> isEq (t2,x)) terms
+      unpair t = case viewTerm t of
+                    (FApp (NoEq pairSym) [x, y]) -> (x,y)
+                    _ -> error $ "something went wrong" ++ show t
+  if trace (show ("perforimg gauss", t2, terms) ) (any (\(a,b)-> a==b) $ map unpair termpairs) 
     then trace (show "didn't even do gauss") $ return "Found indicators"
     else do 
         case solveIndicatorGauss (S.toList nbset) terms t2 of 
@@ -1100,19 +1106,15 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
     case varTermsOf sta2 of
         [] -> case varTermsOf (sta1) of
                 [] -> do
-                        case checkIfEqual (S.toList nbset) sta1 sta2 of
-                            Just (eqs) -> do
-                                    if trace (show ("solving this", eqs, areEq)) (all (\(c,d)-> c==d) $ map unpair areEq)
-                                      then do 
+                        let normedpair = (runReader (norm' $ fAppPair (sta1, sta2)) hndNormal)
+                            unpair t = case viewTerm t of
+                                            (FApp (NoEq pairSym) [x, y]) -> (x,y)
+                                            _ -> error $ "something went wrong" ++ show t
+                        if (\(a,b)-> a==b) $ unpair normedpair 
+                          then do 
                                             void substSystem
                                             void normSystem
-                                      else contradictoryIf True
-                                     where areEq = map isEq eqs
-                                           isEq (a,b) = (runReader (norm' $ fAppPair (a, b)) hndNormal)
-                                           unpair t = case viewTerm t of
-                                                (FApp (NoEq pairSym) [x, y]) -> (x,y)
-                                                _ -> error $ "something went wrong" ++ show t
-                            Nothing -> contradictoryIf True
+                          else contradictoryIf True
                 _  -> do
                         -- TODO: fix basis set to take into account the substituions .
                         -- (maybe you can directly consider all exponents in the matrix combination function directly?)
@@ -1166,7 +1168,6 @@ solveTermDHEqsChain splitStrat rules instrules fun p faPrem (j,ruj, fa1, c) (ta1
      else do
             possibletuple <- insertFreshNodeConcOutInst rules instrules n (Just ((j,ruj, fa1, c), ta1))
             insertDHEdges possibletuple neededInds ta2 p
-            trace (show "afterinsertingedges") $ return ()
     return Changed
     --  es -> do
     --      solveNeededList fun es
