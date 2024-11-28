@@ -284,7 +284,7 @@ execProofMethod ctxt method sys =
     -- solve the given goal
     -- PRE: Goal must be valid in this system.
     execSolveGoal :: Goal -> Maybe (M.Map CaseName System)
-    execSolveGoal goal = trace (show ("disjunctions are", goal, length $ getDisj $ reduc , M.keys $ makeCaseNames . map fst . getDisj $ reduc)) $
+    execSolveGoal goal = 
         return . makeCaseNames . removeRedundantCases ctxt [] snd
                . map (second cleanupSystem) . map fst . getDisj
                $ reduc

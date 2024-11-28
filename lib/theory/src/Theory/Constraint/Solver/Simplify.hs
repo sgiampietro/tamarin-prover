@@ -23,7 +23,7 @@ module Theory.Constraint.Solver.Simplify (
 
   ) where
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 
 import           Prelude                            hiding (id, (.))
 
@@ -103,7 +103,7 @@ simplifySystem = do
               -- Report on looping behaviour if necessary
               let changes = filter ((Changed ==) . snd) $
                     [ ("unique fresh instances (DG4)",                    c1)
---                     , ("unique K↓-facts (N5↓)",                           c2)
+                    -- , ("unique K↓-facts (N5↓)",                           c2)
                     , ("unique K↑-facts (N5↑)",                           c3)
                     , ("unique (linear) edges (DG2 and DG3)",             c4)
                     , ("solve unambiguous actions (S_@)",                 c5)

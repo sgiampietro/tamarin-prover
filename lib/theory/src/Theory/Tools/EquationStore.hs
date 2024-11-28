@@ -39,7 +39,7 @@ module Theory.Tools.EquationStore (
   , addDisj
 
   -- ** Adding DH equalities
-  , addDHEqs
+  --, addDHEqs
   , addMixedEqs
   , addDHEqs2
   , addDHProtoEqs
@@ -75,7 +75,7 @@ import           Control.Monad.Reader
 import           Extension.Prelude
 import           Utils.Misc
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Control.Basics
 import           Control.DeepSeq
@@ -601,9 +601,8 @@ foreachDisj hnd f =
 -- DH multiplication functions
 ------------------------------------------------------------------------------
 
--- TODO: write the "unifyLNTermDHFactored" that deals with EqInd pairs.
--- this should probably call Maude.  
 
+{-
 addDHEqs :: MonadFresh m
        => MaudeHandle -> LNTerm -> LNTerm -> EqStore -> m (EqStore, Maybe SplitId)
 addDHEqs hnd t1 indt eqdhstore =
@@ -611,13 +610,13 @@ addDHEqs hnd t1 indt eqdhstore =
         (_, []) ->
             (return (set eqsConj falseEqConstrConj eqdhstore, Nothing))
         (subst, [substFresh]) | substFresh == emptySubstVFresh ->
-            (return (eqdhStore', Nothing))
+            trace (show ("thisisthesubst", subst)) $ (return (eqdhStore', Nothing))
               where eqdhStore' =(applyEqStore hnd subst eqdhstore)
         (subst, substs) -> do
             let (eqStore', sid) = addDisj (applyEqStore hnd subst eqdhstore) (S.fromList substs)
             (return (eqStore', Just sid))
   where
-    eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
+    eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt] -}
 
 addDHEqs2 :: MonadFresh m
        => MaudeHandle -> LNTerm -> LNTerm -> EqStore -> m (EqStore, Maybe SplitId)
@@ -627,7 +626,7 @@ addDHEqs2 hnd t1 indt eqdhstore =
         [substFresh] | substFresh == emptySubstVFresh ->
             return (eqdhstore, Nothing)
         substs -> do
-            let  eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs ) eqdhstore
+            let  eqStore' = trace (show ("thisisthesubst", substs)) $ changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs ) eqdhstore
             return (eqStore', Nothing)
   where
     eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
@@ -648,10 +647,8 @@ addDHProtoEqs hnd t1zzs indt zzbool eqdhstore = do
         [substFresh] | substFresh == emptySubstVFresh ->
             return (eqdhstore, Nothing)
         substs -> do
-            substs' <- mapM generalize substs
+            substs' <- trace (show ("thisisthesubstSS", substs)) $ mapM generalize substs
             let  eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs' ) eqdhstore
-            --(eqStore', sid) <- liftM (addDisj eqdhstore) (liftM S.fromList (mapM generalize substs)) -- TODO: fix this!!
-            -- TODO: instead of adding disjunctions here, need to directly add them as substitutions!
             return (eqStore', Nothing)
           where
             addsubsts sub eqst= applyEqStore hnd sub eqst

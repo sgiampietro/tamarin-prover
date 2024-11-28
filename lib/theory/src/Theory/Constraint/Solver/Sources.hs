@@ -65,7 +65,7 @@ import           Theory.Model
 
 import           Control.Monad.Bind
 
-import           Debug.Trace
+import           Debug.Trace.Ignore
 import qualified GHC.Generics as G
 import qualified Data.Binary  as B
 
@@ -108,7 +108,7 @@ initialSource ctxt restrictions goal =
         runReduction instantiate ctxt se0 (avoid (goal, se0))
     instantiate = do
         insertGoal goal False
-        trace (show ("ITSASOURCESONE!", goal)) $ solveGoal goal
+        solveGoal goal
 
 -- | Refine a source by applying the additional proof step.
 refineSource
@@ -326,7 +326,7 @@ solveWithSourceAndReturn :: ProofContext
                          -> Maybe (Reduction [String], Maybe Source)
 solveWithSourceAndReturn hnd ths goal = do
     -- goal <- toBigStepGoal goal0
-    trace (show ("SOLVINGVIASOURCE:", goal)) $ asum [ applySource hnd th goal | th <- ths ]
+    asum [ applySource hnd th goal | th <- ths ]
 
 -- | Try to solve a premise goal or 'KU' action using the first precomputed
 -- source with a matching premise.
@@ -354,7 +354,7 @@ applySource ctxt th0 goal = case matchToGoal ctxt th0 goal of
         return names), Just th0)
     Nothing -> Nothing
   where
-    keepVarBindings = trace (show ("CALLEDAPPLYSOURCE", goal)) $ M.fromList (map (\v -> (v, v)) (frees goal))
+    keepVarBindings = M.fromList (map (\v -> (v, v)) (frees goal))
 
 -- | Saturate the sources with respect to each other such that no
 -- additional splitting is introduced; i.e., only rules with a single or no
