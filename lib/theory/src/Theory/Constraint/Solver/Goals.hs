@@ -218,7 +218,7 @@ solveGoal goal = do
     trace (show ("IAMSOLVINGGOALNOW", goal)) $ markGoalAsSolved "directly" goal
     rules <- askM pcRules
     case goal of
-      ActionG i fa  -> trace (show ("with these rules",(nonSilentRules rules) )) $ solveAction  (nonSilentRules rules) (i, fa)
+      ActionG i fa  -> solveAction  (nonSilentRules rules) (i, fa)
       PremiseG p fa ->
            solvePremise (get crProtocol rules ++ get crConstruct rules) p fa
       ChainG c p    -> solveChain (get crDestruct rules) (c, p)
@@ -395,7 +395,7 @@ solveChain rules (c, p) = do
         faPrem <- gets $ nodePremFact p
         contradictoryIf (forbiddenEdge cRule pRule)
         --insertEdges [(c, faConc, faPrem, p)]
-        insertDirectEdge faPrem faConc cRule pRule rules2 
+        insertDirectEdge faPrem faConc cRule pRule rules2
      `disjunction`
      -- extend it with one step
      case kFactView faConc of
@@ -430,7 +430,7 @@ solveChain rules (c, p) = do
                 --if (isMixedFact faConc) 
                 --  then extendAndMarkMixed i ru v faPrem faConc bset nbset
                 trace (show ("tryingEDGEMark", faConc, faPrem)) $ extendAndMark i ru v faPrem faConc
-         _ -> error "solveChain: not a down fact")
+         _ -> error "solveChain: not a down fact" )
   where
     extendAndMark :: NodeId -> RuleACInst -> PremIdx -> LNFact -> LNFact
       -> Control.Monad.Trans.State.Lazy.StateT System
@@ -462,30 +462,28 @@ solveChain rules (c, p) = do
                                 isCoerceRule pRule && isProduct mPrem
 
     insertDirectEdge faPrem faConc cRule pRule rules2
-      | isMixedFact faPrem = (do
+      | isMixedFact faPrem =  (do 
             bset <- getM sBasis
             nbset <- getM sNotBasis
             nodes <- getM sNodes
             case neededexponentslist bset nbset (factTerms faPrem) of
               (Just es) -> do
-                              trace (show ("esponents not known", faConc, faPrem)) $ solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) (S.toList es)
-                              name <- (solveChain rules (c, p))
+                              solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) (S.toList es)
+                              name <- (insertDirectEdge faPrem faConc cRule pRule rules2)
                               trace (show ("I'malsohere", name)) $ return name
               Nothing -> do 
-                          trace (show ("insertingMIXEDEdge", faConc, faPrem, cRule, pRule)) $  insertDHMixedEdge False (c, faConc, faPrem, p) cRule pRule bset nbset (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) -- this is where probably you want to do insertDHEdges!
+                          insertDHMixedEdge False (c, faConc, faPrem, p) cRule pRule bset nbset (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
                           let mPrem = case kFactView faConc of
                                             Just (DnK, m') -> m'
                                             _              -> error $ "solveChain: impossible"
                               caseName (viewTerm -> FApp o _)    = showFunSymName o
                               caseName (viewTerm -> Lit l)       = showLitName l 
-                          --trace (show ("esponents YES known", faConc, faPrem)) $ solveDHIndaux bset nbset (head $ factTerms faPrem) p faPrem rules (M.assocs nodes)
-                          --return "edgeinserted"
                           void substSystem
                           void normSystem
-                          -- contradictoryIf (illegalCoerce pRule mPrem)
-                          trace (show ("I'm here", (caseName mPrem))) $ return (caseName mPrem) )  
+                          contradictoryIf (illegalCoerce pRule mPrem)
+                          trace (show ("I'm here", (caseName mPrem))) $ return (caseName mPrem)  ) 
       | otherwise =    (do
-                trace (show ("insertingNORMALEdge", faConc, faPrem, cRule, pRule)) $  insertEdges [(c, faConc, faPrem, p)]  
+                insertEdges [(c, faConc, faPrem, p)]  
                 let mPrem = case kFactView faConc of
                       Just (DnK, m') -> m'
                       _              -> error $ "solveChain: impossible"
@@ -586,7 +584,7 @@ solveDHIndaux bset nbset term p faPrem rules instrules =
             then return "Indicators are public"
             else do
               possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n Nothing
-              trace (show ("INSERTINGEDFEHERE", faPrem, n)) $ insertDHEdges possibletuple neededInds term p
+              insertDHEdges possibletuple neededInds term p
               return $ "MatchingEachIndicatorWithOutFacts" 
       es -> do
           solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) es
@@ -613,14 +611,14 @@ solveDHMixedPremise ::  [RuleAC]        -- ^ All rules that have an Out fact con
              -> Reduction String -- ^ Case name to use.
 solveDHMixedPremise rules p faPrem = do
       nodes <- getM sNodes
-      _ <- trace (show ("all asscisc", M.assocs nodes)) $ return ()
+      --_ <- trace (show ("all asscisc", M.assocs nodes)) $ return ()
       (ru, c@(i,ci), faConc) <-  insertFreshNodeConcMixed rules (M.assocs nodes)
       -- trace (show ("CURIOUS", faConc, faPrem, i, showRuleCaseName ru)) $ 
       insertDHMixedEdge True (c, faConc, faPrem, p)  ru ru (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x))-- instead of root indicator this should be Y.ind^Z.
       newnodes <- getM sNodes
       let newlist = [ t | (_, ru2) <- M.assocs newnodes, (isFreshRule ru2), (_,fa) <- enumConcs ru2 , t<- factTerms fa ]
       contradictoryIf (nub newlist /= newlist)
-      trace (show ("whyamInotappearing?", i, showRuleCaseName ru, newlist)) (return $ showRuleCaseName ru)
+      (return $ showRuleCaseName ru)
 
 
 
