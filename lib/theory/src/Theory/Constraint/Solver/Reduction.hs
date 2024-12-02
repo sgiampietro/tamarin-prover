@@ -105,7 +105,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -113,7 +113,7 @@ import qualified Data.Map                                as M
 import qualified Data.Map.Strict                         as M'
 import qualified Data.Set                                as S
 import qualified Data.ByteString.Char8                   as BC
-import           Data.List                               (mapAccumL, delete , subsequences, length , nubBy, permutations)
+import           Data.List                               (mapAccumL, delete , subsequences, length , nubBy, permutations, intersect)
 import           Safe
 
 import           Control.Basics
@@ -932,12 +932,18 @@ normSystem = do
     --substLastAtom
     --substLessAtoms
     --substSubtermStore
-    --substFormulas
-    --substSolvedFormulas
-    --substLemmas
+    --substFormulas -- todo: ADD THIS!!
+    --substSolvedFormulas -- todo: ADD THIS!!
+    --substLemmas -- todo: ADD THIS!!
     c2 <- normGoals hnd
     --substNextGoalNr
     return c2
+
+  -- | Apply the current substitution of the equation store to a part of the
+-- sequent. This is an internal function.
+normFormula :: MaudeHandle -> LNGuarded -> LNGuarded
+normFormula hnd f = traverseFormulaAtom  (\t-> runReader (norm' t) hnd) f
+  
 
 normalizeFact :: MaudeHandle -> LNFact -> LNFact
 normalizeFact hnd fa@(Fact f1 f2 faterms) = Fact f1 f2 (map (\t-> runReader (norm' t) hnd) faterms)
@@ -1066,7 +1072,7 @@ solveIndicatorProto :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
 solveIndicatorProto nb t1 t2 = do
   case solveIndicatorGaussProto nb t1 t2 of
    Just subst ->  do
-        eqStore <- trace (show ("showsubst", subst)) $ getM sEqStore
+        eqStore <-  getM sEqStore
         hnd  <- getMaudeHandle
         setM sEqStore $ applyEqStore hnd (substFromList $ normalizeSubstList hnd subst) eqStore
         --substCheck <- gets (substCreatesNonNormalTerms hnd)
