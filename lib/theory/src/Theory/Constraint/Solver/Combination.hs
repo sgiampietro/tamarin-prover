@@ -40,7 +40,7 @@ import Term.DHMultiplication
 import Term.LTerm -- (LNTerm)
 
 -- import Theory.Constraint.System.Constraints
-import Debug.Trace -- .Ignore
+import Debug.Trace.Ignore
 
 
 

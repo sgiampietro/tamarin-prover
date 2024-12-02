@@ -75,7 +75,7 @@ import           Control.Monad.Reader
 import           Extension.Prelude
 import           Utils.Misc
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 
 import           Control.Basics
 import           Control.DeepSeq
@@ -280,16 +280,24 @@ addMixedEqs hnd eqs0 dhvars eqStore =
     eqs = apply (L.get eqsSubst eqStore) $ trace (unlines ["addEqs: ", show eqs0]) $ eqs0
 
 
+purifySubstitution :: LNSubst -> Maybe LNSubst
+purifySubstitution subst =  if dom newsubst `intersect` varsRange newsubst /= [] 
+                              then Nothing
+                              else Just newsubst
+                             where newsubst = substFromList $ map (\(x,y)->(x, applyVTerm subst y)) (substToList subst)
+                                   -- purify tuples = foldr compose emptySubst (map (\x->substFromList [x]) tuples) 
 
 -- | Apply a substitution to an equation store and bring resulting equations into
 --   normal form again by using unification.
 applyEqStore :: MaudeHandle -> LNSubst -> EqStore -> EqStore
 applyEqStore hnd asubst eqStore
     | dom asubst `intersect` varsRange asubst /= [] || trace (show ("applyEqStore", asubst, eqStore)) False
-    = error $ "applyEqStore: dom and vrange not disjoint for `"++show asubst++"'"
+    = case purifySubstitution asubst of 
+        Just asubst2 -> applyEqStore hnd asubst2 eqStore
+        Nothing -> error $ "applyEqStore: dom and vrange not disjoint for `"++show asubst++"'"
     | otherwise
-    = modify eqsConj (fmap (second (S.fromList . concatMap applyBound  . S.toList))) $
-          set eqsSubst newsubst eqStore
+    = (modify eqsConj (fmap (second (S.fromList . concatMap applyBound  . S.toList))) $
+          set eqsSubst newsubst eqStore)
   where
     newsubst = asubst `compose` L.get eqsSubst eqStore
     applyBound s = map (restrictVFresh (varsRange newsubst ++ domVFresh s)) $
@@ -626,7 +634,7 @@ addDHEqs2 hnd t1 indt eqdhstore =
         [substFresh] | substFresh == emptySubstVFresh ->
             return (eqdhstore, Nothing)
         substs -> do
-            let  eqStore' = trace (show ("thisisthesubst", substs)) $ changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs ) eqdhstore
+            let  eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs ) eqdhstore
             return (eqStore', Nothing)
   where
     eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
@@ -647,7 +655,7 @@ addDHProtoEqs hnd t1zzs indt zzbool eqdhstore = do
         [substFresh] | substFresh == emptySubstVFresh ->
             return (eqdhstore, Nothing)
         substs -> do
-            substs' <- trace (show ("thisisthesubstSS", substs)) $ mapM generalize substs
+            substs' <- mapM generalize substs
             let  eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs' ) eqdhstore
             return (eqStore', Nothing)
           where

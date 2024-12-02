@@ -55,7 +55,12 @@ norm sortOf t         = trace (show ("term before normalization", t, sortOfLTerm
 norm' :: LNTerm -> WithMaude LNTerm
 norm' = norm sortOfName
 
-
+{-
+normB :: BLTerm -> WithMaude BLTerm
+normB t@(LIT _) = return t
+normB t       = reader $ \hnd -> unsafePerformIO $ normViaMaude hnd sortOfName tl
+                  where tl = 
+                    -}
 ----------------------------------------------------------------------
 -- Normal-form check using Maude and Haskell
 ----------------------------------------------------------------------
