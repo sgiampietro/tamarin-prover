@@ -35,6 +35,7 @@ module Term.Unification (
 
   -- ** Solving matching problems
   , solveMatchLTerm
+  , solveMatchLTerm'
   , solveMatchLNTerm
 
   -- * Handles to a Maude process
@@ -259,6 +260,24 @@ solveMatchLTerm sortOf matchProblem =
       where
         match = forM_ ms $ \(t, p) -> matchRaw sortOf t p
 
+solveMatchLTerm' :: (IsConst c)
+           => MaudeHandle -> (c -> LSort)
+           -> [(LTerm c, LTerm c)]
+           -> [Subst c LVar]
+solveMatchLTerm' hnd sortOf ms = matchTerms ms hnd
+  where
+    trace' res = trace
+      (unlines $ ["matchLTerm: "++ show ms, "result = "++  show res])
+      res
+
+    matchTerms ms hnd =
+        trace' $ case runState (runExceptT match) M.empty of
+          (Left NoMatcher, _)  -> []
+          (Left ACProblem, _)  ->
+              unsafePerformIO (UM.matchViaMaude hnd sortOf (DelayedMatches ms))
+          (Right (), mappings) -> [substFromMap mappings]
+      where
+        match = forM_ ms $ \(t, p) -> matchRaw sortOf t p
 
 -- | @solveMatchLNTerm eqs@ returns a complete set of matchers for @eqs@
 -- modulo AC.

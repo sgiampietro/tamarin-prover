@@ -254,7 +254,7 @@ module Theory.Constraint.System (
 
   ) where
 
--- import           Debug.Trace
+-- import           Debug.Trace.Ignore
 -- import           Debug.Trace.Ignore
 
 import           Prelude                              hiding (id, (.))
@@ -291,6 +291,8 @@ import           Theory.Text.Pretty
 import           Theory.Tools.SubtermStore
 import           Theory.Tools.EquationStore
 import           Theory.Tools.InjectiveFactInstances
+
+import           Term.Rewriting.Norm (norm')
 
 import           System.FilePath
 import           Text.Show.Functions()
@@ -1036,6 +1038,13 @@ safePartialAtomValuation ctxt sys =
     nodesAfter = \i -> filter (i /=) $ S.toList $ D.reachableSet [i] lessRel
     reducible  = reducibleFunSyms $ mhMaudeSig $ L.get pcMaudeHandle ctxt
     sst        = L.get sSubtermStore sys
+    isEq (a,b) = runMaude (norm' $ fAppPair (a, b))
+    unpair t = case viewTerm t of
+                    (FApp (NoEq pairSym) [x, y]) -> (x,y)
+                    _ -> error $ "something went wrong" ++ show t
+    normfacts fa1 fa2 = map ((\(a,b) -> a==b) . unpair . isEq) (zip (factTerms fa1) (factTerms fa2))
+    samefacts (fa1,fa2) = and $ normfacts fa1 fa2
+
 
     -- | 'True' iff there in every solution to the system the two node-ids are
     -- instantiated to a different index *in* the trace.
@@ -1052,6 +1061,7 @@ safePartialAtomValuation ctxt sys =
                 case M.lookup i (L.get sNodes sys) of
                   Just ru
                     | any (fa ==) (L.get rActs ru)                                -> Just True
+                    | any (\g -> samefacts (fa,g)) (filter (\g -> factTag g == factTag fa) $ L.get rActs ru)  -> Just True
                     | all (not . runMaude . unifiableLNFacts fa) (L.get rActs ru) -> Just False
                   _                                                               -> Nothing
 
@@ -1065,6 +1075,7 @@ safePartialAtomValuation ctxt sys =
 
           EqE x y
             | x == y                                -> Just True
+            | (uncurry (==)) $ unpair $ isEq (x,y) -> Just True
             | not (runMaude (unifiableLNTerms x y)) -> Just False
             | otherwise                             ->
                 case (,) <$> ltermNodeId x <*> ltermNodeId y of
@@ -1110,6 +1121,10 @@ impliedFormulas hnd sys gf0 = res
     candidateSubsts subst []               = return $ subst
     candidateSubsts subst ((GAction a fa):as) = do
         sysAct <- sysActions
+        -- let areeq = trace (show ("CheckingActionviaNorm",sysAct, (applySkAction subst (a, fa)), areeq)) $ (`runReader` hnd) $ checkAction sysAct (applySkAction subst (a, fa))
+        --if areeq 
+        --  then candidateSubsts subst as
+        --  else do
         subst' <- (`runReader` hnd) $ matchAction sysAct (applySkAction subst (a, fa))
         candidateSubsts (compose subst' subst) as
     candidateSubsts subst ((GEqE s' t'):as)   = do

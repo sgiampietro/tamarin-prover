@@ -236,6 +236,7 @@ matchCmd eqs =
     (t1s,t2s) = unzip [ (a,b) | Equal a b <- eqs ]
     ppTerms = ppMaude . fAppList
 
+
 -- | @matchViaMaude (t, p)@ computes a complete set of AC matchers of the term
 -- @t@ to the pattern @p@ via Maude.
 matchViaMaude :: (IsConst c)

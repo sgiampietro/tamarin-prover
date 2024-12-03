@@ -939,11 +939,10 @@ normSystem = do
     --substNextGoalNr
     return c2
 
-  -- | Apply the current substitution of the equation store to a part of the
--- sequent. This is an internal function.
-normFormula :: MaudeHandle -> LNGuarded -> LNGuarded
+
+{-normFormula :: MaudeHandle -> LNGuarded -> LNGuarded
 normFormula hnd f = traverseFormulaAtom  (\t-> runReader (norm' t) hnd) f
-  
+  -}
 
 normalizeFact :: MaudeHandle -> LNFact -> LNFact
 normalizeFact hnd fa@(Fact f1 f2 faterms) = Fact f1 f2 (map (\t-> runReader (norm' t) hnd) faterms)

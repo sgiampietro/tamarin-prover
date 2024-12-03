@@ -89,12 +89,14 @@ module Theory.Constraint.System.Guarded (
 import           Control.Arrow
 import           Control.DeepSeq
 import           Control.Monad.Except
+import           Control.Monad.Reader
 import           Control.Monad.Fresh              (MonadFresh, scopeFreshness)
 import qualified Control.Monad.Trans.PreciseFresh as Precise (Fresh, evalFresh, evalFreshT)
 
 import           Debug.Trace
 
 import           GHC.Generics                     (Generic)
+
 import           Data.Data
 import           Data.Binary
 import           Data.Either                      (partitionEithers)
@@ -110,6 +112,7 @@ import           Logic.Connectives
 import           Text.PrettyPrint.Highlight
 
 import           Theory.Model
+import            Term.Rewriting.Norm (norm)
 
 -- Control.Monad.Fail import will become redundant in GHC 8.8+
 -- import qualified Control.Monad.Fail as Fail
@@ -800,17 +803,37 @@ applySkGuarded subst = mapGuardedAtoms (const $ applyBSkAtom subst)
 -- Matching
 -----------
 
+
+transformTuple :: (Show c, IsConst c) => MaudeHandle -> (c -> LSort) -> (VTerm c LVar, VTerm c LVar) -> (VTerm c LVar, VTerm c LVar)
+transformTuple hnd sortOf (a,b) = 
+  case sortOfLTerm sortOf a of
+      LSortG -> unpair $ runReader (norm sortOf $ fAppPair (a, b)) hnd
+      LSortE -> unpair $ runReader (norm sortOf $ fAppPair (a, b)) hnd
+      LSortNZE -> unpair $ runReader (norm sortOf $ fAppPair (a, b)) hnd
+      LSortFrNZE -> unpair $ runReader (norm sortOf $ fAppPair (a, b)) hnd
+      LSortPubG -> unpair $ runReader (norm sortOf $ fAppPair (a, b)) hnd
+      _ -> (a,b)
+    where unpair t = case viewTerm t of
+                    (FApp (NoEq pairSym) [x, y]) -> (x,y)
+                    _ -> error $ "something went wrong" ++ show t
+
+
 matchAction :: (SkTerm, SkFact) ->  (SkTerm, SkFact) -> WithMaude [SkSubst]
 matchAction (i1, fa1) (i2, fa2) =
-    solveMatchLTerm sortOfSkol (i1 `matchWith` i2 <> fa1 `matchFact` fa2)
-  where
+  case flattenMatch matchProblem of 
+      Nothing -> pure []
+      Just ms -> reader $ \hnd -> (solveMatchLTerm' hnd sortOfSkol $ map (transformTuple hnd sortOfSkol) ms )
+   where
+    matchProblem = (i1 `matchWith` i2 <> fa1 `matchFact` fa2)
     sortOfSkol (SkName  n) = sortOfName n
     sortOfSkol (SkConst v) = lvarSort v
 
 matchTerm :: SkTerm ->  SkTerm -> WithMaude [SkSubst]
 matchTerm s t =
-    solveMatchLTerm sortOfSkol (s `matchWith` t)
+    reader $ \hnd -> (solveMatchLTerm' hnd sortOfSkol $ matchpair hnd (s,t))
+    -- solveMatchLTerm sortOfSkol (s `matchWith` t)
   where
+    matchpair hnd (a,b) = (\(a,b)-> [(a,b)]) $ transformTuple hnd sortOfSkol (a,b)
     sortOfSkol (SkName  n) = sortOfName n
     sortOfSkol (SkConst v) = lvarSort v
 

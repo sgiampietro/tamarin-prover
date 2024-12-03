@@ -16,7 +16,6 @@ module Theory.Constraint.Solver.Combination
     createMatrix,
     solveIndicatorGauss,
     solveIndicatorGaussProto,
-    checkIfEqual,
     parseToMap,
     gTerm2Exp,
     getvalue
@@ -266,16 +265,3 @@ solveIndicatorGaussProto nb term target =
                           zipfun a b = (fromJust a, getsubst (fromJust a) b)
                           extravars = (map getVar wzs) \\ wzvars
                           zerovars = map getVar subszero ++ extravars
-
-
-
-checkIfEqual :: [LNTerm] -> LNTerm -> LNTerm -> Maybe [(LNTerm, LNTerm)]
-checkIfEqual nb term target = 
-  if (Map.keys targetpoly == Map.keys polynomials)
-    then Just $ zip (Map.elems targetpoly) (Map.elems polynomials)
-    else Nothing
-   where (nbexp, vars) = allNBExponents nb (allExponentsOf [eterm] $ etarget)
-         polynomials = parseToMap vars eterm
-         targetpoly = parseToMap vars etarget
-         eterm = gTerm2Exp term
-         etarget = gTerm2Exp target

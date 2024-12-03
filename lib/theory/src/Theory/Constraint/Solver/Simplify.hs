@@ -45,6 +45,8 @@ import           Safe                           (headMay)
 import           Extension.Data.Label               hiding (modify)
 import           Extension.Prelude
 
+import           Term.Rewriting.Norm (norm')
+
 import           Theory.Constraint.Solver.Goals
 import           Theory.Constraint.Solver.Reduction
 import           Theory.Constraint.System
@@ -170,7 +172,7 @@ exploitUniqueMsgOrder = do
     kdConcs   <- gets (M.fromList . map (\(i, _, m) -> (m, i)) . allKDConcs)
     kuActions <- gets (M.fromList . map (\(i, _, m) -> (m, i)) . allKUActions)
     -- We can add all elements where we have an intersection
-    F.mapM_ (uncurry3 insertLess) (M.map (\(x,y)->(x,y, NormalForm))  
+    F.mapM_ (uncurry3 insertLess) (M.map (\(x,y)->(x,y, NormalForm))
               $ M.intersectionWith (,) kdConcs kuActions )
 
 -- | CR-rules *DG4*, *N5_u*, and *N5_d*: enforcing uniqueness of *Fresh* rule
@@ -356,6 +358,12 @@ partialAtomValuation ctxt sys =
     nodesAfter = \i -> filter (i /=) $ S.toList $ D.reachableSet [i] lessRel
     reducible  = reducibleFunSyms $ mhMaudeSig $ get pcMaudeHandle ctxt
     sst        = get sSubtermStore sys
+    isEq (a,b) = runMaude (norm' $ fAppPair (a, b))
+    unpair t = case viewTerm t of
+                    (FApp (NoEq pairSym) [x, y]) -> (x,y)
+                    _ -> error $ "something went wrong" ++ show t
+    normfacts fa1 fa2 = map ((\(a,b) -> a==b) . unpair . isEq) (zip (factTerms fa1) (factTerms fa2))
+    samefacts (fa1,fa2) = and $ normfacts fa1 fa2
 
     -- | 'True' iff there in every solution to the system the two node-ids are
     -- instantiated to a different index *in* the trace.
@@ -369,10 +377,12 @@ partialAtomValuation ctxt sys =
     eval ato = case ato of
           Action (ltermNodeId' -> i) fa
             | ActionG i fa `M.member` get sGoals sys -> Just True
+            | any (samefacts) $ map (\a -> (fa,a)) [f| g@(ActionG i f) <-  M.keys (get sGoals sys) , factTag f == factTag fa] -> Just True
             | otherwise ->
                 case M.lookup i (get sNodes sys) of
                   Just ru
                     | any (fa ==) (get rActs ru)                                -> Just True
+                    | any (\g -> samefacts (fa,g)) (filter (\g -> factTag g == factTag fa) $ get rActs ru)  -> Just True
                     | all (not . runMaude . unifiableLNFacts fa) (get rActs ru) -> Just False
                   _                                                             -> Nothing
 
@@ -386,6 +396,7 @@ partialAtomValuation ctxt sys =
 
           EqE x y
             | x == y                                -> Just True
+            | (uncurry (==)) $ unpair $ isEq (x,y) -> Just True
             | not (runMaude (unifiableLNTerms x y)) -> Just False
             | otherwise                             ->
                 case (,) <$> ltermNodeId x <*> ltermNodeId y of
@@ -571,16 +582,17 @@ simpInjectiveFactEqMon = do
   let ineq s t = (s,t) `S.member` inequalities
 
   --  :: (MonotonicBehaviour, (NodeId, LNTerm), (NodeId, LNTerm)) -> ([LNGuarded], [(NodeId, NodeId)])
+  hnd <- getMaudeHandle
   let simpSingle (behaviour, (i, s), (j, t)) = --trace (show ("simpSingle", behaviour, i, s, j, t)) $
          case behaviour of
                                                 Unspecified -> ([], [])
                                                 Unstable -> ([], [])
                                                 Decreasing -> simpSingle (Increasing, (j, s), (i, t))
                                                 StrictlyDecreasing -> simpSingle (StrictlyIncreasing, (j, s), (i, t))
-                                                Constant -> ([GAto $ EqE (lTermToBTerm s) (lTermToBTerm t) | s/=t], [])  -- (1)
+                                                Constant -> ([GAto $ EqE (lTermToBTerm (runReader (norm' s) hnd)) (lTermToBTerm (runReader (norm' t) hnd)) | s/=t], [])  -- (1)
                                                 StrictlyIncreasing ->
                                                     ([GAto $ EqE (varTerm $ Free i) (varTerm $ Free j) | s==t, i/=j]  -- (2)
-                                                  ++ [gnotAtom $ EqE (lTermToBTerm s) (lTermToBTerm t) | alwaysBefore sys i j || alwaysBefore sys j i, i/=j, notIneq s t]   -- (4)
+                                                  ++ [gnotAtom $ EqE (lTermToBTerm (runReader (norm' s) hnd)) (lTermToBTerm (runReader (norm' t) hnd)) | alwaysBefore sys i j || alwaysBefore sys j i, i/=j, notIneq s t]   -- (4)
                                                   -- ++ [GAto $ Subterm (lTermToBTerm s) (lTermToBTerm t) | alwaysBefore sys i j, i/=j, not $ triviallySmaller s t]   -- (6)
                                                    , [(i, j) | triviallySmaller    s t, not $ alwaysBefore sys i j]   -- (3)
                                                   ++ [(j, i) | triviallyNotSmaller s t, not $ alwaysBefore sys j i, ineq s t]) -- (5)
@@ -695,4 +707,4 @@ addNonInjectiveFactInstances = do
 
 
 
- 
+
