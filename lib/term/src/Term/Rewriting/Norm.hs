@@ -9,6 +9,7 @@
 -- This module implements normalization and normal-form checks of terms.
 module Term.Rewriting.Norm (
     norm'
+  , norm
   , nf'
   , nfSubstVFresh'
   , normSubstVFresh'
