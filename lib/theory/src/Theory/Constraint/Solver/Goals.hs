@@ -25,7 +25,7 @@ module Theory.Constraint.Solver.Goals (
   , plainOpenGoals
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Prelude                                 hiding (id, (.))
 
@@ -270,9 +270,10 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
             _ | (isMixedFact fa)                       -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList (filter isMixedFact $ get rActs ru)
+                   -- act <- disjunctionOfList (get rActs ru)
                    let bset = (S.fromList $ basisOfRule ru)
                        nbset = (S.fromList $ notBasisOfRule ru) 
-                   (void (solveMixedFactEqs SplitNow (Equal fa act) bset nbset (protoCase SplitNow bset nbset)))
+                   trace (show ("solvingACTIONOON", fa, act)) (void (solveMixedFactEqs SplitNow (Equal fa act) bset nbset (protoCase SplitNow bset nbset)))
                    void substSystem
                    --void normSystem
                    return ru
