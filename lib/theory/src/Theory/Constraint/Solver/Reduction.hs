@@ -105,7 +105,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -1030,7 +1030,7 @@ solveMixedTermEqs splitStrat bset nbset fun (lhs,rhs)
                   _                        -> return eqs2
         let substdhvars = map (\(a,b) -> (applyVTerm compsubst a, applyVTerm compsubst b)) dheqs
             compsubst = substFromList (lhsDHvars ++ rhsDHvars)
-        solveListDHEqs (solveTermDHEqs splitStrat bset nbset fun) substdhvars
+        trace (show ("atleasthere", lhs, rhs, substdhvars)) $ solveListDHEqs (solveTermDHEqs splitStrat bset nbset fun) substdhvars
         noContradictoryEqStore
         return Changed
     | otherwise =  solveTermEqs splitStrat [(Equal lhs rhs)]
@@ -1096,23 +1096,22 @@ solveDHProtoEqsAux :: SplitStrategy -> S.Set LNTerm  -> S.Set LNTerm -> MaudeHan
 solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permutedlist= do
     -- permutedlist <- disjunctionOfList $ permutations outterms
     zzs <- replicateM (length xindterms) $ freshLVar "zz" LSortE
-    let genindterms = zipWith (\i z-> (i, runReader (norm' $ fAppdhExp (i, LIT (Var z)) ) hndNormal, z) ) xindterms zzs
+    let genindterms = trace (show ("bset", bset, "nbset",nbset, "thispairs", xindterms, "***** ",permutedlist)) $ zipWith (\i z-> (i, runReader (norm' $ fAppdhExp (i, LIT (Var z)) ) hndNormal, z) ) xindterms zzs
     --  let genindterms = zip xindterms zzs
     (eqs2, maySplitId) <- addDHProtoEqs hnd genindterms permutedlist False =<< getM sEqStore
     se  <- gets id
     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
-    noContradictoryEqStore
+    trace (show ("Imactuallysolvingeqautions", eqs2)) noContradictoryEqStore
     subst <- getM sSubst
-    let sta2 =  (runReader (norm' $ apply subst ta2) hndNormal)
-        sta1 = (runReader (norm' $ apply subst ta1) hndNormal)
+    let normedpair =(runReader (norm' $ fAppPair (apply subst ta1, apply subst ta2)) hndNormal)
+        unpair t = case viewTerm t of
+                        (FApp (NoEq pairSym) [x, y]) -> (x,y)
+                        _ -> error $ "something went wrong" ++ show t
+        (sta1,sta2) =  unpair normedpair
     case varTermsOf sta2 of
         [] -> case varTermsOf (sta1) of
                 [] -> do
-                        let normedpair = (runReader (norm' $ fAppPair (sta1, sta2)) hndNormal)
-                            unpair t = case viewTerm t of
-                                            (FApp (NoEq pairSym) [x, y]) -> (x,y)
-                                            _ -> error $ "something went wrong" ++ show t
-                        if (\(a,b)-> a==b) $ unpair normedpair 
+                        if trace (show ("goodnorm",sta1,"And\n",sta2)) $ sta1 == sta2
                           then do 
                                             void substSystem
                                             void normSystem
@@ -1120,11 +1119,11 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
                 _  -> do
                         -- TODO: fix basis set to take into account the substituions .
                         -- (maybe you can directly consider all exponents in the matrix combination function directly?)
-                        void $ solveIndicatorProto (S.toList nbset) sta1 sta2 -- (concatMap eTermsOf $ map (\x -> runReader (norm' $ apply subst x) hndNormal) (S.toList nbset))
+                        trace (show ("canwegethere", sta1,"And\n", sta2)) $ solveIndicatorProto (S.toList nbset) sta1 sta2 -- (concatMap eTermsOf $ map (\x -> runReader (norm' $ apply subst x) hndNormal) (S.toList nbset))
                         void substSystem
                         void normSystem
         _  -> do
-                void $ solveIndicatorProto (S.toList nbset) sta2 sta1
+                trace (show ("canwegethere", sta1,"And\n", sta2)) $ solveIndicatorProto (S.toList nbset) sta2 sta1
                 void substSystem
                 void normSystem
 
@@ -1186,11 +1185,11 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
             ta22 = applyVTerm (_eqsSubst subst) ta2
             nta2 = runReader (norm' ta22) hndNormal
             nta1 = runReader (norm' ta11) hndNormal
-        case prodTerms ta11 of
+        case trace (show ("IAMHERENOTEQ", ta1, ta2, "norm1",nta1,"norm2", nta2, "best,nbset", bset, nbset)) $ prodTerms nta1 of
             Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
                           else do
                             let xrooterms = multRootList nta1
-                                xindterms = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) xrooterms
+                                xindterms = map (\x -> runReader (rootIndKnownMaude nbset bset x) hndNormal) xrooterms
                             hnd <- getMaudeHandleDH
                             permutedlist <- disjunctionOfList $ permutations (multRootList nta2)
                             solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms nta1 nta2 permutedlist

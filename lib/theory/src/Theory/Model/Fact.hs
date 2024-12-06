@@ -126,6 +126,7 @@ module Theory.Model.Fact (
   ) where
 
 -- import           Control.Basics
+
 import           Control.DeepSeq
 import           Control.Monad.Reader
 
