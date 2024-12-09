@@ -474,6 +474,7 @@ solveChain rules (c, p) = do
                               trace (show ("I'malsohere", name)) $ return name
               Nothing -> do 
                           insertDHMixedEdge False (c, faConc, faPrem, p) cRule pRule bset nbset (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
+                          -- insertDHMixedEdge True (c, faConc, faPrem, p) cRule pRule bset nbset (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
                           let mPrem = case kFactView faConc of
                                             Just (DnK, m') -> m'
                                             _              -> error $ "solveChain: impossible"

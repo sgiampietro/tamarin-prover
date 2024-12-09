@@ -439,14 +439,14 @@ isForbiddenDEMapOrder sys (i, ruDEMap) = fromMaybe False $ do
 
 -- adversary cannot know terms that are supposed to be secret
 hasAdvKnowsBasis :: System -> Bool
-hasAdvKnowsBasis sys = (any isKnown $ M.elems $ L.get sNodes sys)
-  where
+hasAdvKnowsBasis sys = False -- (any isKnown $ M.elems $ L.get sNodes sys)
+  {-where
     isKnown ru = fromMaybe False $ do
         [actru] <- return $ L.get rActs ru
         guard (isKLogFact actru)
         case factTerms actru of 
           [t] -> return (S.member t (L.get sBasis sys)) 
-          _   -> Nothing
+          _   -> Nothing -}
 
 
 
