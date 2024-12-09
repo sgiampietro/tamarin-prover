@@ -181,8 +181,8 @@ varInMu t@(LIT l) = []
 varInMu t@(viewTerm2 -> FdhMu t1) =  varsVTerm t1
 varInMu t@(FAPP (DHMult o) []) = []
 varInMu t@(FAPP (DHMult o) ts) = concatMap varInMu ts
-varInMu t@(FAPP (DHMult dhEgSym) ts) = error ("soitisthis:"++(show ts))
-varInMu t@(FAPP (NoEq o) []) = [] -- TODO: FIX THIS. Unclear why Maude normalized a term into sort Msg instead of G??
+-- varInMu t@(FAPP (DHMult dhEgSym) ts) = error ("soitisthis:"++(show ts))
+-- varInMu t@(FAPP (NoEq o) []) = [] -- TODO: FIX THIS. Unclear why Maude normalized a term into sort Msg instead of G??
 varInMu t = error ("shouldn't get to this term"++(show t))
 
 varTermsOf :: LNTerm -> [ LNTerm ]

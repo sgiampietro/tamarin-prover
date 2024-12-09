@@ -648,7 +648,10 @@ addDHProtoEqs :: MonadFresh m
 addDHProtoEqs hnd t1zzs indt zzbool eqdhstore = do
     -- todo: here 
     let t1 = (map (\(a,_,_)->a) t1zzs)
-        muvariables = (concatMap varInMu t1) ++ (concatMap varInMu indt)
+        muvariablest1 = (concatMap varInMu t1)
+        muvariablesindt = (concatMap varInMu indt)
+        ist1var x = elem x $ concatMap varsVTerm t1
+        isindtvar x = elem x $ concatMap varsVTerm indt
     case unifyLNDHProtoTermFactored (zipWith Equal indt t1) `runReader` hnd of
         [] | zzbool ->  return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
         [] | not zzbool -> addDHProtoEqs hnd (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) indt True eqdhstore
@@ -663,12 +666,12 @@ addDHProtoEqs hnd t1zzs indt zzbool eqdhstore = do
             changeqstore [x] eq = addsubsts x eq
             changeqstore (x:xs) eq = changeqstore xs (addsubsts x eq)
             generaltup (c, cterm) = case (sortOfLNTerm (varTerm c)) of 
-              a | a == LSortE  && (not $ elem c muvariables) -> do 
+              a | a == LSortE  && ((ist1var c && (not $ elem c muvariablest1)) || (isindtvar c && (not $ elem c muvariablesindt)) ) -> do 
               -- a | a == LSortE  -> do 
                   w1 <- freshLVar "yk" LSortVarE
                   v1 <- freshLVar "zk" LSortVarE
                   return (c, fAppdhPlus (fAppdhTimesE (cterm, varTerm v1), varTerm w1))
-              a | a == LSortG && (not $ elem c muvariables)  -> do 
+              a | a == LSortG  && ((ist1var c && (not $ elem c muvariablest1)) || (isindtvar c && (not $ elem c muvariablesindt)) )  -> do 
               -- a | a == LSortG -> do 
                   w1 <- freshLVar "wk" LSortVarG
                   v1 <- freshLVar "vk" LSortVarE
