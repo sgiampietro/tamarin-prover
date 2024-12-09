@@ -663,13 +663,13 @@ addDHProtoEqs hnd t1zzs indt zzbool eqdhstore = do
             changeqstore [x] eq = addsubsts x eq
             changeqstore (x:xs) eq = changeqstore xs (addsubsts x eq)
             generaltup (c, cterm) = case (sortOfLNTerm (varTerm c)) of 
-              --a | a == LSortE  && (not $ elem c muvariables) -> do 
-              a | a == LSortE  -> do 
+              a | a == LSortE  && (not $ elem c muvariables) -> do 
+              -- a | a == LSortE  -> do 
                   w1 <- freshLVar "yk" LSortVarE
                   v1 <- freshLVar "zk" LSortVarE
                   return (c, fAppdhPlus (fAppdhTimesE (cterm, varTerm v1), varTerm w1))
-              --a | a == LSortG && (not $ elem c muvariables)  -> do 
-              a | a == LSortG -> do 
+              a | a == LSortG && (not $ elem c muvariables)  -> do 
+              -- a | a == LSortG -> do 
                   w1 <- freshLVar "wk" LSortVarG
                   v1 <- freshLVar "vk" LSortVarE
                   return (c, fAppdhMult (fAppdhExp (cterm,varTerm v1), varTerm w1))

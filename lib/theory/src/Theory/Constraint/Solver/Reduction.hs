@@ -1030,7 +1030,8 @@ solveMixedTermEqs splitStrat bset nbset fun (lhs,rhs)
                   _                        -> return eqs2
         let substdhvars = map (\(a,b) -> (applyVTerm compsubst a, applyVTerm compsubst b)) dheqs
             compsubst = substFromList (lhsDHvars ++ rhsDHvars)
-        trace (show ("atleasthere", lhs, rhs, substdhvars)) $ solveListDHEqs (solveTermDHEqs splitStrat bset nbset fun) substdhvars
+        --trace (show ("atleasthere", lhs, rhs, substdhvars)) $ solveListDHEqs (solveTermDHEqs splitStrat bset nbset fun) substdhvars
+        trace (show ("atleasthere", lhs, rhs, substdhvars)) $ solveListDHEqs (solveTermDHEqs splitStrat bset nbset (protoCase SplitNow bset nbset)) substdhvars
         noContradictoryEqStore
         return Changed
     | otherwise =  solveTermEqs splitStrat [(Equal lhs rhs)]
@@ -1072,8 +1073,8 @@ solveIndicatorProto nb t1 t2 = do
   case solveIndicatorGaussProto nb t1 t2 of
    Just subst ->  do
         eqStore <-  getM sEqStore
-        hnd  <- getMaudeHandle
-        setM sEqStore $ applyEqStore hnd (substFromList $ normalizeSubstList hnd subst) eqStore
+        hnd  <- trace (show ("show", eqStore, subst,[o | (_,FAPP (NoEq o) _) <- subst ],"dhmult:",[o | (_,FAPP (DHMult o) _) <- subst ])) $ getMaudeHandle
+        trace (show ("show",[o | (_,FAPP (NoEq o) _) <- normalizeSubstList hnd subst ],"dhmult:",[o | (_,FAPP (DHMult o) _) <- normalizeSubstList hnd subst ])) $ setM sEqStore $ applyEqStore hnd (substFromList $ normalizeSubstList hnd subst) eqStore
         --substCheck <- gets (substCreatesNonNormalTerms hnd)
         --store <- getM sEqStore
         neweqstore <- getM sEqStore
@@ -1101,11 +1102,11 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
     (eqs2, maySplitId) <- addDHProtoEqs hnd genindterms permutedlist False =<< getM sEqStore
     se  <- gets id
     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
-    trace (show ("Imactuallysolvingeqautions", eqs2)) noContradictoryEqStore
     subst <- getM sSubst
-    let normedpair =(runReader (norm' $ fAppPair (apply subst ta1, apply subst ta2)) hndNormal)
+    trace (show ("Imactuallysolvingeqautions", eqs2, subst,ta1 , ta2, "***", apply subst ta1, apply subst ta2)) noContradictoryEqStore
+    let normedpair = (runReader (norm' $ fAppPair (apply subst ta1, apply subst ta2)) hndNormal)
         unpair t = case viewTerm t of
-                        (FApp (NoEq pairSym) [x, y]) -> (x,y)
+                        (FApp (NoEq pairSym) [x, y]) ->(x,y)
                         _ -> error $ "something went wrong" ++ show t
         (sta1,sta2) =  unpair normedpair
     case varTermsOf sta2 of
@@ -1117,9 +1118,7 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
                                             void normSystem
                           else contradictoryIf True
                 _  -> do
-                        -- TODO: fix basis set to take into account the substituions .
-                        -- (maybe you can directly consider all exponents in the matrix combination function directly?)
-                        trace (show ("canwegethere", sta1,"And\n", sta2)) $ solveIndicatorProto (S.toList nbset) sta1 sta2 -- (concatMap eTermsOf $ map (\x -> runReader (norm' $ apply subst x) hndNormal) (S.toList nbset))
+                        trace (show ("canwegethere", sta1,"And\n", sta2)) $ solveIndicatorProto (S.toList nbset) sta1 sta2 
                         void substSystem
                         void normSystem
         _  -> do

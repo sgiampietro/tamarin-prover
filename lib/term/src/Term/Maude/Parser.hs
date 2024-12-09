@@ -542,14 +542,14 @@ parseTerm msig = choice
         appIdent args  | ident `elem` (map ppMaudeDHMultSym $ S.toList $ dhMultFunSyms msig) = fAppDHMult op args
         --appIdent args  | op `elem` (map replaceMinusFunDH (map replaceUnderscoreFunDH $ S.toList $ dhMultFunSyms msig)) = fAppDHMult op args
           where op = parseFunSym ident args
-        appIdent args                                     = fAppNoEq op args
+        appIdent args                                     =  fAppNoEq op args
           where op = parseFunSym ident args
 
         flattenCons (viewTerm -> FApp (NoEq s) [x,xs]) | s == consSym = x:flattenCons xs
         flattenCons (viewTerm -> FApp (NoEq s)  [])    | s == nilSym  = []
         flattenCons t                                                 = [t]
 
-    -- parseFAppConst ident | ident `elem` (map ppMaudeDHMultSym $ S.toList $ dhMultFunSyms msig) = return $ fAppDHMult (parseFunSym ident []) []
+    parseFAppConst ident | ident `elem` (map ppMaudeDHMultSym $ S.toList $ dhMultFunSyms msig) = return $ fAppDHMult (parseFunSym ident []) []
     parseFAppConst ident  = return $ fAppNoEq (parseFunSym ident []) []
 
     parseMaudeVariable ident =
