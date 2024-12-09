@@ -473,7 +473,7 @@ solveChain rules (c, p) = do
                               name <- (insertDirectEdge faPrem faConc cRule pRule rules2)
                               trace (show ("I'malsohere", name)) $ return name
               Nothing -> do 
-                          insertDHMixedEdge False (c, faConc, faPrem, p) cRule pRule bset nbset (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
+                          insertDHMixedEdge False (c, faConc, faPrem, p) cRule pRule (S.fromList $ basisOfRule pRule) (S.fromList $ notBasisOfRule pRule) (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
                           -- insertDHMixedEdge True (c, faConc, faPrem, p) cRule pRule bset nbset (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
                           let mPrem = case kFactView faConc of
                                             Just (DnK, m') -> m'
@@ -570,7 +570,7 @@ solveDHIndauxMixed bset nbset terms p faPrem rules instrules =
           return "LeakedSetInserted"
       Nothing -> do 
           (ru, c, faConc) <- insertFreshNodeConcOutInstMixed rules instrules
-          insertDHMixedEdge False (c, faConc, faPrem, p) ru ru bset nbset rules instrules (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x))-- instead of root indicator this should be Y.ind^Z.
+          insertDHMixedEdge False (c, faConc, faPrem, p) ru ru (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) rules instrules (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x))-- instead of root indicator this should be Y.ind^Z.
           return $ showRuleCaseName ru -- (return "done") 
 
 

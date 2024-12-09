@@ -39,7 +39,7 @@ import Term.DHMultiplication
 import Term.LTerm -- (LNTerm)
 
 -- import Theory.Constraint.System.Constraints
-import Debug.Trace.Ignore
+import Debug.Trace -- .Ignore
 
 
 
@@ -248,7 +248,8 @@ createMatrixProto nb term target =
 
 solveIndicatorGaussProto :: [LNTerm] -> LNTerm -> LNTerm -> Maybe [(LVar, LNTerm)]
 solveIndicatorGaussProto nb term target = 
-    let (wzs, matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)       
+    let (wzs, matriz) = createMatrixProto (allExponentsOf [term] target) (gTerm2Exp term) (gTerm2Exp target)  
+      -- (wzs, matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)       
       -- ([w1, z2], matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)
         (solution, newwzs, subszero) = solveMatrix fAppdhZero matriz wzs
     in

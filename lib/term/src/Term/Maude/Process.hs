@@ -62,7 +62,7 @@ import System.IO
 import Utils.Misc
 -- import Extension.Data.Monoid
 
-import Debug.Trace.Ignore
+import Debug.Trace -- .Ignore
 
 
 -- Unification using a persistent Maude process
@@ -300,7 +300,7 @@ normViaMaude hnd sortOf t =
     msig = mhMaudeSig hnd
     toMaude = fmap normCmd . (lTermToMTerm sortOf)
     fromMaude bindings reply =
-        (\mt -> (mTermToLNTerm "z" mt `evalBindT` bindings) `evalFresh` nothingUsed)
+        trace (show ("thisisnormalized", reply)) $ (\mt -> (mTermToLNTerm "z" mt `evalBindT` bindings) `evalFresh` nothingUsed)
             <$> parseReduceReply msig reply
     incNormCount mp = mp { normCount = 1 + normCount mp }
 

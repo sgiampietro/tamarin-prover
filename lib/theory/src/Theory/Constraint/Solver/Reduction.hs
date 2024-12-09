@@ -1011,7 +1011,7 @@ solveTermEqs splitStrat eqs0 =
 solveMixedTermEqs :: SplitStrategy -> S.Set LNTerm -> S.Set LNTerm  -> ((LNTerm,LNTerm)->Reduction ChangeIndicator) -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
 solveMixedTermEqs splitStrat bset nbset fun (lhs,rhs) 
     | (evalEqual (Equal lhs rhs)) = return Unchanged
-    | isDHTerm lhs && isDHTerm rhs = (solveTermDHEqs splitStrat bset nbset fun) (lhs,rhs)
+    | isDHTerm lhs && isDHTerm rhs = (solveTermDHEqs splitStrat fun) (lhs,rhs)
     | isMixedTerm rhs = do
         (cleanedlhs, lhsDHvars) <- clean lhs
         (cleanedrhs, rhsDHvars) <- clean rhs 
@@ -1031,7 +1031,7 @@ solveMixedTermEqs splitStrat bset nbset fun (lhs,rhs)
         let substdhvars = map (\(a,b) -> (applyVTerm compsubst a, applyVTerm compsubst b)) dheqs
             compsubst = substFromList (lhsDHvars ++ rhsDHvars)
         --trace (show ("atleasthere", lhs, rhs, substdhvars)) $ solveListDHEqs (solveTermDHEqs splitStrat bset nbset fun) substdhvars
-        trace (show ("atleasthere", lhs, rhs, substdhvars)) $ solveListDHEqs (solveTermDHEqs splitStrat bset nbset (protoCase SplitNow bset nbset)) substdhvars
+        trace (show ("atleasthere", lhs, rhs, substdhvars)) $ solveListDHEqs (solveTermDHEqs splitStrat (protoCase SplitNow bset nbset)) substdhvars
         noContradictoryEqStore
         return Changed
     | otherwise =  solveTermEqs splitStrat [(Equal lhs rhs)]
@@ -1073,14 +1073,14 @@ solveIndicatorProto nb t1 t2 = do
   case solveIndicatorGaussProto nb t1 t2 of
    Just subst ->  do
         eqStore <-  getM sEqStore
-        hnd  <- trace (show ("show", eqStore, subst,[o | (_,FAPP (NoEq o) _) <- subst ],"dhmult:",[o | (_,FAPP (DHMult o) _) <- subst ])) $ getMaudeHandle
-        trace (show ("show",[o | (_,FAPP (NoEq o) _) <- normalizeSubstList hnd subst ],"dhmult:",[o | (_,FAPP (DHMult o) _) <- normalizeSubstList hnd subst ])) $ setM sEqStore $ applyEqStore hnd (substFromList $ normalizeSubstList hnd subst) eqStore
+        hnd  <- getMaudeHandle
+        trace (show ("NOTNORMALL!,", subst, "NORMAL", normalizeSubstList hnd subst)) $ setM sEqStore $ applyEqStore hnd (substFromList $ normalizeSubstList hnd subst) eqStore
         --substCheck <- gets (substCreatesNonNormalTerms hnd)
         --store <- getM sEqStore
         neweqstore <- getM sEqStore
         let oldsubsts =  _eqsSubst neweqstore
             newsubst = substFromList $ normalizeSubstList hnd (substToList oldsubsts)
-        setM sEqStore ( neweqstore{_eqsSubst = newsubst} )
+        trace (show ("NEWLIST!,",newsubst)) $ setM sEqStore ( neweqstore{_eqsSubst = newsubst} )
         void substSystem
         void normSystem
         nodes <- getM sNodes
@@ -1195,8 +1195,8 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
                             return Changed
             _ -> error "TODO"
 
-solveTermDHEqs :: SplitStrategy -> S.Set LNTerm -> S.Set LNTerm -> ((LNTerm,LNTerm)->Reduction ChangeIndicator) -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
-solveTermDHEqs splitStrat bset nbset fun (ta1, ta2)
+solveTermDHEqs :: SplitStrategy -> ((LNTerm,LNTerm)->Reduction ChangeIndicator) -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
+solveTermDHEqs splitStrat fun (ta1, ta2)
         | ta1 == ta2 = return Unchanged
         | (isDHLit ta1 && compatibleLits ta1 ta2) = (do
                             solveTermEqs splitStrat [(Equal ta1 ta2)]
@@ -1212,10 +1212,10 @@ solveTermDHEqs splitStrat bset nbset fun (ta1, ta2)
                 (Just (pg1,e1), Just (pg2,e2)) -> do
                     if pg1 == pg2 
                      then do
-                        solveTermDHEqs splitStrat bset nbset fun (e1, e2)
+                        solveTermDHEqs splitStrat fun (e1, e2)
                      else do
                         solveTermEqs splitStrat [(Equal pg1 pg2)]
-                        solveTermDHEqs splitStrat bset nbset fun (e1, e2)
+                        solveTermDHEqs splitStrat fun (e1, e2)
                 _ -> fun (ta1,ta2)
 
 
@@ -1260,7 +1260,7 @@ solveFactDHEqs ::  SplitStrategy -> LNFact -> LNFact -> S.Set LNTerm -> S.Set LN
 solveFactDHEqs split fa1 fa2 bset nbset fun= do
             contradictoryIf (not (factTag fa1 == factTag fa2))
             contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
-            solveListDHEqs (solveTermDHEqs split bset nbset fun) $ zip (factTerms fa1) (factTerms fa2)
+            solveListDHEqs (solveTermDHEqs split fun) $ zip (factTerms fa1) (factTerms fa2)
 
 
 solveIndFactDH :: SplitStrategy -> ((LNTerm, LNTerm), LNTerm) -> (LNTerm, [LNTerm]) -> Reduction (LNTerm, [LNTerm])
