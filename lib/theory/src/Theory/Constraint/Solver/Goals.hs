@@ -473,7 +473,7 @@ solveChain rules (c, p) = do
                               name <- (insertDirectEdge faPrem faConc cRule pRule rules2)
                               trace (show ("I'malsohere", name)) $ return name
               Nothing -> do 
-                          insertDHMixedEdge False (c, faConc, faPrem, p) cRule pRule (S.fromList $ basisOfRule pRule) (S.fromList $ notBasisOfRule pRule) (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
+                          trace (show ("rule", cRule, "bset",(S.fromList $ basisOfRule cRule), "nbset", (S.fromList $ notBasisOfRule cRule))) $ insertDHMixedEdge False (c, faConc, faPrem, p) cRule pRule (S.fromList $ basisOfRule cRule) (S.fromList $ notBasisOfRule cRule) (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
                           -- insertDHMixedEdge True (c, faConc, faPrem, p) cRule pRule bset nbset (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
                           let mPrem = case kFactView faConc of
                                             Just (DnK, m') -> m'

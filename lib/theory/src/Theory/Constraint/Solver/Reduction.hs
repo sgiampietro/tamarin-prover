@@ -1074,7 +1074,7 @@ solveIndicatorProto nb t1 t2 = do
    Just subst ->  do
         eqStore <-  getM sEqStore
         hnd  <- getMaudeHandle
-        trace (show ("NOTNORMALL!,", subst, "NORMAL", normalizeSubstList hnd subst)) $ setM sEqStore $ applyEqStore hnd (substFromList $ normalizeSubstList hnd subst) eqStore
+        trace (show ("NOTNORMALL!,", subst, "NORMAL", t1, "t2", t2)) $ setM sEqStore $ applyEqStore hnd (substFromList $ normalizeSubstList hnd subst) eqStore
         --substCheck <- gets (substCreatesNonNormalTerms hnd)
         --store <- getM sEqStore
         neweqstore <- getM sEqStore
@@ -1118,11 +1118,11 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
                                             void normSystem
                           else contradictoryIf True
                 _  -> do
-                        trace (show ("canwegethere", sta1,"And\n", sta2)) $ solveIndicatorProto (S.toList nbset) sta1 sta2 
+                        trace (show ("canwegethere", sta1,"And\n", sta2, "**", ta1,"**", ta2)) $ solveIndicatorProto (S.toList nbset) sta1 sta2 
                         void substSystem
                         void normSystem
         _  -> do
-                trace (show ("canwegethere", sta1,"And\n", sta2)) $ solveIndicatorProto (S.toList nbset) sta2 sta1
+                trace (show ("canwegethere2", sta1,"And\n", sta2, "**", ta1,"**", ta2)) $ solveIndicatorProto (S.toList nbset) sta2 sta1
                 void substSystem
                 void normSystem
 
@@ -1188,7 +1188,7 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
             Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
                           else do
                             let xrooterms = multRootList nta1
-                                xindterms = map (\x -> runReader (rootIndKnownMaude nbset bset x) hndNormal) xrooterms
+                                xindterms = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) xrooterms
                             hnd <- getMaudeHandleDH
                             permutedlist <- disjunctionOfList $ permutations (multRootList nta2)
                             solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms nta1 nta2 permutedlist

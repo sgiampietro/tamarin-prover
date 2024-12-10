@@ -75,7 +75,7 @@ import           Control.Monad.Reader
 import           Extension.Prelude
 import           Utils.Misc
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Control.Basics
 import           Control.DeepSeq
@@ -253,7 +253,7 @@ addEqs hnd eqs0 eqStore =
                         <$> simpDisjunction hnd (const False) (Disj substs)
             -})
   where
-    eqs = apply (L.get eqsSubst eqStore) $ trace (unlines ["addEqs: ", show eqs0]) $ eqs0
+    eqs = apply (L.get eqsSubst eqStore) $ eqs0 -- trace (unlines ["addEqs: ", show eqs0]) $ eqs0
 
 
 addMixedEqs :: MonadFresh m
@@ -277,7 +277,7 @@ addMixedEqs hnd eqs0 dhvars eqStore =
             -- TODO: check if we need to filter out elements in dhvars also in the addDisj
             )
   where
-    eqs = apply (L.get eqsSubst eqStore) $ trace (unlines ["addEqs: ", show eqs0]) $ eqs0
+    eqs = apply (L.get eqsSubst eqStore) $ eqs0 -- trace (unlines ["addEqs: ", show eqs0]) $ eqs0
 
 
 purifySubstitution :: LNSubst -> Maybe LNSubst
@@ -291,7 +291,7 @@ purifySubstitution subst =  if dom newsubst `intersect` varsRange newsubst /= []
 --   normal form again by using unification.
 applyEqStore :: MaudeHandle -> LNSubst -> EqStore -> EqStore
 applyEqStore hnd asubst eqStore
-    | dom asubst `intersect` varsRange asubst /= [] || trace (show ("applyEqStore", asubst, eqStore)) False
+    | dom asubst `intersect` varsRange asubst /= [] -- || trace (show ("applyEqStore", asubst, eqStore)) False
     = case purifySubstitution asubst of 
         Just asubst2 -> applyEqStore hnd asubst2 eqStore
         Nothing -> error $ "applyEqStore: dom and vrange not disjoint for `"++show asubst++"'"
@@ -384,8 +384,8 @@ simpDisjunction hnd isContr disj0 = do
 -- | @simp eqStore@ simplifies the equation store.
 simp :: MonadFresh m => MaudeHandle -> (LNSubst -> LNSubstVFresh -> Bool) -> EqStore -> m EqStore
 simp hnd isContr eqStore =
-    execStateT (whileTrue (simp1 hnd isContr))
-               (trace (show ("eqStore", eqStore)) eqStore)
+    execStateT (whileTrue (simp1 hnd isContr)) eqStore
+               -- (trace (show ("eqStore", eqStore)) eqStore)
 
 
 -- | @simp1@ tries to execute one simplification step
@@ -654,11 +654,11 @@ addDHProtoEqs hnd t1zzs indt zzbool eqdhstore = do
         isindtvar x = elem x $ concatMap varsVTerm indt
     case unifyLNDHProtoTermFactored (zipWith Equal indt t1) `runReader` hnd of
         [] | zzbool ->  return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
-        [] | not zzbool -> addDHProtoEqs hnd (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) indt True eqdhstore
+        [] | not zzbool -> trace (show ("GENERALIZING", indt, t1)) $ addDHProtoEqs hnd (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) indt True eqdhstore
         [substFresh] | substFresh == emptySubstVFresh ->
             return (eqdhstore, Nothing)
         substs -> do
-            substs' <- mapM generalize substs
+            substs' <- trace (show ("orifinal subst", substs) )$  mapM generalize substs
             let  eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs' ) eqdhstore
             return (eqStore', Nothing)
           where
@@ -670,7 +670,7 @@ addDHProtoEqs hnd t1zzs indt zzbool eqdhstore = do
               -- a | a == LSortE  -> do 
                   w1 <- freshLVar "yk" LSortVarE
                   v1 <- freshLVar "zk" LSortVarE
-                  return (c, fAppdhPlus (fAppdhTimesE (cterm, varTerm v1), varTerm w1))
+                  return $ trace (show ("show", w1,v1)) (c, fAppdhPlus (fAppdhTimesE (cterm, varTerm v1), varTerm w1))
               a | a == LSortG  && ((ist1var c && (not $ elem c muvariablest1)) || (isindtvar c && (not $ elem c muvariablesindt)) )  -> do 
               -- a | a == LSortG -> do 
                   w1 <- freshLVar "wk" LSortVarG
