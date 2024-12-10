@@ -233,16 +233,16 @@ oneIfOne _ = fAppdhZero
 createMatrixProto :: [LNTerm] -> LNTerm -> LNTerm -> ([LNTerm], Matrix LNTerm)
 createMatrixProto nb term target = 
     let (nbexp, vars) =  allNBExponents nb (allExponentsOf [term] target) -- (allExponentsOf [term] target, [])
-        matrixvars = getVariablesOf [term, target]
+        matrixvars = trace (show ("doestargethavevars",target)) $ getVariablesOf [term, target]
         (coeffVars, const) = splitVars matrixvars term
-        polynomials = map (\coeffX -> parseToMap vars coeffX) coeffVars -- this term now contains the introduced W and V variables. 
+        polynomials = trace (show ("coeffVars",coeffVars,"**",const)) $ map (\coeffX -> parseToMap vars coeffX) coeffVars -- this term now contains the introduced W and V variables. 
         targetpoly = parseToMap vars (simplifyraw $ fAppdhPlus(target, simplifyraw $ fAppdhMinus const))
         allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetpoly):(map Map.keys polynomials))
         resultmatrix = map (\key -> ((map (\p -> getvalue p key) polynomials )++ [getvalue targetpoly key])) allkeys
         -- allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetpoly):[Map.keys polynomial])
         -- row = map( \i -> getvalue targetpoly i) allkeys 
     in 
-  trace (show ("OBTAINEDMATRIX!!:", matrixvars, resultmatrix, allkeys, "Term,target:", term,target)) (matrixvars, resultmatrix)
+  trace (show ("OBTAINEDMATRIX!!:", "**", matrixvars,"**", targetpoly,"**", resultmatrix,"**", allkeys, "Term,target:", term,"**",target)) (matrixvars, resultmatrix)
 -- w1 is multiplied term, z1 is the summed term. 
 
 
