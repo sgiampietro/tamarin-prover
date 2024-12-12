@@ -403,3 +403,44 @@ normViaMaudeDH hnd sortOf t =
             <$> parseReduceReply msig reply
     incNormCount mp = mp { normCount = 1 + normCount mp }
 
+
+
+------------------------------------------------------------------------------
+-- CR Maude processes
+------------------------------------------------------------------------------
+
+
+-- | @startMaude@ starts a new instance of Maude and returns a Handle to it.
+startMaudeCR :: FilePath -> IO MaudeHandle
+startMaudeCR maudePath = do
+    mv <- newMVar =<< startMaudeProcessCR maudePath
+    -- Add a finalizer to the MVar that stops maude.
+    _  <- mkWeakMVar mv $ withMVar mv $ \mp -> do
+        terminateProcess (mProc mp) <* waitForProcess (mProc mp)
+    -- return the maude handle
+    return (MaudeHandle maudePath dhMultMaudeSig mv)
+
+-- | Start a Maude process.
+startMaudeProcessCR :: FilePath -- ^ Path to Maude
+                  -> IO (MaudeProcess)
+startMaudeProcessCR maudePath = do
+    (hin,hout,herr,hproc) <- runInteractiveCommand maudeCmd
+    _ <- getToDelim hout
+    -- set maude flags
+    mapM_ (executeMaudeCommand hin hout) setupCmds
+    -- input the maude theory
+    executeMaudeCommand hin hout ppTheoryComRing
+    return (MP hin hout herr hproc 0 0 0 0)
+  where
+    maudeCmd
+      | dEBUGMAUDE = "sh -c \"tee /tmp/maude.input | "
+                     ++ maudePath ++ " -interactive -no-tecla -no-banner -no-wrap -batch "
+                     ++ "\" | tee /tmp/maude.output"
+      | otherwise  =
+          maudePath ++ " -interactive -no-tecla -no-banner -no-wrap -batch "
+    executeMaudeCommand hin hout cmd =
+        B.hPutStr hin cmd >> hFlush hin >> getToDelim hout >> return ()
+    setupCmds = [ "set show command off .\n"
+                , "set show timing off .\n"
+                , "set show stats off .\n" ]
+    dEBUGMAUDE = envIsSet "DEBUG_MAUDE"

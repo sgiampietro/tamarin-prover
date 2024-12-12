@@ -745,11 +745,11 @@ insertDHMixedEdge :: Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> RuleACInst 
                     (LNTerm -> NodeId -> StateT System (FreshT (DisjT (Reader ProofContext))) a0) -> Reduction ()
 -- fa1 is conclusion, fa2 is premise
 insertDHMixedEdge True (c, fa1, fa2, p) cRule pRule bset nbset rules rulesinst fun = do --fa1 should be an Out fact
-    (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset (protoCase SplitNow bset nbset) )
+    (solveMixedFactEqs SplitNow (Equal fa2 fa1) bset nbset (protoCase SplitNow bset nbset) )
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 insertDHMixedEdge False ((ic,c), fa1, fa2, p) cRule pRule bset nbset rules rulesinst fun= do --fa1 should be an Out fact
     let chainFun = solveTermDHEqsChain SplitNow rules rulesinst fun p fa2 (ic, cRule, fa1, c)
-    (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset chainFun) 
+    (solveMixedFactEqs SplitNow (Equal fa2 fa1) bset nbset chainFun) 
     modM sEdges (\es -> foldr S.insert es [ Edge (ic,c) p ])
 
 
@@ -1079,7 +1079,7 @@ solveIndicatorProto nb t1 t2 = do
         --store <- getM sEqStore
         neweqstore <- getM sEqStore
         let oldsubsts =  _eqsSubst neweqstore
-            newsubst = substFromList $ normalizeSubstList hnd (substToList oldsubsts)
+            newsubst = oldsubsts -- substFromList $ normalizeSubstList hnd (substToList oldsubsts)
         trace (show ("NEWLIST!,",newsubst)) $ setM sEqStore ( neweqstore{_eqsSubst = newsubst} )
         void substSystem
         void normSystem
@@ -1189,7 +1189,7 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
                           else do
                             let xrooterms = multRootList nta1
                                 xindterms = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) xrooterms
-                            hnd <- getMaudeHandleDH
+                            hnd <- trace (show ("XINSDTERMS", xindterms)) getMaudeHandleDH
                             permutedlist <- disjunctionOfList $ permutations (multRootList nta2)
                             solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms nta1 nta2 permutedlist
                             return Changed
