@@ -31,6 +31,7 @@ module Theory.Constraint.Solver.Reduction (
   , getProofContext
   , getMaudeHandle
   , getMaudeHandleDH
+  , getMaudeHandleCR
   , getVerbose
 
   , enumConcsDhOut
@@ -223,6 +224,9 @@ getMaudeHandle = askM pcMaudeHandle
 -- | Retrieve the 'MaudeHandleDH' from the 'ProofContext'.
 getMaudeHandleDH :: Reduction MaudeHandle
 getMaudeHandleDH = askM pcMaudeHandleDH
+
+getMaudeHandleCR :: Reduction MaudeHandle
+getMaudeHandleCR = askM pcMaudeHandleCR
 
 -- | Retrieve the verbose parameter from the 'ProofContext'.
 getVerbose :: Reduction Bool
@@ -749,7 +753,7 @@ insertDHMixedEdge True (c, fa1, fa2, p) cRule pRule bset nbset rules rulesinst f
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 insertDHMixedEdge False ((ic,c), fa1, fa2, p) cRule pRule bset nbset rules rulesinst fun= do --fa1 should be an Out fact
     let chainFun = solveTermDHEqsChain SplitNow rules rulesinst fun p fa2 (ic, cRule, fa1, c)
-    (solveMixedFactEqs SplitNow (Equal fa2 fa1) bset nbset chainFun) 
+    (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset chainFun) 
     modM sEdges (\es -> foldr S.insert es [ Edge (ic,c) p ])
 
 

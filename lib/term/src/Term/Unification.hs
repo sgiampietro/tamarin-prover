@@ -43,6 +43,7 @@ module Term.Unification (
   , WithMaude
   , startMaude
   , startMaudeDH
+  , startMaudeCR
   , getMaudeStats
   , mhMaudeSig
   , mhFilePath
@@ -106,7 +107,7 @@ import           Term.Rewriting.Definitions
 import           Term.Substitution
 import qualified Term.Maude.Process as UM
 import           Term.Maude.Process
-                   (MaudeHandle, WithMaude, startMaude, startMaudeDH, getMaudeStats, mhMaudeSig, mhFilePath)
+                   (MaudeHandle, WithMaude, startMaude, startMaudeDH, startMaudeCR, getMaudeStats, mhMaudeSig, mhFilePath)
 import           Term.Maude.Signature
 import           Debug.Trace.Ignore
 

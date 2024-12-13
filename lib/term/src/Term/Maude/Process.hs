@@ -13,6 +13,7 @@ module Term.Maude.Process (
     MaudeHandle(..)
   , startMaude
   , startMaudeDH
+  , startMaudeCR
   , getMaudeStats
 
   -- * Unification using Maude
@@ -444,3 +445,23 @@ startMaudeProcessCR maudePath = do
                 , "set show timing off .\n"
                 , "set show stats off .\n" ]
     dEBUGMAUDE = envIsSet "DEBUG_MAUDE"
+
+
+normCmdCR :: MTerm -> ByteString
+normCmdCR tm = "reduce in CR : " <> ppMaude tm <> " .\n"
+
+-- | @normViaMaude t@ normalizes the term t via Maude.
+normViaMaudeCR :: (IsConst c)
+             => MaudeHandle
+             -> (c -> LSort)
+             -> VTerm c LVar
+             -> IO (VTerm c LVar)
+normViaMaudeCR hnd sortOf t =
+    computeViaMaude hnd incNormCount toMaude fromMaude t
+  where
+    msig = mhMaudeSig hnd
+    toMaude = fmap normCmdDH . (lTermToMTerm sortOf)
+    fromMaude bindings reply =
+        (\mt -> (mTermToLNTerm "z" mt `evalBindT` bindings) `evalFresh` nothingUsed)
+            <$> parseReduceReply msig reply
+    incNormCount mp = mp { normCount = 1 + normCount mp }

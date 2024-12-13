@@ -84,6 +84,7 @@ module Theory.Constraint.System (
   , pcHiddenLemmas
   , pcMaudeHandle
   , pcMaudeHandleDH
+  , pcMaudeHandleCR
   , pcDiffContext
   , pcTrueSubterm
   , pcVerbose
@@ -773,6 +774,9 @@ pcMaudeHandle = sigmMaudeHandle . pcSignature
 
 pcMaudeHandleDH :: ProofContext :-> MaudeHandle
 pcMaudeHandleDH = sigmMaudeHandleDH . pcSignature
+
+pcMaudeHandleCR :: ProofContext :-> MaudeHandle
+pcMaudeHandleCR = sigmMaudeHandleCR . pcSignature
 
 -- | Returns the LHS or RHS proof-context of a diff proof context.
 eitherProofContext :: DiffProofContext -> Side -> ProofContext

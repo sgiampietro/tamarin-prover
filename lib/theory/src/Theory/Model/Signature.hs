@@ -31,6 +31,7 @@ module Theory.Model.Signature (
   , makeSigPureDH
   , sigmMaudeHandle
   , sigmMaudeHandleDH
+  , sigmMaudeHandleCR
 
   -- ** Pretty-printing
   , prettySignaturePure
@@ -48,7 +49,7 @@ import           Control.DeepSeq
 
 import           System.IO.Unsafe     (unsafePerformIO)
 
-import           Term.Maude.Process   (MaudeHandle, mhFilePath, mhMaudeSig, startMaude, startMaudeDH)
+import           Term.Maude.Process   (MaudeHandle, mhFilePath, mhMaudeSig, startMaude, startMaudeDH, startMaudeCR)
 import           Term.Maude.Signature (MaudeSig, minimalMaudeSig, emptyMaudeSig, prettyMaudeSig, prettyMaudeSigExcept)
 import           Theory.Text.Pretty
 
@@ -60,6 +61,7 @@ data Signature a = Signature
        { -- The signature of the message algebra
          _sigMaudeInfo  :: a
         ,_sigMaudeInfoDH :: a
+        ,_sigMaudeInfoCR :: a
        }
 
 $(L.mkLabels [''Signature])
@@ -78,10 +80,10 @@ sigpMaudeSig = sigMaudeInfo
 
 -- | The empty pure signature.
 emptySignaturePure :: Bool -> SignaturePure
-emptySignaturePure flag = Signature (minimalMaudeSig flag) emptyMaudeSig
+emptySignaturePure flag = Signature (minimalMaudeSig flag) emptyMaudeSig emptyMaudeSig
 
 emptyDHSignaturePure :: SignaturePure
-emptyDHSignaturePure  = Signature emptyMaudeSig emptyMaudeSig
+emptyDHSignaturePure  = Signature emptyMaudeSig emptyMaudeSig emptyMaudeSig
 
 
 -- Instances
@@ -96,10 +98,11 @@ instance Binary SignaturePure where
     get = do
       gy <- get
       gz <- get
-      return (Signature gy gz)
+      gw <- get
+      return (Signature gy gz gw)
 
 instance NFData SignaturePure where
-  rnf (Signature y z) = rnf y
+  rnf (Signature y z w) = rnf y
 
 ------------------------------------------------------------------------------
 -- Signatures with an attached Maude process
@@ -115,6 +118,9 @@ sigmMaudeHandle = sigMaudeInfo
 sigmMaudeHandleDH :: SignatureWithMaude L.:-> MaudeHandle
 sigmMaudeHandleDH = sigMaudeInfoDH
 
+sigmMaudeHandleCR :: SignatureWithMaude L.:-> MaudeHandle
+sigmMaudeHandleCR = sigMaudeInfoCR
+
 -- | Ensure that maude is running and configured with the current signature.
 toSignatureWithMaude :: FilePath            -- ^ Path to Maude executable.
                      -> SignaturePure
@@ -122,7 +128,8 @@ toSignatureWithMaude :: FilePath            -- ^ Path to Maude executable.
 toSignatureWithMaude maudePath sig = do
     hnd <- startMaude maudePath (L.get sigMaudeInfo sig)
     hndDH <- startMaudeDH maudePath
-    return $ sig { _sigMaudeInfo = hnd, _sigMaudeInfoDH = hndDH }
+    hndCR <- startMaudeCR maudePath
+    return $ sig { _sigMaudeInfo = hnd, _sigMaudeInfoDH = hndDH, _sigMaudeInfoCR = hndCR }
 
 {-
 toSignatureWithMaudeDH :: FilePath            -- ^ Path to Maude executable.
@@ -136,10 +143,10 @@ toSignatureWithMaudeDH maudePath = do
 
 -- | The pure signature of a 'SignatureWithMaude'.
 toSignaturePure :: SignatureWithMaude -> SignaturePure
-toSignaturePure sig = sig { _sigMaudeInfo = mhMaudeSig $ L.get sigMaudeInfo sig , _sigMaudeInfoDH = emptyMaudeSig }
+toSignaturePure sig = sig { _sigMaudeInfo = mhMaudeSig $ L.get sigMaudeInfo sig , _sigMaudeInfoDH = emptyMaudeSig , _sigMaudeInfoCR = emptyMaudeSig }
 
 makeSigPureDH :: MaudeSig -> SignaturePure
-makeSigPureDH sig = Signature sig emptyMaudeSig
+makeSigPureDH sig = Signature sig emptyMaudeSig emptyMaudeSig
 
 
 
@@ -178,14 +185,14 @@ instance Show SignatureWithMaude where
   show = show . toSignaturePure
 
 instance Binary SignatureWithMaude where
-    put sig@(Signature maude maudedh) = do
+    put sig@(Signature maude maudedh maudecr) = do
         put (mhFilePath maude)
         put (toSignaturePure sig)
     -- FIXME: reload the right signature
     get = unsafePerformIO <$> (toSignatureWithMaude <$> get <*> get)
 
 instance NFData SignatureWithMaude where
-  rnf (Signature _maude _maudeDH) = ()
+  rnf (Signature _maude _maudeDH _maudeCR) = ()
 
 ------------------------------------------------------------------------------
 -- Pretty-printing
