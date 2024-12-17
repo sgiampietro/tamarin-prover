@@ -740,9 +740,14 @@ normTermCR :: LNTerm -> MaudeHandle -> LNTerm
 normTermCR t hnd = case viewTerm3 t of
   MsgLit a -> t
   MsgFApp o ts -> FAPP o (map (\x -> normTermCR x hnd) ts)
-  DH _ _ -> trace (show ("this should be foood", normalized)) normalized
-              where pubg = pubGTerm "g"
-                    normalized = fAppdhExp (pubg, (runReader (norm' (gTerm2Exp t)) hnd)) 
+  DH _ _ -> case sortOfLNTerm t of 
+              LSortG -> trace (show ("this should be foood", normalized)) normalized
+                          where pubg = pubGTerm "g"
+                                normalized = fAppdhExp (pubg, (runReader (norm' (gTerm2Exp t)) hnd)) 
+              LSortPubG -> trace (show ("this should be foood", normalized)) normalized
+                          where pubg = pubGTerm "g"
+                                normalized = fAppdhExp (pubg, (runReader (norm' (gTerm2Exp t)) hnd)) 
+              _ -> trace (show ("this should be foood", t)) (runReader (norm' t) hnd) 
 
 normFactCR :: LNFact -> MaudeHandle -> LNFact
 normFactCR (Fact h an ts) hnd = Fact h an (map (\term -> normTermCR term hnd) ts)
