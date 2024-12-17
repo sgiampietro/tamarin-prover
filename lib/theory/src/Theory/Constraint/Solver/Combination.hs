@@ -255,7 +255,7 @@ solveIndicatorGaussProto nb term target =
     in
   case solution of 
     Nothing -> trace (show ("systemdoesnthavesolutions",newwzs,wzs,subszero)) Nothing
-    Just (ts) -> trace (show ("vars", wzs, extravars, newwzs)) (if (all (isJust) wzvars && all isJust zerovars) then
+    Just (ts) -> trace (show ("vars", wzs, "extra", extravars,"new", newwzs, "zero", zerovars)) (if (all (isJust) wzvars && all isJust zerovars) then
                  Just ((zipWith zipfun wzvars ts) ++ map ((\i -> (i, getsubst i fAppdhZero)).fromJust) zerovars) else Nothing)
                     where wzvars = map getVar newwzs
                           --pubg = LIT (Var ( LVar "pg" LSortPubG 1))

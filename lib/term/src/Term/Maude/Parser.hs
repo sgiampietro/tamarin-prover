@@ -39,7 +39,7 @@ import qualified Data.ByteString.Char8 as BC
 
 import Data.Attoparsec.ByteString.Char8
 
--- import Debug.Trace
+import Debug.Trace.Ignore
 
 -- import Extension.Data.Monoid
 
@@ -432,9 +432,9 @@ parseSubstitution msig = do
 
 -- | @parseReduceReply l@ parses a single solution returned by Maude.
 parseReduceReply :: MaudeSig -> ByteString -> Either String MTerm
-parseReduceReply msig reply = flip parseOnly reply $ do
+parseReduceReply msig reply = trace (show ("reducingresult", reply)) (flip parseOnly reply $ do
     string "result " *> choice [ string "TOP" *> pure LSortMsg, string "[TOP]" *> pure LSortMsg, string "[DH]" *> pure LSortDH, parseSort ] -- we ignore the sort
-        *> string ": " *> parseTerm msig <* endOfLine <* endOfInput
+        *> string ": " *> parseTerm msig <* endOfLine <* endOfInput)
 
 -- | Parse an 'MSort'.
 parseSort :: Parser LSort
@@ -622,7 +622,7 @@ ppTheoryComRing ::  ByteString
 ppTheoryComRing = BC.unlines $
       [ "fmod CR is"
       , "  protecting NAT ."
-      , "  sort DH E NZE G BG FrNZE."
+      , "  sort DH E NZE G BG FrNZE ."
       , "  subsort E < DH ."
       , "  subsort NZE < DH ."
       , "  subsort G < DH ."
@@ -638,17 +638,17 @@ ppTheoryComRing = BC.unlines $
       , "  op tamXCdhExp : DH DH -> DH ."
       , "  op tamXCdhOne : -> DH ."
       , "  op tamXCdhMu : DH -> DH ."
-      -- , "  op tamXCdhGinv : DH -> DH ."
+      , "  op tamXCdhMinus : DH -> DH ."
       , "  op bg : Nat -> DH ."
       , "  vars X Y Z : DH ."
-      , "  eq tamXCdhPlus(tamXCdhZero, X) = X ."
-      , "  eq tamXCdhTimes(X, Y) = tamXCdhTimesE(X, Y)."
+      , "  eq tamXCdhPlus(X, tamXCdhZero) = X ."
+      -- , "  eq tamXCdhTimes(X, Y) = tamXCdhTimesE(X, Y) ."
       , "  eq tamXCdhTimesE(X, tamXCdhOne) = X ."
       , "  ceq tamXCdhTimesE(tamXCdhInv(X), X) = tamXCdhOne "
       , "      if X =/= tamXCdhZero ."
       , "  eq tamXCdhPlus(tamXCdhTimesE(X, Y), tamXCdhTimesE(X, Z)) = tamXCdhTimesE(X, tamXCdhPlus(Y, Z)) ."
       , "  eq tamXCdhPlus(X, tamXCdhMinus(X)) = tamXCdhZero ."
-      , "  eq tamXCdhMinus(tamXCdhPlus(X, Y)) = tamXCdhPlus(tamXCdhMinus(X), tamXCdhMinus(Y)) ."
+      -- , "  eq tamXCdhMinus(tamXCdhPlus(X, Y)) = tamXCdhPlus(tamXCdhMinus(X), tamXCdhMinus(Y)) ."
       , "  eq tamXCdhTimesE(X, tamXCdhZero) = tamXCdhZero ."
       , "endfm"] 
 

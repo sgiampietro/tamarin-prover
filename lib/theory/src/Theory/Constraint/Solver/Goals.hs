@@ -333,11 +333,11 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
              -> LNFact         -- ^ Fact required at this premise.
              -> Reduction String -- ^ Case name to use.
 solvePremise rules p faPrem
-  | isKdhFact faPrem && isDHFact faPrem =  (solveDHInd rules p faPrem)
-  | isKdhFact faPrem && isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
+  | isKdhFact faPrem && isDHFact faPrem =  trace (show ("solving KdhFacts", faPrem)) (solveDHInd rules p faPrem)
+  | isKdhFact faPrem && isMixedFact faPrem = trace (show ("solving KdhFactsMixed", faPrem)) (solveDHIndMixed rules p faPrem)
   -- | (isInFact faPrem && isDHFact faPrem) = trace (show ("solvingINFACT here", faPrem)) solveDHInd rules p faPrem
-  | isProtoDHFact faPrem =  solveDHIndProto rules p faPrem
-  | isProtoMixedFact faPrem = solveDHMixedPremise rules p faPrem
+  | isProtoDHFact faPrem =  trace (show ("solving KdhFactsProto", faPrem)) $ solveDHIndProto rules p faPrem
+  | isProtoMixedFact faPrem = trace (show ("solving KdhFactsProtoMixed", faPrem)) $ solveDHMixedPremise rules p faPrem
   {-| isKDFact faPrem && isMixedFact faPrem = do
       -- nodes <- getM sNodes
       -- ruless <- askM pcRules
@@ -580,8 +580,8 @@ solveDHIndaux bset nbset term p faPrem rules instrules =
       [] -> do  -- TODO: this is where we need to check multiple Out facts!! 
           hndNormal <- getMaudeHandle
           let indlist =  map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' term) hndNormal)
-              neededInds = filter (not . isPublic) indlist
-              n = length neededInds
+              neededInds =  filter (not . isPublic) indlist
+              n = trace (show ("thisisn", length neededInds) ) $ length neededInds
           if null neededInds 
             then return "Indicators are public"
             else do

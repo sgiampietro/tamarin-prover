@@ -57,6 +57,7 @@ fact' pterm = try (
     mkProtoFact multi f ann = case map toUpper f of
       "OUT" -> singleTerm f outFact
       "IN"  -> singleTerm f (inFactAnn ann)
+      "KDH" -> singleTerm f (kdhFact)
       "KU"  -> singleTerm f kuFact
       "KD"  -> singleTerm f kdFact
       "DED" -> singleTerm f dedLogFact
