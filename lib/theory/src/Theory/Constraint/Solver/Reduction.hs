@@ -1121,7 +1121,7 @@ solveIndicatorProto nb t1 t2 = do
         eqStore <-  getM sEqStore
         hnd  <- getMaudeHandle
         hndCR <- getMaudeHandleCR
-        let normsubst = (substFromList $ normalizeSubstList hnd subst)
+        let normsubst = (substFromList $ normalizeSubstList hndCR subst)
         trace (show ("NOTNORMALL!,", subst, "NORMAL", normsubst, "t1",t1, "t2", t2)) $ setM sEqStore $ applyEqStore hnd normsubst eqStore
         --substCheck <- gets (substCreatesNonNormalTerms hnd)
         --store <- getM sEqStore
@@ -1130,9 +1130,10 @@ solveIndicatorProto nb t1 t2 = do
             newsubst = oldsubsts -- substFromList $ normalizeSubstList hnd (substToList oldsubsts)
         trace (show ("NEWLIST!,",newsubst)) $ setM sEqStore ( neweqstore{_eqsSubst = newsubst} )
         void substSystem
+        void normSystemCR
         void normSystem
-        nodes <- getM sNodes
-        setM sNodes $ M.map (\r -> runReader (normRule r) hnd) nodes
+        --nodes <- getM sNodes
+        --setM sNodes $ M.map (\r -> runReader (normRule r) hndCR) nodes
         return ("Matched" ++ show (normalizeSubstList hnd subst))
    Nothing -> do
           --setNotReachable
