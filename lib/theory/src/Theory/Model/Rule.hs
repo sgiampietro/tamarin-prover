@@ -98,6 +98,9 @@ module Theory.Model.Rule (
   , setRemainingRuleApplications
   , nfRule
   , normRule
+  , normRuleCR
+  , normTermCR
+  , normFactCR
   , isTrivialProtoVariantAC
   , getNewVariables
   , getSubstitutionsFixingNewVars
@@ -194,8 +197,9 @@ import           Theory.Model.Fact
 import qualified Theory.Model.Formula as F
 import           Theory.Text.Pretty
 import           Theory.Sapic
+import           Theory.Constraint.Solver.Combination
 
--- import           Debug.Trace
+import           Debug.Trace
 
 ------------------------------------------------------------------------------
 -- General Rule
@@ -731,6 +735,23 @@ normRule (Rule rn ps cs as nvs) = reader $ \hnd -> (Rule rn (normFacts ps hnd) (
   where
     normFacts fs hnd' = map (\f -> runReader (normFact f) hnd') fs
     normTerms fs hnd' = map (\f -> runReader (norm' f) hnd') fs
+
+normTermCR :: LNTerm -> MaudeHandle -> LNTerm
+normTermCR t hnd = case viewTerm3 t of
+  MsgLit a -> t
+  MsgFApp o ts -> FAPP o (map (\x -> normTermCR x hnd) ts)
+  DH _ _ -> trace (show ("this should be foood", normalized)) normalized
+              where pubg = pubGTerm "g"
+                    normalized = fAppdhExp (pubg, (runReader (norm' (gTerm2Exp t)) hnd)) 
+
+normFactCR :: LNFact -> MaudeHandle -> LNFact
+normFactCR (Fact h an ts) hnd = Fact h an (map (\term -> normTermCR term hnd) ts)
+
+normRuleCR :: Rule i -> WithMaude (Rule i)
+normRuleCR (Rule rn ps cs as nvs) = reader $ \hnd -> (Rule rn (normFacts ps hnd) (normFacts cs hnd) (normFacts as hnd) (normTerms nvs hnd))
+  where
+    normFacts fs hnd' = map (\f -> normFactCR f hnd') fs
+    normTerms fs hnd' = map (\f -> normTermCR f hnd') fs
 
 -- | True iff the rule is an intruder rule
 isIntruderRule :: HasRuleName r => r -> Bool

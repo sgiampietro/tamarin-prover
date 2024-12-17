@@ -81,6 +81,7 @@ module Theory.Constraint.Solver.Reduction (
   , substSolvedFormulas
 
   , normSystem
+  , normSystemCR
   , normalizeFact
 
   -- ** Solving equalities
@@ -114,7 +115,7 @@ import qualified Data.Map                                as M
 import qualified Data.Map.Strict                         as M'
 import qualified Data.Set                                as S
 import qualified Data.ByteString.Char8                   as BC
-import           Data.List                               (mapAccumL, delete , subsequences, length , nubBy, permutations, intersect)
+import           Data.List                               (mapAccumL, delete , subsequences, length , nubBy, permutations, intersect, (\\))
 import           Safe
 
 import           Control.Basics
@@ -958,6 +959,13 @@ normalizeGoal hnd goal = case goal of
         NoCancG (t1, t2) -> NoCancG (runReader (norm' t1) hnd, runReader (norm' t2) hnd)
         _ -> goal
 
+normalizeGoalCR :: MaudeHandle -> Goal -> Goal
+normalizeGoalCR hnd goal = case goal of
+        ActionG v fact -> ActionG v $ normFactCR fact hnd
+        PremiseG prem fact -> PremiseG prem $ normFactCR fact hnd
+        NoCancG (t1, t2) -> NoCancG (normTermCR t1 hnd, normTermCR t2 hnd)
+        _ -> goal
+
 normGoals :: MaudeHandle -> Reduction ChangeIndicator
 normGoals hnd = do
     goals <- M.toList <$> getM sGoals
@@ -966,6 +974,40 @@ normGoals hnd = do
                                                      M'.insertWith combineGoalStatus (normalizeGoal hnd goal) status
                                                    return Unchanged
     return (mconcat changes)
+
+
+normGoalsCR :: MaudeHandle -> Reduction ChangeIndicator
+normGoalsCR hnd = do
+    goals <- M.toList <$> getM sGoals
+    sGoals =: M.empty
+    changes <- forM goals $ \(goal, status) ->  do modM sGoals $
+                                                     M'.insertWith combineGoalStatus (normalizeGoalCR hnd goal) status
+                                                   return Unchanged
+    return (mconcat changes)
+
+normSystemCR :: Reduction ChangeIndicator
+normSystemCR = do
+    hnd <- getMaudeHandleCR
+    nodes <- getM sNodes
+    setM sNodes $ M.map (\r -> runReader (normRuleCR r) hnd) nodes
+    --edges <- getM sEdges
+    --substEdges
+    nocanc <- getM sNoCanc
+    setM sNoCanc $ S.map (\(t1,t2) -> (normTermCR t1 hnd, normTermCR t2 hnd )) nocanc
+    basis <- getM sBasis
+    setM sBasis $ S.map (\t1 -> (normTermCR t1 hnd)) basis
+    notbasis <- getM sNotBasis
+    setM sNotBasis $ S.map (\t1 -> (normTermCR t1 hnd)) notbasis
+    --substLastAtom
+    --substLessAtoms
+    --substSubtermStore
+    --substFormulas -- todo: ADD THIS!!
+    --substSolvedFormulas -- todo: ADD THIS!!
+    --substLemmas -- todo: ADD THIS!!
+    c2 <- normGoalsCR hnd
+    --substNextGoalNr
+    return c2
+
 
 -- Unification via the equation store
 -------------------------------------
@@ -1078,7 +1120,9 @@ solveIndicatorProto nb t1 t2 = do
    Just subst ->  do
         eqStore <-  getM sEqStore
         hnd  <- getMaudeHandle
-        trace (show ("NOTNORMALL!,", subst, "NORMAL", t1, "t2", t2)) $ setM sEqStore $ applyEqStore hnd (substFromList $ normalizeSubstList hnd subst) eqStore
+        hndCR <- getMaudeHandleCR
+        let normsubst = (substFromList $ normalizeSubstList hnd subst)
+        trace (show ("NOTNORMALL!,", subst, "NORMAL", normsubst, "t1",t1, "t2", t2)) $ setM sEqStore $ applyEqStore hnd normsubst eqStore
         --substCheck <- gets (substCreatesNonNormalTerms hnd)
         --store <- getM sEqStore
         neweqstore <- getM sEqStore
@@ -1107,29 +1151,60 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
     se  <- gets id
     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
     subst <- getM sSubst
-    trace (show ("Imactuallysolvingeqautions", eqs2, subst,ta1 , ta2, "***", apply subst ta1, apply subst ta2)) noContradictoryEqStore
-    let normedpair = (runReader (norm' $ fAppPair (apply subst ta1, apply subst ta2)) hndNormal)
-        unpair t = case viewTerm t of
+    let varsta1 = filter (\x -> not (isvarEVar (LIT (Var x)) || isvarGVar (LIT (Var x)))) $ varsVTerm (apply subst ta1)
+        varsta2 = filter (\x -> not (isvarEVar (LIT (Var x)) || isvarGVar (LIT (Var x)))) $ varsVTerm (apply subst ta2)
+        toset1 = (varsta1 \\ varsta2) ++ (varsta2 \\ varsta1)
+    if null toset1 
+     then do
+        trace (show ("Imactuallysolvingeqautions", ta1, "**", apply subst ta1, ta2, "**", apply subst ta2)) noContradictoryEqStore
+        let normedpair = (runReader (norm' $ fAppPair (apply subst ta1, apply subst ta2)) hndNormal)
+            unpair t = case viewTerm t of
                         (FApp (NoEq pairSym) [x, y]) ->(x,y)
                         _ -> error $ "something went wrong" ++ show t
-        (sta1,sta2) =  unpair normedpair
-    case varTermsOf sta2 of
-        [] -> case varTermsOf (sta1) of
-                [] -> do
-                        if trace (show ("goodnorm",sta1,"And\n",sta2)) $ sta1 == sta2
-                          then do 
+            (sta1,sta2) =  unpair normedpair
+        case varTermsOf sta2 of
+            [] -> case varTermsOf (sta1) of
+                    [] -> do
+                            if trace (show ("goodnorm",sta1,"And\n",sta2)) $ sta1 == sta2
+                              then do 
                                             void substSystem
                                             void normSystem
-                          else contradictoryIf True
-                _  -> do
-                        trace (show ("canwegethere", sta1,"And\n", sta2, "**", ta1,"**", ta2)) $ solveIndicatorProto (S.toList nbset) sta1 sta2 
-                        void substSystem
-                        void normSystem
-        _  -> do
-                trace (show ("canwegethere2", sta1,"And\n", sta2, "**", ta1,"**", ta2)) $ solveIndicatorProto (S.toList nbset) sta2 sta1
-                void substSystem
-                void normSystem
-
+                              else contradictoryIf True
+                    _  -> do
+                            trace (show ("canwegethere", sta1,"And\n", sta2, "**", ta1,"**", ta2)) $ solveIndicatorProto (S.toList nbset) sta1 sta2 
+                            void substSystem
+                            void normSystem
+            _  -> do
+                    trace (show ("canwegethere2", sta1,"And\n", sta2, "**", ta1,"**", ta2)) $ solveIndicatorProto (S.toList nbset) sta2 sta1
+                    void substSystem
+                    void normSystem
+     else do
+        let newsubsts = substFromList $ map (\x -> (x, fAppdhOne)) toset1
+        eqStore <- getM sEqStore
+        setM sEqStore $ applyEqStore hnd newsubsts eqStore
+        subst2 <- getM sSubst
+        trace (show ("Imactuallysolvingeqautions", ta1, "**", apply subst2 ta1, ta2, "**", apply subst2 ta2)) noContradictoryEqStore
+        let normedpair = (runReader (norm' $ fAppPair (apply subst2 ta1, apply subst2 ta2)) hndNormal)
+            unpair t = case viewTerm t of
+                        (FApp (NoEq pairSym) [x, y]) ->(x,y)
+                        _ -> error $ "something went wrong" ++ show t
+            (sta1,sta2) =  unpair normedpair
+        case varTermsOf sta2 of
+            [] -> case varTermsOf (sta1) of
+                    [] -> do
+                            if trace (show ("goodnorm",sta1,"And\n",sta2)) $ sta1 == sta2
+                              then do 
+                                            void substSystem
+                                            void normSystem
+                              else contradictoryIf True
+                    _  -> do
+                            trace (show ("canwegethere", sta1,"And\n", sta2, "**", ta1,"**", ta2)) $ solveIndicatorProto (S.toList nbset) sta1 sta2 
+                            void substSystem
+                            void normSystem
+            _  -> do
+                    trace (show ("canwegethere2", sta1,"And\n", sta2, "**", ta1,"**", ta2)) $ solveIndicatorProto (S.toList nbset) sta2 sta1
+                    void substSystem
+                    void normSystem
 
 solveNeeded ::  (LNTerm -> NodeId -> StateT  System (FreshT (DisjT (Reader ProofContext))) a0) -> LNTerm ->  NodeId ->        -- exponent that is needed.
                 Reduction String -- ^ Case name to use.
