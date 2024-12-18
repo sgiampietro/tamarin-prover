@@ -649,6 +649,7 @@ ppTheoryComRing = BC.unlines $
       , "      if X =/= tamXCdhZero ."
       , "  eq tamXCdhPlus(tamXCdhTimesE(X, Y), tamXCdhTimesE(X, Z)) = tamXCdhTimesE(X, tamXCdhPlus(Y, Z)) ."
       , "  eq tamXCdhPlus(X, tamXCdhMinus(X)) = tamXCdhZero ."
+      , "  eq tamXCdhMinus(tamXCdhTimesE(X,Y)) = tamXCdhTimesE(tamXCdhMinus(X), Y) ."
       -- , "  eq tamXCdhMinus(tamXCdhPlus(X, Y)) = tamXCdhPlus(tamXCdhMinus(X), tamXCdhMinus(Y)) ."
       , "  eq tamXCdhTimesE(X, tamXCdhZero) = tamXCdhZero ."
       , "endfm"] 
