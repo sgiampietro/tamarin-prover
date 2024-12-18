@@ -741,19 +741,19 @@ normTermCR t hnd = case viewTerm3 t of
   MsgLit a -> t
   MsgFApp o ts -> FAPP o (map (\x -> normTermCR x hnd) ts)
   DH _ _ -> case sortOfLNTerm t of 
-              LSortG -> trace (show ("this should be foood", normalized)) normalized
+              LSortG -> trace (show ("this should be fooodG", normalized)) normalized
                           where pubg = pubGTerm "g"
                                 normalized = fAppdhExp (pubg, (runReader (norm' (gTerm2Exp t)) hnd)) 
-              LSortPubG -> trace (show ("this should be foood", normalized)) normalized
+              LSortPubG -> trace (show ("this should be fooodPubG", normalized)) normalized
                           where pubg = pubGTerm "g"
                                 normalized = fAppdhExp (pubg, (runReader (norm' (gTerm2Exp t)) hnd)) 
-              _ -> trace (show ("this should be foood", t)) (runReader (norm' t) hnd) 
+              _ -> trace (show ("this should be fooodE", t, "norm",(runReader (norm' t) hnd) )) (runReader (norm' t) hnd) 
 
 normFactCR :: LNFact -> MaudeHandle -> LNFact
 normFactCR (Fact h an ts) hnd = Fact h an (map (\term -> normTermCR term hnd) ts)
 
 normRuleCR :: Rule i -> WithMaude (Rule i)
-normRuleCR (Rule rn ps cs as nvs) = reader $ \hnd -> (Rule rn (normFacts ps hnd) (normFacts cs hnd) (normFacts as hnd) (normTerms nvs hnd))
+normRuleCR (Rule rn ps cs as nvs) = reader $ \hnd -> trace (show ("GOTHERE2",ps )) (Rule rn (normFacts ps hnd) (normFacts cs hnd) (normFacts as hnd) (normTerms nvs hnd))
   where
     normFacts fs hnd' = map (\f -> normFactCR f hnd') fs
     normTerms fs hnd' = map (\f -> normTermCR f hnd') fs

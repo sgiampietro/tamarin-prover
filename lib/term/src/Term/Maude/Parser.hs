@@ -620,7 +620,7 @@ ppTheoryDHsimp = BC.unlines $
 
 ppTheoryComRing ::  ByteString
 ppTheoryComRing = BC.unlines $
-      [ "fmod CR is"
+      [ "fmod CR is "
       , "  protecting NAT ."
       , "  sort DH E NZE G BG FrNZE ."
       , "  subsort E < DH ."
@@ -642,16 +642,16 @@ ppTheoryComRing = BC.unlines $
       , "  op bg : Nat -> DH ."
       , "  vars X Y Z : DH ."
       , "  eq tamXCdhPlus(X, tamXCdhZero) = X ."
-      -- , "  eq tamXCdhTimes(X, Y) = tamXCdhTimesE(X, Y) ."
-      , "  eq tamXCdhInv(tamXCdhTimesE(X,Y)) = tamXCdhTimesE(tamXCdhInv(X), tamXCdhInv(Y)) ."
       , "  eq tamXCdhTimesE(X, tamXCdhOne) = X ."
-      , "  ceq tamXCdhTimesE(tamXCdhInv(X), X) = tamXCdhOne "
-      , "      if X =/= tamXCdhZero ."
-      , "  eq tamXCdhPlus(tamXCdhTimesE(X, Y), tamXCdhTimesE(X, Z)) = tamXCdhTimesE(X, tamXCdhPlus(Y, Z)) ."
-      , "  eq tamXCdhPlus(X, tamXCdhMinus(X)) = tamXCdhZero ."
-      , "  eq tamXCdhMinus(tamXCdhTimesE(X,Y)) = tamXCdhTimesE(tamXCdhMinus(X), Y) ."
-      -- , "  eq tamXCdhMinus(tamXCdhPlus(X, Y)) = tamXCdhPlus(tamXCdhMinus(X), tamXCdhMinus(Y)) ."
       , "  eq tamXCdhTimesE(X, tamXCdhZero) = tamXCdhZero ."
+      , "  eq tamXCdhPlus(X, tamXCdhMinus(X)) = tamXCdhZero ."
+      , "  eq tamXCdhInv(tamXCdhTimesE(X,Y)) = tamXCdhTimesE(tamXCdhInv(X), tamXCdhInv(Y)) ."
+      , "  eq tamXCdhMinus(tamXCdhTimesE(X,Y)) = tamXCdhTimesE(tamXCdhMinus(tamXCdhOne),X, Y) ."
+      , "  eq tamXCdhTimesE(tamXCdhMinus(tamXCdhOne), tamXCdhMinus(tamXCdhOne)) = tamXCdhOne ."
+      , "  eq tamXCdhPlus(tamXCdhTimesE(X, Y), tamXCdhTimesE(X, Z)) = tamXCdhTimesE(X, tamXCdhPlus(Y, Z)) ."
+      , "  ceq tamXCdhTimesE(tamXCdhInv(X), X) = tamXCdhOne "
+      , "       if X =/= tamXCdhZero ."
+      , "  eq tamXCdhTimes(X, Y) = tamXCdhTimesE(X, Y) ."
       , "endfm"] 
 
 

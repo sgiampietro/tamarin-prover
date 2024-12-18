@@ -546,7 +546,8 @@ solveDHInd rules p faPrem =  do
         bset <- trace (show ("solveDHIND", faPrem)) $ getM sBasis
         nbset <- getM sNotBasis
         nodes <- getM sNodes
-        case factTerms faPrem of 
+        hndCR <- getMaudeHandleCR
+        case map (\y -> runReader (norm' y) hndCR ) $ factTerms faPrem of 
           -- [x] -> solveDHIndaux bset nbset x p faPrem (filter isProtocolRule rules) (M.assocs nodes)
           [x] -> solveDHIndaux bset nbset x p faPrem rules (M.assocs nodes)
           _   -> error "In Fact should have arity 1"
@@ -578,7 +579,7 @@ solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> NodePrem -> LNFact ->
 solveDHIndaux bset nbset term p faPrem rules instrules =
   case neededexponents bset nbset term of
       [] -> do  -- TODO: this is where we need to check multiple Out facts!! 
-          hndNormal <- getMaudeHandle
+          hndNormal <- trace (show ("SOLVEINDAUX", term)) getMaudeHandle
           let indlist =  map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' term) hndNormal)
               neededInds =  filter (not . isPublic) indlist
               n = trace (show ("thisisn", length neededInds) ) $ length neededInds

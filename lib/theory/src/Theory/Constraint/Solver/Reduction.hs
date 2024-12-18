@@ -962,7 +962,7 @@ normalizeGoal hnd goal = case goal of
 normalizeGoalCR :: MaudeHandle -> Goal -> Goal
 normalizeGoalCR hnd goal = case goal of
         ActionG v fact -> ActionG v $ normFactCR fact hnd
-        PremiseG prem fact -> PremiseG prem $ normFactCR fact hnd
+        PremiseG prem fact -> trace (show ("GOTHERE",fact, normFactCR fact hnd )) (PremiseG prem $ normFactCR fact hnd)
         NoCancG (t1, t2) -> NoCancG (normTermCR t1 hnd, normTermCR t2 hnd)
         _ -> goal
 
@@ -1127,11 +1127,12 @@ solveIndicatorProto nb t1 t2 = do
         --store <- getM sEqStore
         neweqstore <- getM sEqStore
         let oldsubsts =  _eqsSubst neweqstore
-            newsubst = oldsubsts -- substFromList $ normalizeSubstList hnd (substToList oldsubsts)
+            newsubst =  substFromList $ normalizeSubstList hnd (substToList oldsubsts)
         trace (show ("NEWLIST!,",newsubst)) $ setM sEqStore ( neweqstore{_eqsSubst = newsubst} )
         void substSystem
         void normSystemCR
         void normSystem
+        -- void normSystemCR
         --nodes <- getM sNodes
         --setM sNodes $ M.map (\r -> runReader (normRule r) hndCR) nodes
         return ("Matched" ++ show (normalizeSubstList hnd subst))

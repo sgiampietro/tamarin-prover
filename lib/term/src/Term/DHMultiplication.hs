@@ -153,8 +153,8 @@ rootSet operator t = error ("rootSet applied on non DH term'"++show t++"Done")
 
 multRootList :: LNTerm ->  [LNTerm]
 multRootList a = case sortOfLNTerm a of
-  LSortG -> trace (show (a, "LSORTG", S.toList (rootSet dhPlusSym a))) $ S.toList (rootSet dhMultSym a)
-  LSortPubG -> trace (show (a, "LSORTPubG", S.toList (rootSet dhPlusSym a))) $ S.toList (rootSet dhMultSym a)
+  LSortG -> trace (show (a, "LSORTG", S.toList (rootSet dhMultSym a))) $ S.toList (rootSet dhMultSym a)
+  LSortPubG -> trace (show (a, "LSORTPubG", S.toList (rootSet dhMultSym a))) $ S.toList (rootSet dhMultSym a)
   LSortE -> trace (show (a, "LSORTE", S.toList (rootSet dhPlusSym a))) $ S.toList (rootSet dhPlusSym a)
   LSortNZE -> trace (show (a, "LSORTNZE", S.toList (rootSet dhPlusSym a))) $ S.toList (rootSet dhPlusSym a)
   LSortFrNZE -> trace (show (a, "LSORTFrNZE", S.toList (rootSet dhPlusSym a))) $ S.toList (rootSet dhPlusSym a)
@@ -285,7 +285,7 @@ rootIndKnown b nb t@(viewTerm2 -> FdhGinv dht) = rootIndKnown b nb dht--(FAPP (D
 rootIndKnown b nb t@(viewTerm2 -> FdhTimes t1 t2) = (FAPP (DHMult dhTimesSym) [rootIndKnown b nb t1, rootIndKnown b nb t2] )
 rootIndKnown b nb t@(viewTerm2 -> FdhTimesE t1 t2) =  (FAPP (DHMult dhTimesESym) [rootIndKnown b nb t1, rootIndKnown b nb t2])
 rootIndKnown b nb t@(viewTerm2 -> FdhMu t1) = t --  rootIndKnown b nb t1 -- TODO FIX: you should also consider the possibility of finding rootIndKnown of t1. -- (FAPP (DHMult dhZeroSym) [])
-rootIndKnown b nb t@(viewTerm2 -> FdhMinus t1) = FAPP (DHMult dhMinusSym) [rootIndKnown b nb t1]
+rootIndKnown b nb t@(viewTerm2 -> FdhMinus t1) = rootIndKnown b nb t1
 rootIndKnown b nb t@(viewTerm2 -> FdhInv t1) = FAPP (DHMult dhInvSym) [rootIndKnown b nb t1]
 --rootIndKnown b nb t@(viewTerm2 -> FdhBox (LIT a)) = (t)
 --rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Var t1)))

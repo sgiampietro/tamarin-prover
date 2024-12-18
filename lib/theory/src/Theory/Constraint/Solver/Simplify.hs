@@ -61,6 +61,8 @@ import           Utils.Misc
 -- system does not change anymore.
 simplifySystem :: Reduction ()
 simplifySystem = do
+    -- normSystemCR
+    -- normSystem
     isdiff <- getM sDiffSystem
     -- Start simplification, indicating that some change happened
     go (0 :: Int) [Changed]
