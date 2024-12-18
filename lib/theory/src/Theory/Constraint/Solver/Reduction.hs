@@ -1127,7 +1127,7 @@ solveIndicatorProto nb t1 t2 = do
         --store <- getM sEqStore
         neweqstore <- getM sEqStore
         let oldsubsts =  _eqsSubst neweqstore
-            newsubst =  substFromList $ normalizeSubstList hnd (substToList oldsubsts)
+            newsubst =  oldsubsts -- substFromList $ normalizeSubstList hnd (substToList oldsubsts)
         trace (show ("NEWLIST!,",newsubst)) $ setM sEqStore ( neweqstore{_eqsSubst = newsubst} )
         void substSystem
         void normSystemCR
