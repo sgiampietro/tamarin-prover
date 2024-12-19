@@ -745,16 +745,16 @@ insertDHEdges tuplelist indts premTerm p = do
     forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
     forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
 
-insertDHMixedEdge :: Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> RuleACInst -> RuleACInst 
+insertDHMixedEdge :: Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> RuleACInst  
                     -> S.Set LNTerm -> S.Set LNTerm -> [RuleAC] -> [(NodeId, RuleACInst)] ->
                     (LNTerm -> NodeId -> StateT System (FreshT (DisjT (Reader ProofContext))) a0) -> Reduction ()
 -- fa1 is conclusion, fa2 is premise
-insertDHMixedEdge True (c, fa1, fa2, p) cRule pRule bset nbset rules rulesinst fun = do --fa1 should be an Out fact
+insertDHMixedEdge True (c, fa1, fa2, p) cRule bset nbset rules rulesinst fun = do --fa1 should be an Out fact
     (solveMixedFactEqs SplitNow (Equal fa2 fa1) bset nbset (protoCase SplitNow bset nbset) )
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
-insertDHMixedEdge False ((ic,c), fa1, fa2, p) cRule pRule bset nbset rules rulesinst fun= do --fa1 should be an Out fact
+insertDHMixedEdge False ((ic,c), fa1, fa2, p) cRule bset nbset rules rulesinst fun= do --fa1 should be an Out fact
     let chainFun = solveTermDHEqsChain SplitNow rules rulesinst fun p fa2 (ic, cRule, fa1, c)
-    (solveMixedFactEqs SplitNow (Equal fa1 fa2) bset nbset chainFun) 
+    (solveMixedFactEqs SplitNow (Equal fa2 fa1) bset nbset chainFun) 
     modM sEdges (\es -> foldr S.insert es [ Edge (ic,c) p ])
 
 
@@ -961,8 +961,8 @@ normalizeGoal hnd goal = case goal of
 
 normalizeGoalCR :: MaudeHandle -> Goal -> Goal
 normalizeGoalCR hnd goal = case goal of
-        ActionG v fact -> ActionG v $ normFactCR fact hnd
-        PremiseG prem fact -> trace (show ("GOTHERE",fact, normFactCR fact hnd )) (PremiseG prem $ normFactCR fact hnd)
+        ActionG v fact -> ActionG v $ normFactCR fact hnd 
+        PremiseG prem fact -> (PremiseG prem $ normFactCR fact hnd)
         NoCancG (t1, t2) -> NoCancG (normTermCR t1 hnd, normTermCR t2 hnd)
         _ -> goal
 
@@ -1077,7 +1077,9 @@ solveMixedTermEqs splitStrat bset nbset fun (lhs,rhs)
         let substdhvars = map (\(a,b) -> (applyVTerm compsubst a, applyVTerm compsubst b)) dheqs
             compsubst = substFromList (lhsDHvars ++ rhsDHvars)
         --trace (show ("atleasthere", lhs, rhs, substdhvars)) $ solveListDHEqs (solveTermDHEqs splitStrat bset nbset fun) substdhvars
-        trace (show ("atleasthere", lhs, rhs, substdhvars)) $ solveListDHEqs (solveTermDHEqs splitStrat (protoCase SplitNow bset nbset)) substdhvars
+        if trace (show ("atleasthere", lhs, rhs, substdhvars)) $ all (\x -> elem x (varsVTerm lhs) ) (concatMap varsVTerm (map fst substdhvars))
+            then trace (show "y") $ solveListDHEqs (solveTermDHEqs splitStrat (protoCase SplitNow bset nbset)) substdhvars 
+            else trace (show "n") $ solveListDHEqs (\(a,b)-> solveTermDHEqs splitStrat (protoCase SplitNow bset nbset) (b,a)) substdhvars
         noContradictoryEqStore
         return Changed
     | otherwise =  solveTermEqs splitStrat [(Equal lhs rhs)]
@@ -1122,20 +1124,20 @@ solveIndicatorProto nb t1 t2 = do
         hnd  <- getMaudeHandle
         hndCR <- getMaudeHandleCR
         let normsubst = (substFromList $ normalizeSubstList hndCR subst)
-        trace (show ("NOTNORMALL!,", subst, "NORMAL", normsubst, "t1",t1, "t2", t2)) $ setM sEqStore $ applyEqStore hnd normsubst eqStore
+        setM sEqStore $ applyEqStore hnd normsubst eqStore
         --substCheck <- gets (substCreatesNonNormalTerms hnd)
         --store <- getM sEqStore
         neweqstore <- getM sEqStore
         let oldsubsts =  _eqsSubst neweqstore
-            newsubst =  oldsubsts -- substFromList $ normalizeSubstList hnd (substToList oldsubsts)
-        trace (show ("NEWLIST!,",newsubst)) $ setM sEqStore ( neweqstore{_eqsSubst = newsubst} )
+            newsubst =  substFromList $ normalizeSubstList hnd (substToList oldsubsts)
+        setM sEqStore ( neweqstore{_eqsSubst = newsubst} )
         void substSystem
         void normSystemCR
         void normSystem
         -- void normSystemCR
         --nodes <- getM sNodes
         --setM sNodes $ M.map (\r -> runReader (normRule r) hndCR) nodes
-        return ("Matched" ++ show (normalizeSubstList hnd subst))
+        return ("Matched")
    Nothing -> do
           --setNotReachable
           contradictoryIf True
@@ -1235,7 +1237,7 @@ solveTermDHEqsChain :: SplitStrategy -> [RuleAC] -> [(NodeId,RuleACInst)] ->
                         (LNTerm -> NodeId -> StateT  System (FreshT (DisjT (Reader ProofContext))) a0) 
                         -> NodePrem -> LNFact -> (NodeId, RuleACInst, LNFact, ConcIdx)
                         -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
-solveTermDHEqsChain splitStrat rules instrules fun p faPrem (j,ruj, fa1, c) (ta1,ta2) = do
+solveTermDHEqsChain splitStrat rules instrules fun p faPrem (j,ruj, fa1, c) (ta2,ta1) = do
     bset <- getM sBasis
     nbset <- getM sNotBasis
     -- case neededexponents bset nbset ta2 of 
