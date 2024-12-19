@@ -645,16 +645,16 @@ addDHEqs2 hnd t1 indt eqdhstore =
 
 addDHProtoEqs :: MonadFresh m
        => MaudeHandle -> [(LNTerm,LNTerm, LVar)] -> [LNTerm] -> Bool -> EqStore -> m (EqStore, Maybe SplitId)
-addDHProtoEqs hnd t1zzs indt zzbool eqdhstore = do
+addDHProtoEqs hnd t1zzs permt zzbool eqdhstore = do
     -- todo: here 
     let t1 = (map (\(a,_,_)->a) t1zzs)
         muvariablest1 = (concatMap varInMu t1)
-        muvariablesindt = (concatMap varInMu indt)
+        muvariablesindt = (concatMap varInMu permt)
         ist1var x = elem x $ concatMap varsVTerm t1
-        isindtvar x = elem x $ concatMap varsVTerm indt
-    case unifyLNDHProtoTermFactored (zipWith Equal indt t1) `runReader` hnd of
+        isindtvar x = elem x $ concatMap varsVTerm permt
+    case unifyLNDHProtoTermFactored (zipWith Equal permt t1) `runReader` hnd of
         [] | zzbool ->  return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
-        [] | not zzbool -> trace (show ("GENERALIZING", indt, t1)) $ addDHProtoEqs hnd (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) indt True eqdhstore
+        [] | not zzbool -> trace (show ("GENERALIZING", permt, t1)) $ addDHProtoEqs hnd (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) permt True eqdhstore
         [substFresh] | substFresh == emptySubstVFresh ->
             return (eqdhstore, Nothing)
         substs -> do

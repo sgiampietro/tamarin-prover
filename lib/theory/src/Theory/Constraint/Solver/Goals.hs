@@ -371,7 +371,7 @@ solvePremise rules p faPrem
   | isOut faPrem = do    
       nodes <- getM sNodes
       (ru, c, faConc) <- insertFreshNodeConcOutInstMixed rules (M.assocs nodes)
-      insertEdges [(c, faConc, faPrem, p)]
+      insertEdges [(c, faConc, faPrem, p)] 
       return $ showRuleCaseName ru  
   | isKIFact faPrem && isDHFact faPrem = do 
       (ru, c, faConc) <- insertFreshNodeConc rules
@@ -473,7 +473,7 @@ solveChain rules (c, p) = do
                               name <- (insertDirectEdge faPrem faConc cRule pRule rules2)
                               trace (show ("I'malsohere", name)) $ return name
               Nothing -> do 
-                          trace (show ("rule", cRule, "bset",(S.fromList $ basisOfRule cRule), "nbset", (S.fromList $ notBasisOfRule cRule))) $ insertDHMixedEdge False (c, faConc, faPrem, p) cRule pRule (S.fromList $ basisOfRule cRule) (S.fromList $ notBasisOfRule cRule) (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
+                          insertDHMixedEdge False (c, faConc, faPrem, p) cRule (S.fromList $ basisOfRule cRule) (S.fromList $ notBasisOfRule cRule) (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
                           -- insertDHMixedEdge True (c, faConc, faPrem, p) cRule pRule bset nbset (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
                           let mPrem = case kFactView faConc of
                                             Just (DnK, m') -> m'
@@ -571,7 +571,7 @@ solveDHIndauxMixed bset nbset terms p faPrem rules instrules =
           return "LeakedSetInserted"
       Nothing -> do 
           (ru, c, faConc) <- insertFreshNodeConcOutInstMixed rules instrules
-          insertDHMixedEdge False (c, faConc, faPrem, p) ru ru (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) rules instrules (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x))-- instead of root indicator this should be Y.ind^Z.
+          insertDHMixedEdge False (c, faConc, faPrem, p) ru (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) rules instrules (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x))-- instead of root indicator this should be Y.ind^Z.
           return $ showRuleCaseName ru -- (return "done") 
 
 
@@ -617,7 +617,7 @@ solveDHMixedPremise rules p faPrem = do
       --_ <- trace (show ("all asscisc", M.assocs nodes)) $ return ()
       (ru, c@(i,ci), faConc) <-  insertFreshNodeConcMixed rules (M.assocs nodes)
       -- trace (show ("CURIOUS", faConc, faPrem, i, showRuleCaseName ru)) $ 
-      insertDHMixedEdge True (c, faConc, faPrem, p)  ru ru (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x))-- instead of root indicator this should be Y.ind^Z.
+      insertDHMixedEdge True (c, faConc, faPrem, p) ru (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x))
       newnodes <- getM sNodes
       let newlist = [ t | (_, ru2) <- M.assocs newnodes, (isFreshRule ru2), (_,fa) <- enumConcs ru2 , t<- factTerms fa ]
       contradictoryIf (nub newlist /= newlist)
