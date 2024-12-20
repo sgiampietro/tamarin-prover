@@ -199,7 +199,7 @@ import           Theory.Text.Pretty
 import           Theory.Sapic
 import           Theory.Constraint.Solver.Combination
 
--- import           Debug.Trace
+import           Debug.Trace
 
 ------------------------------------------------------------------------------
 -- General Rule
@@ -741,21 +741,21 @@ normTermCR t hnd = case viewTerm3 t of
   MsgLit a -> t
   MsgFApp o ts -> FAPP o (map (\x -> normTermCR x hnd) ts)
   DH _ _ -> case sortOfLNTerm t of 
-              LSortG -> normalized
+              LSortG -> trace (show ("NORMCRG", (gTerm2Exp t), "**", normexp)) normalized
                           where pubg = pubGTerm "g"
                                 normexp = (runReader (norm' (gTerm2Exp t)) hnd)
                                 normalized = fAppdhExp (pubg, normexp) 
-              LSortPubG -> normalized
+              LSortPubG -> trace (show ("NORMCRPubG", (gTerm2Exp t), "**", normexp)) normalized
                           where pubg = pubGTerm "g"
                                 normexp = (runReader (norm' (gTerm2Exp t)) hnd)
                                 normalized = fAppdhExp (pubg, normexp) 
-              _ -> (runReader (norm' t) hnd) 
+              _ -> trace (show ("NORMCRE", t, "**", runReader (norm' t) hnd))  (runReader (norm' t) hnd) 
 
 normFactCR :: LNFact -> MaudeHandle -> LNFact
 normFactCR (Fact h an ts) hnd = Fact h an (map (\term -> normTermCR term hnd) ts)
 
-normRuleCR :: Rule i -> WithMaude (Rule i)
-normRuleCR (Rule rn ps cs as nvs) = reader $ \hnd -> (Rule rn (normFacts ps hnd) (normFacts cs hnd) (normFacts as hnd) (normTerms nvs hnd))
+normRuleCR :: (Show i) => Rule i -> WithMaude (Rule i)
+normRuleCR (Rule rn ps cs as nvs) = reader $ \hnd -> trace (show ("CONCLUSIONOW", rn, cs)) (Rule rn (normFacts ps hnd) (normFacts cs hnd) (normFacts as hnd) (normTerms nvs hnd))
   where
     normFacts fs hnd' = map (\f -> normFactCR f hnd') fs
     normTerms fs hnd' = map (\f -> normTermCR f hnd') fs
