@@ -81,6 +81,7 @@ module Theory.Model.Fact (
   , isKUFact
   , isKDFact
   , isKdhFact
+  , isFrDHFact
 --  , isOutFact
   , isKIFact
   --, isKdhIndFact
@@ -322,6 +323,10 @@ isKdhFact _                 = False
 isKIFact :: LNFact -> Bool
 isKIFact (Fact KIFact _ _) = True
 isKIFact _                 = False
+
+isFrDHFact :: Fact t -> Bool
+isFrDHFact (Fact FreshDHFact _ _) = True
+isFrDHFact _                 = False
 
 -- | True if the fact is a KD-fact.
 --isKdhIndFact :: LNFact -> Bool

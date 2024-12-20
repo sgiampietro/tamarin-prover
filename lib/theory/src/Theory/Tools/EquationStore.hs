@@ -643,6 +643,15 @@ addDHEqs2 hnd t1 indt eqdhstore =
     changeqstore (x:xs) eq = changeqstore xs (addsubsts x eq)
 
 
+varOfSubst :: (LVar,LNTerm) -> [LVar]
+varOfSubst (a, ta@(LIT (Var l))) = [l]
+varOfSubst (a, ta@(LIT (Con l))) = []
+varOfSubst (a, ta@(FAPP o ts)) = []
+
+
+varsOfSubsts :: LNSubstVFresh -> [LVar]
+varsOfSubsts substs = concatMap varOfSubst $ substToListVFresh substs
+
 addDHProtoEqs :: MonadFresh m
        => MaudeHandle -> [(LNTerm,LNTerm, LVar)] -> [LNTerm] -> Bool -> EqStore -> m (EqStore, Maybe SplitId)
 addDHProtoEqs hnd t1zzs permt zzbool eqdhstore = do
@@ -658,7 +667,12 @@ addDHProtoEqs hnd t1zzs permt zzbool eqdhstore = do
         [substFresh] | substFresh == emptySubstVFresh ->
             return (eqdhstore, Nothing)
         substs -> do
-            substs' <- trace (show ("orifinal subst", substs) )$  mapM generalize substs
+            let rangesubst = concatMap varsRangeVFresh substs
+                toset = rangesubst \\ (concatMap varsOfSubsts substs)
+                toapply = substFromList $ map (\x -> (x, fAppdhOne)) toset
+                newsubsts' = map (map (\(a,b)-> (a, (applyVTerm toapply b)))) $ map substToListVFresh substs
+                newsubsts = map (substFromListVFresh) newsubsts'
+            substs' <- trace (show ("orifinal subst", substs, "newsubsts", newsubsts) )$  mapM generalize newsubsts
             let  eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs' ) eqdhstore
             return (eqStore', Nothing)
           where
