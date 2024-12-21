@@ -40,6 +40,7 @@ import Term.LTerm -- (LNTerm)
 
 -- import Theory.Constraint.System.Constraints
 import Debug.Trace -- .Ignore
+import Control.Monad.Disj (disjunctionOfList)
 
 
 
@@ -246,8 +247,36 @@ createMatrixProto nb term target =
 -- w1 is multiplied term, z1 is the summed term. 
 
 
-solveIndicatorGaussProto :: [LNTerm] -> LNTerm -> LNTerm -> Maybe [(LVar, LNTerm)]
-solveIndicatorGaussProto nb term target = 
+oneSolution :: [LNTerm] -> ([LNTerm], [LNTerm], [LNTerm],[LNTerm]) -> [(LVar, LNTerm)]
+oneSolution wzs a@(ts, newwzs, subszero, subextra) =  trace (show ("vars", wzs, "extra", extravars,"replacewith", subextra, "zero", zerovars)) (if (all (isJust) wzvars && all isJust zerovars) then
+                 ((zipWith zipfun wzvars ts) ++ subsex ++ map ((\i -> (i, getsubst i fAppdhZero)).fromJust) zerovars) else [])
+                    where wzvars = map getVar newwzs
+                          --pubg = LIT (Var ( LVar "pg" LSortPubG 1))
+                          pubg = pubGTerm "g"
+                          getsubst v t = case sortOfLit (Var v) of
+                                        LSortVarG -> trace (show ("exponentiating here", v, t)) $ simplifyraw $ fAppdhExp (pubg, t)
+                                        _ -> t
+                          zipfun a b = (fromJust a, getsubst (fromJust a) b)
+                          extravars = (map getVar wzs) \\ wzvars
+                          zerovars = map getVar subszero
+                          subsex = zipWith zipfun extravars subextra
+
+
+solveIndicatorGaussProto :: LNTerm -> LNTerm ->  Maybe [[(LVar, LNTerm)] ]
+solveIndicatorGaussProto term target = 
+    let (wzs, matriz) = createMatrixProto (allExponentsOf [term] target) (gTerm2Exp term) (gTerm2Exp target)  
+      -- (wzs, matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)       
+      -- ([w1, z2], matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)
+        sol = solveMatrix2 fAppdhZero fAppdhOne matriz wzs
+    in
+  case sol of 
+    Nothing -> trace (show ("systemdoesnthavesolutions",wzs)) Nothing
+    Just sols -> Just (map (oneSolution wzs) sols)
+
+
+{-
+solveIndicatorGaussProto ::  LNTerm -> LNTerm -> Maybe [(LVar, LNTerm)]
+solveIndicatorGaussProto  term target = 
     let (wzs, matriz) = createMatrixProto (allExponentsOf [term] target) (gTerm2Exp term) (gTerm2Exp target)  
       -- (wzs, matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)       
       -- ([w1, z2], matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)
@@ -265,4 +294,5 @@ solveIndicatorGaussProto nb term target =
                                         _ -> t
                           zipfun a b = (fromJust a, getsubst (fromJust a) b)
                           extravars = (map getVar wzs) \\ wzvars
-                          zerovars = map getVar subszero ++ extravars
+                          zerovars = map getVar subszero ++ extravars 
+-}

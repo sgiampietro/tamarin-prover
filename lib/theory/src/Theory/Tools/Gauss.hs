@@ -13,6 +13,7 @@ module Theory.Tools.Gauss (
     gaussEliminationFromMatrix,
     gaussReduction,
     solveMatrix,
+    solveMatrix2,
     removeZeroRows
   ) where
 
@@ -22,7 +23,9 @@ import qualified Data.Set     as S
 
 import GHC.Real
 import Term.LTerm -- (LNTerm)
-import Debug.Trace.Ignore
+import Debug.Trace -- .Ignore
+import Term.Builtin.Convenience (x0)
+
 
 int2LNTerm :: Integer -> LNTerm
 int2LNTerm 0 = fAppdhZero
@@ -153,6 +156,7 @@ removeZeroRows zero matrix vars = (map fst filtered, map snd filtered, subst)
         subst = map snd $ filter (\(row, v) -> (all (== zero) row) ) $ zip matrix vars 
         filtered = filter (\(row, v) -> not (all (== zero) row) ) $ zip matrix vars 
 
+
 -- check if matrix is inconsistent - it will have all zeroes except last column in at least one row
 inconsistentMatrix :: LNTerm -> Matrix LNTerm -> Bool
 inconsistentMatrix zero = any (\row -> all (== zero) (drop 1 (reverse row)))
@@ -161,8 +165,6 @@ inconsistentMatrix zero = any (\row -> all (== zero) (drop 1 (reverse row)))
 {- Reverse the rows and columns to make the calculation easier and undo
 -- the column reversion before returning the solutions
 -}
-traceBack :: LNTerm -> Matrix LNTerm -> Vector LNTerm
-traceBack zero = reverse . (traceBack' zero 2) . reverse . map reverse
 
 
 {-
@@ -178,6 +180,10 @@ traceBack' zero prevlength (r:rows) = (pad ++ (var : (traceBack' zero currlength
         pad = if (currlength - prevlength > 0) then (replicate (currlength - prevlength) zero) else []
 -}
 
+traceBack :: LNTerm -> Matrix LNTerm -> Vector LNTerm
+traceBack zero = reverse . (traceBack' zero 2) . reverse . map reverse
+
+
 -- Use back substitution to calculate the solutions
 traceBack' :: LNTerm -> Int -> Matrix LNTerm -> Vector LNTerm
 traceBack' zero _ [] = []
@@ -189,17 +195,66 @@ traceBack' zero prevlength (r:rows) =  (var : (traceBack' zero currlength rs))
         currlength = (length r)
         -- pad = if (currlength - prevlength > 0) then (replicate (currlength - prevlength) zero) else []
 
+myButLast (x : _ : []) = x  -- base case
+myButLast (_ : xs)     = myButLast xs
+
+
+innerProduct :: LNTerm -> Vector LNTerm -> Vector LNTerm -> LNTerm
+innerProduct zero [] [] = zero
+innerProduct zero [y] [x] = if  y == zero then zero else x
+innerProduct zero (y:ys) (x:xs) = if y == zero then innerProduct zero ys xs else simplifyraw $ (simplifyraw $ y*x)+(innerProduct zero ys xs)
+
+-- Use back substitution to calculate the solutions
+traceBack2' :: LNTerm -> Int -> Matrix LNTerm -> Vector LNTerm -> Vector LNTerm
+traceBack2' zero n [] extravars = []
+traceBack2' zero n (r:rows) extravars =  (var : (traceBack2' zero n rs extravars))
+    where
+        var2 = simplifyraw $ negate (innerProduct zero extravars (reverse (take n (drop 1 r))))
+        var = simplifyraw $ (simplifyraw $ (head r) + var2)/(last r)
+        rs = map substituteVariable rows
+        substituteVariable (x:(ys)) = ((simplifyraw $ x +(simplifyraw $ negate (simplifyraw $ var*(myButLast ys)) ) ):ys)
+        -- pad = if (currlength - prevlength > 0) then (replicate (currlength - prevlength) zero) else []
+
+traceBack2 :: LNTerm -> Matrix LNTerm -> Vector LNTerm -> Vector LNTerm
+traceBack2 zero matrix vars  =  if m>0  then reverse (traceBack2' zero m matrix' extravars) else reverse (traceBack2' zero 0 matrix' [])
+          where ncol = length (head matrix)
+                matrix' = reverse (map reverse matrix)
+                nrows = length matrix'
+                m = ncol - nrows
+                extravars = reverse $ take (ncol-nrows) (reverse vars)
+
+
 
 -- Gauss Elimination: Solve a given augmented matrix
 gaussEliminationFromMatrix :: LNTerm -> Matrix LNTerm -> [LNTerm] -> Vector LNTerm
 gaussEliminationFromMatrix zero matrix vars = traceBack zero $ fst $ gaussReduction zero matrix vars
 
 
-solveMatrix :: LNTerm -> Matrix LNTerm -> [LNTerm] -> (Maybe (Vector LNTerm), [LNTerm], [LNTerm])
-solveMatrix zero matrix variables 
-  | inconsistentMatrix zero cleanmatrix = (Nothing, variables, [])
-  | otherwise = (Just (traceBack zero cleanmatrix) , variablesP, subst)
+createListOne :: Int -> Int -> LNTerm -> LNTerm -> [LNTerm]
+createListOne 0 _ zero one = []
+createListOne n 0 zero one = replicate n zero
+createListOne n 1 zero one = one : (replicate (n-1) zero)
+createListOne n m zero one = zero : (createListOne (n-1) (m-1) zero one)
+
+-- should return a Maybe [(Vector LNTerm, [LNTerm], [LNTerm])] (list of nulspace basis vectors)
+solveMatrix2 :: LNTerm -> LNTerm -> Matrix LNTerm -> [LNTerm] -> (Maybe [(Vector LNTerm, [LNTerm], [LNTerm], [LNTerm])])
+solveMatrix2 zero one matrix variables 
+  | inconsistentMatrix zero cleanmatrix = Nothing
+  | otherwise = trace (show ("EXTRAVARS", ncol, nrows,ncol - nrows, extravars)) $ Just (map (\evars -> ((traceBack2 zero cleanmatrix evars) , variablesP, subst, evars)) extravars)  --Just (traceBack zero cleanmatrix) 
     where 
       (redmatrix, variables2) = gaussReduction zero matrix variables
       (cleanmatrix, variablesP, subst) =  removeZeroRows zero redmatrix variables2
+      ncol = length (head cleanmatrix)
+      nrows = length cleanmatrix
+      n = ncol - nrows
+      extravars = (map (\j-> createListOne n j zero one) [0 .. n])
+
+-- should return a Maybe [(Vector LNTerm, [LNTerm], [LNTerm])] (list of nulspace basis vectors)
+solveMatrix :: LNTerm -> Matrix LNTerm -> [LNTerm] -> (Maybe (Vector LNTerm), [LNTerm], [LNTerm])
+solveMatrix zero matrix variables 
+  | inconsistentMatrix zero cleanmatrix = (Nothing, variables, [])
+  | otherwise = (Just (traceBack zero cleanmatrix) , variablesP, subst) --Just (traceBack zero cleanmatrix) 
+    where 
+      (redmatrix, variables2) = gaussReduction zero matrix variables
+      (cleanmatrix, variablesP, subst) = removeZeroRows zero redmatrix variables2
       
