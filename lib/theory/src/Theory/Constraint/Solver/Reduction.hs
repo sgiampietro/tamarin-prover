@@ -1142,13 +1142,14 @@ solveIndicator t2 terms  = do
               return ("Safe,cannot combine from (leaked set, terms):"++ show ((S.toList nbset), terms, t2))
 
 
-solveIndicatorProto :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
-solveIndicatorProto nb t1 t2 = do
-  case solveIndicatorGaussProto nb t1 t2 of
-   Just subst ->  do
+solveIndicatorProto :: LNTerm -> LNTerm -> Reduction String
+solveIndicatorProto t1 t2 = do
+  case solveIndicatorGaussProto t1 t2 of
+   Just substlist ->  do
         eqStore <-  getM sEqStore
         hnd  <- getMaudeHandle
         hndCR <- getMaudeHandleCR
+        subst <- disjunctionOfList substlist
         let normsubst = (substFromList $ normalizeSubstList hndCR subst) -- hndCR
         setM sEqStore $ applyEqStore hnd normsubst eqStore
         --substCheck <- gets (substCreatesNonNormalTerms hnd)
@@ -1206,11 +1207,11 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
                               else contradictoryIf True
                     _  -> do
                             void substSystem
-                            trace (show ("canwegethere", sta1,"And\n", sta2, "**", ta1,"**", ta2)) $ solveIndicatorProto (S.toList nbset) sta1 sta2
+                            trace (show ("canwegethere", sta1,"And\n", sta2, "**", ta1,"**", ta2)) $ solveIndicatorProto sta1 sta2
                             void normSystem
             _  -> do
                     void substSystem
-                    trace (show ("canwegethere2", sta1,"And\n", sta2, "**", ta1,"**", ta2)) $ solveIndicatorProto (S.toList nbset) sta2 sta1
+                    trace (show ("canwegethere2", sta1,"And\n", sta2, "**", ta1,"**", ta2)) $ solveIndicatorProto sta2 sta1
                     void normSystem
      else do
         let newsubsts = substFromList $ map (\x -> (x, fAppdhOne)) toset1
@@ -1233,11 +1234,11 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
                               else contradictoryIf True
                     _  -> do
                             void substSystem
-                            trace (show ("canwegethere", sta1,"And\n", sta2, "**", ta1,"**", ta2)) $ solveIndicatorProto (S.toList nbset) sta1 sta2
+                            trace (show ("canwegethere", sta1,"And\n", sta2, "**", ta1,"**", ta2)) $ solveIndicatorProto sta1 sta2
                             void normSystem
             _  -> do
                     void substSystem
-                    trace (show ("canwegethere2", sta1,"And\n", sta2, "**", ta1,"**", ta2)) $ solveIndicatorProto (S.toList nbset) sta2 sta1
+                    trace (show ("canwegethere2", sta1,"And\n", sta2, "**", ta1,"**", ta2)) $ solveIndicatorProto sta2 sta1
                     void normSystem
 
 solveNeeded ::  (LNTerm -> NodeId -> StateT  System (FreshT (DisjT (Reader ProofContext))) a0) -> LNTerm ->  NodeId ->        -- exponent that is needed.

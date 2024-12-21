@@ -741,15 +741,15 @@ normTermCR t hnd = case viewTerm3 t of
   MsgLit a -> t
   MsgFApp o ts -> FAPP o (map (\x -> normTermCR x hnd) ts)
   DH _ _ -> case sortOfLNTerm t of 
-              LSortG -> trace (show ("NORMCRG", (gTerm2Exp t), "**", normexp)) normalized
+              LSortG -> normalized
                           where pubg = pubGTerm "g"
                                 normexp = (runReader (norm' (gTerm2Exp t)) hnd)
                                 normalized = fAppdhExp (pubg, normexp) 
-              LSortPubG -> trace (show ("NORMCRPubG", (gTerm2Exp t), "**", normexp)) normalized
+              LSortPubG -> normalized
                           where pubg = pubGTerm "g"
                                 normexp = (runReader (norm' (gTerm2Exp t)) hnd)
                                 normalized = fAppdhExp (pubg, normexp) 
-              _ -> trace (show ("NORMCRE", t, "**", runReader (norm' t) hnd))  (runReader (norm' t) hnd) 
+              _ -> (runReader (norm' t) hnd) 
 
 normFactCR :: LNFact -> MaudeHandle -> LNFact
 normFactCR (Fact h an ts) hnd = Fact h an (map (\term -> normTermCR term hnd) ts)
