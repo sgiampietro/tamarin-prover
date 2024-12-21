@@ -18,15 +18,17 @@ module Theory.Constraint.Solver.Combination
     solveIndicatorGaussProto,
     parseToMap,
     gTerm2Exp,
+    gTerm2Exp',
     getvalue
   )
 where
 
 
 import qualified Data.Set                          as S
-import Data.List ( (\\), intersect )
+import Data.List ( (\\), intersect, nub )
 import qualified Data.Map                          as Map
 import Data.Maybe ( fromJust, isJust )
+import Data.Tuple (swap)
 -- we use maps to construct the linear system of equation we will need to solve. 
 
 --import qualified Data.Vector                       as V
@@ -41,6 +43,7 @@ import Term.LTerm -- (LNTerm)
 -- import Theory.Constraint.System.Constraints
 import Debug.Trace -- .Ignore
 import Control.Monad.Disj (disjunctionOfList)
+import Data.Primitive (mutableByteArrayContents)
 
 
 
@@ -64,6 +67,53 @@ gTerm2Exp t@(FAPP (DHMult o) ts) = case ts of
     _                               -> error $ "unexpected term form: `"++show t++"'"
 gTerm2Exp t =  error $ "unexpected term form2: `"++show t++"'"
 
+getMuTerms :: LNTerm -> [LNTerm]
+getMuTerms t@(LIT l) = []
+getMuTerms t@(FAPP (DHMult o) ts) = case ts of
+    [ t1, t2 ] | o == dhMultSym   -> nub $ (getMuTerms t1)++(getMuTerms t2)
+    [ t1, t2 ] | o == dhTimesSym   -> nub $ (getMuTerms t1)++(getMuTerms t2)
+    [ t1, t2 ] | o == dhTimesESym   -> nub $ (getMuTerms t1)++(getMuTerms t2)
+    [ t1, t2 ] | o == dhExpSym   ->  nub $ (getMuTerms t1)++(getMuTerms t2)
+    [ t1, t2 ] | o == dhPlusSym   -> nub $ (getMuTerms t1)++(getMuTerms t2)
+    [ t1 ]     | o == dhGinvSym    -> (getMuTerms t1)
+    [ t1 ]     | o == dhInvSym    -> (getMuTerms t1)
+    [ t1 ]     | o == dhMinusSym    -> (getMuTerms t1)
+    [ t1 ]     | o == dhMuSym    -> [t]
+    --[ t1 ]     | o == dhBoxSym    -> gTerm2Exp t1
+    --[ t1 ]     | o == dhBoxESym    -> gTerm2Exp t1
+    []         | o == dhZeroSym    -> []
+    []         | o == dhEgSym    -> []
+    []         | o == dhOneSym    -> []
+    _                               -> error $ "unexpected term form: `"++show t++"'"
+
+replaceMuTerms :: LNTerm -> Map.Map LNTerm LVar -> LNTerm
+replaceMuTerms t@(LIT l) mapp = t
+replaceMuTerms t@(FAPP (DHMult o) ts) mapp = case ts of
+    [ t1, t2 ] | o == dhMultSym   -> FAPP (DHMult dhMultSym) [replaceMuTerms t1 mapp, replaceMuTerms t2 mapp]
+    [ t1, t2 ] | o == dhTimesSym   -> FAPP (DHMult dhTimesSym) [replaceMuTerms t1 mapp, replaceMuTerms t2 mapp]
+    [ t1, t2 ] | o == dhTimesESym   -> FAPP (DHMult dhTimesESym) [replaceMuTerms t1 mapp, replaceMuTerms t2 mapp]
+    [ t1, t2 ] | o == dhExpSym   ->  FAPP (DHMult dhExpSym) [replaceMuTerms t1 mapp, replaceMuTerms t2 mapp]
+    [ t1, t2 ] | o == dhPlusSym   -> FAPP (DHMult dhPlusSym) [replaceMuTerms t1 mapp, replaceMuTerms t2 mapp]
+    [ t1 ]     | o == dhGinvSym    -> FAPP (DHMult dhGinvSym) [replaceMuTerms t1 mapp]
+    [ t1 ]     | o == dhInvSym    -> FAPP (DHMult dhGinvSym) [replaceMuTerms t1 mapp]
+    [ t1 ]     | o == dhMinusSym    -> FAPP (DHMult dhGinvSym) [replaceMuTerms t1 mapp]
+    [ t1 ]     | o == dhMuSym    ->  varTerm $ fromJust $ Map.lookup t mapp 
+    --[ t1 ]     | o == dhBoxSym    -> gTerm2Exp t1
+    --[ t1 ]     | o == dhBoxESym    -> gTerm2Exp t1
+    []         | o == dhZeroSym    -> t
+    []         | o == dhEgSym    -> t
+    []         | o == dhOneSym    -> t
+    _                               -> error $ "unexpected term form: `"++show t++"'"
+
+
+var :: String -> Int -> LVar
+var s i =  LVar s LSortMsg $ fromIntegral i
+
+gTerm2Exp' ::  LNTerm -> String -> (LNTerm, [(LVar,LNTerm)])
+gTerm2Exp' t p = (gTerm2Exp newterm, map swap mapping)
+                  where muterms = getMuTerms t
+                        mapping = (zip muterms $ map (var p ) [1 .. length muterms])
+                        newterm = replaceMuTerms t (Map.fromList mapping)
 
 allExponentsOf :: [LNTerm] -> LNTerm -> [LNTerm]
 allExponentsOf tis target =
@@ -248,7 +298,7 @@ createMatrixProto nb term target =
 
 
 oneSolution :: [LNTerm] -> ([LNTerm], [LNTerm], [LNTerm],[LNTerm]) -> [(LVar, LNTerm)]
-oneSolution wzs a@(ts, newwzs, subszero, subextra) =  trace (show ("vars", wzs, "extra", extravars,"replacewith", subextra, "zero", zerovars)) (if (all (isJust) wzvars && all isJust zerovars) then
+oneSolution wzs a@(ts, newwzs, subszero, subextra) =  trace (show ("vars", wzs, "extra", extravars,"replacewith", subextra,subsex, "zero", zerovars)) (if (all (isJust) wzvars && all isJust zerovars) then
                  ((zipWith zipfun wzvars ts) ++ subsex ++ map ((\i -> (i, getsubst i fAppdhZero)).fromJust) zerovars) else [])
                     where wzvars = map getVar newwzs
                           --pubg = LIT (Var ( LVar "pg" LSortPubG 1))
@@ -261,7 +311,7 @@ oneSolution wzs a@(ts, newwzs, subszero, subextra) =  trace (show ("vars", wzs, 
                           zerovars = map getVar subszero
                           subsex = zipWith zipfun extravars subextra
 
-
+{-}
 solveIndicatorGaussProto :: LNTerm -> LNTerm ->  Maybe [[(LVar, LNTerm)] ]
 solveIndicatorGaussProto term target = 
     let (wzs, matriz) = createMatrixProto (allExponentsOf [term] target) (gTerm2Exp term) (gTerm2Exp target)  
@@ -273,11 +323,13 @@ solveIndicatorGaussProto term target =
     Nothing -> trace (show ("systemdoesnthavesolutions",wzs)) Nothing
     Just sols -> Just (map (oneSolution wzs) sols)
 
+-}
 
-{-
-solveIndicatorGaussProto ::  LNTerm -> LNTerm -> Maybe [(LVar, LNTerm)]
+solveIndicatorGaussProto ::  LNTerm -> LNTerm -> Maybe ([(LVar, LNTerm)],[(LVar, LNTerm)])
 solveIndicatorGaussProto  term target = 
-    let (wzs, matriz) = createMatrixProto (allExponentsOf [term] target) (gTerm2Exp term) (gTerm2Exp target)  
+    let (gt1, termsubst1) = gTerm2Exp' term "qwzk1"
+        (gt2, termsubst2) = gTerm2Exp' term "qwzk2"
+        (wzs, matriz) = createMatrixProto (allExponentsOf [term] target) (gt1) (gt2)  
       -- (wzs, matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)       
       -- ([w1, z2], matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)
         (solution, newwzs, subszero) = solveMatrix fAppdhZero matriz wzs
@@ -285,7 +337,7 @@ solveIndicatorGaussProto  term target =
   case solution of 
     Nothing -> trace (show ("systemdoesnthavesolutions",newwzs,wzs,subszero)) Nothing
     Just (ts) -> trace (show ("vars", wzs, "extra", extravars,"new", newwzs, "zero", zerovars)) (if (all (isJust) wzvars && all isJust zerovars) then
-                 Just ((zipWith zipfun wzvars ts) ++ map ((\i -> (i, getsubst i fAppdhZero)).fromJust) zerovars) else Nothing)
+                 Just (((zipWith zipfun wzvars ts) ++ map ((\i -> (i, getsubst i fAppdhZero)).fromJust) zerovars), termsubst1++termsubst2) else Nothing)
                     where wzvars = map getVar newwzs
                           --pubg = LIT (Var ( LVar "pg" LSortPubG 1))
                           pubg = pubGTerm "g"
@@ -295,4 +347,3 @@ solveIndicatorGaussProto  term target =
                           zipfun a b = (fromJust a, getsubst (fromJust a) b)
                           extravars = (map getVar wzs) \\ wzvars
                           zerovars = map getVar subszero ++ extravars 
--}

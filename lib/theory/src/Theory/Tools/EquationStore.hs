@@ -657,10 +657,10 @@ addDHProtoEqs :: MonadFresh m
 addDHProtoEqs hnd t1zzs permt zzbool eqdhstore = do
     -- todo: here 
     let t1 = (map (\(a,_,_)->a) t1zzs)
-        muvariablest1 = (concatMap varInMu t1)
-        muvariablesindt = (concatMap varInMu permt)
-        ist1var x = elem x $ concatMap varsVTerm t1
-        isindtvar x = elem x $ concatMap varsVTerm permt
+        --muvariablest1 = (concatMap varInMu t1)
+        --muvariablesindt = (concatMap varInMu permt)
+        --ist1var x = elem x $ concatMap varsVTerm t1
+        --isindtvar x = elem x $ concatMap varsVTerm permt
     case unifyLNDHProtoTermFactored (zipWith Equal permt t1) `runReader` hnd of
         [] | zzbool ->  return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
         [] | not zzbool -> trace (show ("GENERALIZING", permt, t1)) $ addDHProtoEqs hnd (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) permt True eqdhstore
@@ -680,13 +680,13 @@ addDHProtoEqs hnd t1zzs permt zzbool eqdhstore = do
             changeqstore [x] eq = addsubsts x eq
             changeqstore (x:xs) eq = changeqstore xs (addsubsts x eq)
             generaltup (c, cterm) = case (sortOfLNTerm (varTerm c)) of 
-              a | a == LSortE  && ((ist1var c && (not $ elem c muvariablest1)) || (isindtvar c && (not $ elem c muvariablesindt)) ) -> do 
-              -- a | a == LSortE  -> do 
+              -- a | a == LSortE  && ((ist1var c && (not $ elem c muvariablest1)) || (isindtvar c && (not $ elem c muvariablesindt)) ) -> do 
+              a | a == LSortE  -> do 
                   w1 <- freshLVar "yk" LSortVarE
                   v1 <- freshLVar "zk" LSortVarE
                   return $ trace (show ("show", w1,v1)) (c, fAppdhPlus (fAppdhTimesE (cterm, varTerm v1), varTerm w1))
-              a | a == LSortG  && ((ist1var c && (not $ elem c muvariablest1)) || (isindtvar c && (not $ elem c muvariablesindt)) )  -> do 
-              -- a | a == LSortG -> do 
+              -- a | a == LSortG  && ((ist1var c && (not $ elem c muvariablest1)) || (isindtvar c && (not $ elem c muvariablesindt)) )  -> do 
+              a | a == LSortG -> do 
                   w1 <- freshLVar "wk" LSortVarG
                   v1 <- freshLVar "vk" LSortVarE
                   return (c, fAppdhMult (fAppdhExp (cterm,varTerm v1), varTerm w1))

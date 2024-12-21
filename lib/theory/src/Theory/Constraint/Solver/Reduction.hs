@@ -1145,12 +1145,14 @@ solveIndicator t2 terms  = do
 solveIndicatorProto :: LNTerm -> LNTerm -> Reduction String
 solveIndicatorProto t1 t2 = do
   case solveIndicatorGaussProto t1 t2 of
-   Just substlist ->  do
+   --Just substlist ->  do
+   Just (subst',subst0) ->  do
         eqStore <-  getM sEqStore
         hnd  <- getMaudeHandle
         hndCR <- getMaudeHandleCR
-        subst <- disjunctionOfList substlist
-        let normsubst = (substFromList $ normalizeSubstList hndCR subst) -- hndCR
+        --subst <- disjunctionOfList substlist
+        let subst = map (\(a,b) -> (a,applyVTerm (substFromList subst0) b)) subst'
+            normsubst = (substFromList $ normalizeSubstList hndCR subst) -- hndCR
         setM sEqStore $ applyEqStore hnd normsubst eqStore
         --substCheck <- gets (substCreatesNonNormalTerms hnd)
         --store <- getM sEqStore
