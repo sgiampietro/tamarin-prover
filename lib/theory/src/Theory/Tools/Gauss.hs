@@ -203,6 +203,7 @@ innerProduct :: LNTerm -> Vector LNTerm -> Vector LNTerm -> LNTerm
 innerProduct zero [] [] = zero
 innerProduct zero [y] [x] = if  y == zero then zero else x
 innerProduct zero (y:ys) (x:xs) = if y == zero then innerProduct zero ys xs else simplifyraw $ (simplifyraw $ y*x)+(innerProduct zero ys xs)
+innerProduct zero t s = error ("unexpected format" ++ show t ++ "and" ++ show s)
 
 -- Use back substitution to calculate the solutions
 traceBack2' :: LNTerm -> Int -> Matrix LNTerm -> Vector LNTerm -> Vector LNTerm
@@ -215,13 +216,10 @@ traceBack2' zero n (r:rows) extravars =  (var : (traceBack2' zero n rs extravars
         substituteVariable (x:(ys)) = ((simplifyraw $ x +(simplifyraw $ negate (simplifyraw $ var*(myButLast ys)) ) ):ys)
         -- pad = if (currlength - prevlength > 0) then (replicate (currlength - prevlength) zero) else []
 
-traceBack2 :: LNTerm -> Matrix LNTerm -> Vector LNTerm -> Vector LNTerm
-traceBack2 zero matrix vars  =  if m>0  then reverse (traceBack2' zero m matrix' extravars) else reverse (traceBack2' zero 0 matrix' [])
-          where ncol = length (head matrix)
-                matrix' = reverse (map reverse matrix)
-                nrows = length matrix'
-                m = ncol - nrows
-                extravars = reverse $ take (ncol-nrows) (reverse vars)
+traceBack2 :: LNTerm -> Int -> Matrix LNTerm -> Vector LNTerm -> Vector LNTerm
+traceBack2 zero m matrix vars =  if m>0  then reverse (traceBack2' zero m matrix' extravars) else reverse (traceBack2' zero 0 matrix' [])
+          where matrix' = reverse (map reverse matrix)
+                extravars = reverse $ take m (reverse vars)
 
 
 
@@ -240,11 +238,11 @@ createListOne n m zero one = zero : (createListOne (n-1) (m-1) zero one)
 solveMatrix2 :: LNTerm -> LNTerm -> Matrix LNTerm -> [LNTerm] -> (Maybe [(Vector LNTerm, [LNTerm], [LNTerm], [LNTerm])])
 solveMatrix2 zero one matrix variables 
   | inconsistentMatrix zero cleanmatrix = Nothing
-  | otherwise = trace (show ("EXTRAVARS", ncol, nrows,ncol - nrows, extravars)) $ Just (map (\evars -> ((traceBack2 zero cleanmatrix evars) , variablesP, subst, evars)) extravars)  --Just (traceBack zero cleanmatrix) 
+  | otherwise = trace (show ("EXTRAVARS", ncol, nrows,ncol - nrows, extravars)) $ Just (map (\evars -> ((traceBack2 zero n cleanmatrix evars) , variablesP, subst, evars)) extravars)  --Just (traceBack zero cleanmatrix) 
     where 
       (redmatrix, variables2) = gaussReduction zero matrix variables
       (cleanmatrix, variablesP, subst) =  removeZeroRows zero redmatrix variables2
-      ncol = length (head cleanmatrix)
+      ncol = length (head cleanmatrix) - 1
       nrows = length cleanmatrix
       n = ncol - nrows
       extravars = (map (\j-> createListOne n j zero one) [0 .. n])
