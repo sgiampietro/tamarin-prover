@@ -285,10 +285,10 @@ createMatrixProto :: [LNTerm] -> LNTerm -> LNTerm -> ([LNTerm], Matrix LNTerm)
 createMatrixProto nb term target = 
     let (nbexp, vars) =   (allExponentsOf [term] target, []) --allNBExponents nb (allExponentsOf [term] target) --
         matrixvars = trace (show ("doestargethavevars",target)) $ getVariablesOf [term, target]
-        (coeffVars, (const, constTarget)) = splitVars matrixvars term target
+        (coeffVars, (constOfTerm, constTarget)) = splitVars matrixvars term target
         --(coeffVarsTarget, constTarget) = splitVars matrixvars target trace (show ("coeffVars",coeffVars,"**",const)) $ 
         polynomials = map (\(coeffX, coeffXTarget) -> parseToMap vars (simplifyraw $ fAppdhPlus(coeffX, simplifyraw $ fAppdhMinus coeffXTarget)) ) coeffVars -- this term now contains the introduced W and V variables. 
-        targetvalue = parseToMap vars (simplifyraw $ fAppdhPlus(constTarget, simplifyraw $ fAppdhMinus const))
+        targetvalue = trace (show ("thistermmm", constTarget, constOfTerm, (simplifyraw $ fAppdhPlus(constTarget, simplifyraw $ fAppdhMinus constOfTerm)))) $ parseToMap vars (simplifyraw $ fAppdhPlus(constTarget, simplifyraw $ fAppdhMinus constOfTerm))
         allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetvalue):(map Map.keys polynomials))
         resultmatrix = map (\key -> ((map (\p -> getvalue p key) polynomials )++ [getvalue targetvalue key])) allkeys
         -- allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetpoly):[Map.keys polynomial])
@@ -312,24 +312,26 @@ oneSolution wzs a@(ts, newwzs, subszero, subextra) =  trace (show ("vars", wzs, 
                           zerovars = map getVar subszero
                           subsex = zipWith zipfun extravars subextra
 
-{-}
-solveIndicatorGaussProto :: LNTerm -> LNTerm ->  Maybe [[(LVar, LNTerm)] ]
+
+solveIndicatorGaussProto :: LNTerm -> LNTerm ->  Maybe [([(LVar, LNTerm)],[(LVar, LNTerm)],[(LVar, LNTerm)]) ]
 solveIndicatorGaussProto term target = 
-    let (wzs, matriz) = createMatrixProto (allExponentsOf [term] target) (gTerm2Exp term) (gTerm2Exp target)  
+    let (gt1, termsubst1) = gTerm2Exp' term "qwzk1"
+        (gt2, termsubst2) = gTerm2Exp' target "qwzk2"
+        (wzs, matriz) = createMatrixProto (allExponentsOf [term] target) (gt1) (gt2)  
       -- (wzs, matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)       
       -- ([w1, z2], matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)
         sol = solveMatrix2 fAppdhZero fAppdhOne matriz wzs
     in
   case sol of 
     Nothing -> trace (show ("systemdoesnthavesolutions",wzs)) Nothing
-    Just sols -> Just (map (oneSolution wzs) sols)
+    Just sols -> Just (map (\s-> (oneSolution wzs s, termsubst1, termsubst2)) sols)
 
--}
 
+{-
 solveIndicatorGaussProto ::  LNTerm -> LNTerm -> Maybe ([(LVar, LNTerm)],[(LVar, LNTerm)],[(LVar, LNTerm)])
 solveIndicatorGaussProto  term target = 
     let (gt1, termsubst1) = gTerm2Exp' term "qwzk1"
-        (gt2, termsubst2) = gTerm2Exp' term "qwzk2"
+        (gt2, termsubst2) = gTerm2Exp' target "qwzk2"
         (wzs, matriz) = createMatrixProto (allExponentsOf [term] target) (gt1) (gt2)  
       -- (wzs, matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)       
       -- ([w1, z2], matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)
@@ -348,3 +350,4 @@ solveIndicatorGaussProto  term target =
                           zipfun a b = (fromJust a, getsubst (fromJust a) b)
                           extravars = (map getVar wzs) \\ wzvars
                           zerovars = map getVar subszero ++ extravars 
+-}

@@ -1016,7 +1016,7 @@ normSystemCR = do
     nodes <- getM sNodes
     setM sNodes $ M.map (\r -> runReader (normRuleCR r) hnd) nodes
     nodes' <- getM sNodes
-    trace (show ("thismannyyy", nodes)) $ contradictoryIf $ any (cyclicSubstNode) (M.toList nodes')
+    contradictoryIf $ any (cyclicSubstNode) (M.toList nodes')
     --edges <- getM sEdges
     --substEdges
     nocanc <- getM sNoCanc
@@ -1145,34 +1145,34 @@ solveIndicator t2 terms  = do
 
 
 variableCheck :: LNTerm -> [(LVar, LNTerm)] -> LNTerm -> [(LVar, LNTerm )] -> [(LVar,LNTerm)] -> Bool 
-variableCheck t1 subst1 t2 subst2 normsubst = elem True (map checkvar problematicvars)
+variableCheck t1 subst1 t2 subst2 normsubst = trace (show ("variablecheck", subst1, subst2,normsubst,  elem True (map checkvar problematicvars))) $ elem True (map checkvar problematicvars)
     where mumap = M.fromList (subst1++subst2)
           allvars = M.keys mumap
           substvars = varsRange $ substFromList normsubst
           problematicvars = filter (`elem` allvars) substvars
           value v = fromJust (M.lookup v mumap)
-          checkvar v = any (\x -> isvarGVar (LIT (Var x)) || isvarEVar (LIT (Var x))) $ varsVTerm (value v)
+          checkvar v = trace (show ("checking var", v, value v, varsVTerm (value v))) $ any (\x -> isvarGVar (LIT (Var x)) || isvarEVar (LIT (Var x))) $ varsVTerm (value v)
           
 
 solveIndicatorProto :: LNTerm -> LNTerm -> Reduction String
 solveIndicatorProto t1 t2 = do
   case solveIndicatorGaussProto t1 t2 of
-   --Just substlist ->  do
-   Just (subst',subst1, subst2) ->  do
+   Just substlist ->  do
+   --Just (subst',subst1, subst2) ->  do
         eqStore <-  getM sEqStore
         hnd  <- getMaudeHandle
         hndCR <- getMaudeHandleCR
-        --subst <- disjunctionOfList substlist
+        (subst', subst1, subst2) <- disjunctionOfList substlist
         let normsubst = trace (show ("subst',subst1,subst2", subst',subst1,subst2)) (normalizeSubstList hndCR subst') 
-        contradictoryIf $ variableCheck t1 subst2 t2 subst2 normsubst
+        contradictoryIf $ variableCheck t1 subst1 t2 subst2 normsubst
                     -- hndCR
         let normsubst' = map (\(a,b) -> (a,applyVTerm (substFromList $ subst1++subst2) b)) normsubst
         setM sEqStore $ applyEqStore hnd (substFromList $ normsubst') eqStore
         --substCheck <- gets (substCreatesNonNormalTerms hnd)
         --store <- getM sEqStore
         neweqstore <- getM sEqStore
-        let oldsubsts =  _eqsSubst neweqstore
-            newsubst =  oldsubsts-- substFromList $ normalizeSubstList hnd (substToList oldsubsts)
+        let oldsubsts = trace (show ("neweqstore", neweqstore)) $ _eqsSubst neweqstore
+            newsubst =  substFromList $ normalizeSubstList hnd (substToList oldsubsts)
         setM sEqStore ( neweqstore{_eqsSubst = newsubst} )
         void substSystem
         void normSystemCR

@@ -164,7 +164,7 @@ callMaude hnd updateStatistics cmd = do
     -- Ensure that the command is fully evaluated and therefore does not depend
     -- on another call to Maude anymore. Otherwise, we could end up in a
     -- deadlock.
-    trace (show ("THISISBEINGSENTRECV",cmd)) $ evaluate (rnf cmd)
+    trace (show ("THISISBEINGSENT",cmd)) $ evaluate (rnf cmd)
     -- If there was an exception, then we might be out of sync with the current
     -- persistent Maude process: restart the process.
     (`onException` restartMaude hnd) $ modifyMVar (mhProc hnd) $ \mp -> do
