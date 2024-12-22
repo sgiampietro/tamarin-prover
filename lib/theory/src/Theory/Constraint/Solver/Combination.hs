@@ -107,7 +107,7 @@ replaceMuTerms t@(FAPP (DHMult o) ts) mapp = case ts of
 
 
 var :: String -> Int -> LVar
-var s i =  LVar s LSortMsg $ fromIntegral i
+var s i =  LVar s LSortE $ fromIntegral i
 
 gTerm2Exp' ::  LNTerm -> String -> (LNTerm, [(LVar,LNTerm)])
 gTerm2Exp' t p = (gTerm2Exp newterm, map swap mapping)
@@ -325,7 +325,7 @@ solveIndicatorGaussProto term target =
 
 -}
 
-solveIndicatorGaussProto ::  LNTerm -> LNTerm -> Maybe ([(LVar, LNTerm)],[(LVar, LNTerm)])
+solveIndicatorGaussProto ::  LNTerm -> LNTerm -> Maybe ([(LVar, LNTerm)],[(LVar, LNTerm)],[(LVar, LNTerm)])
 solveIndicatorGaussProto  term target = 
     let (gt1, termsubst1) = gTerm2Exp' term "qwzk1"
         (gt2, termsubst2) = gTerm2Exp' term "qwzk2"
@@ -337,7 +337,7 @@ solveIndicatorGaussProto  term target =
   case solution of 
     Nothing -> trace (show ("systemdoesnthavesolutions",newwzs,wzs,subszero)) Nothing
     Just (ts) -> trace (show ("vars", wzs, "extra", extravars,"new", newwzs, "zero", zerovars)) (if (all (isJust) wzvars && all isJust zerovars) then
-                 Just (((zipWith zipfun wzvars ts) ++ map ((\i -> (i, getsubst i fAppdhZero)).fromJust) zerovars), termsubst1++termsubst2) else Nothing)
+                 Just (((zipWith zipfun wzvars ts) ++ map ((\i -> (i, getsubst i fAppdhZero)).fromJust) zerovars), termsubst1, termsubst2) else Nothing)
                     where wzvars = map getVar newwzs
                           --pubg = LIT (Var ( LVar "pg" LSortPubG 1))
                           pubg = pubGTerm "g"
