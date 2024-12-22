@@ -112,6 +112,7 @@ import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
 import qualified Data.Map                                as M
+import Data.Maybe ( fromJust )
 import qualified Data.Map.Strict                         as M'
 import qualified Data.Set                                as S
 import qualified Data.ByteString.Char8                   as BC
@@ -1142,18 +1143,31 @@ solveIndicator t2 terms  = do
               return ("Safe,cannot combine from (leaked set, terms):"++ show ((S.toList nbset), terms, t2))
 
 
+
+variableCheck :: LNTerm -> [(LVar, LNTerm)] -> LNTerm -> [(LVar, LNTerm )] -> [(LVar,LNTerm)] -> Bool 
+variableCheck t1 subst1 t2 subst2 normsubst = elem True (map checkvar problematicvars)
+    where mumap = M.fromList (subst1++subst2)
+          allvars = M.keys mumap
+          substvars = varsRange $ substFromList normsubst
+          problematicvars = filter (`elem` allvars) substvars
+          value v = fromJust (M.lookup v mumap)
+          checkvar v = any (\x -> isvarGVar (LIT (Var x)) || isvarEVar (LIT (Var x))) $ varsVTerm (value v)
+          
+
 solveIndicatorProto :: LNTerm -> LNTerm -> Reduction String
 solveIndicatorProto t1 t2 = do
   case solveIndicatorGaussProto t1 t2 of
    --Just substlist ->  do
-   Just (subst',subst0) ->  do
+   Just (subst',subst1, subst2) ->  do
         eqStore <-  getM sEqStore
         hnd  <- getMaudeHandle
         hndCR <- getMaudeHandleCR
         --subst <- disjunctionOfList substlist
-        let subst = map (\(a,b) -> (a,applyVTerm (substFromList subst0) b)) subst'
-            normsubst = (substFromList $ normalizeSubstList hndCR subst) -- hndCR
-        setM sEqStore $ applyEqStore hnd normsubst eqStore
+        let normsubst = trace (show ("subst',subst1,subst2", subst',subst1,subst2)) (normalizeSubstList hndCR subst') 
+        contradictoryIf $ variableCheck t1 subst2 t2 subst2 normsubst
+                    -- hndCR
+        let normsubst' = map (\(a,b) -> (a,applyVTerm (substFromList $ subst1++subst2) b)) normsubst
+        setM sEqStore $ applyEqStore hnd (substFromList $ normsubst') eqStore
         --substCheck <- gets (substCreatesNonNormalTerms hnd)
         --store <- getM sEqStore
         neweqstore <- getM sEqStore
