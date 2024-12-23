@@ -1145,13 +1145,18 @@ solveIndicator t2 terms  = do
 
 
 variableCheck :: LNTerm -> [(LVar, LNTerm)] -> LNTerm -> [(LVar, LNTerm )] -> [(LVar,LNTerm)] -> Bool 
-variableCheck t1 subst1 t2 subst2 normsubst = trace (show ("variablecheck", subst1, subst2,normsubst,  elem True (map checkvar problematicvars))) $ elem True (map checkvar problematicvars)
+variableCheck t1 subst1 t2 subst2 normsubst = trace (show ("variablecheck", subst1, subst2,normsubst,  elem True (concatMap (\v -> map (checkvar v) (getvars v) ) problematicvars))) $ elem True (concatMap (\v -> map (checkvar v) (getvars v) ) problematicvars)
     where mumap = M.fromList (subst1++subst2)
           allvars = M.keys mumap
+          substmap = M.fromList normsubst
           substvars = varsRange $ substFromList normsubst
           problematicvars = filter (`elem` allvars) substvars
-          value v = fromJust (M.lookup v mumap)
-          checkvar v = trace (show ("checking var", v, value v, varsVTerm (value v))) $ any (\x -> isvarGVar (LIT (Var x)) || isvarEVar (LIT (Var x))) $ varsVTerm (value v)
+          value v mumap = fromJust (M.lookup v mumap)
+          getvars v = filter (\x -> isvarGVar (LIT (Var x)) || isvarEVar (LIT (Var x))) $ varsVTerm (value v mumap)
+          checkvar v varv = elem v $ varsVTerm (value varv substmap)
+            -- arsVTerm (value v mumap)
+            
+            --trace (show ("checking var", v, value v, varsVTerm (value v))) $ any $ varsVTerm (value v)
           
 
 solveIndicatorProto :: LNTerm -> LNTerm -> Reduction String
@@ -1204,8 +1209,8 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
         varta2 = filter (\x -> not (isvarEVar (LIT (Var x)) || isvarGVar (LIT (Var x)))) $ varsVTerm ta2
         varsta1 = filter (\x -> not (isvarEVar (LIT (Var x)) || isvarGVar (LIT (Var x)))) $ varsVTerm (apply subst ta1)
         varsta2 = filter (\x -> not (isvarEVar (LIT (Var x)) || isvarGVar (LIT (Var x)))) $ varsVTerm (apply subst ta2)
-        toset1 = (varsta1 \\ varsta2) ++ (varsta2 \\ varsta1)
-    if trace (show ("varsta1", varsta1, "varsta2", varsta2, "toset1", toset1)) $ null toset1
+        toset1 = filter (\x -> (isEVar (LIT (Var x))) && (x `elem` (varsRange subst) ) ) $ (varsta1 \\ varsta2) ++ (varsta2 \\ varsta1)
+    if  trace (show ("subst", subst, "ta1", ta1,(apply subst ta1),"ta2", ta2, (apply subst ta2), "varsta1", varsta1, "varsta2", varsta2, "toset1", toset1)) $ null toset1
      then do
         trace (show ("Imactuallysolvingeqautions", ta1, "**", apply subst ta1, ta2, "**", apply subst ta2)) noContradictoryEqStore
         let normedpair = (runReader (norm' $ fAppPair (apply subst ta1, apply subst ta2)) hndNormal)
