@@ -260,16 +260,20 @@ stripVars var t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhTimesSym   -> if (elem var (varTermsOf t)) then (coeffTermsOf t var) else fAppdhZero 
     [ t1 ]     | o == dhMinusSym   -> simplifyraw $ fAppdhMinus (stripVars var t1)
     [ t1 ]     | o == dhMuSym      -> if (elem var (varTermsOf t)) then error ("variables inside mu term" ++ show t) else fAppdhZero
+    [  ]     | o == dhZeroSym      -> fAppdhZero
+    [  ]     | o == dhOneSym      -> fAppdhZero
     _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
 
 constCoeff :: LNTerm -> LNTerm -- (coeff of X, coeff of Y, constant factor)
-constCoeff t@(LIT l) = if (isvarGVar t || isvarEVar t) then fAppdhZero else fAppdhOne
+constCoeff t@(LIT l) = if (isvarGVar t || isvarEVar t) then fAppdhZero else t 
 constCoeff t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhPlusSym   -> simplifyraw $ fAppdhPlus (constCoeff t1, constCoeff t2)
     [ t1, t2 ] | o == dhTimesESym   -> if (null $ varTermsOf t ) then t else fAppdhZero 
     [ t1, t2 ] | o == dhTimesSym   -> if (null $ varTermsOf t) then t else fAppdhZero 
     [ t1 ]     | o == dhMinusSym   -> simplifyraw $ fAppdhMinus (constCoeff t1)
     [ t1 ]     | o == dhMuSym      -> if (null $ varTermsOf t) then t else fAppdhZero
+    [  ]     | o == dhZeroSym      -> fAppdhZero
+    [  ]     | o == dhOneSym      -> fAppdhOne
     _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
 
 
@@ -317,7 +321,7 @@ solveIndicatorGaussProto :: LNTerm -> LNTerm ->  Maybe [([(LVar, LNTerm)],[(LVar
 solveIndicatorGaussProto term target = 
     let (gt1, termsubst1) = gTerm2Exp' term "qwzk1"
         (gt2, termsubst2) = gTerm2Exp' target "qwzk2"
-        (wzs, matriz) = createMatrixProto (allExponentsOf [term] target) (gt1) (gt2)  
+        (wzs, matriz) = trace (show ("gter2msexp", gt1, gt2)) $ createMatrixProto (allExponentsOf [term] target) (gt1) (gt2)  
       -- (wzs, matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)       
       -- ([w1, z2], matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)
         sol = solveMatrix2 fAppdhZero fAppdhOne matriz wzs

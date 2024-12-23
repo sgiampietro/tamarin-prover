@@ -682,9 +682,10 @@ addDHProtoEqs hnd t1zzs permt zzbool eqdhstore = do
             generaltup (c, cterm) = case (sortOfLNTerm (varTerm c)) of 
               -- a | a == LSortE  && ((ist1var c && (not $ elem c muvariablest1)) || (isindtvar c && (not $ elem c muvariablesindt)) ) -> do 
               a | a == LSortE  -> do 
-                  w1 <- freshLVar "yk" LSortVarE
+                  --w1 <- freshLVar "yk" LSortVarE
                   v1 <- freshLVar "zk" LSortVarE
-                  return $ trace (show ("show", w1,v1)) (c, fAppdhPlus (fAppdhTimesE (cterm, varTerm v1), varTerm w1))
+                  --return $ trace (show ("show", w1,v1)) (c, fAppdhPlus (fAppdhTimesE (cterm, varTerm v1), varTerm w1))
+                  return $ trace (show ("show", v1)) (c, fAppdhTimesE (cterm, varTerm v1))
               -- a | a == LSortG  && ((ist1var c && (not $ elem c muvariablest1)) || (isindtvar c && (not $ elem c muvariablesindt)) )  -> do 
               a | a == LSortG -> do 
                   w1 <- freshLVar "wk" LSortVarG
