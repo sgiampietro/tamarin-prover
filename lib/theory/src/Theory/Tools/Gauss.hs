@@ -19,13 +19,15 @@ module Theory.Tools.Gauss (
 
 
 import qualified Data.Map     as Map  
-import qualified Data.Set     as S
+--import qualified Data.Set     as S
 
 import GHC.Real
 import Term.LTerm -- (LNTerm)
 import Debug.Trace -- .Ignore
-import Term.Builtin.Convenience (x0)
+--import Term.Builtin.Convenience (x0)
 
+import Data.List (subsequences, (\\))
+import Data.Maybe (fromJust)
 
 int2LNTerm :: Integer -> LNTerm
 int2LNTerm 0 = fAppdhZero
@@ -228,24 +230,43 @@ gaussEliminationFromMatrix :: LNTerm -> Matrix LNTerm -> [LNTerm] -> Vector LNTe
 gaussEliminationFromMatrix zero matrix vars = traceBack zero $ fst $ gaussReduction zero matrix vars
 
 
-createListOne :: Int -> Int -> LNTerm -> LNTerm -> [LNTerm]
-createListOne 0 _ zero one = []
-createListOne n 0 zero one = replicate n zero
-createListOne n 1 zero one = one : (replicate (n-1) zero)
-createListOne n m zero one = zero : (createListOne (n-1) (m-1) zero one)
+
+
+createListBasis :: LNTerm ->  [LNTerm] -> [LNTerm]
+--createListBasis zero basis = []
+createListBasis zero basis = map (foldl (\a b -> simplifyraw $ fAppdhPlus(a,b)) zero) $ subsequences basis
+
+combineNlists :: Int -> [LNTerm] -> [[LNTerm]]
+combineNlists 0 _ = []
+combineNlists 1 xs = [xs]
+combineNlists 2 xs = [x:[y] | x<-xs , y<- xs]
+-- combineNlists n xs = [ x:zs  | x<- xs, zs<-(combineNlists (n-1) xs)]
+
+mergeWithOne :: [LVar] -> [LNTerm] -> [(LVar, LNTerm)]
+mergeWithOne [] options = []
+mergeWithOne (v:vs) (o:ops) = if lvarName v == "yk" then (v,o):(mergeWithOne vs ops) else (v,fAppdhOne):(mergeWithOne vs (o:ops))
 
 -- should return a Maybe [(Vector LNTerm, [LNTerm], [LNTerm])] (list of nulspace basis vectors)
-solveMatrix2 :: LNTerm -> LNTerm -> Matrix LNTerm -> [LNTerm] -> (Maybe [(Vector LNTerm, [LNTerm], [LNTerm], [LNTerm])])
-solveMatrix2 zero one matrix variables 
+solveMatrix2 :: LNTerm -> [LNTerm] -> Matrix LNTerm -> [LNTerm] -> (Maybe [(Vector LNTerm, [LNTerm], [LNTerm], [(LVar,LNTerm)])])
+solveMatrix2 zero basis matrix variables 
   | inconsistentMatrix zero cleanmatrix = Nothing
-  | otherwise = trace (show ("EXTRAVARS", ncol, nrows,ncol - nrows, extravars)) $ Just (map (\evars -> ((traceBack2 zero n cleanmatrix evars) , variablesP, subst, evars)) extravars)  --Just (traceBack zero cleanmatrix) 
+  | otherwise = trace (show ("EXTRAVARS", ncol, nrows,ncol - nrows, extravars)) $ 
+  Just (map (\evars -> ((traceBack2 zero n cleanmatrix (map snd evars)) , variablesP, subszero, evars)) options)  --Just (traceBack zero cleanmatrix) 
     where 
       (redmatrix, variables2) = gaussReduction zero matrix variables
-      (cleanmatrix, variablesP, subst) =  removeZeroRows zero redmatrix variables2
+      (cleanmatrix, variablesP, subszero) =  removeZeroRows zero redmatrix variables2
       ncol = length (head cleanmatrix) - 1
       nrows = length cleanmatrix
       n = ncol - nrows
-      extravars = (map (\j-> createListOne n j zero one) [0 .. n])
+      zerovars = map getVar subszero
+      extravars = map fromJust $ ((map getVar variables) \\ (map getVar variablesP))\\zerovars
+      extravars' = filter (\i-> lvarName i == "yk") extravars
+      m = trace (show "waiting") length extravars'
+      extravarssubst = trace (show ("m", m,"combineN", basis)) (createListBasis zero basis )
+      f = trace (show ("extravarsubst", extravarssubst, combineNlists m extravarssubst)) 2
+      options = map (\ops -> mergeWithOne extravars ops) (combineNlists f extravarssubst)
+
+
 
 -- should return a Maybe [(Vector LNTerm, [LNTerm], [LNTerm])] (list of nulspace basis vectors)
 solveMatrix :: LNTerm -> Matrix LNTerm -> [LNTerm] -> (Maybe (Vector LNTerm), [LNTerm], [LNTerm])

@@ -174,7 +174,7 @@ callMaude hnd updateStatistics cmd = do
         hFlush  inp
         mp' <- evaluate (updateStatistics mp)
         res <- getToDelim out
-        trace (show ("THISISBEINGSENTRECV", cmd, out, res))$ return (mp', res)
+        trace (show ("THISISBEINGSENTRECV", cmd, out, res)) $ return (mp', res)
 
 -- | Compute a result via Maude.
 computeViaMaude ::

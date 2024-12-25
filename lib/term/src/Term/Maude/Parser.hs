@@ -629,6 +629,7 @@ ppTheoryComRing = BC.unlines $
       , "  subsort FrNZE < DH ."
       , "  subsort BG < DH ."
       , "  op tamXCdhGinv : DH -> DH ."
+      , "  op tamXCdhMult : DH DH -> DH ."
       , "  op tamXCdhZero : -> DH ."
       , "  op tamXCdhInv : DH -> DH ."
       , "  op tamXCdhEg : -> DH ."

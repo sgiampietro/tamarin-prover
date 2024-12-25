@@ -1159,14 +1159,14 @@ variableCheck t1 subst1 t2 subst2 normsubst = trace (show ("variablecheck", subs
             --trace (show ("checking var", v, value v, varsVTerm (value v))) $ any $ varsVTerm (value v)
           
 
-solveIndicatorProto :: LNTerm -> LNTerm -> Reduction String
-solveIndicatorProto t1 t2 = do
-  case solveIndicatorGaussProto t1 t2 of
+solveIndicatorProto :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
+solveIndicatorProto basis t1 t2 = do
+  case solveIndicatorGaussProto basis t1 t2 of
    Just substlist ->  do
    --Just (subst',subst1, subst2) ->  do
         eqStore <-  getM sEqStore
         hnd  <- getMaudeHandle
-        hndCR <- getMaudeHandleCR
+        hndCR <- trace (show (basis, "thisissublistSEVEN", substlist)) getMaudeHandleCR
         (subst', subst1, subst2) <- disjunctionOfList substlist
         let normsubst = trace (show ("subst',subst1,subst2", subst',subst1,subst2)) (normalizeSubstList hndCR subst') 
         contradictoryIf $ variableCheck t1 subst1 t2 subst2 normsubst
@@ -1210,7 +1210,7 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
         varsta1 = filter (\x -> not (isvarEVar (LIT (Var x)) || isvarGVar (LIT (Var x)))) $ varsVTerm (apply subst ta1)
         varsta2 = filter (\x -> not (isvarEVar (LIT (Var x)) || isvarGVar (LIT (Var x)))) $ varsVTerm (apply subst ta2)
         toset1 = filter (\x -> (isEVar (LIT (Var x))) && (x `elem` (varsRange subst) ) ) $ (varsta1 \\ varsta2) ++ (varsta2 \\ varsta1)
-    if  trace (show ("subst", subst, "ta1", ta1,(apply subst ta1),"ta2", ta2, (apply subst ta2), "varsta1", varsta1, "varsta2", varsta2, "toset1", toset1)) $ null toset1
+    if  trace (show ("subst", subst, "ta1", ta1, (apply subst ta1) ,"ta2", ta2, (apply subst ta2), "varsta1", varsta1, "varsta2", varsta2, "toset1", toset1)) $ null toset1
      then do
         trace (show ("Imactuallysolvingeqautions", ta1, "**", apply subst ta1, ta2, "**", apply subst ta2)) noContradictoryEqStore
         let normedpair = (runReader (norm' $ fAppPair (apply subst ta1, apply subst ta2)) hndNormal)
@@ -1228,11 +1228,15 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
                               else contradictoryIf True
                     _  -> do
                             void substSystem
-                            trace (show ("canwegethere", sta1,"And\n", sta2, "**", ta1,"**", ta2)) $ solveIndicatorProto sta1 sta2
+                            let bb = map (applyVTerm subst) $ S.toList nbset 
+                                nb = filter (\i-> (isFrNZEVar i && (not $ i `elem` bb))) $ map (\v -> LIT (Var v)) $ varsRange subst                 
+                            trace (show ("canwegethere", sta1,"And\n", sta2, "**", ta1,"**", ta2, "bset", bset, "nbset", nb)) $ void $ solveIndicatorProto nb sta1 sta2
                             void normSystem
             _  -> do
                     void substSystem
-                    trace (show ("canwegethere2", sta1,"And\n", sta2, "**", ta1,"**", ta2)) $ solveIndicatorProto sta2 sta1
+                    let bb = map (applyVTerm subst) $ S.toList nbset 
+                        nb = filter (\i-> (isFrNZEVar i && (not $ i `elem` bb))) $ map (\v -> LIT (Var v)) $ varsRange subst                 
+                    trace (show ("canwegethere2", sta1,"And\n", sta2, "**", ta1,"**", ta2, "bset", bset, "nbset", nb)) $ void $ solveIndicatorProto nb sta2 sta1
                     void normSystem
      else do
         let newsubsts = substFromList $ map (\x -> (x, fAppdhOne)) toset1
@@ -1255,12 +1259,16 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
                               else contradictoryIf True
                     _  -> do
                             void substSystem
-                            trace (show ("canwegethere", sta1,"And\n", sta2, "**", ta1,"**", ta2)) $ solveIndicatorProto sta1 sta2
+                            let bb = map (applyVTerm subst) $ S.toList nbset 
+                                nb = filter (\i-> (isFrNZEVar i && (not $ i `elem` bb))) $ map (\v -> LIT (Var v)) $ varsRange subst                 
+                            trace (show ("canwegethere", sta1,"And\n", sta2, "**", ta1,"**", ta2, "bset", bset, "nbset", nb)) $ solveIndicatorProto nb sta1 sta2
                             void normSystem
             _  -> do
                     void substSystem
-                    trace (show ("canwegethere2", sta1,"And\n", sta2, "**", ta1,"**", ta2)) $ solveIndicatorProto sta2 sta1
-                    void normSystem
+                    let bb = map (applyVTerm subst) $ S.toList nbset 
+                        nb = filter (\i-> (isFrNZEVar i && (not $ i `elem` bb))) $ map (\v -> LIT (Var v)) $ varsRange subst                 
+                    trace (show ("canwegethere2", sta1,"And\n", sta2, "**", ta1,"**", ta2, "bset", bset, "nbset", nb)) $ solveIndicatorProto nb sta2 sta1
+                    void normSystem  
 
 solveNeeded ::  (LNTerm -> NodeId -> StateT  System (FreshT (DisjT (Reader ProofContext))) a0) -> LNTerm ->  NodeId ->        -- exponent that is needed.
                 Reduction String -- ^ Case name to use.
