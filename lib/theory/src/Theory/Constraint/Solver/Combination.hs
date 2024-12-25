@@ -302,9 +302,9 @@ createMatrixProto nb term target =
 -- w1 is multiplied term, z1 is the summed term. 
 
 
-oneSolution :: [LNTerm] -> ([LNTerm], [LNTerm], [LNTerm],[LNTerm]) -> [(LVar, LNTerm)]
-oneSolution wzs a@(ts, newwzs, subszero, subextra) =  trace (show ("vars", wzs, "extra", extravars,"replacewith", subextra,subsex, "zero", zerovars)) (if (all (isJust) wzvars && all isJust zerovars) then
-                 ((zipWith zipfun wzvars ts) ++ subsex ++ map ((\i -> (i, getsubst i fAppdhZero)).fromJust) zerovars) else [])
+oneSolution :: [LNTerm] -> ([LNTerm], [LNTerm], [LNTerm],[(LVar,LNTerm)]) -> [(LVar, LNTerm)]
+oneSolution wzs a@(ts, newwzs, subszero, subextra) =  trace (show ("vars", wzs, "extrareplacewith", subextra, "zero", zerovars)) (if (all (isJust) wzvars && all isJust zerovars) then
+                 ((zipWith zipfun wzvars ts) ++ subextra ++ map ((\i -> (i, getsubst i fAppdhZero)).fromJust) zerovars) else [])
                     where wzvars = map getVar newwzs
                           --pubg = LIT (Var ( LVar "pg" LSortPubG 1))
                           pubg = pubGTerm "g"
@@ -312,19 +312,19 @@ oneSolution wzs a@(ts, newwzs, subszero, subextra) =  trace (show ("vars", wzs, 
                                         LSortVarG -> trace (show ("exponentiating here", v, t)) $ simplifyraw $ fAppdhExp (pubg, t)
                                         _ -> t
                           zipfun a b = (fromJust a, getsubst (fromJust a) b)
-                          extravars = (map getVar wzs) \\ wzvars
                           zerovars = map getVar subszero
-                          subsex = zipWith zipfun extravars subextra
 
 
-solveIndicatorGaussProto :: LNTerm -> LNTerm ->  Maybe [([(LVar, LNTerm)],[(LVar, LNTerm)],[(LVar, LNTerm)]) ]
-solveIndicatorGaussProto term target = 
+solveIndicatorGaussProto :: [LNTerm] -> LNTerm -> LNTerm ->  Maybe [([(LVar, LNTerm)],[(LVar, LNTerm)],[(LVar, LNTerm)]) ]
+solveIndicatorGaussProto basis term target = 
     let (gt1, termsubst1) = gTerm2Exp' term "qwzk1"
         (gt2, termsubst2) = gTerm2Exp' target "qwzk2"
         (wzs, matriz) = trace (show ("gter2msexp", gt1, gt2)) $ createMatrixProto (allExponentsOf [term] target) (gt1) (gt2)  
       -- (wzs, matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)       
       -- ([w1, z2], matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)
-        sol = solveMatrix2 fAppdhZero fAppdhOne matriz wzs
+        pubg =  pubGTerm "g"
+        basis' = filter (\i-> i/= fAppdhOne) basis
+        sol = solveMatrix2 fAppdhZero (fAppdhOne:(basis'++map (\x->fAppdhMu (fAppdhExp (pubg, x))) basis')) matriz wzs
     in
   case sol of 
     Nothing -> trace (show ("systemdoesnthavesolutions",wzs)) Nothing

@@ -755,7 +755,7 @@ normFactCR :: LNFact -> MaudeHandle -> LNFact
 normFactCR (Fact h an ts) hnd = Fact h an (map (\term -> normTermCR term hnd) ts)
 
 normRuleCR :: (Show i) => Rule i -> WithMaude (Rule i)
-normRuleCR (Rule rn ps cs as nvs) = reader $ \hnd -> trace (show ("CONCLUSIONOW", rn, cs)) (Rule rn (normFacts ps hnd) (normFacts cs hnd) (normFacts as hnd) (normTerms nvs hnd))
+normRuleCR (Rule rn ps cs as nvs) = reader $ \hnd -> (Rule rn (normFacts ps hnd) (normFacts cs hnd) (normFacts as hnd) (normTerms nvs hnd)) -- trace (show ("CONCLUSIONOW", rn, cs)) 
   where
     normFacts fs hnd' = map (\f -> normFactCR f hnd') fs
     normTerms fs hnd' = map (\f -> normTermCR f hnd') fs
