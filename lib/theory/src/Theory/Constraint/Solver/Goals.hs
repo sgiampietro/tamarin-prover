@@ -580,7 +580,14 @@ solveDHIndaux bset nbset term p faPrem rules instrules =
   case neededexponents bset nbset term of
       [] -> do  -- TODO: this is where we need to check multiple Out facts!! 
           hndNormal <- trace (show ("SOLVEINDAUX", term)) getMaudeHandle
-          let indlist =  map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' term) hndNormal)
+          let nterm = runReader (norm' term) hndNormal
+              rootterms t = case viewTerm2 t of --todo: need to refine this. 
+                              FdhMu t1 -> rootterms t1
+                              FdhMinus t1 -> rootterms t1
+                              FdhInv t1 -> rootterms t1
+                              _        -> multRootList t
+              indlist = map (\x -> rootIndKnown2 hndNormal bset nbset x) (rootterms nterm)
+              --indlist =  map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' term) hndNormal)
               neededInds =  filter (not . isPublic) indlist
               n = trace (show ("thisisn", length neededInds) ) $ length neededInds
           if null neededInds 
