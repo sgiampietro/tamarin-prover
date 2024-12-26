@@ -1303,7 +1303,8 @@ solveTermDHEqsChain splitStrat rules instrules fun p faPrem (j,ruj, fa1, c) (ta2
     -- case neededexponents bset nbset ta2 of 
     --  [] -> do  
     hndNormal <- getMaudeHandle
-    let indlist = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' ta2) hndNormal)
+    let indlist = trace (show ("PROBLEMATICTERM", runReader (norm' ta2) hndNormal)) $ map (\x -> rootIndKnown2 hndNormal bset nbset x) (multRootList $ runReader (norm' ta2) hndNormal)
+        --indlist = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' ta2) hndNormal)
         neededInds = filter (not . isPublic) indlist
         n = length neededInds
     if null neededInds
@@ -1330,8 +1331,9 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
         case trace (show ("IAMHERENOTEQ", ta1, ta2, "norm1",nta1,"norm2", nta2, "best,nbset", bset, nbset)) $ prodTerms nta1 of
             Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
                           else do
-                            let xrooterms = multRootList nta1
-                                xindterms = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) xrooterms
+                            let xrooterms =  trace (show ("PROBLEMATICTERM", nta1)) $ multRootList nta1
+                                xindterms = map (\x -> rootIndKnown2 hndNormal bset nbset x) xrooterms
+                                --xindterms = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal ) xrooterms
                             hnd <- trace (show ("XINSDTERMS", xindterms)) getMaudeHandleDH
                             permutedlist <- disjunctionOfList $ permutations (multRootList nta2)
                             solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms nta1 nta2 permutedlist
