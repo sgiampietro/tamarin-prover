@@ -263,8 +263,7 @@ solveMatrix2 zero basis matrix variables
       extravars' = filter (\i-> lvarName i == "yk") extravars
       m = trace (show "waiting") length extravars'
       extravarssubst = trace (show ("m", m,"combineN", basis)) (createListBasis zero basis )
-      f = trace (show ("extravarsubst", extravarssubst, combineNlists m extravarssubst)) 2
-      options = map (\ops -> mergeWithOne extravars ops) (combineNlists f extravarssubst)
+      options = trace (show ("extravarsubst", extravarssubst, combineNlists m extravarssubst)) $ map (\ops -> mergeWithOne extravars ops) (combineNlists m extravarssubst)
 
 
 

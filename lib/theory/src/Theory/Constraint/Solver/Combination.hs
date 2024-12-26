@@ -309,7 +309,7 @@ oneSolution wzs a@(ts, newwzs, subszero, subextra) =  trace (show ("vars", wzs, 
                           --pubg = LIT (Var ( LVar "pg" LSortPubG 1))
                           pubg = pubGTerm "g"
                           getsubst v t = case sortOfLit (Var v) of
-                                        LSortVarG -> trace (show ("exponentiating here", v, t)) $ simplifyraw $ fAppdhExp (pubg, t)
+                                        LSortVarG -> simplifyraw $ fAppdhExp (pubg, t)
                                         _ -> t
                           zipfun a b = (fromJust a, getsubst (fromJust a) b)
                           zerovars = map getVar subszero
@@ -324,7 +324,9 @@ solveIndicatorGaussProto basis term target =
       -- ([w1, z2], matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)
         pubg =  pubGTerm "g"
         basis' = filter (\i-> i/= fAppdhOne) basis
-        sol = solveMatrix2 fAppdhZero (fAppdhOne:(basis'++map (\x->fAppdhMu (fAppdhExp (pubg, x))) basis')) matriz wzs
+        --sol = solveMatrix2 fAppdhZero (fAppdhOne:(basis'++map (\x->fAppdhMu (fAppdhExp (pubg, x))) basis')) matriz wzs
+        sol = solveMatrix2 fAppdhZero (fAppdhOne:basis') matriz wzs
+    
     in
   case sol of 
     Nothing -> trace (show ("systemdoesnthavesolutions",wzs)) Nothing
