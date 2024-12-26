@@ -1201,7 +1201,7 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
     --  let genindterms = zip xindterms zzs
     eqstore <- getM sEqStore
     (eqs2, maySplitId) <- addDHProtoEqs hnd genindterms permutedlist False eqstore
-    se  <- gets id
+    se  <- trace (show ("UNIFICATIONRETURNED:", eqs2)) $ gets id
     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
     -- setM sEqStore eqs2 
     subst <- getM sSubst
@@ -1212,7 +1212,7 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
         toset1 = filter (\x -> (isEVar (LIT (Var x))) && (x `elem` (varsRange subst) ) ) $ (varsta1 \\ varsta2) ++ (varsta2 \\ varsta1)
     if  trace (show ("subst", subst, "ta1", ta1, (apply subst ta1) ,"ta2", ta2, (apply subst ta2), "varsta1", varsta1, "varsta2", varsta2, "toset1", toset1)) $ null toset1
      then do
-        trace (show ("Imactuallysolvingeqautions", ta1, "**", apply subst ta1, ta2, "**", apply subst ta2)) noContradictoryEqStore
+        noContradictoryEqStore
         let normedpair = (runReader (norm' $ fAppPair (apply subst ta1, apply subst ta2)) hndNormal)
             unpair t = case viewTerm t of
                         (FApp (NoEq pairSym) [x, y]) ->(x,y)
@@ -1243,7 +1243,7 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
         eqStore <- getM sEqStore
         setM sEqStore $ applyEqStore hnd newsubsts eqStore
         subst2 <- getM sSubst
-        trace (show ("Imactuallysolvingeqautions2", ta1, "**", apply subst2 ta1, ta2, "**", apply subst2 ta2)) noContradictoryEqStore
+        noContradictoryEqStore
         let normedpair = (runReader (norm' $ fAppPair (apply subst2 ta1, apply subst2 ta2)) hndNormal)
             unpair t = case viewTerm t of
                         (FApp (NoEq pairSym) [x, y]) ->(x,y)

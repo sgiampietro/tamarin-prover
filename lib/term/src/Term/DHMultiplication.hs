@@ -80,6 +80,7 @@ import Term.Maude.Process
 --import Theory.Model (getFactTerms)
 
 import           Debug.Trace
+import Text.PrettyPrint.Class (Document(text))
 
 -- Useful functions for the diffie-hellman multiplication approach
 ----------------------------------------------------------------------
@@ -278,13 +279,16 @@ isPublic indt = case viewTerm2 (indt) of
 --  | indComputable (b `S.union` nb) t = (rootIndKnown b nb t,[])
 --  | otherwise = rootIndUnknown b nb t
 
+indIsOne :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> Bool
+indIsOne b nb t@(viewTerm2 -> FdhExp t1 t2) = if S.member t2 nb then True else False
+indIsOne b nb t = error ("wrong term form inside mu" ++ show t)
 
 rootIndKnown :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> LNTerm
 rootIndKnown b nb t@(viewTerm2 -> FdhExp t1 t2) = (FAPP (DHMult dhExpSym) [ rootIndKnown b nb t1, rootIndKnown b nb t2])
 rootIndKnown b nb t@(viewTerm2 -> FdhGinv dht) = rootIndKnown b nb dht--(FAPP (DHMult dhGinvSym) [rootIndKnown b nb dht])
 rootIndKnown b nb t@(viewTerm2 -> FdhTimes t1 t2) = (FAPP (DHMult dhTimesSym) [rootIndKnown b nb t1, rootIndKnown b nb t2] )
 rootIndKnown b nb t@(viewTerm2 -> FdhTimesE t1 t2) =  (FAPP (DHMult dhTimesESym) [rootIndKnown b nb t1, rootIndKnown b nb t2])
-rootIndKnown b nb t@(viewTerm2 -> FdhMu t1) = t --  rootIndKnown b nb t1 -- TODO FIX: you should also consider the possibility of finding rootIndKnown of t1. -- (FAPP (DHMult dhZeroSym) [])
+rootIndKnown b nb t@(viewTerm2 -> FdhMu t1) = if indIsOne b nb t1 then (FAPP (DHMult dhOneSym) []) else t --  rootIndKnown b nb t1 -- TODO FIX: you should also consider the possibility of finding rootIndKnown of t1. -- (FAPP (DHMult dhZeroSym) [])
 rootIndKnown b nb t@(viewTerm2 -> FdhMinus t1) = rootIndKnown b nb t1
 rootIndKnown b nb t@(viewTerm2 -> FdhInv t1) = FAPP (DHMult dhInvSym) [rootIndKnown b nb t1]
 --rootIndKnown b nb t@(viewTerm2 -> FdhBox (LIT a)) = (t)
