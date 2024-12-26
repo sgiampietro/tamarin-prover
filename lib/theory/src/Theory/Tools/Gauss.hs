@@ -203,8 +203,8 @@ myButLast (_ : xs)     = myButLast xs
 
 innerProduct :: LNTerm -> Vector LNTerm -> Vector LNTerm -> LNTerm
 innerProduct zero [] [] = zero
-innerProduct zero [y] [x] = if  y == zero then zero else x
-innerProduct zero (y:ys) (x:xs) = if y == zero then innerProduct zero ys xs else simplifyraw $ (simplifyraw $ y*x)+(innerProduct zero ys xs)
+innerProduct zero [y] [x] = (simplifyraw $ y*x)
+innerProduct zero (y:ys) (x:xs) = simplifyraw $ (simplifyraw $ y*x)+(innerProduct zero ys xs)
 innerProduct zero t s = error ("unexpected format" ++ show t ++ "and" ++ show s)
 
 -- Use back substitution to calculate the solutions
@@ -212,16 +212,18 @@ traceBack2' :: LNTerm -> Int -> Matrix LNTerm -> Vector LNTerm -> Vector LNTerm
 traceBack2' zero n [] extravars = []
 traceBack2' zero n (r:rows) extravars =  (var : (traceBack2' zero n rs extravars))
     where
-        var2 = simplifyraw $ negate (innerProduct zero extravars (reverse (take n (drop 1 r))))
+        var2 = simplifyraw $ negate (innerProduct zero extravars ((take n (drop 1 r))))
         var = simplifyraw $ (simplifyraw $ (head r) + var2)/(last r)
         rs = map substituteVariable rows
         substituteVariable (x:(ys)) = ((simplifyraw $ x +(simplifyraw $ negate (simplifyraw $ var*(myButLast ys)) ) ):ys)
         -- pad = if (currlength - prevlength > 0) then (replicate (currlength - prevlength) zero) else []
 
-traceBack2 :: LNTerm -> Int -> Matrix LNTerm -> Vector LNTerm -> Vector LNTerm
-traceBack2 zero m matrix vars =  if m>0  then reverse (traceBack2' zero m matrix' extravars) else reverse (traceBack2' zero 0 matrix' [])
-          where matrix' = reverse (map reverse matrix)
-                extravars = reverse $ take m (reverse vars)
+traceBack2 :: LNTerm -> Matrix LNTerm -> [LVar] -> Vector LNTerm -> Vector LNTerm
+traceBack2 zero matrix vv vars =  if m>0  then reverse (traceBack2' zero m matrix' extravars) else reverse (traceBack2' zero 0 matrix' [])
+          where extrav = map (\v -> LIT (Var v)) vv
+                matrix' = reverse (map reverse matrix)
+                extravars = reverse vars
+                m = length extravars
 
 
 
@@ -251,7 +253,7 @@ solveMatrix2 :: LNTerm -> [LNTerm] -> Matrix LNTerm -> [LNTerm] -> (Maybe [(Vect
 solveMatrix2 zero basis matrix variables 
   | inconsistentMatrix zero cleanmatrix = Nothing
   | otherwise = trace (show ("EXTRAVARS", ncol, nrows,ncol - nrows, extravars)) $ 
-  Just (map (\evars -> ((traceBack2 zero n cleanmatrix (map snd evars)) , variablesP, subszero, evars)) options)  --Just (traceBack zero cleanmatrix) 
+  Just (map (\evars -> (traceBack2 zero cleanmatrix (map fst evars) (map snd evars) , variablesP, subszero, evars)) options)  --Just (traceBack zero cleanmatrix) 
     where 
       (redmatrix, variables2) = gaussReduction zero matrix variables
       (cleanmatrix, variablesP, subszero) =  removeZeroRows zero redmatrix variables2
