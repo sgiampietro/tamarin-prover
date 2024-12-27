@@ -335,7 +335,6 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
 solvePremise rules p faPrem
   | isKdhFact faPrem && isDHFact faPrem =  trace (show ("solving KdhFacts", faPrem)) (solveDHInd rules p faPrem)
   | isKdhFact faPrem && isMixedFact faPrem = trace (show ("solving KdhFactsMixed", faPrem)) (solveDHIndMixed rules p faPrem)
-  -- | (isInFact faPrem && isDHFact faPrem) = trace (show ("solvingINFACT here", faPrem)) solveDHInd rules p faPrem
   | isProtoDHFact faPrem =  trace (show ("solving KdhFactsProto", faPrem)) $ solveDHIndProto rules p faPrem
   | isProtoMixedFact faPrem = trace (show ("solving KdhFactsProtoMixed", faPrem)) $ solveDHMixedPremise rules p faPrem
   {-| isKDFact faPrem && isMixedFact faPrem = do
@@ -546,10 +545,11 @@ solveDHInd rules p faPrem =  do
         bset <- trace (show ("solveDHIND", faPrem)) $ getM sBasis
         nbset <- getM sNotBasis
         nodes <- getM sNodes
-        hndCR <- getMaudeHandleCR
-        case map (\y -> runReader (norm' y) hndCR ) $ factTerms faPrem of 
+        pRule <- gets $ nodeRule (nodePremNode p)
+        case factTerms faPrem of 
           -- [x] -> solveDHIndaux bset nbset x p faPrem (filter isProtocolRule rules) (M.assocs nodes)
-          [x] -> solveDHIndaux bset nbset x p faPrem rules (M.assocs nodes)
+          [x] -> solveDHIndaux bset nbset x p faPrem rules (filter (\i-> snd i /= pRule) $ M.assocs nodes)
+          -- [x] -> solveDHIndaux bset nbset x p faPrem rules (M.assocs nodes)
           _   -> error "In Fact should have arity 1"
 
 solveDHIndMixed ::  [RuleAC]        -- ^ All rules that have an Out fact containing a boxed term as conclusion. 
@@ -581,12 +581,12 @@ solveDHIndaux bset nbset term p faPrem rules instrules =
       [] -> do  -- TODO: this is where we need to check multiple Out facts!! 
           hndNormal <- trace (show ("SOLVEINDAUX", term)) getMaudeHandle
           let nterm = runReader (norm' term) hndNormal
-              rootterms t = case viewTerm2 t of --todo: need to refine this. 
-                              FdhMu t1 -> rootterms t1
-                              FdhMinus t1 -> rootterms t1
-                              FdhInv t1 -> rootterms t1
-                              _        -> multRootList t
-              indlist = map (\x -> rootIndKnown2 hndNormal bset nbset x) (rootterms nterm)
+              clterm t = case viewTerm2 t of --todo: need to refine this. 
+                              FdhMu t1 -> clterm t1
+                              FdhMinus t1 -> clterm t1
+                              FdhInv t1 -> clterm t1
+                              _        -> t
+              indlist = map (\x -> rootIndKnown2 hndNormal bset nbset x) (multRootList $ clterm nterm)
               --indlist =  map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' term) hndNormal)
               neededInds =  filter (not . isPublic) indlist
               n = trace (show ("thisisn", length neededInds) ) $ length neededInds
@@ -594,7 +594,8 @@ solveDHIndaux bset nbset term p faPrem rules instrules =
             then return "Indicators are public"
             else do
               possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n Nothing
-              insertDHEdges possibletuple neededInds term p
+              --insertDHEdges possibletuple neededInds term p
+              insertKdhEdges possibletuple neededInds (clterm term) p
               return $ "MatchingEachIndicatorWithOutFacts" 
       es -> do
           solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) es

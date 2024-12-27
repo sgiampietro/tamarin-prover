@@ -62,6 +62,7 @@ module Theory.Constraint.Solver.Reduction (
   , insertBasisElem
   , insertDHEdge
   , insertDHEdges
+  , insertKdhEdges
   , insertDHMixedEdge
   , solveNeeded
   , solveNeededList
@@ -112,7 +113,7 @@ import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
 import qualified Data.Map                                as M
-import Data.Maybe ( fromJust )
+import Data.Maybe (fromJust, isJust)
 import qualified Data.Map.Strict                         as M'
 import qualified Data.Set                                as S
 import qualified Data.ByteString.Char8                   as BC
@@ -745,6 +746,18 @@ insertDHEdges tuplelist indts premTerm p = do
     void $ solveIndicator faPremsubst listterms
     forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
     forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
+
+
+insertKdhEdges :: [(RuleACInst, NodeConc, (LNFact,LNTerm), LNTerm, Maybe RuleACConstrs, Bool)] -> [LNTerm] -> LNTerm -> NodePrem -> Reduction ()
+insertKdhEdges tuplelist indts premTerm p = do
+    let rootpairs = (map (\(a,b,(c,t),d,e,f)-> (t,d)) tuplelist)
+        cllist = nubBy (\(a,b,c,d,e,f) (a2,b2,c2,d2,e2,f2) -> b == b2) tuplelist
+    solveIndFactKdh SplitNow rootpairs (premTerm, indts) 
+    -- (faPremsubst, listterms) <- trace (show (premTerm, indts, "withthistuple", rootpairs)) $ foldM (\faP c -> solveIndFactDH SplitNow c faP) (premTerm,[]) rootpairs
+    --void $ solveIndicator faPremsubst listterms
+    forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
+    forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
+
 
 insertDHMixedEdge :: Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> RuleACInst
                     -> S.Set LNTerm -> S.Set LNTerm -> [RuleAC] -> [(NodeId, RuleACInst)] ->
@@ -1424,6 +1437,30 @@ solveIndFactDH split ((fa1, t1), t2) (fa2, acclist)=
                 void normSystem
                 subst <- getM sEqStore
                 return $ (applyVTerm (_eqsSubst subst) fa2, map (\y -> applyVTerm (_eqsSubst subst) y) $ acclist++[fa1])
+
+
+solveIndFactKdh :: SplitStrategy -> [(LNTerm, LNTerm)] -> (LNTerm,[LNTerm]) -> Reduction ()
+solveIndFactKdh split fa1ta1 (ta2, indterms) = do
+    zzs <- replicateM (length indterms) $ freshLVar "zz" LSortE
+    eqstore <- getM sEqStore
+    hnd <- getMaudeHandle
+    let getexp (_,x) y  = case (isPubExp x, isPubExp y) of
+                (Just (pg1,e1), Just (pg2,e2)) -> ((e1,e2), Just (pg1,pg2))
+                _ -> ((x,y), Nothing) 
+        pairs' = zipWith getexp fa1ta1 indterms
+        permutedlist = map fst (map fst pairs')
+        gterms = filter (isJust) (map snd pairs')
+        genindterms = zipWith (\i z-> (i, runReader (norm' $ fAppdhExp (i, LIT (Var z)) ) hnd, z) ) indterms zzs
+    solveTermEqs split $ map (\i -> (uncurry Equal) (fromJust i) ) gterms
+    (eqs2, maySplitId) <- addDHEqs hnd genindterms permutedlist False eqstore
+    se  <- trace (show ("UNIFICATIONRETURNED:", eqs2)) $ gets id
+    setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
+    noContradictoryEqStore
+    void substSystem
+    void normSystem
+    subst <- getM sEqStore
+    void $ solveIndicator (applyVTerm (_eqsSubst subst) ta2) (map (applyVTerm (_eqsSubst subst)) (map fst fa1ta1))
+
 
 
 -- | Add a list of rule equalities to the equation store, if possible.
