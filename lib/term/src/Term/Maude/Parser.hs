@@ -596,7 +596,7 @@ ppTheoryDHsimp = BC.unlines $
       , " op bg : Nat -> BG ."
       , " op fnze : Nat -> FrNZE ."
       , " op vg : Nat -> VarG ."
-      , " op ve : Nat -> VarE"
+      , " op ve : Nat -> VarE ."
       , " vars A B : G ."
       , " vars X Y : E ."
       , " vars U V W : NZE ."
