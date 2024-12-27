@@ -589,7 +589,7 @@ solveDHIndaux bset nbset term p faPrem rules instrules =
               indlist = map (\x -> rootIndKnown2 hndNormal bset nbset x) (multRootList $ clterm nterm)
               --indlist =  map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' term) hndNormal)
               neededInds =  filter (not . isPublic) indlist
-              n = trace (show ("thisisn", length neededInds) ) $ length neededInds
+              n = trace (show ("thisisn", length neededInds, neededInds) ) $ length neededInds
           if null neededInds 
             then return "Indicators are public"
             else do
