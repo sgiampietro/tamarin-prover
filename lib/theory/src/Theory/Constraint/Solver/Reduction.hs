@@ -1453,7 +1453,7 @@ solveIndFactKdh split fa1ta1 (ta2, indterms) = do
         genindterms = zipWith (\i z-> (i, runReader (norm' $ fAppdhExp (i, LIT (Var z)) ) hnd, z) ) indterms zzs
     solveTermEqs split $ map (\i -> (uncurry Equal) (fromJust i) ) gterms
     (eqs2, maySplitId) <- addDHEqs hnd genindterms permutedlist False eqstore
-    se  <- trace (show ("UNIFICATIONRETURNED:", eqs2)) $ gets id
+    se  <- trace (show ("show", eqs2)) $ gets id
     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
     noContradictoryEqStore
     void substSystem

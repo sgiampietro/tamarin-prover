@@ -634,7 +634,7 @@ addDHEqs hnd t1zzs permt zzbool eqdhstore = do
     let t1 = (map (\(a,_,_)->a) t1zzs)
     case unifyLNDHProtoTermFactored (zipWith eqs permt t1) `runReader` hnd of
         [] | zzbool ->  return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
-        [] | not zzbool -> trace (show ("GENERALIZING", permt, t1)) $ addDHProtoEqs hnd (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) permt True eqdhstore
+        [] | not zzbool -> trace (show ("GENERALIZING", permt, t1)) $ addDHEqs hnd (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) permt True eqdhstore
         [substFresh] | substFresh == emptySubstVFresh ->
             return (eqdhstore, Nothing)
         substs -> do
