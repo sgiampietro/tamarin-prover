@@ -629,6 +629,30 @@ addDHEqs hnd t1 indt eqdhstore =
 
 
 addDHEqs :: MonadFresh m
+       => MaudeHandle -> [(LNTerm,LNTerm, LVar)] -> [(LNTerm,LNTerm, LVar)] -> Bool -> EqStore -> m (EqStore, Maybe SplitId)
+addDHEqs hnd t1zzs genpermt zzbool eqdhstore = do
+    let t1 = (map (\(a,_,_)->a) t1zzs)
+        permt =  (map (\(a,_,_)->a) genpermt)
+    case unifyLNDHProtoTermFactored (zipWith eqs permt t1) `runReader` hnd of
+        [] | zzbool ->  return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
+        [] | not zzbool -> trace (show ("GENERALIZING", permt, t1)) $ addDHEqs hnd (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) genpermt) True eqdhstore
+        [substFresh] | substFresh == emptySubstVFresh ->
+            return (eqdhstore, Nothing)
+        substs -> do
+            let generalize sub = substFromListVFresh $ (filter (\(a,b)-> not $ elem a ((map (\(_,_,a)->a) t1zzs)++(map (\(_,_,a)->a) genpermt)))) (substToListVFresh sub) 
+                substs' = map generalize substs
+            let eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs' ) eqdhstore
+            return (eqStore', Nothing)
+  where
+    eqs :: LNTerm -> LNTerm -> Equal LNTerm
+    eqs x y = apply (L.get eqsSubst eqdhstore) $ Equal x y
+    addsubsts sub eqst= applyEqStore hnd sub eqst
+    changeqstore [x] eq = addsubsts x eq
+    changeqstore (x:xs) eq = changeqstore xs (addsubsts x eq)
+
+
+{-}
+addDHEqs :: MonadFresh m
        => MaudeHandle -> [(LNTerm,LNTerm, LVar)] -> [LNTerm] -> Bool -> EqStore -> m (EqStore, Maybe SplitId)
 addDHEqs hnd t1zzs permt zzbool eqdhstore = do
     let t1 = (map (\(a,_,_)->a) t1zzs)
@@ -648,7 +672,7 @@ addDHEqs hnd t1zzs permt zzbool eqdhstore = do
     addsubsts sub eqst= applyEqStore hnd sub eqst
     changeqstore [x] eq = addsubsts x eq
     changeqstore (x:xs) eq = changeqstore xs (addsubsts x eq)
-
+-}
 
 
 

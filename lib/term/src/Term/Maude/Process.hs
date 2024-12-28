@@ -58,12 +58,12 @@ import           Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BC
 
 import System.Process
-import System.IO
+import System.IO ( Handle, hFlush )
 
 import Utils.Misc
 -- import Extension.Data.Monoid
 
-import Debug.Trace.Ignore
+import Debug.Trace -- .Ignore
 
 
 -- Unification using a persistent Maude process

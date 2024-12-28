@@ -284,7 +284,7 @@ ppTheory msig = BC.unlines $
         , theoryOpDH "dhPlus : E E -> E"
         , theoryOpEq "dhExp : G E -> G"
         , theoryOpEq "dhOne : -> NZE"
-        , theoryOpEq "dhMu : G -> E"
+        , theoryOpEq "dhMu : G -> NZE"
         -- , theoryDH "dhBox : G -> G"
         -- , theoryDH "dhBoxE : E -> E"
         , "vars A B : G . "
@@ -562,8 +562,6 @@ parseTerm msig = choice
             _               -> fail "invalid variable"
 
 
-
-
 ------------------------------------------------------------------------------
 -- simplified DH Maude theory
 ------------------------------------------------------------------------------
@@ -586,7 +584,7 @@ ppTheoryDHsimp = BC.unlines $
       , " op tamXCdhTimes : NZE NZE -> NZE [assoc comm] ."
       , " op tamXCdhExp : G E -> G ."
       , " op tamXCdhOne : -> NZE ."
-      , " op tamXCdhMu : G -> E ."
+      , " op tamXCdhMu : G -> NZE ."
       -- , "op tamPCdhBox : G -> G ."
       -- , "op tamPCdhBoxE : E -> E ."
       , " op dh : Nat -> DH ."
@@ -616,7 +614,6 @@ ppTheoryDHsimp = BC.unlines $
       , " eq tamXCdhTimes( tamXCdhInv(tamXCdhTimes(U,V)), tamXCdhTimes(V,W)) = tamXCdhTimes( tamXCdhInv(U),W) [variant] ."
       , " eq tamXCdhTimes(U,V) = tamXCdhTimesE(U,V) [variant] ."
       , "endfm"] 
-
 
 
 ppTheoryComRing ::  ByteString
