@@ -325,6 +325,7 @@ dhmultIntruderRules = [
     , Rule ISendRule   [kdhFact x_varG] [inFact x_varG] [kLogFact x_varG]        []
     , Rule ISendRule   [kdhFact x_varE] [inFact x_varE] [kLogFact x_varE]        []
     , Rule IRecvRule [outFact x_varE] [kIFact x_varE] []  [] 
+    , kuRule PubGConstrRule [kdhFact x_varG] (x_varG) [(x_varG)] 
     --, Rule (ConstrRule (append (pack "_") dhMuSymString)) [kdhFact x_varG] [kdhFact (fAppdhMu x_varG)] [] []
     -- , Rule FreshNZEConstrRule [freshDHFact x_fresh_var] [kIFact x_fresh_var] [ ]         []
     

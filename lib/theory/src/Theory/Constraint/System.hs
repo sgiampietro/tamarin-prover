@@ -214,7 +214,7 @@ module Theory.Constraint.System (
   , sBasis
   , sNotBasis
   , sNoCanc
-  , sNotReach
+  , sGNotBasis
 
   -- ** Subterms
   , module Theory.Tools.SubtermStore
@@ -390,7 +390,7 @@ data System = System
     , _sNoCanc         :: S.Set NoCanc
     , _sBasis          :: S.Set LNTerm
     , _sNotBasis       :: S.Set LNTerm
-    , _sNotReach       :: Bool
+    , _sGNotBasis      :: S.Set LNTerm
     , _sLessAtoms      :: S.Set (NodeId, NodeId, Reason)
     , _sLastAtom       :: Maybe NodeId
     , _sSubtermStore   :: SubtermStore
@@ -810,7 +810,7 @@ $(mkLabels [''DiffSystem])
 -- | The empty constraint system, which is logically equivalent to true.
 emptySystem :: SourceKind -> Bool -> System
 emptySystem d isdiff = System
-    M.empty S.empty S.empty S.empty S.empty False S.empty Nothing emptySubtermStore emptyEqStore
+    M.empty S.empty S.empty S.empty S.empty S.empty S.empty Nothing emptySubtermStore emptyEqStore
     S.empty S.empty S.empty
     M.empty 0 d isdiff
 

@@ -272,8 +272,8 @@ solveMatrix2 zero basis matrix variables
 -- should return a Maybe [(Vector LNTerm, [LNTerm], [LNTerm])] (list of nulspace basis vectors)
 solveMatrix :: LNTerm -> Matrix LNTerm -> [LNTerm] -> (Maybe (Vector LNTerm), [LNTerm], [LNTerm])
 solveMatrix zero matrix variables 
-  | inconsistentMatrix zero cleanmatrix = (Nothing, variables, [])
-  | otherwise = (Just (traceBack zero cleanmatrix) , variablesP, subst) --Just (traceBack zero cleanmatrix) 
+  | inconsistentMatrix zero cleanmatrix = trace (show ("inconsistent", cleanmatrix)) (Nothing, variables, [])
+  | otherwise = trace (show ("consistent", cleanmatrix)) (Just (traceBack zero cleanmatrix) , variablesP, subst) --Just (traceBack zero cleanmatrix) 
     where 
       (redmatrix, variables2) = gaussReduction zero matrix variables
       (cleanmatrix, variablesP, subst) = removeZeroRows zero redmatrix variables2

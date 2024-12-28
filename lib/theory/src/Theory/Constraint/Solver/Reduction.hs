@@ -66,7 +66,7 @@ module Theory.Constraint.Solver.Reduction (
   , insertDHMixedEdge
   , solveNeeded
   , solveNeededList
-  , setNotReachable
+  --, setNotReachable
 
   -- ** Goal management
   , markGoalAsSolved
@@ -290,12 +290,12 @@ insertFreshNodeConcOutInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Int -> Maybe
 insertFreshNodeConcOutInst rules instrules n Nothing = do
       -- irulist <- replicateM n $ traverseDHNodes rules
       irulist <- traverseDHNodes rules
-      let pairs = [(ru, (i,c), (f, head $ factTerms f), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, rterm <- multRootList (head $ factTerms f)]
+      let pairs = [(ru, (i,c), (f, head $ factTerms f), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, not $ isMuTerm (head $ factTerms f), rterm <- multRootList (head $ factTerms f)]
       disjunctionOfList (concatMap permutations (combinations n pairs))
 insertFreshNodeConcOutInst rules instrules n (Just ((j,ruj,faConc,cj), ta)) = do
       -- irulist <- replicateM n $ traverseDHNodes rules
       irulist <- traverseDHNodes rules
-      let pairs = [(ru, (i,c), (f, head $ factTerms f), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, rterm <- multRootList (head $ factTerms f)]
+      let pairs = [(ru, (i,c), (f, head $ factTerms f), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, not $ isMuTerm (head $ factTerms f), rterm <- multRootList (head $ factTerms f)]
           pairs2 =  [(ruj, (j,cj), (faConc, ta), rterm , Nothing,False) | rterm <- multRootList ta ]
           finallist = (concatMap permutations (filter ( any (\(a,(i,b),c,d,e,f) -> i==j && a ==ruj)) (combinations n $ pairs++pairs2)) )
       disjunctionOfList finallist
@@ -743,7 +743,7 @@ insertDHEdges tuplelist indts premTerm p = do
         cllist = nubBy (\(a,b,c,d,e,f) (a2,b2,c2,d2,e2,f2) -> b == b2) tuplelist
     return ()
     (faPremsubst, listterms) <- foldM (\faP c -> solveIndFactDH SplitNow c faP) (premTerm,[]) rootpairs
-    void $ solveIndicator faPremsubst listterms
+    solveIndicator faPremsubst listterms
     forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
     forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
 
@@ -755,8 +755,8 @@ insertKdhEdges tuplelist indts premTerm p = do
     trace (show ("thisrootpairs", rootpairs, indts) ) $ solveIndFactKdh SplitNow rootpairs (premTerm, indts) 
     -- (faPremsubst, listterms) <- trace (show (premTerm, indts, "withthistuple", rootpairs)) $ foldM (\faP c -> solveIndFactDH SplitNow c faP) (premTerm,[]) rootpairs
     --void $ solveIndicator faPremsubst listterms
-    forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
-    forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
+    -- forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
+    -- forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
 
 
 insertDHMixedEdge :: Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> RuleACInst
@@ -780,9 +780,10 @@ insertNotBasisElem :: LNTerm -> Reduction ()
 insertNotBasisElem x = do
     modM sNotBasis (\es -> S.insert x es)
 
+{-
 setNotReachable :: Reduction ()
 setNotReachable  = do
-    setM sNotReach True
+    setM sNotReach True-}
 
 insertNoCanc :: LNTerm -> LNTerm -> Reduction ChangeIndicator
 insertNoCanc x y = do
@@ -807,6 +808,7 @@ substSystem = do
     substNoCanc
     substBasis
     substNotBasis
+    substGNotBasis
     substLastAtom
     substLessAtoms
     substSubtermStore
@@ -825,6 +827,7 @@ substEdges          = substPart sEdges
 substNoCanc         = substPart sNoCanc
 substBasis          = substPart sBasis
 substNotBasis       = substPart sNotBasis
+substGNotBasis      = substPart sGNotBasis
 
 substLessAtoms      = substPart sLessAtoms
 substSubtermStore   = substPart sSubtermStore
@@ -972,6 +975,8 @@ normSystem = do
     setM sBasis $ S.map (\t1 -> (runReader (norm' t1) hnd)) basis
     notbasis <- getM sNotBasis
     setM sNotBasis $ S.map (\t1 -> (runReader (norm' t1) hnd)) notbasis
+    gnotbasis <- getM sGNotBasis
+    setM sGNotBasis $ S.map (\t1 -> (runReader (norm' t1) hnd)) gnotbasis
     --substLastAtom
     --substLessAtoms
     --substSubtermStore
@@ -1135,22 +1140,25 @@ normalizeSubstList hnd ((t,t2) : xs) = (t, runReader ( norm' t2) hnd):(normalize
 solveIndicator ::  LNTerm -> [LNTerm] -> Reduction String
 solveIndicator t2 terms  = do
   nbset <- getM sNotBasis
-  hndNormal  <- getMaudeHandle
+  hndNormal  <- trace (show ("AMHEREFINALLYUES", t2, terms)) getMaudeHandle
+  irules <- getM sNodes
   --irules <- getM sNodes
-  --let rules = M.elems irules
-  --    terms = (concatMap enumConcsDhOut rules)
+  let rules = M.elems irules
+      mugterms = (concatMap enumConcsDhOut rules)
   --    exps = (concatMap enumConcsDhExpOut rules)-
-  let isEq (a,b) = (runReader (norm' $ fAppPair (a, b)) hndNormal)
-      termpairs = map (\x -> isEq (t2,x)) terms
+      isEq (a,b) = (runReader (norm' $ fAppPair (a, b)) hndNormal)
+      termpairs =  (trace (show ("normterssss"))) $ map (\x -> isEq (t2,x)) terms
       unpair t = case viewTerm t of
                     (FApp (NoEq pairSym) [x, y]) -> (x,y)
                     _ -> error $ "something went wrong" ++ show t
-  if (any (\(a,b)-> a==b) $ map unpair termpairs)
+  if (trace (show ("mugterms", mugterms))) (any (\(a,b)-> a==b) $ map unpair termpairs)
     then return "Found indicators"
     else do
-        case solveIndicatorGauss (S.toList nbset) terms t2 of
+        let nb2 = trace (show ("THESEAREALLEXTRATERMS", terms ++ (map (\i -> fAppdhMu i) mugterms))) (S.toList nbset)
+        --case solveIndicatorGauss (nb2) (terms ++ (map (\i -> fAppdhMu i) nb2) ++ (map (\i -> fAppdhMu i) mugterms)) t2 of
+        case solveIndicatorGauss (nb2) (fAppdhOne:terms) t2 of
           Just vec -> do
-              return ("Found indicators! attack by result:" ++ show (vec, terms, t2))
+              trace (show ("AMIHERE??????")) $ return ("Found indicators! attack by result:" ++ show (vec, terms, t2))
           Nothing -> do
               contradictoryIf True
               return ("Safe,cannot combine from (leaked set, terms):"++ show ((S.toList nbset), terms, t2))
@@ -1457,7 +1465,7 @@ solveIndFactKdh split fa1ta1 (ta2, indterms) = do
     hndDH <- getMaudeHandleDH
     --(eqs2, maySplitId) <- addDHEqs hndDH genindterms permutedlist False eqstore 
     (eqs2, maySplitId) <- addDHEqs hndDH genindterms genpermterms False eqstore   
-    se  <- trace (show ("show", eqs2)) $ gets id
+    se  <- trace (show (genindterms, genpermterms, "showhere from", eqs2)) $ gets id
     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
     noContradictoryEqStore
     void substSystem

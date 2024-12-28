@@ -256,7 +256,7 @@ enumConcs = zip [(ConcIdx 0)..] . L.get rConcs
 
 -- | Enumerate all DH Out conclusions of a rule.
 enumConcsDhOut :: Rule i -> [LNTerm]
-enumConcsDhOut ru = filter (isDHTerm) $ concat [ factTerms f | (c,f) <- enumConcs ru, factTag f == OutFact]
+enumConcsDhOut ru = filter (\i -> isDHTerm i && sortOfLNTerm i == LSortG && isExpTerm i) $ concat [ factTerms f | (c,f) <- enumConcs ru, factTag f == OutFact]
 
 enumConcsDhExpOut :: Rule i -> [LNTerm]
 enumConcsDhExpOut ru = filter (isDHTerm) $ concat [ factTerms f | (c,f) <- enumConcs ru, factTag f == OutFact]
