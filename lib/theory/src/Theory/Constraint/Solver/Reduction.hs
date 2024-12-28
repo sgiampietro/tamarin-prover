@@ -1442,6 +1442,7 @@ solveIndFactDH split ((fa1, t1), t2) (fa2, acclist)=
 solveIndFactKdh :: SplitStrategy -> [(LNTerm, LNTerm)] -> (LNTerm,[LNTerm]) -> Reduction ()
 solveIndFactKdh split fa1ta1 (ta2, indterms) = do
     zzs <- replicateM (length indterms) $ freshLVar "zz" LSortE
+    yys <- replicateM (length indterms) $ freshLVar "yy" LSortE --ADDED
     eqstore <- getM sEqStore
     hnd <- getMaudeHandle
     let {-getexp (_,x) y  = case (isPubExp x, isPubExp y) of
@@ -1451,9 +1452,11 @@ solveIndFactKdh split fa1ta1 (ta2, indterms) = do
         permutedlist = map snd fa1ta1
         --gterms = filter (isJust) (map snd pairs')
         genindterms = zipWith (\i z-> (i, runReader (norm' $ fAppdhExp (i, LIT (Var z)) ) hnd, z) ) indterms zzs
+        genpermterms = zipWith (\i y-> (i, runReader (norm' $ fAppdhExp (i, LIT (Var y)) ) hnd, y) ) permutedlist yys --ADDED
     --solveTermEqs split $ map (\i -> (uncurry Equal) (fromJust i) ) gterms
     hndDH <- getMaudeHandleDH
-    (eqs2, maySplitId) <- addDHEqs hndDH genindterms permutedlist False eqstore
+    --(eqs2, maySplitId) <- addDHEqs hndDH genindterms permutedlist False eqstore 
+    (eqs2, maySplitId) <- addDHEqs hndDH genindterms genpermterms False eqstore   
     se  <- trace (show ("show", eqs2)) $ gets id
     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
     noContradictoryEqStore
