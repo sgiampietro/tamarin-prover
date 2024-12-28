@@ -242,7 +242,7 @@ combineNlists :: Int -> [LNTerm] -> [[LNTerm]]
 combineNlists 0 _ = []
 combineNlists 1 xs = [xs]
 combineNlists 2 xs = [x:[y] | x<-xs , y<- xs]
--- combineNlists n xs = [ x:zs  | x<- xs, zs<-(combineNlists (n-1) xs)]
+combineNlists n xs = [ x:zs  | x<- xs, zs<-(combineNlists (n-1) xs)]
 
 mergeWithOne :: [LVar] -> [LNTerm] -> [(LVar, LNTerm)]
 mergeWithOne [] options = []
