@@ -178,7 +178,7 @@ getkeyfromProd vars t@(FAPP (DHMult o) ts) = case ts of
         _       -> setSimplify $ S.union (getkeyfromProd vars t1) (getkeyfromProd vars t2))
     [ t1 ]     | o == dhInvSym    -> if (elem t1 vars) then S.singleton t else S.singleton fAppdhOne
     [ t1 ]     | o == dhMinusSym    -> getkeyfromProd vars t1
-    [ t1 ]     | o == dhMuSym    -> if (elem t1 vars) then S.singleton $ fAppdhMu t1 else S.singleton fAppdhOne --TODO: not sure what to do here? t1 is actually a G term??
+    [ t1 ]     | o == dhMuSym    -> S.singleton fAppdhOne  -- if (elem t1 vars) then S.singleton $ fAppdhMu t1 else--TODO: not sure what to do here? t1 is actually a G term??
     []         | o == dhZeroSym    -> S.singleton fAppdhOne
     []         | o == dhOneSym    -> S.singleton fAppdhOne
     _                               -> error $ "this shouldn't have happened: `"++show t++"'"
@@ -194,7 +194,7 @@ getcoefromProd vars t@(FAPP (DHMult o) ts) = case ts of
         _       -> simplifyraw $ fAppdhTimesE (getcoefromProd vars t1, getcoefromProd vars t2))
     [ t1 ]     | o == dhInvSym    -> if (elem t1 vars) then fAppdhOne else t -- check how to deal with inverse!
     [ t1 ]     | o == dhMinusSym    -> simplifyraw $ fAppdhMinus (getcoefromProd vars t1)
-    [ t1 ]     | o == dhMuSym    -> if (elem t1 vars) then fAppdhOne else fAppdhMu t1  --TODO: not sure what to do here? t1 is actually a G term??
+    [ t1 ]     | o == dhMuSym    -> fAppdhMu t1  --TODO: not sure what to do here? t1 is actually a G term??
     []         | o == dhZeroSym    -> t
     []         | o == dhOneSym    -> t
     _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
@@ -239,7 +239,7 @@ createMatrix nb terms target =
         -- row = map( \i -> getvalue targetpoly i) allkeys 
         createdmatrix = (map (\key -> ((map (\p -> getvalue p key) polynomials )++ [getvalue targetpoly key])) allkeys)
     in 
-  trace (show ("thisistheresultingmatrix", createdmatrix, "vars", vars)) createdmatrix -- todo: double check if row/column is ok or needs to be switched
+  trace (show ("polynomials", polynomials, "targetpoly", targetpoly, "allkeys", allkeys, "thisistheresultingmatrix", createdmatrix, "vars", vars, "nb", nb)) createdmatrix -- todo: double check if row/column is ok or needs to be switched
 
 solveIndicatorGauss :: [LNTerm] -> [LNTerm] -> LNTerm -> Maybe [LNTerm]
 solveIndicatorGauss nb terms target = (\(a,b,c) -> a) $ solveMatrix fAppdhZero (createMatrix (nb) (map gTerm2Exp terms) (gTerm2Exp target)) []

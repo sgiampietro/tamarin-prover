@@ -585,6 +585,7 @@ solveDHIndaux bset nbset term p faPrem rules instrules =
                               FdhMu t1 -> clterm t1
                               FdhMinus t1 -> clterm t1
                               FdhInv t1 -> clterm t1
+                              FdhGinv t1 -> clterm t1
                               _        -> t
               indlist = map (\x -> rootIndKnown2 hndNormal bset nbset x) (multRootList $ clterm nterm)
               --indlist =  map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' term) hndNormal)
@@ -596,7 +597,7 @@ solveDHIndaux bset nbset term p faPrem rules instrules =
               possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n Nothing
               --insertDHEdges possibletuple neededInds term p
               insertKdhEdges possibletuple neededInds (clterm term) p
-              return $ "MatchingEachIndicatorWithOutFacts" 
+              return "MatchingEachIndicatorWithOutFacts" 
       es -> do
           solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) es
           bset2 <- getM sBasis

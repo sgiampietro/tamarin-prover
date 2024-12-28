@@ -584,7 +584,7 @@ ppTheoryDHsimp = BC.unlines $
       , " op tamXCdhTimes : NZE NZE -> NZE [assoc comm] ."
       , " op tamXCdhExp : G E -> G ."
       , " op tamXCdhOne : -> NZE ."
-      , " op tamXCdhMu : G -> NZE ."
+      , " op tamXCdhMu : G -> E ."
       -- , "op tamPCdhBox : G -> G ."
       -- , "op tamPCdhBoxE : E -> E ."
       , " op dh : Nat -> DH ."

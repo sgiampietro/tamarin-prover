@@ -18,6 +18,8 @@ module Term.DHMultiplication (
   , isRoot
   --, isOfDHSort
   , isDHTerm
+  , isExpTerm
+  , isMuTerm
   --, isDHFact
   , isDHLit
   , isPubExp
@@ -148,6 +150,8 @@ rootSet operator t@(FAPP (DHMult o) ts) = case ts of
     --[t1]       | o == dhBoxESym    -> rootSet operator t1
     [ t1, t2 ] | o == operator    -> S.union (rootSet operator t1) (rootSet operator t2)
     [ t1, t2 ] | o /= operator    -> S.singleton t
+    [ t1 ]     | o == dhGinvSym   -> rootSet o t1
+    [ t1 ]     | o == dhInvSym   -> rootSet o t1
     [ t1 ]                        -> S.singleton t
     []                            -> S.singleton t
     _         -> error $ "malformed term `"++show t++"'"
@@ -364,5 +368,19 @@ isDHTerm t = case viewTerm3 t of
       MsgFApp _ _ -> False
       DH _ _ -> True
 
+isExpTerm :: LNTerm -> Bool 
+isExpTerm t = case viewTerm2 t of
+      FdhExp _ _ -> True
+      _          -> False
+
+
+isMuTerm :: LNTerm -> Bool 
+isMuTerm t = case viewTerm2 t of
+      FdhMu _  -> True
+      FdhGinv t1 -> isMuTerm t1
+      FdhExp _ t1 -> isMuTerm t1 
+      FdhInv t1 -> isMuTerm t1
+      FdhMinus t1 -> isMuTerm t1
+      _          -> False
 
 

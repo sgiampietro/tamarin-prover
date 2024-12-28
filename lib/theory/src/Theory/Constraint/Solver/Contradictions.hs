@@ -74,7 +74,7 @@ data Contradiction =
     -- ^ Contradicts that certain facts have unique instances.
   | IncompatibleEqs                -- ^ Incompatible equalities.
   | FormulasFalse                  -- ^ False in formulas
-  | HasNotReachable
+  -- | HasNotReachable
   | SuperfluousLearn LNTerm NodeId -- ^ A term is derived both before and after a learn
   | NodeAfterLast (NodeId, NodeId) -- ^ There is a node after the last node.
   | KnowsBasisEl      -- ^ The adversary learns a term that is in the basis set. 
@@ -113,7 +113,7 @@ contradictions ctxt sys = F.asum
     , guard (S.member gfalse $ L.get sFormulas sys)                *> pure FormulasFalse
     -- DH: Adversary shouldn't know Basis terms
     , guard (enableDHMult msig && hasAdvKnowsBasis sys)            *> pure KnowsBasisEl
-    , guard (L.get sNotReach sys)                                  *> pure HasNotReachable
+    --, guard (L.get sNotReach sys)                                  *> pure HasNotReachable
     ]
     ++
     -- This rule is not yet documented. It removes constraint systems that
@@ -468,7 +468,7 @@ prettyContradiction contra = case contra of
     NonInjectiveFactInstance cex -> text $ "non-injective facts " ++ show cex
     FormulasFalse                -> text "from formulas"
     KnowsBasisEl                 -> text "adversary derived secret element!"
-    HasNotReachable              -> text "can't combine indicators to construct target term with current Leaked Set"
+    -- HasNotReachable              -> text "can't combine indicators to construct target term with current Leaked Set"
     SuperfluousLearn m v         ->
         doubleQuotes (prettyLNTerm m) <->
         text ("derived before and after") <->
