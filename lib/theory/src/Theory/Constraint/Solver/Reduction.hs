@@ -1193,8 +1193,8 @@ solveIndicatorProto basis t1 t2 = do
         let normsubst = trace (show ("subst',subst1,subst2", subst',subst12)) (normalizeSubstList hndCR subst') 
         contradictoryIf $ variableCheck t1 subst12 t2 normsubst
         -- hndCR
-        let normsubst' = map (\(a,b) -> (a,applyVTerm (substFromList $ subst12) b)) normsubst
-        setM sEqStore $ applyEqStore hnd (substFromList $ normsubst') eqStore
+        let normsubst' = compose (substFromList subst12) (substFromList normsubst)-- map (\(a,b) -> (a,applyVTerm (substFromList $ subst12) b)) normsubst
+        setM sEqStore $ applyEqStore hnd (normsubst') eqStore
         --substCheck <- gets (substCreatesNonNormalTerms hnd)
         --store <- getM sEqStore
         neweqstore <- getM sEqStore

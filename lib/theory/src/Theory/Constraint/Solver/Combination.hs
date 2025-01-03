@@ -357,8 +357,8 @@ solveIndicatorGaussProto hnd basis term target =
         basis' = filter (\i-> i/= fAppdhOne) basis
         --sol = solveMatrix2 fAppdhZero (fAppdhOne:(basis'++map (\x->fAppdhMu (fAppdhExp (pubg, x))) basis')) matriz wzs
         sol = Just $ solveMatrix2 fAppdhZero (fAppdhOne:basis') matriz wzs
-        getsol t1 t2 = case varTermsOf sta2 of
-            [] -> case varTermsOf sta1 of
+        getsol t1 t2 = case varTermsOf t1 of
+            [] -> case varTermsOf t2 of
                   [] -> if sta1 == sta2 then Nothing
                             else Just (Nothing)   
                   _  -> Just $ solveMatrix2 fAppdhZero (fAppdhOne:basis') mat2 wz2
@@ -368,7 +368,7 @@ solveIndicatorGaussProto hnd basis term target =
                         (FApp (NoEq pairSym) [x, y]) ->(x,y)
                         _ -> error $ "something went wrong" ++ show t
                   (sta1,sta2) =  unpair normedpair
-                  (wz2, mat2) = createMatrixProto [] (sta1) (sta2)
+                  (wz2, mat2) = createMatrixProto [] (t1) (t2)
         retrieve s substss = case s of
           Nothing -> Just [(substss, [])]
           Just (Nothing) -> Nothing
