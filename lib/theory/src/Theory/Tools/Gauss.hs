@@ -252,6 +252,7 @@ mergeWithOne (v:vs) (o:ops) = if lvarName v == "yk" then (v,o):(mergeWithOne vs 
 solveMatrix2 :: LNTerm -> [LNTerm] -> Matrix LNTerm -> [LNTerm] -> (Maybe [(Vector LNTerm, [LNTerm], [LNTerm], [(LVar,LNTerm)])])
 solveMatrix2 zero basis matrix variables 
   | inconsistentMatrix zero cleanmatrix = Nothing
+  | null cleanmatrix = Nothing
   | otherwise = trace (show ("EXTRAVARS", ncol, nrows,ncol - nrows, extravars)) $ 
   Just (map (\evars -> (traceBack2 zero cleanmatrix (map fst evars) (map snd evars) , variablesP, subszero, evars)) options)  --Just (traceBack zero cleanmatrix) 
     where 

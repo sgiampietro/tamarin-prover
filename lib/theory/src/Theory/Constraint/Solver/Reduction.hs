@@ -1165,9 +1165,9 @@ solveIndicator t2 terms  = do
 
 
 
-variableCheck :: LNTerm -> [(LVar, LNTerm)] -> LNTerm -> [(LVar, LNTerm )] -> [(LVar,LNTerm)] -> Bool 
-variableCheck t1 subst1 t2 subst2 normsubst = trace (show ("variablecheck", subst1, subst2,normsubst,  elem True (concatMap (\v -> map (checkvar v) (getvars v) ) problematicvars))) $ elem True (concatMap (\v -> map (checkvar v) (getvars v) ) problematicvars)
-    where mumap = M.fromList (subst1++subst2)
+variableCheck :: LNTerm -> [(LVar, LNTerm)] -> LNTerm -> [(LVar,LNTerm)] -> Bool 
+variableCheck t1 subst12 t2 normsubst = trace (show ("variablecheck", subst12,normsubst,  elem True (concatMap (\v -> map (checkvar v) (getvars v) ) problematicvars))) $ elem True (concatMap (\v -> map (checkvar v) (getvars v) ) problematicvars)
+    where mumap = M.fromList subst12
           allvars = M.keys mumap
           substmap = M.fromList normsubst
           substvars = varsRange $ substFromList normsubst
@@ -1182,17 +1182,18 @@ variableCheck t1 subst1 t2 subst2 normsubst = trace (show ("variablecheck", subs
 
 solveIndicatorProto :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
 solveIndicatorProto basis t1 t2 = do
-  case solveIndicatorGaussProto basis t1 t2 of
+  hnd  <- getMaudeHandle
+  bb <- disjunctionOfList $ solveIndicatorGaussProto hnd basis t1 t2 
+  case bb of
    Just substlist ->  do
    --Just (subst',subst1, subst2) ->  do
         eqStore <-  getM sEqStore
-        hnd  <- getMaudeHandle
-        hndCR <- trace (show (basis, "thisissublistSEVEN", substlist)) getMaudeHandleCR
-        (subst', subst1, subst2) <- disjunctionOfList substlist
-        let normsubst = trace (show ("subst',subst1,subst2", subst',subst1,subst2)) (normalizeSubstList hndCR subst') 
-        contradictoryIf $ variableCheck t1 subst1 t2 subst2 normsubst
-                    -- hndCR
-        let normsubst' = map (\(a,b) -> (a,applyVTerm (substFromList $ subst1++subst2) b)) normsubst
+        hndCR <- trace (show (basis, t1, t2, "thisissublistSEVEN", substlist)) getMaudeHandleCR
+        (subst', subst12) <- disjunctionOfList substlist
+        let normsubst = trace (show ("subst',subst1,subst2", subst',subst12)) (normalizeSubstList hndCR subst') 
+        contradictoryIf $ variableCheck t1 subst12 t2 normsubst
+        -- hndCR
+        let normsubst' = map (\(a,b) -> (a,applyVTerm (substFromList $ subst12) b)) normsubst
         setM sEqStore $ applyEqStore hnd (substFromList $ normsubst') eqStore
         --substCheck <- gets (substCreatesNonNormalTerms hnd)
         --store <- getM sEqStore
