@@ -1073,7 +1073,7 @@ smartRanking :: ProofContext
              -> System
              -> [AnnotatedGoal] -> [AnnotatedGoal]
 smartRanking ctxt allowPremiseGLoopBreakers sys =
-    moveNatToEnd . sortOnUsefulness . unmark . sortDecisionTree notSolveLast . sortDecisionTree solveFirst . goalNrRanking
+    moveKdhToEnd . moveNatToEnd . sortOnUsefulness . unmark . sortDecisionTree notSolveLast . sortDecisionTree solveFirst . goalNrRanking
   where
     oneCaseOnly = catMaybes . map getMsgOneCase . L.get pcSources $ ctxt
 
@@ -1087,6 +1087,11 @@ smartRanking ctxt allowPremiseGLoopBreakers sys =
     moveNatToEnd = sortOn isNatSubtermSplit
     isNatSubtermSplit (SubtermG st, _) = isNatSubterm st
     isNatSubtermSplit _                = False
+
+    moveKdhToEnd = sortOn isNonKdhGoal
+    isNonKdhGoal (PremiseG _ fa, _) = isKdhFact fa
+    isNonKdhGoal (ActionG  _ fa,_ ) = isKdhFact fa
+    isNonKdhGoal _               = False  
 
     tagUsefulness Useful                = 0 :: Int
     tagUsefulness ProbablyConstructible = 1
@@ -1113,7 +1118,7 @@ smartRanking ctxt allowPremiseGLoopBreakers sys =
         , isMsgOneCaseGoal . fst
         , isSignatureGoal . fst
         , isDoubleExpGoal . fst
-        , isNoLargeSplitGoal . fst ]
+        , isNoLargeSplitGoal . fst]
         -- move the rest (mostly more expensive KU-goals) before expensive
         -- equation splits
 

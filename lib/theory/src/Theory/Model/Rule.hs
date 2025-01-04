@@ -199,7 +199,7 @@ import           Theory.Text.Pretty
 import           Theory.Sapic
 import           Theory.Constraint.Solver.Combination
 
-import           Debug.Trace
+-- import           Debug.Trace
 
 ------------------------------------------------------------------------------
 -- General Rule
