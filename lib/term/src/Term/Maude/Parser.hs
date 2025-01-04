@@ -577,6 +577,7 @@ ppTheoryDHsimp = BC.unlines $
       , " subsort FrNZE < NZE ."
       , " subsort BG < G ."
       , " op tamXCdhGinv : G -> G ."
+      , " op tamXCdhMult : G G -> G ."
       , " op tamXCdhZero : -> E ."
       , " op tamXCdhInv : NZE -> NZE ."
       , " op tamXCdhEg : -> G ."
