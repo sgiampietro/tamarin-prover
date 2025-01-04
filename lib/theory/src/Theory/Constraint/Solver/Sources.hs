@@ -37,6 +37,7 @@ import           Safe
 
 import qualified Data.Map                                as M
 import qualified Data.Set                                as S
+import Data.List (nubBy)
 
 import           Control.Basics
 import           Control.Category
@@ -238,8 +239,10 @@ solveAllSafeGoals ths' openChainsLimit =
 removeRedundantCases :: ProofContext -> [LVar] -> (a -> System) ->  [a] -> [a]
 removeRedundantCases ctxt stableVars getSys cases0 =
     -- usually, redundant cases only occur with the multiset and bilinear pairing theories
-    if enableBP msig || enableMSet msig then cases else cases0
+    if enableBP msig || enableMSet msig then cases else (if enableDHMult msig then cases1 else cases0)
   where
+    --cases1 = nubBy (\a b -> openGoals (getSys a) == openGoals (getSys b)) cases0
+    cases1 = nubBy (\a b -> (getSys a) == (getSys b)) cases0
     -- decorate with index and normed version of the system
     decoratedCases = map (second addNormSys) $  zip [(0::Int)..] cases0
     -- drop cases where the normed systems coincide
