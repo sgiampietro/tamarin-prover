@@ -342,7 +342,7 @@ optionList basis (gt1,mut1) (gt2,mut2)
       | length mut1 == length mut2 = trace (show ("resultss", results)) $ map (\(a,b,c,d) -> (a,b,c)) results
       | otherwise = []
              where replacements = map (\pm -> zipWith (\(a,b) (c,d) -> (a,b,c,d)) mut1 pm) (permutations mut2)
-                   foldmu permlist = foldl (replace basis) (gt1,gt2, emptySubst, True) permlist
+                   foldmu permlist = foldl (replace basis) (gt1,gt2, substFromList (mut1++mut2) , True) permlist
                    results = filter (\(_,_,_,b) -> b) $ map foldmu replacements
 
 solveIndicatorGaussProto :: MaudeHandle -> [LNTerm] -> LNTerm -> LNTerm -> [ Maybe [([(LVar, LNTerm)],[(LVar, LNTerm)]) ] ]
