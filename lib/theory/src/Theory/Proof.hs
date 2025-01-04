@@ -110,7 +110,7 @@ import qualified Data.Map                         as M
 import           Data.Maybe
 -- import           Data.Monoid
 
-import           Debug.Trace
+import           Debug.Trace.Ignore
 
 import           Control.Basics
 import           Control.DeepSeq

@@ -93,8 +93,7 @@ import           Control.Monad.Reader
 import           Control.Monad.Fresh              (MonadFresh, scopeFreshness)
 import qualified Control.Monad.Trans.PreciseFresh as Precise (Fresh, evalFresh, evalFreshT)
 
-import           Debug.Trace
-
+import           Debug.Trace.Ignore
 import           GHC.Generics                     (Generic)
 
 import           Data.Data

@@ -44,7 +44,7 @@ import Term.Rewriting.Norm
 import Term.Substitution
 
 -- import Theory.Constraint.System.Constraints
-import Debug.Trace -- .Ignore
+import Debug.Trace.Ignore
 import Control.Monad.Disj (disjunctionOfList)
 import           Control.Monad.Reader
 import Data.Primitive (mutableByteArrayContents)

@@ -82,7 +82,7 @@ import Term.Maude.Process
 --import Data.Bool (Bool)
 --import Theory.Model (getFactTerms)
 
-import           Debug.Trace
+import           Debug.Trace.Ignore
 import Text.PrettyPrint.Class (Document(text))
 
 -- Useful functions for the diffie-hellman multiplication approach

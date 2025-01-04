@@ -20,7 +20,7 @@ module Theory.Tools.AbstractInterpretation (
 
   ) where
 
-import           Debug.Trace
+import           Debug.Trace.Ignore
 
 import           Control.Basics
 import           Control.Monad.Bind
