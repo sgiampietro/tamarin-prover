@@ -319,7 +319,8 @@ dhmultIntruderRules ::  [IntrRuleAC]
 dhmultIntruderRules = [
     kuRule PubGConstrRule   []                             (x_pub_var)     [(x_pub_var)]
     --, kuRule FreshNZEConstrRule [freshDHFact x_fresh_var] (x_fresh_var)          []
-    , Rule FreshNZEConstrRule [freshDHFact x_fresh_var] [kuFact x_fresh_var, outFact x_fresh_var] [ kuFact x_fresh_var,  kuFact (fAppdhExp (gname, x_fresh_var)) ]         [] -- kuFact x_fresh_var, kuFact (fAppdhExp (gname, x_fresh_var))
+    --, Rule FreshNZEConstrRule [freshDHFact x_fresh_var] [kuFact x_fresh_var] [ kuFact x_fresh_var,  kuFact (fAppdhExp (gname, x_fresh_var)) ]         []
+    , Rule FreshNZEConstrRule [freshDHFact x_fresh_var] [kuFact x_fresh_var, outFact x_fresh_var] [ kuFact x_fresh_var,  kuFact (fAppdhExp (gname, x_fresh_var)) ]         []
     --Rule PubGConstrRule   [] [ kdhFact (x_pub_var)] [kLogFact (x_pub_var)]  []
     --, kdhRule FreshNZEConstrRule [freshDHFact x_fresh_var] (x_fresh_var) (x_fresh_var)         []
     , Rule ISendRule   [kdhFact x_varG] [inFact x_varG] [kLogFact x_varG]        []

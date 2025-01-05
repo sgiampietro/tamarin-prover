@@ -25,7 +25,7 @@ module Theory.Constraint.Solver.Goals (
   , plainOpenGoals
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Prelude                                 hiding (id, (.))
 
@@ -374,8 +374,8 @@ solvePremise rules p faPrem
       return $ showRuleCaseName ru  
   | isKIFact faPrem && isDHFact faPrem = do 
       (ru, c, faConc) <- insertFreshNodeConc rules
-      insertOutKIEdge (c, faConc, faPrem, p)
-      return $ showRuleCaseName ru
+      trace (show ("herekipremise", faPrem)) insertOutKIEdge (c, faConc, faPrem, p)
+      trace (show ("igothere??", faPrem,faConc, ru)) $ return $ showRuleCaseName ru
   | isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
   | otherwise = do
       (ru, c, faConc) <- insertFreshNodeConc rules
@@ -542,9 +542,9 @@ solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact containing a
              ->LNFact       -- ^ Product term of which we have to find the indicator  
              -> Reduction String -- ^ Case name to use.
 solveDHInd rules p faPrem =  do
-        bset <- trace (show ("solveDHIND", faPrem)) $ getM sBasis
+        bset <- getM sBasis
         nbset <- getM sNotBasis
-        nodes <- getM sNodes
+        nodes <-trace (show ("solveDHIND", faPrem, bset, nbset)) $  getM sNodes
         pRule <- gets $ nodeRule (nodePremNode p)
         case factTerms faPrem of 
           -- [x] -> solveDHIndaux bset nbset x p faPrem (filter isProtocolRule rules) (M.assocs nodes)
@@ -579,7 +579,7 @@ solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> NodePrem -> LNFact ->
 solveDHIndaux bset nbset term p faPrem rules instrules =
   case neededexponents bset nbset term of
       [] -> do  -- TODO: this is where we need to check multiple Out facts!! 
-          hndNormal <- trace (show ("SOLVEINDAUX", term)) getMaudeHandle
+          hndNormal <- trace (show ("SOLVEINDAUX", term, bset,nbset)) getMaudeHandle
           let nterm = runReader (norm' term) hndNormal
               clterm t = case viewTerm2 t of --todo: need to refine this. 
                               FdhMu t1 -> clterm t1
