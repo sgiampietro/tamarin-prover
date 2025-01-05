@@ -23,7 +23,7 @@ module Theory.Constraint.Solver.Simplify (
 
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Prelude                            hiding (id, (.))
 
@@ -191,7 +191,7 @@ enforceNodeUniqueness =
     -- *DG4*
     freshRuleInsts se = do
         (i, ru) <- M.toList $ get sNodes se
-        guard (isFreshRule ru)
+        trace (show ("merge here?", ru)) $ guard (isFreshRule ru)
         return (ru, ((), i))  -- no need to merge equal rules
 
     -- *N5_d*
@@ -228,7 +228,7 @@ enforceFreshAndKuNodeUniqueness =
     -- *DG4*
     freshRuleInsts se = do
         (i, ru) <- M.toList $ get sNodes se
-        guard (isFreshRule ru)
+        trace (show ("merge here?", ru)) $ guard (isFreshRule ru)
         return (ru, ((), i))  -- no need to merge equal rules
 
     -- *N5_u*

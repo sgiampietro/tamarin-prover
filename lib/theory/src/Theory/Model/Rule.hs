@@ -692,8 +692,14 @@ isNatConstrRule ru = case ruleName ru of
   _                        -> False
 
 -- | True iff the rule is the special fresh rule.
+--isFreshRule :: HasRuleName r => r -> Bool
+--isFreshRule x = (isFreshOGRule x) || (isFreshNZERule x) --(ProtoInfo FreshRule ==) . ruleName
+
 isFreshRule :: HasRuleName r => r -> Bool
 isFreshRule = (ProtoInfo FreshRule ==) . ruleName
+
+--isFreshNZERule :: HasRuleName r => r -> Bool 
+--isFreshNZERule = (IntrInfo FreshNZEConstrRule == ) . ruleName
 
 -- | True iff the rule is the special learn rule.
 isIRecvRule :: HasRuleName r => r -> Bool

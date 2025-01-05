@@ -108,7 +108,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -432,7 +432,7 @@ insertEdges edges = do
 
 insertOutKIEdge :: (NodeConc, LNFact, LNFact, NodePrem) -> Reduction ()
 insertOutKIEdge (c, fa1,fa2,p) = do
-    void (solveFactOutKIEqs SplitNow (Equal fa1 fa2))
+    (solveFactOutKIEqs SplitNow (Equal fa1 fa2))
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
 
@@ -753,10 +753,8 @@ insertKdhEdges tuplelist indts premTerm p = do
     let rootpairs = (map (\(a,b,(c,t),d,e,f)-> (t,d)) tuplelist)
         cllist = nubBy (\(a,b,c,d,e,f) (a2,b2,c2,d2,e2,f2) -> b == b2) tuplelist
     trace (show ("thisrootpairs", rootpairs, indts) ) $ solveIndFactKdh SplitNow rootpairs (premTerm, indts) 
-    -- (faPremsubst, listterms) <- trace (show (premTerm, indts, "withthistuple", rootpairs)) $ foldM (\faP c -> solveIndFactDH SplitNow c faP) (premTerm,[]) rootpairs
-    --void $ solveIndicator faPremsubst listterms
-    -- forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
-    -- forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
+    --forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
+    forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> trace (show ("thisc2c3", c1, c2,c3)) $ exploitNodeId c1 c2 c3)
 
 
 insertDHMixedEdge :: Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> RuleACInst
@@ -864,7 +862,7 @@ cyclicSubstNode (nodeid, ru) subst = trace (show ("cyclicsubstnode", subst, fres
           varsrange = varsRange (restrict premisevars' subst)-}
 
 cyclicSubstNode :: (NodeId, RuleACInst) -> Bool
-cyclicSubstNode (nodeid, ru) = trace (show ("cyclicsubstnode",freshpremises, freshvars,  notfreshpremises, premisevars, any (`elem` premisevars) freshvars)) $ any (`elem` premisevars) freshvars
+cyclicSubstNode (nodeid, ru) =  any (`elem` premisevars) freshvars
     where premisefacts = map snd $ enumPrems ru
           freshpremises = filter isFrDHFact premisefacts
           freshvars = map getFrVars freshpremises
@@ -1122,9 +1120,9 @@ solveMixedTermEqs splitStrat bset nbset fun (lhs,rhs)
         let substdhvars = map (\(a,b) -> (applyVTerm compsubst a, applyVTerm compsubst b)) dheqs
             compsubst = substFromList (lhsDHvars ++ rhsDHvars)
         --trace (show ("atleasthere", lhs, rhs, substdhvars)) $ solveListDHEqs (solveTermDHEqs splitStrat bset nbset fun) substdhvars
-        if trace (show ("atleasthere", lhs, rhs, substdhvars)) $ all (\x -> elem x (varsVTerm lhs) ) (concatMap varsVTerm (map fst substdhvars))
-            then trace (show "y") $ solveListDHEqs (solveTermDHEqs splitStrat (protoCase SplitNow bset nbset)) substdhvars
-            else trace (show "n") $ solveListDHEqs (\(a,b)-> solveTermDHEqs splitStrat (protoCase SplitNow bset nbset) (b,a)) substdhvars
+        if all (\x -> elem x (varsVTerm lhs) ) (concatMap varsVTerm (map fst substdhvars))
+            then solveListDHEqs (solveTermDHEqs splitStrat (protoCase SplitNow bset nbset)) substdhvars
+            else  solveListDHEqs (\(a,b)-> solveTermDHEqs splitStrat (protoCase SplitNow bset nbset) (b,a)) substdhvars
         noContradictoryEqStore
         return Changed
     | otherwise =  solveTermEqs splitStrat [(Equal lhs rhs)]
@@ -1140,25 +1138,25 @@ normalizeSubstList hnd ((t,t2) : xs) = (t, runReader ( norm' t2) hnd):(normalize
 solveIndicator ::  LNTerm -> [LNTerm] -> Reduction String
 solveIndicator t2 terms  = do
   nbset <- getM sNotBasis
-  hndNormal  <- trace (show ("AMHEREFINALLYUES", t2, terms)) getMaudeHandle
+  hndNormal  <- getMaudeHandle
   irules <- getM sNodes
   --irules <- getM sNodes
   let rules = M.elems irules
       mugterms = (concatMap enumConcsDhOut rules)
   --    exps = (concatMap enumConcsDhExpOut rules)-
       isEq (a,b) = (runReader (norm' $ fAppPair (a, b)) hndNormal)
-      termpairs =  (trace (show ("normterssss"))) $ map (\x -> isEq (t2,x)) terms
+      termpairs =   map (\x -> isEq (t2,x)) terms
       unpair t = case viewTerm t of
                     (FApp (NoEq pairSym) [x, y]) -> (x,y)
                     _ -> error $ "something went wrong" ++ show t
-  if (trace (show ("mugterms", mugterms))) (any (\(a,b)-> a==b) $ map unpair termpairs)
+  if (any (\(a,b)-> a==b) $ map unpair termpairs)
     then return "Found indicators"
     else do
-        let nb2 = trace (show ("THESEAREALLEXTRATERMS", terms ++ (map (\i -> fAppdhMu i) mugterms))) (S.toList nbset)
+        let nb2 =  (S.toList nbset)
         --case solveIndicatorGauss (nb2) (terms ++ (map (\i -> fAppdhMu i) nb2) ++ (map (\i -> fAppdhMu i) mugterms)) t2 of
         case solveIndicatorGauss (nb2) (fAppdhOne:terms) t2 of
           Just vec -> do
-              trace (show ("AMIHERE??????")) $ return ("Found indicators! attack by result:" ++ show (vec, terms, t2))
+              return ("Found indicators! attack by result:" ++ show (vec, terms, t2))
           Nothing -> do
               contradictoryIf True
               return ("Safe,cannot combine from (leaked set, terms):"++ show ((S.toList nbset), terms, t2))
@@ -1166,7 +1164,7 @@ solveIndicator t2 terms  = do
 
 
 variableCheck :: LNTerm -> [(LVar, LNTerm)] -> LNTerm -> [(LVar,LNTerm)] -> Bool 
-variableCheck t1 subst12 t2 normsubst = trace (show ("variablecheck", subst12,normsubst,  elem True (concatMap (\v -> map (checkvar v) (getvars v) ) problematicvars))) $ elem True (concatMap (\v -> map (checkvar v) (getvars v) ) problematicvars)
+variableCheck t1 subst12 t2 normsubst =  elem True (concatMap (\v -> map (checkvar v) (getvars v) ) problematicvars)
     where mumap = M.fromList subst12
           allvars = M.keys mumap
           substmap = M.fromList normsubst
@@ -1188,9 +1186,9 @@ solveIndicatorProto basis t1 t2 = do
    Just substlist ->  do
    --Just (subst',subst1, subst2) ->  do
         eqStore <-  getM sEqStore
-        hndCR <- trace (show (basis, t1, t2, "thisissublistSEVEN", substlist)) getMaudeHandleCR
+        hndCR <- getMaudeHandleCR
         (subst', subst12) <- disjunctionOfList substlist
-        let normsubst = trace (show ("subst',subst1,subst2", subst',subst12)) (normalizeSubstList hndCR subst') 
+        let normsubst = (normalizeSubstList hndCR subst') 
         contradictoryIf $ variableCheck t1 subst12 t2 normsubst
         -- hndCR
         let normsubst' = compose (substFromList subst12) (substFromList normsubst)-- map (\(a,b) -> (a,applyVTerm (substFromList $ subst12) b)) normsubst
@@ -1198,7 +1196,7 @@ solveIndicatorProto basis t1 t2 = do
         --substCheck <- gets (substCreatesNonNormalTerms hnd)
         --store <- getM sEqStore
         neweqstore <- getM sEqStore
-        let oldsubsts = trace (show ("neweqstore", neweqstore)) $ _eqsSubst neweqstore
+        let oldsubsts =  _eqsSubst neweqstore
             newsubst =  substFromList $ normalizeSubstList hnd (substToList oldsubsts)
         setM sEqStore ( neweqstore{_eqsSubst = newsubst} )
         void substSystem
@@ -1219,11 +1217,11 @@ solveDHProtoEqsAux :: SplitStrategy -> S.Set LNTerm  -> S.Set LNTerm -> MaudeHan
 solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permutedlist= do
     -- permutedlist <- disjunctionOfList $ permutations outterms
     zzs <- replicateM (length xindterms) $ freshLVar "zz" LSortE
-    let genindterms = trace (show ("bset", bset, "nbset",nbset, "thispairs", xindterms, "***** ",permutedlist)) $ zipWith (\i z-> (i, runReader (norm' $ fAppdhExp (i, LIT (Var z)) ) hndNormal, z) ) xindterms zzs
+    let genindterms = zipWith (\i z-> (i, runReader (norm' $ fAppdhExp (i, LIT (Var z)) ) hndNormal, z) ) xindterms zzs
     --  let genindterms = zip xindterms zzs
     eqstore <- getM sEqStore
     (eqs2, maySplitId) <- addDHProtoEqs hnd genindterms permutedlist False eqstore
-    se  <- trace (show ("UNIFICATIONRETURNED:", eqs2)) $ gets id
+    se  <-  gets id
     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
     -- setM sEqStore eqs2 
     subst <- getM sSubst
@@ -1232,7 +1230,7 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
         varsta1 = filter (\x -> not (isvarEVar (LIT (Var x)) || isvarGVar (LIT (Var x)))) $ varsVTerm (apply subst ta1)
         varsta2 = filter (\x -> not (isvarEVar (LIT (Var x)) || isvarGVar (LIT (Var x)))) $ varsVTerm (apply subst ta2)
         toset1 = filter (\x -> (isEVar (LIT (Var x))) && (x `elem` (varsRange subst) ) ) $ (varsta1 \\ varsta2) ++ (varsta2 \\ varsta1)
-    if  trace (show ("subst", subst, "ta1", ta1, (apply subst ta1) ,"ta2", ta2, (apply subst ta2), "varsta1", varsta1, "varsta2", varsta2, "toset1", toset1)) $ null toset1
+    if  null toset1
      then do
         noContradictoryEqStore
         let normedpair = (runReader (norm' $ fAppPair (apply subst ta1, apply subst ta2)) hndNormal)
@@ -1243,7 +1241,7 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
         case varTermsOf sta2 of
             [] -> case varTermsOf (sta1) of
                     [] -> do
-                            if trace (show ("goodnorm",sta1,"And\n",sta2)) $ sta1 == sta2
+                            if sta1 == sta2
                               then do
                                             void substSystem
                                             void normSystem
@@ -1252,13 +1250,13 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
                             void substSystem
                             let bb = map (applyVTerm subst) $ S.toList nbset 
                                 nb = filter (\i-> (isFrNZEVar i && (not $ i `elem` bb))) $ map (\v -> LIT (Var v)) $ varsRange subst                 
-                            trace (show ("canwegethere", sta1,"And\n", sta2, "**", ta1,"**", ta2, "bset", bset, "nbset", nb)) $ void $ solveIndicatorProto nb sta1 sta2
+                            void $ solveIndicatorProto nb sta1 sta2
                             void normSystem
             _  -> do
                     void substSystem
                     let bb = map (applyVTerm subst) $ S.toList nbset 
                         nb = filter (\i-> (isFrNZEVar i && (not $ i `elem` bb))) $ map (\v -> LIT (Var v)) $ varsRange subst                 
-                    trace (show ("canwegethere2", sta1,"And\n", sta2, "**", ta1,"**", ta2, "bset", bset, "nbset", nb)) $ void $ solveIndicatorProto nb sta2 sta1
+                    void $ solveIndicatorProto nb sta2 sta1
                     void normSystem
      else do
         let newsubsts = substFromList $ map (\x -> (x, fAppdhOne)) toset1
