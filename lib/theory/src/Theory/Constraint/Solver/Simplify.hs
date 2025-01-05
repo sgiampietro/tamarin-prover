@@ -23,7 +23,7 @@ module Theory.Constraint.Solver.Simplify (
 
   ) where
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 
 import           Prelude                            hiding (id, (.))
 
