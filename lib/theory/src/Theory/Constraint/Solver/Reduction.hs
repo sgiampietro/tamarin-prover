@@ -1159,7 +1159,7 @@ solveIndicator t2 terms  = do
         --case solveIndicatorGauss (nb2) (terms ++ (map (\i -> fAppdhMu i) nb2) ++ (map (\i -> fAppdhMu i) mugterms)) t2 of
         case solveIndicatorGauss (nb2) (fAppdhOne:terms) t2 of
           Just vec -> do
-              return ("Found indicators! attack by result:" ++ show (vec, terms, t2))
+              trace (show ("FOUND INDICATORS BY: (vec, terms, target) =", vec, terms, t2)) $ return ("Found indicators! attack by result:" ++ show (vec, terms, t2))
           Nothing -> do
               contradictoryIf True
               return ("Safe,cannot combine from (leaked set, terms):"++ show ((S.toList nbset), terms, t2))
@@ -1380,6 +1380,12 @@ solveTermDHEqs splitStrat fun (ta1, ta2)
                             void substSystem
                             void normSystem
                             return Changed)
+        | (isDHLit ta1 && (not $ compatibleLits ta1 ta2)) = do
+            contradictoryIf True 
+            return Changed
+        | (isDHLit ta2 && (not $ compatibleLits ta2 ta1)) = do
+            contradictoryIf True 
+            return Changed
         | otherwise = case (isPubExp ta1, isPubExp ta2) of
                 (Just (pg1,e1), Just (pg2,e2)) -> do
                     if pg1 == pg2

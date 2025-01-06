@@ -265,7 +265,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
             _ | (isDHFact fa)                       -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing -- TODO:probably want to also check existing rules
                    act <- disjunctionOfList (filter isDHFact $ get rActs ru)
-                   (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
+                   trace (show ("IAMHERE", fa, act, ru)) (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
                    void substSystem
                    --void normSystem
                    return ru 
@@ -294,7 +294,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                    return ru 
             _ | isDHFact fa                       -> do unless (fa `elem` get rActs ru) $ do
                                                           act <- disjunctionOfList (filter isDHFact $ get rActs ru)
-                                                          (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
+                                                          trace (show ("alsohere", fa, act, ru)) (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
                                                           void substSystem
                                                           --void normSystem
                                                         return ru 
