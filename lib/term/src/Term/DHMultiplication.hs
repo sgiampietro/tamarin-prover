@@ -153,6 +153,7 @@ rootSet operator t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o /= operator    -> S.singleton t
     [ t1 ]     | o == dhGinvSym   -> rootSet o t1
     [ t1 ]     | o == dhInvSym   -> rootSet o t1
+    [ t1 ]     | o == dhMinusSym  -> rootSet o t1
     [ t1 ]                        -> S.singleton t
     []                            -> S.singleton t
     _         -> error $ "malformed term `"++show t++"'"

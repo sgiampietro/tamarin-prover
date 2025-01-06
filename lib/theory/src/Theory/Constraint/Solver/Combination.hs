@@ -359,15 +359,18 @@ solveIndicatorGaussProto hnd basis term target =
         sol = Just $ solveMatrix2 fAppdhZero (fAppdhOne:basis') matriz wzs
         getsol t1 t2 = case varTermsOf t1 of
             [] -> case varTermsOf t2 of
-                  [] -> if sta1 == sta2 then Nothing
-                            else Just (Nothing)   
+                  [] -> if sta1 == sta2 
+                          then Nothing
+                          else Just (Nothing)   
+                              where 
+                                normedpair = (runReader (norm' $ fAppPair (t1, t2)) hnd)
+                                unpair t = case viewTerm t of
+                                              (FApp (NoEq pairSym) [x, y]) ->(x,y)
+                                              _ -> error $ "something went wrong" ++ show t
+                                (sta1,sta2) =  unpair normedpair
                   _  -> Just $ solveMatrix2 fAppdhZero (fAppdhOne:basis') mat2 wz2
             _ -> Just $ solveMatrix2 fAppdhZero (fAppdhOne:basis') mat2 wz2
-           where  normedpair = (runReader (norm' $ fAppPair (t1, t2)) hnd)
-                  unpair t = case viewTerm t of
-                        (FApp (NoEq pairSym) [x, y]) ->(x,y)
-                        _ -> error $ "something went wrong" ++ show t
-                  (sta1,sta2) =  unpair normedpair
+           where  
                   (wz2, mat2) = createMatrixProto [] (t1) (t2)
         retrieve s substss = case s of
           Nothing -> Just [(substss, [])]

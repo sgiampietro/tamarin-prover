@@ -99,6 +99,7 @@ openGoals sys = do
                     || isUnion m || isNullaryPublicFunction m
         ActionG _ _                               -> not solved
         PremiseG _ _                              -> not solved
+        DHEqG _ _                               -> not solved
         -- Technically the 'False' disj would be a solvable goal. However, we
         -- have a separate proof method for this, i.e., contradictions.
         DisjG (Disj [])                           -> False
@@ -219,6 +220,7 @@ solveGoal goal = do
     rules <- askM pcRules
     case goal of
       ActionG i fa  -> solveAction  (nonSilentRules rules) (i, fa)
+      DHEqG t1 t2 -> solveDHEq t1 t2
       PremiseG p fa ->
            solvePremise (get crProtocol rules ++ get crConstruct rules) p fa
       ChainG c p    -> solveChain (get crDestruct rules) (c, p)
@@ -381,6 +383,11 @@ solvePremise rules p faPrem
       (ru, c, faConc) <- insertFreshNodeConc rules
       insertEdges [(c, faConc, faPrem, p)]
       return $ showRuleCaseName ru
+
+solveDHEq :: LNTerm -> LNTerm -> Reduction String
+solveDHEq t1 t2 = do
+  _ <- protoCase SplitNow S.empty S.empty (t1, t2)
+  return "solveeq"
 
 -- | CR-rule *DG2_chain*: solve a chain constraint.
 solveChain :: [RuleAC]              -- ^ All destruction rules.
