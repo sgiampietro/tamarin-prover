@@ -255,7 +255,7 @@ module Theory.Constraint.System (
 
   ) where
 
--- import           Debug.Trace.Ignore
+import           Debug.Trace.Ignore
 -- import           Debug.Trace.Ignore
 
 import           Prelude                              hiding (id, (.))
@@ -294,10 +294,12 @@ import           Theory.Tools.EquationStore
 import           Theory.Tools.InjectiveFactInstances
 
 import           Term.Rewriting.Norm (norm')
+import           Term.DHMultiplication
 
 import           System.FilePath
 import           Text.Show.Functions()
 import           Utils.Misc 
+-- import Theory.Constraint.System (sGoals)
 
 ----------------------------------------------------------------------
 -- ClassifiedRules
@@ -1034,7 +1036,7 @@ isCorrectDG sys = M.foldrWithKey (\k x y -> y && (checkRuleInstance sys k x)) Tr
 --
 safePartialAtomValuation :: ProofContext -> System -> LNAtom -> Maybe Bool
 safePartialAtomValuation ctxt sys =
-    eval
+    trace (show "I;m hereeee") eval
   where
     runMaude   = (`runReader` L.get pcMaudeHandle ctxt)
     before     = alwaysBefore sys
@@ -1062,11 +1064,11 @@ safePartialAtomValuation ctxt sys =
     eval ato = case ato of
           Action (ltermNodeId' -> i) fa
             | otherwise ->
-                case M.lookup i (L.get sNodes sys) of
+                case trace (show ("here?", fa)) $ M.lookup i (L.get sNodes sys) of
                   Just ru
                     | any (fa ==) (L.get rActs ru)                                -> Just True
                     | any (\g -> samefacts (fa,g)) (filter (\g -> factTag g == factTag fa) $ L.get rActs ru)  -> Just True
-                    | all (not . runMaude . unifiableLNFacts fa) (L.get rActs ru) -> Just False
+                    | (not (isDHFact fa)) && (all (not . runMaude . unifiableLNFacts fa) (L.get rActs ru)) -> Just False
                   _                                                               -> Nothing
 
           Less (ltermNodeId' -> i) (ltermNodeId' -> j)
@@ -1079,7 +1081,9 @@ safePartialAtomValuation ctxt sys =
 
           EqE x y
             | x == y                                -> Just True
-            | (uncurry (==)) $ unpair $ isEq (x,y) -> Just True
+            | trace (show ("couldbenere?",x,y)) $ (uncurry (==)) $ unpair $ isEq (x,y) ->  Just True
+            -- | not (unifiableDHTerms x y) ->            Just False
+            | (isDHTerm x) && (isDHTerm y) -> Nothing
             | not (runMaude (unifiableLNTerms x y)) -> Just False
             | otherwise                             ->
                 case (,) <$> ltermNodeId x <*> ltermNodeId y of
@@ -1142,20 +1146,23 @@ impliedFormulas hnd sys gf0 = res
         subst' <- (`runReader` hnd) $ matchTerm term pat
         candidateSubsts (compose subst' subst) as
 
+
 -- | @impliedFormulasAndSystems se imp@ returns the list of guarded formulas that are
 -- *potentially* implied by @se@, together with the updated system.
 impliedFormulasAndSystems :: MaudeHandle -> System -> LNGuarded -> [(LNGuarded, System)]
 impliedFormulasAndSystems hnd sys gf = res
   where
-    res = case (openGuarded gf `evalFresh` avoid (gf, sys)) of
-      Just (All, _vs, antecedent, succedent) -> map (\x -> apply x (succedent', sys)) subst
+    res = case trace (show ("here yes!", sys)) (openGuarded gf `evalFresh` avoid (gf, sys)) of
+      Just (All, _vs, antecedent, succedent) ->  map (\x -> apply x (succedent', sys')) subst 
         where
+          sys' = foldl (\sys2 newgoal-> (L.modify (sGoals) (M.insert newgoal (GoalStatus False 0 False))) sys2 ) sys newgoals
+          newgoals = trace (show ("amhere")) newgoalsDH actionsEqs
           (actionsEqs, otherAtoms) = first sortGAtoms . partitionEithers $ map prepare antecedent
           succedent'               = gall [] otherAtoms succedent
           subst' = concat $ map (\(x, y) ->
             if null ((`runReader` hnd) (unifyLNTerm x))
                then []
-               else (`runReader` hnd) (unifyLNTerm y)) (equalities actionsEqs)
+               else (`runReader` hnd) (unifyLNTerm y)) (map (\( xeqs, yeqs) -> (filter (\(Equal x1 x2) -> ((not $ isDHTerm x1) && (not $ isDHTerm x2))) xeqs,filter (\(Equal x1 x2) -> ((not $ isDHTerm x1) && (not $ isDHTerm x2))) yeqs )) (equalities actionsEqs) )
           subst  = map (\x -> freshToFreeAvoiding x ((gf, x), sys)) subst'
       _ -> []
 
@@ -1164,6 +1171,19 @@ impliedFormulasAndSystems hnd sys gf = res
     prepare ato           = Right (fmap (fmapTerm (fmap Free)) ato)
 
     sysActions = allActions sys
+
+    newgoalsDH :: [GAtom (Term (Lit Name LVar))] -> [Goal]
+    newgoalsDH ((GEqE s t):as) = if (isDHTerm s && isDHTerm t) then trace (show ("tjos", s, t)) (DHEqG s t):(newgoalsDH as) else trace (show ("tjos2", s, t))  $ newgoalsDH as
+    {-newgoalsDH ((GAction a fa):as) = go sysActions
+      where 
+        go :: [(NodeId, LNFact)] -> [Goal]
+        go [] = []
+        go ((nid, sysAct):acts) | (factTag sysAct == factTag fa && length faTerms == length sysTerms) =
+              map ()
+              where
+                sysTerms = (factTerms sysAct)
+                faTerms = factTerms fa -}
+    newgoalsDH (_:as) = trace (show ("tjo44", as))  newgoalsDH as
 
     equalities :: [GAtom (Term (Lit Name LVar))] -> [([Equal LNTerm], [Equal LNTerm])]
     equalities []                  = [([], [])]
@@ -1249,9 +1269,9 @@ evaluateRestrictions dctxt dsys mirrors isSolved =
 -- | Evaluates whether the formulas hold using safePartialAtomValuation and impliedFormulas.
 -- Returns Just True if all hold, Just False if at least one does not hold and Nothing otherwise.
 doRestrictionsHold :: ProofContext -> System -> [LNGuarded] -> Bool -> (Trivalent, [System])
-doRestrictionsHold _    sys []       _        = (TTrue, [sys])
+doRestrictionsHold _    sys []       _        = trace (show "wereee'") (TTrue, [sys])
 doRestrictionsHold ctxt sys formulas isSolved = -- Just (True, [sys]) -- FIXME Jannik: This is a temporary simulation of diff-safe restrictions!
-  if (all (\(x, _) -> x == gtrue) simplifiedForms)
+  if trace (show "wereee'HERE?") (all (\(x, _) -> x == gtrue) simplifiedForms)
     then {-trace ("doRestrictionsHold: True " ++ (render. vsep $ map (prettyGuarded) formulas) ++ " - " ++ (render. vsep $ map (\(x, _) -> prettyGuarded x) simplifiedForms) ++ " - " ++ (render $ prettySystem sys))-} (TTrue, map snd simplifiedForms)
     else if (any (\(x, _) -> x == gfalse) simplifiedForms)
           then {-trace ("doRestrictionsHold: False " ++ (render. vsep $ map (prettyGuarded) formulas) ++ " - " ++ (render. vsep $ map (\(x, _) -> prettyGuarded x) simplifiedForms))-} (TFalse, map snd $ filter (\(x, _) -> x == gfalse) simplifiedForms)
@@ -1517,6 +1537,7 @@ unsolvedTrivialGoals sys = foldl f [] $ M.toList (L.get sGoals sys)
     f l (DisjG _, _)                  = l
     f l (SubtermG _, _)               = l
     f l (NoCancG _, _)                  = l
+    f l (DHEqG _ _, _)                  = l
 
 -- | Tests whether there are common Variables in the Facts
 noCommonVarsInGoals :: [(Either NodePrem LVar, LNFact)] -> Bool
@@ -1556,6 +1577,7 @@ allOpenGoalsAreSimpleFacts ctxt sys = M.foldlWithKey goalIsSimpleFact True (L.ge
     goalIsSimpleFact ret (DisjG _)                (GoalStatus solved _ _) = ret && solved
     goalIsSimpleFact ret (SubtermG _)             (GoalStatus solved _ _) = ret && solved
     goalIsSimpleFact ret (NoCancG _)                (GoalStatus solved _ _) = ret && solved
+    goalIsSimpleFact ret (DHEqG _ _)                (GoalStatus solved _ _) = ret && solved
 
 -- | Returns true if the current system is a diff system
 isDiffSystem :: System -> Bool

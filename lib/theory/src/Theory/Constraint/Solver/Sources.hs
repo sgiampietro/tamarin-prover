@@ -165,6 +165,7 @@ solveAllSafeGoals ths' openChainsLimit =
         -- SplitG _      -> False
         SubtermG _    -> doSplit
         NoCancG _ -> False 
+        DHEqG _ _ -> False 
 
     usefulGoal (_, (_, Useful)) = True
     usefulGoal _                = False

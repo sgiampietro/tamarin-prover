@@ -192,6 +192,10 @@ flattenUnif :: IsConst c => (LSubst c, [LSubstVFresh c]) -> [LSubstVFresh c]
 flattenUnif (subst, substs) =
     (\res ->  res) $ map (`composeVFresh` subst) substs
 
+
+
+
+
 -- Unification without AC
 ----------------------------------------------------------------------
 

@@ -746,7 +746,6 @@ addDHProtoEqs hnd t1zzs permt zzbool eqdhstore = do
             generalize sub = liftM substFromListVFresh $ mapM generaltup $ filter (\(a,b)-> not $ elem a (map (\(_,_,a)->a) t1zzs)) (substToListVFresh sub)
 
 
-
 ------------------------------------------------------------------------------
 -- Pretty printing
 ------------------------------------------------------------------------------

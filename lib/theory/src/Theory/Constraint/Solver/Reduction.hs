@@ -557,8 +557,8 @@ insertNegSubterm x y = setM sSubtermStore . addNegSubterm (x, y) =<< getM sSubte
 
 --insertNoCanc :: LNTerm -> LNTerm -> Reduction ()
 --insertNoCanc x y = modM sNoCanc (S. insert (x,y))
-
-
+insertDHEq :: LNTerm -> LNTerm -> Reduction ()
+insertDHEq t1 t2 = insertGoal (DHEqG t1 t2) False
 
 -- | Insert a 'Last' atom and ensure their uniqueness.
 insertLast :: NodeId -> Reduction ChangeIndicator
@@ -572,7 +572,7 @@ insertLast i = do
 -- system than the set of actions was changed.
 insertAtom :: LNAtom -> Reduction ()
 insertAtom ato = case ato of
-    EqE x y       -> void $ solveTermEqs SplitNow [Equal x y]
+    EqE x y       -> if (isDHTerm x && isDHTerm y) then insertDHEq x y else void $ solveTermEqs SplitNow [Equal x y]
     Subterm x y   -> insertSubterm x y
     Action i fa   -> void $ insertAction (ltermNodeId' i) fa
     Less i j      -> insertLess (ltermNodeId' i) (ltermNodeId' j) Formula
@@ -700,6 +700,7 @@ markGoalAsSolved how goal =
                          updateStatus
       SubtermG _      -> updateStatus
       NoCancG _       -> modM sGoals $ M.delete goal
+      DHEqG _ _ ->    modM sGoals $ M.delete goal 
   where
     updateStatus = do
         mayStatus <- M.lookup goal <$> getM sGoals
@@ -998,6 +999,7 @@ normalizeGoal hnd goal = case goal of
         ActionG v fact -> ActionG v $ normalizeFact hnd fact
         PremiseG prem fact -> PremiseG prem $ normalizeFact hnd fact
         NoCancG (t1, t2) -> NoCancG (runReader (norm' t1) hnd, runReader (norm' t2) hnd)
+        DHEqG t1 t2 -> DHEqG (runReader (norm' t1) hnd) (runReader (norm' t2) hnd)
         _ -> goal
 
 normalizeGoalCR :: MaudeHandle -> Goal -> Goal
@@ -1005,6 +1007,7 @@ normalizeGoalCR hnd goal = case goal of
         ActionG v fact -> ActionG v $ normFactCR fact hnd
         PremiseG prem fact -> (PremiseG prem $ normFactCR fact hnd)
         NoCancG (t1, t2) -> NoCancG (normTermCR t1 hnd, normTermCR t2 hnd)
+        DHEqG t1 t2 -> DHEqG (normTermCR t1 hnd) (normTermCR t2 hnd)
         _ -> goal
 
 normGoals :: MaudeHandle -> Reduction ChangeIndicator
@@ -1188,11 +1191,11 @@ solveIndicatorProto basis t1 t2 = do
         eqStore <-  getM sEqStore
         hndCR <- getMaudeHandleCR
         (subst', subst12) <- disjunctionOfList substlist
-        let normsubst = (normalizeSubstList hndCR subst') 
+        let normsubst = trace (show ("isthisis?", subst')) (normalizeSubstList hndCR subst') 
         contradictoryIf $ variableCheck t1 subst12 t2 normsubst
         -- hndCR
         let normsubst' = compose (substFromList subst12) (substFromList normsubst)-- map (\(a,b) -> (a,applyVTerm (substFromList $ subst12) b)) normsubst
-        setM sEqStore $ applyEqStore hnd (normsubst') eqStore
+        trace (show ("probhere", normsubst')) setM sEqStore $ applyEqStore hnd (normsubst') eqStore
         --substCheck <- gets (substCreatesNonNormalTerms hnd)
         --store <- getM sEqStore
         neweqstore <- getM sEqStore
@@ -1208,10 +1211,10 @@ solveIndicatorProto basis t1 t2 = do
         return ("Matched")
    Nothing -> do
           --setNotReachable
-          contradictoryIf True
-          return "Contradiction! Cannot find exponent"
-  where
-    terms = [t1]
+          trace (show "here>WA?>") $ contradictoryIf True
+          return "CONTRADICTION"
+  --where
+    --terms = [t1]
 
 solveDHProtoEqsAux :: SplitStrategy -> S.Set LNTerm  -> S.Set LNTerm -> MaudeHandle -> MaudeHandle -> [LNTerm] -> LNTerm -> LNTerm -> [LNTerm] -> StateT System (FreshT (DisjT (Reader ProofContext))) ()
 solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permutedlist= do
@@ -1250,14 +1253,18 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
                             void substSystem
                             let bb = map (applyVTerm subst) $ S.toList nbset 
                                 nb = filter (\i-> (isFrNZEVar i && (not $ i `elem` bb))) $ map (\v -> LIT (Var v)) $ varsRange subst                 
-                            void $ solveIndicatorProto nb sta1 sta2
-                            void normSystem
+                            b <- solveIndicatorProto nb sta1 sta2
+                            if b == "CONTRADICTION"
+                             then contradictoryIf True
+                             else void normSystem
             _  -> do
                     void substSystem
                     let bb = map (applyVTerm subst) $ S.toList nbset 
                         nb = filter (\i-> (isFrNZEVar i && (not $ i `elem` bb))) $ map (\v -> LIT (Var v)) $ varsRange subst                 
-                    void $ solveIndicatorProto nb sta2 sta1
-                    void normSystem
+                    b <- trace (show ("canwegethere", sta1,"And\n", sta2, "**", ta1,"**", ta2, "bset", bset, "nbset", nb)) solveIndicatorProto nb sta2 sta1
+                    if b == "CONTRADICTION"
+                      then contradictoryIf True
+                      else void normSystem
      else do
         let newsubsts = substFromList $ map (\x -> (x, fAppdhOne)) toset1
         eqStore <- getM sEqStore

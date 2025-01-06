@@ -47,6 +47,7 @@ import           Extension.Prelude
 
 import           Term.Rewriting.Norm (norm')
 
+import Term.DHMultiplication
 import           Theory.Constraint.Solver.Goals
 import           Theory.Constraint.Solver.Reduction
 import           Theory.Constraint.System
@@ -385,6 +386,7 @@ partialAtomValuation ctxt sys =
                   Just ru
                     | any (fa ==) (get rActs ru)                                -> Just True
                     | any (\g -> samefacts (fa,g)) (filter (\g -> factTag g == factTag fa) $ get rActs ru)  -> Just True
+                    | isDHFact fa -> Nothing
                     | all (not . runMaude . unifiableLNFacts fa) (get rActs ru) -> Just False
                   _                                                             -> Nothing
 
@@ -399,6 +401,7 @@ partialAtomValuation ctxt sys =
           EqE x y
             | x == y                                -> Just True
             | (uncurry (==)) $ unpair $ isEq (x,y) -> Just True
+            | isDHTerm x && isDHTerm y              -> Nothing
             | not (runMaude (unifiableLNTerms x y)) -> Just False
             | otherwise                             ->
                 case (,) <$> ltermNodeId x <*> ltermNodeId y of
@@ -420,6 +423,20 @@ partialAtomValuation ctxt sys =
           Syntactic _                            -> Nothing
 
 
+{-
+insertImpliedFormulasandSystems :: Reduction ChangeIndicator
+insertImpliedFormulasandSystems = do
+    sys <- gets id
+    hnd <- getMaudeHandle
+    applyChangeList $ do
+        clause  <- (S.toList $ get sFormulas sys) ++
+                   (S.toList $ get sLemmas sys)
+        implied <- impliedFormulas hnd sys clause
+        if ( implied `S.notMember` get sFormulas sys &&
+             implied `S.notMember` get sSolvedFormulas sys )
+          then return (insertFormula implied)
+          else []
+-}
 
 -- | CR-rule *S_∀*: insert all newly implied formulas.
 insertImpliedFormulas :: Reduction ChangeIndicator

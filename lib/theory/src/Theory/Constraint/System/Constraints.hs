@@ -132,6 +132,7 @@ type NoCanc = (LNTerm, LNTerm)
 data Goal =
        ActionG LVar LNFact
        -- ^ An action that must exist in the trace.
+     | DHEqG LNTerm LNTerm
      | ChainG NodeConc NodePrem
        -- ^ A destruction chain.
      | PremiseG NodePrem LNFact
@@ -190,6 +191,7 @@ instance HasFrees Goal where
         DisjG x       -> foldFrees f x
         SubtermG p    -> foldFrees f p
         NoCancG p    -> foldFrees f p
+        DHEqG t1 t2    -> foldFrees f t1 <> foldFrees f t2
 
     foldFreesOcc  f c goal = case goal of
         ActionG i fa -> foldFreesOcc f ("ActionG":c) (i, fa)
@@ -204,6 +206,7 @@ instance HasFrees Goal where
         DisjG x       -> DisjG    <$> mapFrees f x
         SubtermG p    -> SubtermG <$> mapFrees f p
         NoCancG p    -> NoCancG <$> mapFrees f p
+        DHEqG t1 t2    -> DHEqG <$> mapFrees f t1 <*> mapFrees f t2
 
 instance Apply LNSubst Goal where
     apply subst goal = case goal of
@@ -214,6 +217,7 @@ instance Apply LNSubst Goal where
         DisjG x       -> DisjG    (apply subst x)
         SubtermG p    -> SubtermG (apply subst p)
         NoCancG p    -> NoCancG (apply subst p)
+        DHEqG t1 t2    -> DHEqG (apply subst t1) (apply subst t2)
 
 
 ------------------------------------------------------------------------------
@@ -262,3 +266,4 @@ prettyGoal (SplitG x) =
 prettyGoal (SubtermG (l,r)) =
     prettyLNTerm l <-> operator_ "⊏" <-> prettyLNTerm r
 prettyGoal (NoCancG (l,r) ) = prettyLNTerm l <-> text "NoCanc" <-> prettyLNTerm r
+prettyGoal (DHEqG t1 t2 ) = prettyLNTerm t1 <-> text "DHEq" <-> prettyLNTerm t2
