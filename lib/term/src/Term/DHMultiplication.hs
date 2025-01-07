@@ -38,7 +38,7 @@ module Term.DHMultiplication (
   , varInMu
   --, unbox
   , isNoCanc
-
+  , notUnifiableLits
 
   --, rootIndicator
   --, indicator
@@ -249,6 +249,12 @@ compatibleLits ta1 ta2 = case sortCompare (sortOfLNTerm ta1) (sortOfLNTerm ta2) 
                           Just EQ -> True
                           Just LT -> False
                           Nothing -> False
+
+notUnifiableLits :: LNTerm -> LNTerm -> Bool
+notUnifiableLits ta1 ta2 
+  | (isDHLit ta1 && (not $ compatibleLits ta1 ta2) ) = True
+  | (isDHLit ta2 && (not $ compatibleLits ta2 ta1) ) = True
+  | otherwise = False
 
 
 {-
