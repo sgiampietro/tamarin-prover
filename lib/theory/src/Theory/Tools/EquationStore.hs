@@ -67,7 +67,7 @@ import           GHC.Generics          (Generic)
 import           Logic.Connectives
 import Term.Unification
 import           Term.Rewriting.Norm (norm')
-import            Term.DHMultiplication
+import            Term.DHMultiplication (notUnifiableLits)
 import           Theory.Text.Pretty
 
 import           Control.Monad.Fresh
@@ -85,7 +85,7 @@ import qualified Control.Monad.State   as MS
 
 import           Data.Binary
 import qualified Data.Foldable         as F
-import           Data.List          (delete,find,intersect,intersperse,nub,(\\))
+import           Data.List          (delete,find,intersect,intersperse,nub,(\\), permutations)
 import           Data.Maybe
 import qualified Data.Set              as S
 import           Extension.Data.Label  hiding (for, get)
@@ -282,7 +282,7 @@ addMixedEqs hnd eqs0 dhvars eqStore =
 
 
 purifySubstitution :: LNSubst -> Maybe LNSubst
-purifySubstitution subst =  if dom newsubst `intersect` varsRange newsubst /= [] 
+purifySubstitution subst =  if dom newsubst `intersect` varsRange newsubst /= []
                               then Nothing
                               else Just newsubst
                              where newsubst = substFromList $ map (\(x,y)->(x, applyVTerm subst y)) (substToList subst)
@@ -293,7 +293,7 @@ purifySubstitution subst =  if dom newsubst `intersect` varsRange newsubst /= []
 applyEqStore :: MaudeHandle -> LNSubst -> EqStore -> EqStore
 applyEqStore hnd asubst eqStore
     | dom asubst `intersect` varsRange asubst /= [] -- || trace (show ("applyEqStore", asubst, eqStore)) False
-    = case purifySubstitution asubst of 
+    = case purifySubstitution asubst of
         Just asubst2 -> applyEqStore hnd asubst2 eqStore
         Nothing -> error $ "applyEqStore: dom and vrange not disjoint for `"++show asubst++"'"
     | otherwise
@@ -633,13 +633,13 @@ addDHEqs :: MonadFresh m
 addDHEqs hnd t1zzs genpermt zzbool eqdhstore = do
     let t1 = (map (\(a,_,_)->a) t1zzs)
         permt =  (map (\(a,_,_)->a) genpermt)
-    case unifyLNDHProtoTermFactored (zipWith eqs permt t1) `runReader` hnd of
+    case (if (any (\(Equal x y)-> notUnifiableLits x y) (zipWith eqs permt t1)) then [] else unifyLNDHProtoTermFactored (zipWith eqs permt t1) `runReader` hnd) of
         [] | zzbool ->  return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
         [] | not zzbool -> trace (show ("GENERALIZING", permt, t1)) $ addDHEqs hnd (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) genpermt) True eqdhstore
         [substFresh] | substFresh == emptySubstVFresh ->
             return (eqdhstore, Nothing)
         substs -> do
-            let generalize sub = substFromListVFresh $ (filter (\(a,b)-> not $ elem a ((map (\(_,_,a)->a) t1zzs)++(map (\(_,_,a)->a) genpermt)))) (substToListVFresh sub) 
+            let generalize sub = substFromListVFresh $ (filter (\(a,b)-> not $ elem a ((map (\(_,_,a)->a) t1zzs)++(map (\(_,_,a)->a) genpermt)))) (substToListVFresh sub)
                 substs' = map generalize substs
             let eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs' ) eqdhstore
             return (eqStore', Nothing)
@@ -680,7 +680,7 @@ addDHEqs hnd t1zzs permt zzbool eqdhstore = do
 addDHEqs2 :: MonadFresh m
        => MaudeHandle -> LNTerm -> LNTerm -> EqStore -> m (EqStore, Maybe SplitId)
 addDHEqs2 hnd t1 indt eqdhstore =
-    case unifyLNDHProtoTermFactored eqs `runReader` hnd of
+    case (if (any (\(Equal x y)-> notUnifiableLits x y) eqs) then [] else unifyLNDHProtoTermFactored eqs `runReader` hnd) of
         [] -> return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
         [substFresh] | substFresh == emptySubstVFresh ->
             return (eqdhstore, Nothing)
@@ -712,7 +712,7 @@ addDHProtoEqs hnd t1zzs permt zzbool eqdhstore = do
         --muvariablesindt = (concatMap varInMu permt)
         --ist1var x = elem x $ concatMap varsVTerm t1
         --isindtvar x = elem x $ concatMap varsVTerm permt
-    case unifyLNDHProtoTermFactored (zipWith Equal permt t1) `runReader` hnd of
+    case (if (any (uncurry notUnifiableLits) (zip permt t1)) then [] else unifyLNDHProtoTermFactored (zipWith Equal permt t1) `runReader` hnd) of
         [] | zzbool ->  return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
         [] | not zzbool -> trace (show ("GENERALIZING", permt, t1)) $ addDHProtoEqs hnd (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) permt True eqdhstore
         [substFresh] | substFresh == emptySubstVFresh ->
@@ -730,15 +730,15 @@ addDHProtoEqs hnd t1zzs permt zzbool eqdhstore = do
             addsubsts sub eqst= applyEqStore hnd sub eqst
             changeqstore [x] eq = addsubsts x eq
             changeqstore (x:xs) eq = changeqstore xs (addsubsts x eq)
-            generaltup (c, cterm) = case (sortOfLNTerm (varTerm c)) of 
+            generaltup (c, cterm) = case (sortOfLNTerm (varTerm c)) of
               -- a | a == LSortE  && ((ist1var c && (not $ elem c muvariablest1)) || (isindtvar c && (not $ elem c muvariablesindt)) ) -> do 
-              a | a == LSortE  -> do 
+              a | a == LSortE  -> do
                   w1 <- freshLVar "yk" LSortVarE
                   v1 <- freshLVar "zk" LSortVarE
                   return $ trace (show ("show", w1,v1)) (c, fAppdhPlus (fAppdhTimesE (cterm, varTerm v1), varTerm w1))
                   --return $ trace (show ("show", v1)) (c, fAppdhTimesE (cterm, varTerm v1))
               -- a | a == LSortG  && ((ist1var c && (not $ elem c muvariablest1)) || (isindtvar c && (not $ elem c muvariablesindt)) )  -> do 
-              a | a == LSortG -> do 
+              a | a == LSortG -> do
                   w1 <- freshLVar "wk" LSortVarG
                   v1 <- freshLVar "vk" LSortVarE
                   return (c, fAppdhMult (fAppdhExp (cterm,varTerm v1), varTerm w1))
