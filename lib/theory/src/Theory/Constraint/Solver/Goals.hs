@@ -544,7 +544,7 @@ solveNoCanc x y = do
         else error "NoCanc does not hold"  -- TODO: not sure what to do if you don't have this condition? maybe add y and inv(x) to the DH-equation store? 
       )
 
-solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact containing a boxed term as conclusion. 
+solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact as conclusion. 
              -> NodePrem       -- ^ Premise to solve.
              ->LNFact       -- ^ Product term of which we have to find the indicator  
              -> Reduction String -- ^ Case name to use.
@@ -603,7 +603,7 @@ solveDHIndaux bset nbset term p faPrem rules instrules =
             else do
               possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n Nothing
               --insertDHEdges possibletuple neededInds term p
-              insertKdhEdges possibletuple neededInds (clterm term) p
+              insertKdhEdges possibletuple neededInds (clterm term) p 
               return "MatchingEachIndicatorWithOutFacts" 
       es -> do
           solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) es

@@ -34,6 +34,7 @@ module Theory.Model.Fact (
   , isProtoFact
   , isInFact
   , isOut
+  , isFreshFact
   , isKLogFact
 
   , factTagName
@@ -415,6 +416,10 @@ isProtoFact _                            = False
 isInFact :: Fact t -> Bool
 isInFact (Fact InFact _ _) = True
 isInFact _                 = False
+
+isFreshFact :: Fact t -> Bool
+isFreshFact (Fact FreshFact _ _) = True
+isFreshFact _                 = False
 
 isOut :: Fact t -> Bool
 isOut (Fact OutFact _ _) = True
