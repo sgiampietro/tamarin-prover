@@ -117,7 +117,7 @@ import Data.Maybe (fromJust, isJust)
 import qualified Data.Map.Strict                         as M'
 import qualified Data.Set                                as S
 import qualified Data.ByteString.Char8                   as BC
-import           Data.List                               (mapAccumL, delete , subsequences, length , nubBy, permutations, intersect, (\\))
+import           Data.List                               (mapAccumL, delete , subsequences, length , nub, nubBy, permutations, intersect, (\\), splitPlaces)
 import           Safe
 
 import           Control.Basics
@@ -291,13 +291,13 @@ insertFreshNodeConcOutInst rules instrules n Nothing = do
       -- irulist <- replicateM n $ traverseDHNodes rules
       irulist <- traverseDHNodes rules
       let pairs = [(ru, (i,c), (f, head $ factTerms f), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, not $ isMuTerm (head $ factTerms f), rterm <- multRootList (head $ factTerms f)]
-      disjunctionOfList (concatMap permutations (combinations n pairs))
+      disjunctionOfList (nub $ concatMap permutations (nub $ combinations n pairs))
 insertFreshNodeConcOutInst rules instrules n (Just ((j,ruj,faConc,cj), ta)) = do
       -- irulist <- replicateM n $ traverseDHNodes rules
       irulist <- traverseDHNodes rules
       let pairs = [(ru, (i,c), (f, head $ factTerms f), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, not $ isMuTerm (head $ factTerms f), rterm <- multRootList (head $ factTerms f)]
           pairs2 =  [(ruj, (j,cj), (faConc, ta), rterm , Nothing,False) | rterm <- multRootList ta ]
-          finallist = (concatMap permutations (filter ( any (\(a,(i,b),c,d,e,f) -> i==j && a ==ruj)) (combinations n $ pairs++pairs2)) )
+          finallist = nub $ (concatMap permutations (filter ( any (\(a,(i,b),c,d,e,f) -> i==j && a ==ruj)) (combinations n $ pairs++pairs2)) )
       disjunctionOfList finallist
 
 
@@ -749,11 +749,17 @@ insertDHEdges tuplelist indts premTerm p = do
     forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
 
 
-insertKdhEdges :: [(RuleACInst, NodeConc, (LNFact,LNTerm), LNTerm, Maybe RuleACConstrs, Bool)] -> [LNTerm] -> LNTerm -> NodePrem -> Reduction ()
-insertKdhEdges tuplelist indts premTerm p = do
+insertKdhEdges :: [(RuleACInst, NodeConc, (LNFact,LNTerm), LNTerm, Maybe RuleACConstrs, Bool)] -> [LNTerm] -> LNTerm -> NodePrem ->  Reduction ()
+insertKdhEdges tuplelist indts premTerm p = do -- instrules 
     let rootpairs = (map (\(a,b,(c,t),d,e,f)-> (t,d)) tuplelist)
         cllist = nubBy (\(a,b,c,d,e,f) (a2,b2,c2,d2,e2,f2) -> b == b2) tuplelist
-    trace (show ("thisrootpairs", rootpairs, indts) ) $ solveIndFactKdh SplitNow rootpairs (premTerm, indts) 
+        --usedrules = map (\(a,b,c,d,e,f)->a) cllist
+        -- premisefacts ru = map snd $ enumPrems ru
+        --freshfacts = filter (\b -> isFreshFact b || isFrDHFact b) (concatMap (\(i,ru) -> premisefacts ru) instrules)
+        -- freshvars = concatMap varsVTerm $ concatMap factTerms freshfacts
+        -- newfreshfacts = filter (\b -> isFreshFact b || isFrDHFact b) (concatMap premisefacts usedrules)
+        -- newfreshvars = (concatMap varsVTerm $ concatMap factTerms freshfacts) \\ freshvars
+    trace (show ("thisrootpairs", rootpairs, indts) ) $ solveIndFactKdh SplitNow rootpairs (premTerm, indts) -- freshvars newfreshvars
     --forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
     forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> trace (show ("thisc2c3", c1, c2,c3)) $ exploitNodeId c1 c2 c3)
 
@@ -1346,6 +1352,22 @@ solveTermDHEqsChain splitStrat rules instrules fun p faPrem (j,ruj, fa1, c) (ta2
     --      return Changed 
 
 
+combineNlists :: Int -> [LNTerm] -> [[LNTerm]]
+combineNlists 0 _ = []
+combineNlists 1 xs = [ [x] | x <- xs]
+combineNlists 2 xs = [x:[y] | x<-xs , y<- xs]
+combineNlists n xs = [ x:zs  | x<- xs, zs<-(combineNlists (n-1) xs)]
+
+createPerms :: Int -> LNTerm -> [[LNTerm]]
+createPerms m t = if m == 1 
+                    then map (\x-> [x]) indts
+                    else combineNlists m indts          
+                   where indts = multRootList t 
+
+{-replacesubsts :: [LNTerm] -> M.Map LNTerm Int -> [Int] -> [[(LVar, LVar)]] -> [LNTerm]
+replacesubsts [x] map ints esubsts | M.findWithDefault 0 x map <= 1 = x
+replacesubsts [x] map ints esubsts | _ = -}
+
 protoCase :: SplitStrategy -> S.Set LNTerm -> S.Set LNTerm -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
 protoCase splitStrat bset nbset (ta1, ta2) = do
         subst <- getM sEqStore
@@ -1359,11 +1381,29 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
             Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
                           else do
                             let xrooterms =  trace (show ("PROBLEMATICTERM", nta1)) $ multRootList nta1
-                                xindterms = map (\x -> rootIndKnown2 hndNormal bset nbset x) xrooterms
+                                xindterms = nub $ map (\x -> rootIndKnown2 hndNormal bset nbset x) xrooterms
+                                n = length xindterms
                                 --xindterms = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal ) xrooterms
                             hnd <- trace (show ("XINSDTERMS", xindterms)) getMaudeHandleDH
-                            permutedlist <- disjunctionOfList $ permutations (multRootList nta2)
-                            solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms nta1 nta2 permutedlist
+                            permutedlist <- disjunctionOfList $ createPerms n nta2
+                            let nublist = nub permutedlist
+                                appearances = map (\x-> length $ filter (==x) permutedlist) nublist 
+                                eterms = map (\t -> filter (\v->lvarSort v == LSortE) $ varsVTerm t) nublist
+                                zipped = zip nublist $ zip appearances eterms
+                            if any (\(a,b)-> a>1 && null b) $ zip appearances eterms
+                              then contradictoryIf True
+                              else do 
+                                    ffs <- replicateM (foldl (+) 0 (filter (>1) appearances)) $ freshLVar "ff" LSortE 
+                                    let esubsts = map (\(a,(b,c))-> (a,(b, head c))) $ filter (\(a,(b,c))-> b>1) zipped
+                                        evars = (map (\(a,(b,c))-> c) esubsts)
+                                        splitlist = splitPlaces (map (\(a,(b,c))-> b) esubsts) ffs
+                                        ffsums = map (\f -> foldl (\t v -> if t == fAppdhZero then LIT (Var v) else fAppdhPlus (t, LIT (Var v))) fAppdhZero f) splitlist
+                                        permsubsts = map (\(e,fs) -> map (\f-> (e,f)) fs) $  zip evars ffs
+                                        newsubst = substFromList $ zip evars ffsums
+                                 let splite :: LNTerm -> Int -> [LNTerm]
+                                        splite ind1 reps = do
+                                                zzs <- replicateM reps $ freshLVar "ff" LSortE
+                                    solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms nta1 nta2 permutedlist
                             return Changed
             _ -> error "TODO"
 
@@ -1460,7 +1500,7 @@ solveIndFactDH split ((fa1, t1), t2) (fa2, acclist)=
 
 
 solveIndFactKdh :: SplitStrategy -> [(LNTerm, LNTerm)] -> (LNTerm,[LNTerm]) -> Reduction ()
-solveIndFactKdh split fa1ta1 (ta2, indterms) = do
+solveIndFactKdh split fa1ta1 (ta2, indterms) = do -- freshvars newfreshvars 
     zzs <- replicateM (length indterms) $ freshLVar "zz" LSortE
     yys <- replicateM (length indterms) $ freshLVar "yy" LSortE --ADDED
     eqstore <- getM sEqStore
@@ -1476,13 +1516,17 @@ solveIndFactKdh split fa1ta1 (ta2, indterms) = do
     --solveTermEqs split $ map (\i -> (uncurry Equal) (fromJust i) ) gterms
     hndDH <- getMaudeHandleDH
     --(eqs2, maySplitId) <- addDHEqs hndDH genindterms permutedlist False eqstore 
-    (eqs2, maySplitId) <- addDHEqs hndDH genindterms genpermterms False eqstore   
+    (eqs2, maySplitId) <- addDHEqs hndDH genindterms genpermterms False eqstore   -- TODO: CHECK HERE IF eqs2 unifies 2 different FRESH terms!!
     se  <- trace (show (genindterms, genpermterms, "showhere from", eqs2)) $ gets id
     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
     noContradictoryEqStore
     void substSystem
     void normSystem
     subst <- getM sEqStore
+    --let freshvars2 = map (\v-> applyVTerm (_eqsSubst subst) (LIT (Var v))) freshvars
+    --    newfreshvars2 = map (\v-> applyVTerm (_eqsSubst subst) (LIT (Var v))) newfreshvars
+    --if ( any (\v -> elem v freshvars2) newfreshvars2 )
+    -- then contradictoryIf True else
     void $ solveIndicator (applyVTerm (_eqsSubst subst) ta2) (map (applyVTerm (_eqsSubst subst)) (map fst fa1ta1))
 
 
