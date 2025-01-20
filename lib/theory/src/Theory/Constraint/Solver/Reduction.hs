@@ -108,7 +108,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -117,7 +117,8 @@ import Data.Maybe (fromJust, isJust)
 import qualified Data.Map.Strict                         as M'
 import qualified Data.Set                                as S
 import qualified Data.ByteString.Char8                   as BC
-import           Data.List                               (mapAccumL, delete , subsequences, length , nub, nubBy, permutations, intersect, (\\), splitPlaces)
+import           Data.List                               (mapAccumL, delete , subsequences, length , nub, nubBy, permutations, intersect, (\\))
+import Data.List.Split (splitPlaces)
 import           Safe
 
 import           Control.Basics
@@ -1257,9 +1258,9 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
                               else contradictoryIf True
                     _  -> do
                             void substSystem
-                            let bb = map (applyVTerm subst) $ S.toList nbset 
-                                nb = filter (\i-> (isFrNZEVar i && (not $ i `elem` bb))) $ map (\v -> LIT (Var v)) $ varsRange subst                 
-                            b <- solveIndicatorProto nb sta1 sta2
+                            --let bb = map (applyVTerm subst) $ S.toList nbset 
+                            --    nb = filter (\i-> (isFrNZEVar i && (not $ i `elem` bb))) $ map (\v -> LIT (Var v)) $ varsRange subst                 
+                            b <- solveIndicatorProto [fAppdhZero] sta1 sta2-- nb sta1 sta2
                             if b == "CONTRADICTION"
                              then contradictoryIf True
                              else void normSystem
@@ -1364,9 +1365,17 @@ createPerms m t = if m == 1
                     else combineNlists m indts          
                    where indts = multRootList t 
 
-{-replacesubsts :: [LNTerm] -> M.Map LNTerm Int -> [Int] -> [[(LVar, LVar)]] -> [LNTerm]
-replacesubsts [x] map ints esubsts | M.findWithDefault 0 x map <= 1 = x
-replacesubsts [x] map ints esubsts | _ = -}
+replacesubsts :: [LNTerm] -> M.Map LNTerm [(LVar,LNTerm)] -> [LNTerm]
+replacesubsts [] _ = []
+replacesubsts [x] map1 | M.notMember x map1 = [x]
+replacesubsts [x] map1 | otherwise = [applyVTerm (substFromList $ [head (map1 M.! x)]) x]
+replacesubsts (x:xs) map1 | M.notMember x map1 = x : (replacesubsts xs map1)
+replacesubsts (x:xs) map1 | otherwise = (applyVTerm (substFromList [head (map1 M.! x)]) x): (replacesubsts xs map')
+                             where map' = M.adjust (drop 1) x map1
+
+markFirst :: [LVar] -> [LVar]
+markFirst [] = []
+markFirst (x:xs) = (x{lvarName = "ff1"}):xs
 
 protoCase :: SplitStrategy -> S.Set LNTerm -> S.Set LNTerm -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
 protoCase splitStrat bset nbset (ta1, ta2) = do
@@ -1395,15 +1404,18 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
                               else do 
                                     ffs <- replicateM (foldl (+) 0 (filter (>1) appearances)) $ freshLVar "ff" LSortE 
                                     let esubsts = map (\(a,(b,c))-> (a,(b, head c))) $ filter (\(a,(b,c))-> b>1) zipped
-                                        evars = (map (\(a,(b,c))-> c) esubsts)
-                                        splitlist = splitPlaces (map (\(a,(b,c))-> b) esubsts) ffs
+                                        evars = (map (\(a,(b,c))-> (a,c)) esubsts)
+                                        splitlist = map markFirst $ splitPlaces appearances ffs
                                         ffsums = map (\f -> foldl (\t v -> if t == fAppdhZero then LIT (Var v) else fAppdhPlus (t, LIT (Var v))) fAppdhZero f) splitlist
-                                        permsubsts = map (\(e,fs) -> map (\f-> (e,f)) fs) $  zip evars ffs
-                                        newsubst = substFromList $ zip evars ffsums
-                                 let splite :: LNTerm -> Int -> [LNTerm]
-                                        splite ind1 reps = do
-                                                zzs <- replicateM reps $ freshLVar "ff" LSortE
-                                    solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms nta1 nta2 permutedlist
+                                        permsubsts = map (\((a,e),fs) -> (a,map (\f-> (e,LIT (Var f))) fs) ) $  zip evars splitlist
+                                        newsubst = substFromList $ zip (map snd evars) ffsums
+                                        newpermlist = replacesubsts permutedlist (M.fromList permsubsts)
+                                    oldsubst <- getM sSubst
+                                    eqstore <- getM sEqStore
+                                    setM sEqStore ( eqstore{_eqsSubst = (applySubst newsubst oldsubst)} )
+                                    --eqstore <- getM sEqStore
+                                    --setM sEqStore (applyEqStore )
+                                    solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms nta1 nta2 newpermlist
                             return Changed
             _ -> error "TODO"
 

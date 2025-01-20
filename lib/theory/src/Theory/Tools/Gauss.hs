@@ -23,7 +23,7 @@ import qualified Data.Map     as Map
 
 import GHC.Real
 import Term.LTerm -- (LNTerm)
-import Debug.Trace.Ignore
+import Debug.Trace -- .Ignore
 --import Term.Builtin.Convenience (x0)
 
 import Data.List (subsequences, (\\))
@@ -220,8 +220,7 @@ traceBack2' zero n (r:rows) extravars =  (var : (traceBack2' zero n rs extravars
 
 traceBack2 :: LNTerm -> Matrix LNTerm -> [LVar] -> Vector LNTerm -> Vector LNTerm
 traceBack2 zero matrix vv vars =  if m>0  then reverse (traceBack2' zero m matrix' extravars) else reverse (traceBack2' zero 0 matrix' [])
-          where extrav = map (\v -> LIT (Var v)) vv
-                matrix' = reverse (map reverse matrix)
+          where matrix' = reverse (map reverse matrix)
                 extravars = reverse vars
                 m = length extravars
 
@@ -244,10 +243,11 @@ combineNlists 1 xs = [xs]
 combineNlists 2 xs = [x:[y] | x<-xs , y<- xs]
 combineNlists n xs = [ x:zs  | x<- xs, zs<-(combineNlists (n-1) xs)]
 
+{-
 mergeWithOne :: [LVar] -> [LNTerm] -> [(LVar, LNTerm)]
 mergeWithOne [] options = []
-mergeWithOne (v:vs) (o:ops) = if lvarName v == "yk" then (v,o):(mergeWithOne vs ops) else (v,fAppdhOne):(mergeWithOne vs (o:ops))
-
+mergeWithOne (v:vs) (o:ops) = (v,o):(mergeWithOne vs ops)
+-}
 -- should return a Maybe [(Vector LNTerm, [LNTerm], [LNTerm])] (list of nulspace basis vectors)
 solveMatrix2 :: LNTerm -> [LNTerm] -> Matrix LNTerm -> [LNTerm] -> (Maybe [(Vector LNTerm, [LNTerm], [LNTerm], [(LVar,LNTerm)])])
 solveMatrix2 zero basis matrix variables 
@@ -263,10 +263,10 @@ solveMatrix2 zero basis matrix variables
       n = ncol - nrows
       zerovars = map getVar subszero
       extravars = map fromJust $ ((map getVar variables) \\ (map getVar variablesP))\\zerovars
-      extravars' = filter (\i-> lvarName i == "yk") extravars
-      m = trace (show "waiting") length extravars'
-      extravarssubst = trace (show ("m", m,"combineN", basis)) (createListBasis zero basis )
-      options = trace (show ("extravarsubst", extravarssubst, combineNlists m extravarssubst)) $ map (\ops -> mergeWithOne extravars ops) (combineNlists m extravarssubst)
+      -- extravars' = filter (\i-> lvarName i /= "yk") extravars
+      m = trace (show "waiting") length extravars --'
+      extravarssubst = filter (\z-> not $ all (fAppdhZero == ) z) $ combineNlists m [fAppdhOne, fAppdhZero] -- trace (show ("m", m,"combineN", basis)) (createListBasis zero basis )
+      options = trace (show ("extravarsubst", extravarssubst, extravarssubst)) $ map (\ops -> zip extravars ops) extravarssubst -- (combineNlists m extravarssubst)
 
 
 

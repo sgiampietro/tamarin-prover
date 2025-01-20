@@ -35,6 +35,7 @@ module Term.DHMultiplication (
   , rootIndUnknown
   , eTermsOf
   , varTermsOf
+  , varTermsOf'
   , varInMu
   --, unbox
   , isNoCanc
@@ -208,6 +209,15 @@ varTermsOf t@(LIT l)
   | isvarEVar t = [t]
   | otherwise = []
 varTermsOf t@(FAPP f ts) = concatMap varTermsOf ts
+
+varTermsOf' :: LNTerm -> [ LVar ]
+--varTermsOf t@(viewTerm3 -> Box dht) = varTermsOf dht
+--varTermsOf t@(viewTerm3 -> BoxE dht) = varTermsOf dht
+varTermsOf' t@(LIT (Var l))
+  | isvarGVar t = [l]
+  | isvarEVar t = [l]
+  | otherwise = []
+varTermsOf' t@(FAPP f ts) = concatMap varTermsOf' ts
 
 {-}
 varTermOf :: LNTerm -> LNTerm -> [(LNTerm, LNTerm)]
