@@ -1198,25 +1198,26 @@ solveIndicatorProto basis t1 t2 = do
         eqStore <-  getM sEqStore
         hndCR <- getMaudeHandleCR
         (subst', subst12) <- disjunctionOfList substlist
-        let normsubst = trace (show ("isthisis?", subst')) (normalizeSubstList hndCR subst') 
+        let normsubst = trace (show ("isthisis?", subst', subst12)) (normalizeSubstList hndCR subst') 
         contradictoryIf $ variableCheck t1 subst12 t2 normsubst
         -- hndCR
         let normsubst' = compose (substFromList subst12) (substFromList normsubst)
-            normsubst2 = substFromList (normalizeSubstList hnd $ substToList normsubst')-- map (\(a,b) -> (a,applyVTerm (substFromList $ subst12) b)) normsubst
-        trace (show ("probhere", normsubst')) setM sEqStore $ applyEqStore hnd (normsubst2) eqStore
+            -- normsubst2 = substFromList (normalizeSubstList hnd $ substToList normsubst')-- map (\(a,b) -> (a,applyVTerm (substFromList $ subst12) b)) normsubst
+        trace (show ("probhere", normsubst')) setM sEqStore $ applyEqStore hnd (normsubst') eqStore
         --substCheck <- gets (substCreatesNonNormalTerms hnd)
         --store <- getM sEqStore
         neweqstore <- getM sEqStore
         let oldsubsts =  _eqsSubst neweqstore
             newsubst =  substFromList $ normalizeSubstList hnd (substToList oldsubsts)
         setM sEqStore ( neweqstore{_eqsSubst = newsubst} )
-        void substSystem
+        trace (show ("neweqstore", neweqstore)) $ void substSystem
         void normSystemCR
-        void normSystem
+        neweqstore2 <- getM sEqStore
+        trace (show ("noContradictoryEqStore",eqsIsFalse neweqstore2)) void normSystem
         -- void normSystemCR
         --nodes <- getM sNodes
         --setM sNodes $ M.map (\r -> runReader (normRule r) hndCR) nodes
-        return ("Matched")
+        return "Matched"
    Nothing -> do
           --setNotReachable
           trace (show "here>WA?>") $ contradictoryIf True
@@ -1264,7 +1265,7 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
                             b <- solveIndicatorProto [fAppdhZero] sta1 sta2-- nb sta1 sta2
                             if b == "CONTRADICTION"
                              then contradictoryIf True
-                             else void normSystem
+                             else  trace (show "YAYHERE") $ void normSystem
             _  -> do
                     void substSystem
                     let bb = map (applyVTerm subst) $ S.toList nbset 
@@ -1272,7 +1273,7 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
                     b <- trace (show ("canwegethere", sta1,"And\n", sta2, "**", ta1,"**", ta2, "bset", bset, "nbset", nb)) solveIndicatorProto nb sta2 sta1
                     if b == "CONTRADICTION"
                       then contradictoryIf True
-                      else void normSystem
+                      else trace (show "YAYHERE2") $ void normSystem
      else do
         let newsubsts = substFromList $ map (\x -> (x, fAppdhOne)) toset1
         eqStore <- getM sEqStore
@@ -1297,13 +1298,13 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
                             let bb = map (applyVTerm subst) $ S.toList nbset 
                                 nb = filter (\i-> (isFrNZEVar i && (not $ i `elem` bb))) $ map (\v -> LIT (Var v)) $ varsRange subst                 
                             trace (show ("canwegethere", sta1,"And\n", sta2, "**", ta1,"**", ta2, "bset", bset, "nbset", nb)) $ solveIndicatorProto nb sta1 sta2
-                            void normSystem
+                            trace (show "YAYHERE3") $ void normSystem
             _  -> do
                     void substSystem
                     let bb = map (applyVTerm subst) $ S.toList nbset 
                         nb = filter (\i-> (isFrNZEVar i && (not $ i `elem` bb))) $ map (\v -> LIT (Var v)) $ varsRange subst                 
                     trace (show ("canwegethere2", sta1,"And\n", sta2, "**", ta1,"**", ta2, "bset", bset, "nbset", nb)) $ solveIndicatorProto nb sta2 sta1
-                    void normSystem  
+                    trace (show "YAYHERE4") $ void normSystem  
 
 solveNeeded ::  (LNTerm -> NodeId -> StateT  System (FreshT (DisjT (Reader ProofContext))) a0) -> LNTerm ->  NodeId ->        -- exponent that is needed.
                 Reduction String -- ^ Case name to use.
@@ -1404,19 +1405,21 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
                               then contradictoryIf True
                               else do 
                                     ffs <- replicateM (foldl (+) 0 (filter (>1) appearances)) $ freshLVar "ff" LSortE 
-                                    let esubsts = map (\(a,(b,c))-> trace (show ("thishead?", c)) (a,(b, head c))) $ filter (\(a,(b,c))-> b>1) zipped
-                                        evars = trace (show ("theFS", ffs)) (map (\(a,(b,c))-> (a,c)) esubsts)
+                                    let esubsts = map (\(a,(b,c))-> (a,(b, head c))) $ filter (\(a,(b,c))-> b>1) zipped
+                                        evars = (map (\(a,(b,c))-> (a,c)) esubsts)
                                         splitlist = map markFirst $ splitPlaces (filter (>1) appearances) ffs
-                                        ffsums = trace (show ("theFS2", splitlist)) $ map (\f -> foldl (\t v -> if t == fAppdhZero then LIT (Var v) else fAppdhPlus (t, LIT (Var v))) fAppdhZero f) splitlist
+                                        ffsums = map (\f -> foldl (\t v -> if t == fAppdhZero then LIT (Var v) else fAppdhPlus (t, LIT (Var v))) fAppdhZero f) splitlist
                                         permsubsts = map (\((a,e),fs) -> (a,map (\f-> (e,LIT (Var f))) fs) ) $  zip evars splitlist
                                         newsubst = substFromList $ zip (map snd evars) ffsums
                                         newpermlist = replacesubsts permutedlist (M.fromList permsubsts)
                                     oldsubst <- getM sSubst
-                                    eqstore <- getM sEqStore
-                                    setM sEqStore ( eqstore{_eqsSubst = (applySubst newsubst oldsubst)} )
-                                    --eqstore <- getM sEqStore
+                                    eqstore <- trace (show ("PERMUTEDLIST", permutedlist, newpermlist)) $ getM sEqStore
+                                    setM sEqStore ( eqstore{_eqsSubst = substFromList $ normalizeSubstList hndNormal $ substToList (compose newsubst oldsubst)} )
+                                    eqstore2 <- getM sEqStore
                                     --setM sEqStore (applyEqStore )
-                                    solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms nta1 nta2 newpermlist
+                                    void normSystem
+                                    trace (show ("eqstore2", eqstore2)) $ void substSystem
+                                    solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms nta1 (runReader (norm' $ applyVTerm newsubst nta2) hndNormal) newpermlist
                             return Changed
             _ -> error "TODO"
 
