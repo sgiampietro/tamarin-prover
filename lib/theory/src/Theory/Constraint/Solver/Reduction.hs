@@ -1201,8 +1201,9 @@ solveIndicatorProto basis t1 t2 = do
         let normsubst = trace (show ("isthisis?", subst')) (normalizeSubstList hndCR subst') 
         contradictoryIf $ variableCheck t1 subst12 t2 normsubst
         -- hndCR
-        let normsubst' = compose (substFromList subst12) (substFromList normsubst)-- map (\(a,b) -> (a,applyVTerm (substFromList $ subst12) b)) normsubst
-        trace (show ("probhere", normsubst')) setM sEqStore $ applyEqStore hnd (normsubst') eqStore
+        let normsubst' = compose (substFromList subst12) (substFromList normsubst)
+            normsubst2 = substFromList (normalizeSubstList hnd $ substToList normsubst')-- map (\(a,b) -> (a,applyVTerm (substFromList $ subst12) b)) normsubst
+        trace (show ("probhere", normsubst')) setM sEqStore $ applyEqStore hnd (normsubst2) eqStore
         --substCheck <- gets (substCreatesNonNormalTerms hnd)
         --store <- getM sEqStore
         neweqstore <- getM sEqStore
@@ -1368,9 +1369,9 @@ createPerms m t = if m == 1
 replacesubsts :: [LNTerm] -> M.Map LNTerm [(LVar,LNTerm)] -> [LNTerm]
 replacesubsts [] _ = []
 replacesubsts [x] map1 | M.notMember x map1 = [x]
-replacesubsts [x] map1 | otherwise = [applyVTerm (substFromList $ [head (map1 M.! x)]) x]
+replacesubsts [x] map1 | otherwise = trace (show ("showthishead?", (map1 M.! x))) [applyVTerm (substFromList $ [head (map1 M.! x)]) x]
 replacesubsts (x:xs) map1 | M.notMember x map1 = x : (replacesubsts xs map1)
-replacesubsts (x:xs) map1 | otherwise = (applyVTerm (substFromList [head (map1 M.! x)]) x): (replacesubsts xs map')
+replacesubsts (x:xs) map1 | otherwise = trace (show ("showthishead2?", (map1 M.! x))) $ (applyVTerm (substFromList [head (map1 M.! x)]) x): (replacesubsts xs map')
                              where map' = M.adjust (drop 1) x map1
 
 markFirst :: [LVar] -> [LVar]
@@ -1399,14 +1400,14 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
                                 appearances = map (\x-> length $ filter (==x) permutedlist) nublist 
                                 eterms = map (\t -> filter (\v->lvarSort v == LSortE) $ varsVTerm t) nublist
                                 zipped = zip nublist $ zip appearances eterms
-                            if any (\(a,b)-> a>1 && null b) $ zip appearances eterms
+                            if trace (show ("show", zipped)) $ any (\(a,(b,c))-> b>1 && null c) zipped
                               then contradictoryIf True
                               else do 
                                     ffs <- replicateM (foldl (+) 0 (filter (>1) appearances)) $ freshLVar "ff" LSortE 
-                                    let esubsts = map (\(a,(b,c))-> (a,(b, head c))) $ filter (\(a,(b,c))-> b>1) zipped
-                                        evars = (map (\(a,(b,c))-> (a,c)) esubsts)
-                                        splitlist = map markFirst $ splitPlaces appearances ffs
-                                        ffsums = map (\f -> foldl (\t v -> if t == fAppdhZero then LIT (Var v) else fAppdhPlus (t, LIT (Var v))) fAppdhZero f) splitlist
+                                    let esubsts = map (\(a,(b,c))-> trace (show ("thishead?", c)) (a,(b, head c))) $ filter (\(a,(b,c))-> b>1) zipped
+                                        evars = trace (show ("theFS", ffs)) (map (\(a,(b,c))-> (a,c)) esubsts)
+                                        splitlist = map markFirst $ splitPlaces (filter (>1) appearances) ffs
+                                        ffsums = trace (show ("theFS2", splitlist)) $ map (\f -> foldl (\t v -> if t == fAppdhZero then LIT (Var v) else fAppdhPlus (t, LIT (Var v))) fAppdhZero f) splitlist
                                         permsubsts = map (\((a,e),fs) -> (a,map (\f-> (e,LIT (Var f))) fs) ) $  zip evars splitlist
                                         newsubst = substFromList $ zip (map snd evars) ffsums
                                         newpermlist = replacesubsts permutedlist (M.fromList permsubsts)

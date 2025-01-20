@@ -208,7 +208,7 @@ combineMaps key oldvalue newvalue = simplifyraw $ fAppdhPlus (oldvalue,newvalue)
 
 addToMap :: Map.Map (S.Set LNTerm) LNTerm -> [LNTerm] -> LNTerm  -> Map.Map (S.Set LNTerm) LNTerm
 addToMap currmap vars t@(LIT l) = if (elem t vars) then (Map.insertWithKey combineMaps (S.singleton t) fAppdhOne currmap) else (Map.insertWithKey combineMaps (S.singleton fAppdhOne) t currmap)
-addToMap currmap vars t@(FAPP (DHMult o) ts) = case ts of
+addToMap currmap vars t@(FAPP (DHMult o) ts) = case trace (show ("probcoming from here", t)) ts of
     -- [ t1, t2 ] | o == dhMultSym   -> this shouldn't happen. only root terms. 
     [ t1, t2 ] | o == dhTimesSym   -> Map.insertWithKey combineMaps (getkeyfromProd vars t) (getcoefromProd vars t) currmap
     [ t1, t2 ] | o == dhTimesESym   -> Map.insertWithKey combineMaps (getkeyfromProd vars t) (getcoefromProd vars t) currmap
@@ -298,7 +298,7 @@ createMatrixProto nb term target =
         (coeffVars, (constOfTerm, constTarget)) = splitVars matrixvars term target
         --(coeffVarsTarget, constTarget) = splitVars matrixvars target trace (show ("coeffVars",coeffVars,"**",const)) $ 
         polynomials = map (\(coeffX, coeffXTarget) -> parseToMap vars (simplifyraw $ fAppdhPlus (coeffX, simplifyraw $ fAppdhMinus coeffXTarget)) ) coeffVars -- this term now contains the introduced W and V variables. 
-        targetvalue = trace (show (matrixvars, "thistermmm", polynomials, "thistermmm", constTarget, constOfTerm, (simplifyraw $ fAppdhPlus (constTarget, simplifyraw $ fAppdhMinus constOfTerm)))) $ parseToMap vars (simplifyraw $ fAppdhPlus (constTarget, simplifyraw $ fAppdhMinus constOfTerm))
+        targetvalue = trace (show (matrixvars, "thistermmm", polynomials, "thistermmm", constTarget, "*", constOfTerm, "*", (simplifyraw $ fAppdhPlus (constTarget, simplifyraw $ fAppdhMinus $ simplifyraw constOfTerm)))) $ parseToMap vars (simplifyraw $ fAppdhPlus (constTarget, simplifyraw $ fAppdhMinus $ simplifyraw constOfTerm))
         allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetvalue):(map Map.keys polynomials))
         resultmatrix = map (\key -> ((map (\p -> getvalue p key) polynomials )++ [getvalue targetvalue key])) allkeys
         -- allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetpoly):[Map.keys polynomial])
@@ -335,7 +335,7 @@ replace basis (gt1, gt2, subst0, True) (var1, mu1, var2, mu2) = case sol of
                         subst1 = substFromList s
                         newsubst = compose subst1 subst0
     where newgt2 = applyVTerm (substFromList [(var2, LIT (Var var1))]) gt2
-          (wzs, matriz) = createMatrixProto [] (extractMu mu1) (extractMu mu2)
+          (wzs, matriz) = trace (show ("notnormalizes?",extractMu mu1, extractMu mu2 )) $ createMatrixProto [] (extractMu mu1) (extractMu mu2)
           sol = solveMatrix2 fAppdhZero basis matriz wzs
 replace _ (gt1, gt2, subst0, False) _ = (gt1,gt2,subst0, False)
 
@@ -373,7 +373,7 @@ solveIndicatorGaussProto hnd basis term target =
                   _  -> Just $ solveMatrix2 fAppdhZero (fAppdhOne:basis') mat2 wz2
             _ -> Just $ solveMatrix2 fAppdhZero (fAppdhOne:basis') mat2 wz2
            where  
-                  (wz2, mat2) = createMatrixProto [] (t1) (t2)
+                  (wz2, mat2) = createMatrixProto [] (runReader (norm' t1) hnd) (runReader (norm' t2) hnd)
         retrieve s substss = case s of
           Nothing -> Just [(substss, [])]
           Just (Nothing) -> Nothing
