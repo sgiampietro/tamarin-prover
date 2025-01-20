@@ -44,10 +44,11 @@ import Term.Rewriting.Norm
 import Term.Substitution
 
 -- import Theory.Constraint.System.Constraints
-import Debug.Trace.Ignore
+import Debug.Trace -- .Ignore
 import Control.Monad.Disj (disjunctionOfList)
 import           Control.Monad.Reader
 import Data.Primitive (mutableByteArrayContents)
+
 
 
 
@@ -250,9 +251,10 @@ solveIndicatorGauss nb terms target = (\(a,b,c) -> a) $ solveMatrix fAppdhZero (
 -- PART FOR PROTOCOL ACTION INDICATORS
 
 getVariablesOf :: [LNTerm] -> [LNTerm]
-getVariablesOf tis =
-  S.toList (S.unions $ map (S.fromList . varTermsOf) tis)
-
+getVariablesOf tis = map (\v -> LIT (Var v)) (ys ++ zs)
+                        where start = S.toList (S.unions $ map (S.fromList . varTermsOf') tis)
+                              ys = filter (\v-> lvarName v == "yk") start
+                              zs = filter (\v-> lvarName v /= "yk") start
 
 stripVars :: LNTerm -> LNTerm -> LNTerm -- (coeff of X, coeff of Y, constant factor)
 stripVars var t@(LIT l) = if (t == var) then fAppdhOne else fAppdhZero
@@ -357,7 +359,7 @@ solveIndicatorGaussProto hnd basis term target =
         basis' = filter (\i-> i/= fAppdhOne) basis
         --sol = solveMatrix2 fAppdhZero (fAppdhOne:(basis'++map (\x->fAppdhMu (fAppdhExp (pubg, x))) basis')) matriz wzs
         sol = Just $ solveMatrix2 fAppdhZero (fAppdhOne:basis') matriz wzs
-        getsol t1 t2 = case varTermsOf t1 of
+        getsol t1 t2 = case trace (show ("OKSOL", sol)) $ varTermsOf t1 of
             [] -> case varTermsOf t2 of
                   [] -> if sta1 == sta2 
                           then Nothing
