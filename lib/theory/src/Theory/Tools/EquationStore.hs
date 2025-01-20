@@ -76,7 +76,7 @@ import           Control.Monad.Reader
 import           Extension.Prelude
 import           Utils.Misc
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Control.Basics
 import           Control.DeepSeq
@@ -283,9 +283,10 @@ addMixedEqs hnd eqs0 dhvars eqStore =
 
 purifySubstitution :: LNSubst -> Maybe LNSubst
 purifySubstitution subst =  if dom newsubst `intersect` varsRange newsubst /= []
-                              then Nothing
-                              else Just newsubst
-                             where newsubst = substFromList $ map (\(x,y)->(x, applyVTerm subst y)) (substToList subst)
+                              then trace (show ("CURCIAL!", newsubst,dom newsubst, varsRange newsubst)) $ Nothing
+                              else trace (show ("CURCIAL2!", newsubst,dom newsubst, varsRange newsubst)) $ Just newsubst
+                             where  newsubst1 = substFromList $ map (\(x,y)->(x, applyVTerm subst y)) (substToList subst)
+                                    newsubst = substFromList $ map (\(x,y)->(x, applyVTerm newsubst1 y)) (substToList newsubst1)
                                    -- purify tuples = foldr compose emptySubst (map (\x->substFromList [x]) tuples) 
 
 -- | Apply a substitution to an equation store and bring resulting equations into

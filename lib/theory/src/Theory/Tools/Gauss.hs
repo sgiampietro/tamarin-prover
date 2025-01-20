@@ -97,6 +97,7 @@ simplifyraw t= case viewTerm2 t of
   FdhInv t1 -> (case (viewTerm2 t1) of
     FdhInv t2 -> simplifyraw t2
     DHOne     -> fAppdhOne
+    FdhMinus t2 -> fAppdhMinus $ simplifyraw $ fAppdhInv t2
     _         -> t)
   FdhMinus t1 -> (case viewTerm2 t1 of
     FdhMinus t2 -> simplifyraw t2

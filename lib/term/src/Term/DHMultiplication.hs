@@ -217,6 +217,7 @@ varTermsOf' t@(LIT (Var l))
   | isvarGVar t = [l]
   | isvarEVar t = [l]
   | otherwise = []
+varTermsOf' t@(LIT _) = []
 varTermsOf' t@(FAPP f ts) = concatMap varTermsOf' ts
 
 {-}
