@@ -1438,7 +1438,7 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
                                     --setM sEqStore (applyEqStore )
                                     void normSystem
                                     trace (show ("eqstore2", eqstore2, (runReader (norm' $ applyVTerm newsubst nta2) hndNormal))) $ void substSystem
-                                    solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms nta1 (runReader (norm' $ applyVTerm newsubst nta2) hndNormal) $ map (rootIndKnown2 hndNormal bset $ S.fromList (filter isFrNZEVar $ S.toList nbset)) newpermlist
+                                    solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms nta1 (runReader (norm' $ applyVTerm newsubst nta2) hndNormal) newpermlist -- $ map (rootIndKnown2 hndNormal bset $ S.fromList (filter isFrNZEVar $ S.toList nbset)) newpermlist
                             return Changed
             _ -> error "TODO"
 
