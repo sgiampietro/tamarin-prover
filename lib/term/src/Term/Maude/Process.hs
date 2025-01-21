@@ -63,7 +63,7 @@ import System.IO ( Handle, hFlush )
 import Utils.Misc
 -- import Extension.Data.Monoid
 
-import Debug.Trace.Ignore
+import Debug.Trace -- .Ignore
 
 
 -- Unification using a persistent Maude process
@@ -301,7 +301,7 @@ normViaMaude hnd sortOf t =
     msig = mhMaudeSig hnd
     toMaude = fmap normCmd . (lTermToMTerm sortOf)
     fromMaude bindings reply =
-        trace (show ("thisisnormalized", reply)) $ (\mt -> (mTermToLNTerm "z" mt `evalBindT` bindings) `evalFresh` nothingUsed)
+        (\mt -> (mTermToLNTerm "z" mt `evalBindT` bindings) `evalFresh` nothingUsed)
             <$> parseReduceReply msig reply
     incNormCount mp = mp { normCount = 1 + normCount mp }
 
@@ -362,9 +362,9 @@ startMaudeProcessDH maudePath = do
 unifyCmdDH :: [Equal MTerm] -> ByteString
 unifyCmdDH []  = error "unifyCmd: cannot create cmd for empty list of equations."
 unifyCmdDH eqs =
-    "variant unify [1] in DHsimp : " <> seqs <> " .\n"
+    --"variant unify [1] in DHsimp : " <> seqs <> " .\n"
     -- "filtered variant unify in DHsimp : " <> seqs <> " .\n"
-    -- "unify in DHsimp : " <> seqs <> " .\n"
+    "unify [1] in DHsimp : " <> seqs <> " .\n"
   where
     ppEq (Equal t1 t2) = ppMaude t1 <> " =? " <> ppMaude t2
     seqs = B.intercalate " /\\ " $ map ppEq eqs

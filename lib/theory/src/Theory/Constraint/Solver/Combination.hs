@@ -251,10 +251,11 @@ solveIndicatorGauss nb terms target = (\(a,b,c) -> a) $ solveMatrix fAppdhZero (
 -- PART FOR PROTOCOL ACTION INDICATORS
 
 getVariablesOf :: [LNTerm] -> [LNTerm]
-getVariablesOf tis = map (\v -> LIT (Var v)) (ys ++ zs)
+getVariablesOf tis = map (\v -> LIT (Var v)) (es ++ ys ++ zs)
                         where start = S.toList (S.unions $ map (S.fromList . varTermsOf') tis)
+                              es = filter (\v-> lvarName v == "ek") start
                               ys = filter (\v-> lvarName v == "yk") start
-                              zs = filter (\v-> lvarName v /= "yk") start
+                              zs = filter (\v-> lvarName v /= "yk" && lvarName v /= "ek") start
 
 stripVars :: LNTerm -> LNTerm -> LNTerm -- (coeff of X, coeff of Y, constant factor)
 stripVars var t@(LIT l) = if (t == var) then fAppdhOne else fAppdhZero

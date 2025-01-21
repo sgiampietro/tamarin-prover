@@ -1230,9 +1230,10 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permute
     -- permutedlist <- disjunctionOfList $ permutations outterms
     zzs <- replicateM (length xindterms) $ freshLVar "zz" LSortE
     let genindterms = zipWith (\i z-> (i, runReader (norm' $ fAppdhExp (i, LIT (Var z)) ) hndNormal, z) ) xindterms zzs
+        allevars = filter (\x -> lvarSort x == LSortE) $ nub $ varsVTerm ta1 ++ varsVTerm ta2
     --  let genindterms = zip xindterms zzs
     eqstore <- getM sEqStore
-    (eqs2, maySplitId) <- addDHProtoEqs hnd genindterms permutedlist False eqstore
+    (eqs2, maySplitId) <- addDHProtoEqs hnd allevars genindterms permutedlist False eqstore
     se  <-  gets id
     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
     -- setM sEqStore eqs2 
@@ -1367,12 +1368,26 @@ createPerms m t = if m == 1
                     else combineNlists m indts          
                    where indts = multRootList t 
 
+etermOf :: LNTerm -> Maybe LVar
+etermOf x =  if null elist then Nothing else Just (head elist)
+              where elist = filter (\v->lvarSort v == LSortE) $ varsVTerm x
+
+{-}
+replacesubsts :: [LNTerm] -> M.Map (Maybe LVar) [(LVar,LNTerm)] -> [LNTerm]
+replacesubsts [] _ = []
+replacesubsts [x] map1 | M.notMember (etermOf x) map1 = [x]
+replacesubsts [x] map1 | otherwise = trace (show ("orhere", x, (map1 M.! (etermOf x)))) $ [applyVTerm (substFromList $ [head (map1 M.! (etermOf x))]) x]
+replacesubsts (x:xs) map1 | M.notMember (etermOf x) map1 = x : (replacesubsts xs map1)
+replacesubsts (x:xs) map1 | otherwise = trace (show ("orhere2",x,(map1 M.! (etermOf x)))) $ (applyVTerm (substFromList [head (map1 M.! (etermOf x))]) x): (replacesubsts xs map')
+                             where map' = M.adjust (drop 1) (etermOf x) map1
+-}
+
 replacesubsts :: [LNTerm] -> M.Map LNTerm [(LVar,LNTerm)] -> [LNTerm]
 replacesubsts [] _ = []
 replacesubsts [x] map1 | M.notMember x map1 = [x]
-replacesubsts [x] map1 | otherwise = trace (show ("showthishead?", (map1 M.! x))) [applyVTerm (substFromList $ [head (map1 M.! x)]) x]
+replacesubsts [x] map1 | otherwise = trace (show ("orhere", x, (map1 M.! x))) $ [applyVTerm (substFromList $ [head (map1 M.! x)]) x]
 replacesubsts (x:xs) map1 | M.notMember x map1 = x : (replacesubsts xs map1)
-replacesubsts (x:xs) map1 | otherwise = trace (show ("showthishead2?", (map1 M.! x))) $ (applyVTerm (substFromList [head (map1 M.! x)]) x): (replacesubsts xs map')
+replacesubsts (x:xs) map1 | otherwise = trace (show ("orhere2",x,(map1 M.! x))) $ (applyVTerm (substFromList [head (map1 M.! x)]) x): (replacesubsts xs map')
                              where map' = M.adjust (drop 1) x map1
 
 markFirst :: [LVar] -> [LVar]
@@ -1398,19 +1413,23 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
                             hnd <- trace (show ("XINSDTERMS", xindterms)) getMaudeHandleDH
                             permutedlist <- disjunctionOfList $ createPerms n nta2
                             let nublist = nub permutedlist
-                                appearances = map (\x-> length $ filter (==x) permutedlist) nublist 
-                                eterms = map (\t -> filter (\v->lvarSort v == LSortE) $ varsVTerm t) nublist
+                                --permeterms = map etermOf permutedlist
+                                eterms = map etermOf nublist
+                                appearances = map (\x -> length $ filter (==x) permutedlist) nublist
+                                --appearances2 = map (\x-> if x == Nothing then 0 else length $ filter (== x) permeterms) eterms
                                 zipped = zip nublist $ zip appearances eterms
                             if trace (show ("show", zipped)) $ any (\(a,(b,c))-> b>1 && null c) zipped
                               then contradictoryIf True
                               else do 
-                                    ffs <- replicateM (foldl (+) 0 (filter (>1) appearances)) $ freshLVar "ff" LSortE 
-                                    let esubsts = map (\(a,(b,c))-> (a,(b, head c))) $ filter (\(a,(b,c))-> b>1) zipped
+                                    let nubapp = filter (\(a,b)-> b>1) $ nub $ zip eterms appearances 
+                                        numapp =  map snd nubapp
+                                    ffs <- replicateM (foldl (+) 0 numapp) $ freshLVar "ff" LSortE 
+                                    let esubsts = filter (\(a,(b,c))-> b>1) zipped
                                         evars = (map (\(a,(b,c))-> (a,c)) esubsts)
-                                        splitlist = map markFirst $ splitPlaces (filter (>1) appearances) ffs
+                                        splitlist = map markFirst $ splitPlaces (numapp) ffs
                                         ffsums = map (\f -> foldl (\t v -> if t == fAppdhZero then LIT (Var v) else fAppdhPlus (t, LIT (Var v))) fAppdhZero f) splitlist
-                                        permsubsts = map (\((a,e),fs) -> (a,map (\f-> (e,LIT (Var f))) fs) ) $  zip evars splitlist
-                                        newsubst = substFromList $ zip (map snd evars) ffsums
+                                        permsubsts = map (\((a,(b,e)),fs) -> (a, map (\f-> (fromJust e,LIT (Var f))) fs)) $  zip zipped splitlist
+                                        newsubst = substFromList $ zip (map (fromJust . snd) evars) ffsums
                                         newpermlist = replacesubsts permutedlist (M.fromList permsubsts)
                                     oldsubst <- getM sSubst
                                     eqstore <- trace (show ("PERMUTEDLIST", permutedlist, newpermlist)) $ getM sEqStore
@@ -1418,8 +1437,8 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
                                     eqstore2 <- getM sEqStore
                                     --setM sEqStore (applyEqStore )
                                     void normSystem
-                                    trace (show ("eqstore2", eqstore2)) $ void substSystem
-                                    solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms nta1 (runReader (norm' $ applyVTerm newsubst nta2) hndNormal) newpermlist
+                                    trace (show ("eqstore2", eqstore2, (runReader (norm' $ applyVTerm newsubst nta2) hndNormal))) $ void substSystem
+                                    solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms nta1 (runReader (norm' $ applyVTerm newsubst nta2) hndNormal) $ map (rootIndKnown2 hndNormal bset $ S.fromList (filter isFrNZEVar $ S.toList nbset)) newpermlist
                             return Changed
             _ -> error "TODO"
 
