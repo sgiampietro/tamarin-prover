@@ -1225,12 +1225,11 @@ solveIndicatorProto basis t1 t2 = do
   --where
     --terms = [t1]
 
-solveDHProtoEqsAux :: SplitStrategy -> S.Set LNTerm  -> S.Set LNTerm -> MaudeHandle -> MaudeHandle -> [LNTerm] -> LNTerm -> LNTerm -> [LNTerm] -> StateT System (FreshT (DisjT (Reader ProofContext))) ()
-solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms ta1 ta2 permutedlist= do
+solveDHProtoEqsAux :: SplitStrategy -> S.Set LNTerm  -> S.Set LNTerm -> MaudeHandle -> MaudeHandle -> [LVar] -> [LNTerm] -> LNTerm -> LNTerm -> [LNTerm] -> StateT System (FreshT (DisjT (Reader ProofContext))) ()
+solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms ta1 ta2 permutedlist= do
     -- permutedlist <- disjunctionOfList $ permutations outterms
     zzs <- replicateM (length xindterms) $ freshLVar "zz" LSortE
     let genindterms = zipWith (\i z-> (i, runReader (norm' $ fAppdhExp (i, LIT (Var z)) ) hndNormal, z) ) xindterms zzs
-        allevars = filter (\x -> lvarSort x == LSortE) $ nub $ varsVTerm ta1 ++ varsVTerm ta2
     --  let genindterms = zip xindterms zzs
     eqstore <- getM sEqStore
     (eqs2, maySplitId) <- addDHProtoEqs hnd allevars genindterms permutedlist False eqstore
@@ -1407,7 +1406,8 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
             Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
                           else do
                             let xrooterms =  trace (show ("PROBLEMATICTERM", nta1)) $ multRootList nta1
-                                xindterms = nub $ map (\x -> rootIndKnown2 hndNormal bset nbset x) xrooterms
+                                repxindterms = map (\x -> rootIndKnown2 hndNormal bset nbset x) xrooterms
+                                xindterms = nub repxindterms 
                                 n = length xindterms
                                 --xindterms = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal ) xrooterms
                             hnd <- trace (show ("XINSDTERMS", xindterms)) getMaudeHandleDH
@@ -1438,7 +1438,9 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
                                     --setM sEqStore (applyEqStore )
                                     void normSystem
                                     trace (show ("eqstore2", eqstore2, (runReader (norm' $ applyVTerm newsubst nta2) hndNormal))) $ void substSystem
-                                    solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd xindterms nta1 (runReader (norm' $ applyVTerm newsubst nta2) hndNormal) newpermlist -- $ map (rootIndKnown2 hndNormal bset $ S.fromList (filter isFrNZEVar $ S.toList nbset)) newpermlist
+                                    let nta2p = (runReader (norm' $ applyVTerm newsubst nta2) hndNormal) 
+                                        allevars = if (length nublist < length repxindterms) then filter (\x -> lvarSort x == LSortE) $ nub $ varsVTerm nta1 ++ varsVTerm nta2p else []
+                                    solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms nta1 nta2p newpermlist -- $ map (rootIndKnown2 hndNormal bset $ S.fromList (filter isFrNZEVar $ S.toList nbset)) newpermlist
                             return Changed
             _ -> error "TODO"
 
