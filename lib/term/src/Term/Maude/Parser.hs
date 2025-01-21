@@ -392,7 +392,7 @@ parseVariantsReply msig reply = flip parseOnly reply $ do
                      <*> (string " --> " *> parseTerm msig <* endOfLine)
 
 -- for the maude command "variant-unify [1]"
-parseUnifyDHReply :: MaudeSig -> ByteString -> Either String [MSubst]
+{-parseUnifyDHReply :: MaudeSig -> ByteString -> Either String [MSubst]
 parseUnifyDHReply msig reply = flip parseOnly reply $ -- trace (show ("TRYINGTHIS", reply)) $ 
      choice [ endOfLine *> string "No unifiers." <* endOfLine <* string "rewrites: "
               <* takeWhile1 isDigit <* endOfLine *> pure []      <* endOfInput
@@ -403,22 +403,18 @@ parseUnifyDHReply msig reply = flip parseOnly reply $ -- trace (show ("TRYINGTHI
                                     manyTill parseEntry endOfInput
                     parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
                                     <*> (string " --> " *> parseTerm msig <* endOfLine)
+-}
 
-{-
 parseUnifyDHReply :: MaudeSig -> ByteString -> Either String [MSubst]
 parseUnifyDHReply msig reply = flip parseOnly reply $
-     choice [  
-              string "rewrites: " *> takeWhile1 isDigit *> endOfLine *>  endOfLine *>  string "No unifiers." *>
-              endOfLine *> pure [], -- *> manyTill (manyTill anyChar endOfLine) endOfInput *> pure []  -- string "rewrites: " *> takeWhile1 isDigit *> endOfLine *>
-              
-              string "rewrites: " *> takeWhile1 isDigit *> endOfLine  *>  endOfLine  *>
-              many1 (parseUnifier)<*  endOfLine <* (string "No more unifiers." ) <* endOfLine <* endOfInput  ]
+     choice [ string "No unifier." <* endOfLine*> pure [] <* endOfInput
+           , endOfLine *> many1 (parseUnifier) ]
               where
-                    parseUnifier = string "Unifier " *> takeWhile1 isDigit *> endOfLine *>             
-                                    many1 parseEntry 
+                    parseUnifier = string "Unifier " *> takeWhile1 isDigit *> endOfLine *>
+                                    manyTill parseEntry endOfInput
                     parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
-                                    <*> (string " --> " *> parseTerm msig <* endOfLine)  
--}
+                                    <*> (string " --> " *> parseTerm msig <* endOfLine) 
+
 
 
 -- | @parseSubstitution l@ parses a single substitution returned by Maude.
@@ -579,7 +575,7 @@ ppTheoryDHsimp = BC.unlines $
       , " op tamXCdhGinv : G -> G ."
       , " op tamXCdhMult : G G -> G ."
       , " op tamXCdhZero : -> E ."
-      , " op tamXCdhInv : E -> E ."
+      , " op tamXCdhInv : NZE -> NZE ."
       , " op tamXCdhEg : -> G ."
       , " op tamXCdhTimesE : E E -> E [assoc comm] ."
       , " op tamXCdhTimes : E E -> E [assoc comm] ."
@@ -613,7 +609,7 @@ ppTheoryDHsimp = BC.unlines $
       , " eq tamXCdhTimes( U, tamXCdhTimes(tamXCdhInv(U),V)) = V [variant] ."
       , " eq tamXCdhTimes( tamXCdhInv(U), tamXCdhTimes(tamXCdhInv(V),W)) = tamXCdhTimes( tamXCdhInv(tamXCdhTimes(U,V)),W) [variant] ."
       , " eq tamXCdhTimes( tamXCdhInv(tamXCdhTimes(U,V)), tamXCdhTimes(V,W)) = tamXCdhTimes( tamXCdhInv(U),W) [variant] ."
-      , " eq tamXCdhTimesE(U,V) = tamXCdhTimes(U,V) [variant] ."
+      , " eq tamXCdhTimes(U,V) = tamXCdhTimesE(U,V) [variant] ."
       , "endfm"] 
 
 
