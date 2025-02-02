@@ -76,7 +76,7 @@ import           Control.Monad.Reader
 import           Extension.Prelude
 import           Utils.Misc
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Control.Basics
 import           Control.DeepSeq
@@ -728,7 +728,7 @@ addDHProtoEqs hnd allevars t1zzs permt zzbool eqdhstore = do
             substs' <- trace (show ("orifinal subst", substs, "newsubsts", newsubsts, "esubsts", esubsts) )$  mapM generalize newsubsts
             let esubsts' = freshToFreeAvoidingFast esubsts (_eqsSubst eqdhstore)
                 eqStore' = changeqstore (map (\x-> compose esubsts' $ freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs' ) eqdhstore
-            return (eqStore', Nothing)
+            trace (show ("theneweqstoreaftersubsts", eqStore')) return (eqStore', Nothing)
           where
             addsubsts sub eqst= applyEqStore hnd sub eqst
             changeqstore [x] eq = addsubsts x eq
