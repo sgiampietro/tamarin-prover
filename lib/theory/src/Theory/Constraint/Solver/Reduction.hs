@@ -1636,6 +1636,10 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
 solveTermDHEqs :: SplitStrategy -> ((LNTerm,LNTerm)->Reduction ChangeIndicator) -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
 solveTermDHEqs splitStrat fun (ta1, ta2)
         | ta1 == ta2 = return Unchanged
+        | ta1 == fAppdhZero && ta2 == fAppdhOne = do contradictoryIf True
+                                                     return Changed
+        | ta1 == fAppdhOne && ta2 == fAppdhZero = do contradictoryIf True
+                                                     return Changed
         | (isDHLit ta1 && compatibleLits ta1 ta2) = trace (show ("case1", ta1, ta2)) (do
                             solveTermEqs splitStrat [(Equal ta1 ta2)]
                             void substSystem
