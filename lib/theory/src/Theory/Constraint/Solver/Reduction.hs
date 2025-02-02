@@ -1189,6 +1189,35 @@ solveIndicator t2 terms  = do
               return ("Safe,cannot combine from (leaked set, terms):"++ show ((S.toList nbset), terms, t2))
 -}
 
+
+solveIndicator ::  LNTerm -> [LNTerm] -> Reduction String
+solveIndicator t22 terms2  = do
+  let t2 = gTerm2Exp t22
+      terms = map gTerm2Exp terms2
+  hndNormal  <- getMaudeHandle
+  bb <- getM sBasis
+  let newsecretvars = (( (nub $ concatMap varsVTerm terms2) \\ (nub $ varsVTerm t22)) ) `intersect` (concatMap varsVTerm $ S.toList bb)
+  evars <- replicateM (length newsecretvars) $ freshLVar "esw" LSortE
+  zvars <- replicateM (length newsecretvars) $ freshLVar "zz" LSortVarE 
+  js <- freshLVar "jz" LSortNode
+  wvars <- replicateM (length terms) $ freshLVar "wy" LSortVarE
+  is <- replicateM (length terms + 1) $ freshLVar "iw" LSortNode
+  wvarextra <- freshLVar "ww" LSortVarE
+  forM_ (zip (map varTerm (wvars ++ [wvarextra])) (is)) (\(t,i)-> insertAction i (kdhFact t) ) 
+  let genterms = zipWith multiplyterm wvars terms
+      extraterms = zipWith (\a b -> fAppdhTimesE (varTerm a, varTerm b)) evars zvars 
+      extraterm = runReader (norm' $ foldr (\a b -> if b == fAppdhZero then a else fAppdhPlus (a,b)) fAppdhZero extraterms) hndNormal 
+      advterm = runReader (norm' $ foldr (\a b -> fAppdhPlus (a,b)) (varTerm wvarextra) genterms) hndNormal 
+      advterm2 = if null extraterms then advterm else fAppdhPlus (advterm, extraterm)
+      nt2 = runReader (norm' t2) hndNormal
+      matrixvars = getVariablesOf [nt2,advterm2]   
+  forM_ (if null newsecretvars then [] else [extraterm]) (\t -> insertAction js (kdhFact t))     
+  freevars <- trace (show ("Kmatrix", matrixvars, nt2,(varsVTerm t22), genterms, "extravars", newsecretvars)) $ replicateM (length matrixvars) $ freshLVar "vy" LSortE
+  if length matrixvars >1 
+    then solveIndicatorKFacts (map varTerm freevars) nt2 advterm2 `disjunction` (solveIndicatorKFacts2 (map varTerm freevars) nt2 advterm2)
+    else solveIndicatorKFacts (map varTerm freevars) nt2 advterm2
+
+{-
 solveIndicator ::  LNTerm -> [LNTerm] -> Reduction String
 solveIndicator t22 terms2  = do
   let t2 = gTerm2Exp t22
@@ -1200,12 +1229,13 @@ solveIndicator t22 terms2  = do
   forM_ (zip (map varTerm (wvars ++ [wvarextra])) (is)) (\(t,i)-> insertAction i (kdhFact t) ) 
   let genterms = zipWith multiplyterm wvars terms
       advterm = runReader (norm' $ foldr (\a b -> fAppdhPlus (a,b)) (varTerm wvarextra) genterms) hndNormal 
-      matrixvars = getVariablesOf [t2,advterm]        
-  freevars <- trace (show ("Kmatrix", matrixvars, t2, genterms)) $ replicateM (length matrixvars) $ freshLVar "vy" LSortE
+      nt2 = runReader (norm' t2) hndNormal
+      matrixvars = getVariablesOf [nt2,advterm]        
+  freevars <- trace (show ("Kmatrix", matrixvars, nt2, genterms)) $ replicateM (length matrixvars) $ freshLVar "vy" LSortE
   if length matrixvars >1 
-    then solveIndicatorKFacts (map varTerm freevars) t2 advterm `disjunction` (solveIndicatorKFacts2 (map varTerm freevars) t2 advterm)
-    else solveIndicatorKFacts (map varTerm freevars) t2 advterm
-
+    then solveIndicatorKFacts (map varTerm freevars) nt2 advterm `disjunction` (solveIndicatorKFacts2 (map varTerm freevars) nt2 advterm)
+    else solveIndicatorKFacts (map varTerm freevars) nt2 advterm
+-}
 
 variableCheck :: LNTerm -> [(LVar, LNTerm)] -> LNTerm -> [(LVar,LNTerm)] -> Bool 
 variableCheck t1 subst12 t2 normsubst =  elem True (concatMap (\v -> map (checkvar v) (getvars v) ) problematicvars)
