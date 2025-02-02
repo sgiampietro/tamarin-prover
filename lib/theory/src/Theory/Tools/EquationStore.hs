@@ -679,20 +679,41 @@ addDHEqs hnd t1zzs permt zzbool eqdhstore = do
 
 
 addDHEqs2 :: MonadFresh m
-       => MaudeHandle -> LNTerm -> LNTerm -> EqStore -> m (EqStore, Maybe SplitId)
+       => MaudeHandle -> LNTerm -> LNTerm -> EqStore -> m (EqStore, Maybe SplitId, [Subst Name LVar])
 addDHEqs2 hnd t1 indt eqdhstore =
     case (if (any (\(Equal x y)-> notUnifiableLits x y) eqs) then [] else unifyLNDHProtoTermFactored eqs `runReader` hnd) of
-        [] -> return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
+        [] -> return (set eqsConj falseEqConstrConj eqdhstore, Nothing, [])
         [substFresh] | substFresh == emptySubstVFresh ->
-            return (eqdhstore, Nothing)
+            return (eqdhstore, Nothing,[])
         substs -> do
-            let  eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs ) eqdhstore
-            return (eqStore', Nothing)
+            newsubsts <- mapM generalize substs 
+            let eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) newsubsts ) eqdhstore
+            return (eqStore', Nothing, (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) newsubsts ) )
   where
     eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
     addsubsts sub eqst= applyEqStore hnd sub eqst
     changeqstore [x] eq = addsubsts x eq
     changeqstore (x:xs) eq = changeqstore xs (addsubsts x eq)
+    generaltup (c, cterm) = case (sortOfLNTerm (varTerm c)) of
+        a | a == LSortE && lvarName c == "ff1" -> do
+                  w1 <- freshLVar "yk" LSortVarE
+                  --v1 <- freshLVar "zk" LSortVarE
+                  return (c, fAppdhPlus (cterm, varTerm w1))
+        a | a == LSortE && lvarName c == "ff" -> do
+                  return (c,cterm)
+                  --v1 <- freshLVar "zk" LSortVarE
+                  --return $ trace (show ("show", v1)) (c, fAppdhTimesE (cterm, varTerm v1))
+        a | a == LSortE  -> do
+                  w1 <- freshLVar "yk" LSortVarE
+                  --v1 <- freshLVar "zk" LSortVarE
+                  return (c, fAppdhPlus (cterm, varTerm w1))
+        a | a == LSortG -> do
+                  w1 <- freshLVar "wk" LSortVarG
+                  --v1 <- freshLVar "vk" LSortVarE
+                  return (c, fAppdhMult (cterm, varTerm w1))
+        _ -> return (c, cterm)
+    generalize sub = liftM substFromListVFresh $ mapM generaltup (substToListVFresh sub)
+
 
 
 varOfSubst :: (LVar,LNTerm) -> [LVar]
@@ -719,7 +740,7 @@ addDHProtoEqs hnd allevars t1zzs permt zzbool eqdhstore = do
         [substFresh] | substFresh == emptySubstVFresh ->
             return (eqdhstore, Nothing)
         substs -> do
-            let rangesubst = concatMap varsRangeVFresh substs
+            let rangesubst = concatMap varsRangeVFresh substs -- TODO: can we delete this and following 3 lines?
                 toset = rangesubst \\ (concatMap varsOfSubsts substs)
                 toapply = substFromList $ map (\x -> (x, fAppdhOne)) toset
                 newsubsts' = map (map (\(a,b)-> (a, (applyVTerm toapply b)))) $ map substToListVFresh substs

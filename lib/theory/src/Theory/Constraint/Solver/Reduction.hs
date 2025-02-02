@@ -745,7 +745,7 @@ insertDHEdges tuplelist indts premTerm p = do
         cllist = nubBy (\(a,b,c,d,e,f) (a2,b2,c2,d2,e2,f2) -> b == b2) tuplelist
     --return ()
     (faPremsubst, listterms) <- foldM (\faP c -> solveIndFactDH SplitNow c faP) (premTerm,[]) rootpairs
-    solveIndicator faPremsubst listterms
+    trace (show ("indicators", indts, listterms, "fromroot", rootpairs)) $ solveIndicator faPremsubst listterms
     forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
     forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
 
@@ -1145,12 +1145,29 @@ normalizeSubstList hnd [] = []
 normalizeSubstList hnd [(t,t2)] = [(t, runReader ( norm' t2) hnd)]
 normalizeSubstList hnd ((t,t2) : xs) = (t, runReader ( norm' t2) hnd):(normalizeSubstList hnd xs)
 
+
+multiplyterm :: LVar -> LNTerm -> LNTerm 
+multiplyterm wvar t@(LIT l) = if (sortOfLNTerm t == LSortVarE) then t else fAppdhTimesE(varTerm wvar, t)
+multiplyterm wvar t@(FAPP (DHMult o) ts) = case ts of
+    [ t1, t2 ] | o == dhTimesSym   -> if null (varTermsOf t) then fAppdhTimes (varTerm wvar,t) else t
+    [ t1, t2 ] | o == dhTimesESym   -> if null (varTermsOf t) then fAppdhTimes (varTerm wvar,t) else t
+    [t1 ,t2]   | o == dhPlusSym -> fAppdhPlus (multiplyterm wvar t1, multiplyterm wvar t2)
+    [t1 ,t2]   | o == dhMultSym -> fAppdhMult (multiplyterm wvar t1, multiplyterm wvar t2)
+    [ t1, t2 ] | o == dhExpSym   -> multiplyterm wvar t2
+    [ t1 ]     | o == dhInvSym    -> fAppdhTimes (varTerm wvar, t) 
+    [ t1 ]     | o == dhGinvSym    -> multiplyterm wvar t1
+    [ t1 ]     | o == dhMinusSym    -> fAppdhTimes (varTerm wvar, t)
+    [ t1 ]     | o == dhMuSym    -> fAppdhTimes (varTerm wvar, t)  --TODO: not sure what to do here? t1 is actually a G term??
+    []         | o == dhZeroSym    -> t
+    []         | o == dhOneSym    -> t
+    _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
+
+{-
 solveIndicator ::  LNTerm -> [LNTerm] -> Reduction String
 solveIndicator t2 terms  = do
   nbset <- getM sNotBasis
   hndNormal  <- getMaudeHandle
   irules <- getM sNodes
-  --irules <- getM sNodes
   let rules = M.elems irules
       mugterms = (concatMap enumConcsDhOut rules)
   --    exps = (concatMap enumConcsDhExpOut rules)-
@@ -1170,7 +1187,24 @@ solveIndicator t2 terms  = do
           Nothing -> do
               contradictoryIf True
               return ("Safe,cannot combine from (leaked set, terms):"++ show ((S.toList nbset), terms, t2))
+-}
 
+solveIndicator ::  LNTerm -> [LNTerm] -> Reduction String
+solveIndicator t22 terms2  = do
+  let t2 = gTerm2Exp t22
+      terms = map gTerm2Exp terms2
+  hndNormal  <- getMaudeHandle
+  wvars <- replicateM (length terms) $ freshLVar "wy" LSortVarE
+  is <- replicateM (length terms + 1) $ freshLVar "iw" LSortNode
+  wvarextra <- freshLVar "ww" LSortVarE
+  forM_ (zip (map varTerm (wvars ++ [wvarextra])) (is)) (\(t,i)-> insertAction i (kdhFact t) ) 
+  let genterms = zipWith multiplyterm wvars terms
+      advterm = runReader (norm' $ foldr (\a b -> fAppdhPlus (a,b)) (varTerm wvarextra) genterms) hndNormal 
+      matrixvars = getVariablesOf [t2,advterm]        
+  freevars <- trace (show ("Kmatrix", matrixvars, t2, genterms)) $ replicateM (length matrixvars) $ freshLVar "vy" LSortE
+  if length matrixvars >1 
+    then solveIndicatorKFacts (map varTerm freevars) t2 advterm `disjunction` (solveIndicatorKFacts2 (map varTerm freevars) t2 advterm)
+    else solveIndicatorKFacts (map varTerm freevars) t2 advterm
 
 
 variableCheck :: LNTerm -> [(LVar, LNTerm)] -> LNTerm -> [(LVar,LNTerm)] -> Bool 
@@ -1266,6 +1300,63 @@ solveIndicatorProto basis t1 t2 = do
           return "CONTRADICTION"
   --where
     --terms = [t1]
+
+solveIndicatorKFacts :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
+solveIndicatorKFacts basis t1 t2 = do
+  hnd  <- getMaudeHandle
+  nb <- getM sNotBasis
+  let bb = (solveIndicatorGauss3 hnd (S.toList nb) basis t1 t2 )
+  case bb of
+   Just substlist ->  do
+   --Just (subst',subst1, subst2) ->  do
+        eqStore <-  getM sEqStore
+        hndCR <- getMaudeHandleCR
+        (subst') <- disjunctionOfList substlist
+        let normsubst = trace (show ("isthisisgauss?", subst')) (normalizeSubstList hndCR subst') 
+        trace (show ("probheregauss", normsubst)) setM sEqStore $ applyEqStore hnd (substFromList normsubst) eqStore
+        void substSystem
+        void normSystemCR
+        neweqstore2 <- getM sEqStore
+        trace (show ("noContradictoryEqStore", neweqstore2, eqsIsFalse neweqstore2)) void normSystem
+        return "Matched"
+   Nothing -> do
+          --setNotReachable
+          trace (show "here>WA?>") $ contradictoryIf True
+          return "CONTRADICTION"
+
+
+solveIndicatorKFacts2 :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
+solveIndicatorKFacts2 basis t1 t2 = do
+  hnd  <- getMaudeHandle
+  nb <- getM sNotBasis
+  let matrixvars = getVariablesOf [t1, t2]
+      subst0 = substFromList [(fromJust $ getVar (head matrixvars), fAppdhZero)]
+      newt1 = trace (show ("tryingOUt", matrixvars, fromJust $ getVar (head matrixvars))) $ runReader (norm' $ applyVTerm subst0 t1) hnd
+      newt2 = runReader (norm' $ applyVTerm subst0 t2) hnd
+  eqStore <- getM sEqStore
+  setM sEqStore $ applyEqStore hnd subst0 eqStore
+  void substSystem
+  void normSystem
+  let bb = (solveIndicatorGauss3 hnd (S.toList nb) basis t1 t2 )
+  case bb of
+   Just substlist ->  do
+   --Just (subst',subst1, subst2) ->  do
+        eqStore <-  getM sEqStore
+        hndCR <- getMaudeHandleCR
+        (subst') <- disjunctionOfList substlist
+        let normsubst = trace (show ("isthisisgauss?", subst')) (normalizeSubstList hndCR subst') 
+        trace (show ("probheregauss", normsubst)) setM sEqStore $ applyEqStore hnd (substFromList normsubst) eqStore
+        void substSystem
+        void normSystemCR
+        neweqstore2 <- getM sEqStore
+        trace (show ("noContradictoryEqStore", neweqstore2, eqsIsFalse neweqstore2)) void normSystem
+        return "Matched"
+   Nothing -> do
+          --setNotReachable
+          trace (show "here>WA?>") $ contradictoryIf True
+          return "CONTRADICTION"
+
+
 
 solveDHProtoEqsAux :: SplitStrategy -> S.Set LNTerm  -> S.Set LNTerm -> MaudeHandle -> MaudeHandle -> [LVar] -> [LNTerm] -> LNTerm -> LNTerm -> [LNTerm] -> StateT System (FreshT (DisjT (Reader ProofContext))) ()
 solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms ta1 ta2 permutedlist= do
@@ -1588,16 +1679,17 @@ solveFactDHEqs split fa1 fa2 bset nbset fun= do
 
 solveIndFactDH :: SplitStrategy -> ((LNTerm, LNTerm), LNTerm) -> (LNTerm, [LNTerm]) -> Reduction (LNTerm, [LNTerm])
 solveIndFactDH split ((fa1, t1), t2) (fa2, acclist)=
-    case (isPubExp t1, isPubExp t2) of
+    case trace (show ("whatsgoingon", t1, t2)) (isPubExp t1, isPubExp t2) of
         (Just (pg1,e1), Just (pg2,e2)) -> do
                 solveTermEqs split [(Equal pg1 pg2)]
-                solveIndFactDH split ((fa1, e1), e2) (fa2, acclist)
+                trace (show ("isithere", e1,e2)) solveIndFactDH split ((fa1, e1), e2) (fa2, acclist)
         _ ->  do
                 se  <- gets id
                 hnd <- getMaudeHandleDH
-                (eqs2, maySplitId) <- addDHEqs2 hnd t1 t2 =<< getM sEqStore -- this should be generalized!
+                (eqs2, maySplitId,subst1) <- addDHEqs2 hnd t1 t2 =<< getM sEqStore -- this should be generalized!
                 setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
-                noContradictoryEqStore
+                --let subst2 = foldl compose accsubst subst1
+                trace (show ("here eqs2", eqs2)) $ noContradictoryEqStore
                 void substSystem
                 void normSystem
                 subst <- getM sEqStore
