@@ -17,6 +17,7 @@ module Theory.Constraint.Solver.Combination
     createMatrix,
     solveIndicatorGauss,
     solveIndicatorGaussProto,
+    solveIndicatorGauss3,
     parseToMap,
     gTerm2Exp,
     gTerm2Exp',
@@ -234,19 +235,6 @@ getvalue somemap key = case Map.lookup key somemap of
   Just t -> t
   Nothing -> fAppdhZero
 
-createMatrix :: [LNTerm] -> [LNTerm] -> LNTerm -> Matrix LNTerm
-createMatrix nb terms target =
-    let (nbexp, vars) = allNBExponents nb (allExponentsOf terms target)
-        polynomials = map (parseToMap vars) terms
-        targetpoly = parseToMap vars target
-        allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetpoly):(map Map.keys polynomials))
-        -- row = map( \i -> getvalue targetpoly i) allkeys 
-        createdmatrix = (map (\key -> ((map (\p -> getvalue p key) polynomials )++ [getvalue targetpoly key])) allkeys)
-    in
-  trace (show ("polynomials", polynomials, "targetpoly", targetpoly, "allkeys", allkeys, "thisistheresultingmatrix", createdmatrix, "vars", vars, "nb", nb)) createdmatrix -- todo: double check if row/column is ok or needs to be switched
-
-solveIndicatorGauss :: [LNTerm] -> [LNTerm] -> LNTerm -> Maybe [LNTerm]
-solveIndicatorGauss nb terms target = (\(a,b,c) -> a) $ solveMatrix fAppdhZero (createMatrix (nb) (map gTerm2Exp terms) (gTerm2Exp target)) []
 
 
 -- PART FOR PROTOCOL ACTION INDICATORS
@@ -382,12 +370,62 @@ solveIndicatorGaussProto hnd basis term target =
           Just (Just sols) -> Just (map (\s-> (oneSolution wzs s, substss)) sols)
     in
     (retrieve sol (termsubst1++termsubst2)):(map ((\(s,t) -> retrieve s (substToList t)) . (\(t1,t2,sub) -> (getsol t1 t2, sub))) options )
- {-} case sol of 
-    Nothing -> trace (show ("systemdoesnthavesolutions",wzs)) [Nothing]
-    Just sols -> Just (map (\s-> (oneSolution wzs s, termsubst1++termsubst2)) sols)
 
 
 
 
--}
+createMatrix :: [LNTerm] -> [LNTerm] -> LNTerm -> Matrix LNTerm
+createMatrix nb terms target =
+    let (nbexp, vars) = allNBExponents nb (allExponentsOf terms target)
+        polynomials = map (parseToMap vars) terms
+        targetpoly = parseToMap vars target
+        allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetpoly):(map Map.keys polynomials))
+        -- row = map( \i -> getvalue targetpoly i) allkeys 
+        createdmatrix = (map (\key -> ((map (\p -> getvalue p key) polynomials )++ [getvalue targetpoly key])) allkeys)
+    in
+  trace (show ("polynomials", polynomials, "targetpoly", targetpoly, "allkeys", allkeys, "thisistheresultingmatrix", createdmatrix, "vars", vars, "nb", nb)) createdmatrix -- todo: double check if row/column is ok or needs to be switched
 
+solveIndicatorGauss :: [LNTerm] -> [LNTerm] -> LNTerm -> Maybe [LNTerm]
+solveIndicatorGauss nb terms target = (\(a,b,c) -> a) $ solveMatrix fAppdhZero (createMatrix (nb) (map gTerm2Exp terms) (gTerm2Exp target)) []
+
+
+createMatrix3 :: [LNTerm] -> LNTerm -> LNTerm -> ([LNTerm], Matrix LNTerm)
+createMatrix3 nb term target =
+    let (nbexp, vars) =   allNBExponents nb (allExponentsOf [term] target) --
+        matrixvars = trace (show ("doestargethavevars",target)) $ getVariablesOf [term, target]
+        (coeffVars, (constOfTerm, constTarget)) = splitVars matrixvars term target
+        --(coeffVarsTarget, constTarget) = splitVars matrixvars target trace (show ("coeffVars",coeffVars,"**",const)) $ 
+        polynomials = map (\(coeffX, coeffXTarget) -> parseToMap vars (simplifyraw $ fAppdhPlus (coeffX, simplifyraw $ fAppdhMinus coeffXTarget)) ) coeffVars -- this term now contains the introduced W and V variables. 
+        targetvalue = trace (show (matrixvars, "thistermmm", polynomials, "thistermmm", constTarget, "*", constOfTerm, "*", (simplifyraw $ fAppdhPlus (constTarget, simplifyraw $ fAppdhMinus $ simplifyraw constOfTerm)))) $ parseToMap vars (simplifyraw $ fAppdhPlus (constTarget, simplifyraw $ fAppdhMinus $ simplifyraw constOfTerm))
+        allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetvalue):(map Map.keys polynomials))
+        resultmatrix = map (\key -> ((map (\p -> getvalue p key) polynomials )++ [getvalue targetvalue key])) allkeys
+        -- allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetpoly):[Map.keys polynomial])
+        -- row = map( \i -> getvalue targetpoly i) allkeys 
+    in
+  trace (show ("OBTAINEDMATRIX!!:", "**", matrixvars,"**", targetvalue,"**", resultmatrix,"**", allkeys, "Term,target:", term,"**",target)) (matrixvars, resultmatrix)
+-- w1 is multiplied term, z1 is the summed term. 
+
+
+oneSolution3 :: [LNTerm] -> ([LNTerm], [LNTerm], [LNTerm],[(LVar,LNTerm)]) -> [(LVar, LNTerm)]
+oneSolution3 wzs a@(ts, newwzs, subszero, subextra) =  trace (show ("vars", wzs, "extrareplacewith", subextra, "zero", zerovars)) (if (all (isJust) wzvars && all isJust zerovars) then
+                 ((zipWith zipfun wzvars ts) ++ subextra ++ map ((\i -> (i, getsubst i fAppdhZero)).fromJust) zerovars) else [])
+                    where wzvars = map getVar newwzs
+                          --pubg = LIT (Var ( LVar "pg" LSortPubG 1))
+                          pubg = pubGTerm "g"
+                          getsubst v t = case sortOfLit (Var v) of
+                                        LSortVarG -> simplifyraw $ fAppdhExp (pubg, t)
+                                        _ -> t
+                          zipfun a b = (fromJust a, getsubst (fromJust a) b)
+                          zerovars = map getVar subszero
+
+solveIndicatorGauss3 :: MaudeHandle -> [LNTerm] -> [LNTerm] -> LNTerm -> LNTerm -> Maybe [[(LVar, LNTerm)] ] 
+solveIndicatorGauss3 hnd nb basis term target =
+    let gt1 = gTerm2Exp term 
+        gt2 = gTerm2Exp target 
+        (wzs, matriz) = trace (show ("gter2msexp", gt1, gt2)) $ createMatrix3 nb (gt1) (gt2)
+        pubg =  pubGTerm "g"
+        sol = solveMatrix2 fAppdhZero (basis) matriz wzs
+        retrieve s = case s of
+          (Nothing) -> Nothing
+          (Just sols) -> Just (map (\s-> (oneSolution3 wzs s)) sols)
+    in retrieve sol
