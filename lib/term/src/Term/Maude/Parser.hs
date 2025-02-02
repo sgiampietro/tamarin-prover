@@ -597,6 +597,8 @@ ppTheoryDHsimp = BC.unlines $
       , " vars A B : G ."
       , " vars X Y : E ."
       , " vars U V W : NZE ."
+      , " eq tamXCdhTimes(U, tamXCdhInv(U)) = tamXCdhOne ."
+      , " eq tamXCdhTimesE(U,V) = tamXCdhTimes(U,V) ."
       , " eq tamXCdhExp(tamXCdhExp(A, X), Y) = tamXCdhExp(A, tamXCdhTimesE(X, Y)) [variant] ."
       , " eq tamXCdhExp(A, tamXCdhOne ) = A [variant] ."
       , " eq tamXCdhExp(tamXCdhEg, X) = tamXCdhEg [variant] ."

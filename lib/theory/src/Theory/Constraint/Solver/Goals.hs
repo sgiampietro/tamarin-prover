@@ -25,7 +25,7 @@ module Theory.Constraint.Solver.Goals (
   , plainOpenGoals
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Prelude                                 hiding (id, (.))
 
@@ -473,11 +473,11 @@ solveChain rules (c, p) = do
             bset <- getM sBasis
             nbset <- getM sNotBasis
             nodes <- getM sNodes
-            case neededexponentslist bset nbset (factTerms faPrem) of
+            case trace (show ("directedgecase", faPrem)) $ neededexponentslist bset nbset (factTerms faPrem) of
               (Just es) -> do
                               solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) (S.toList es)
-                              name <- (insertDirectEdge faPrem faConc cRule pRule rules2)
-                              trace (show ("I'malsohere", name)) $ return name
+                              insertDirectEdge faPrem faConc cRule pRule rules2
+                              --trace (show ("I'malsohere", name)) $ return name
               Nothing -> do 
                           insertDHMixedEdge False (c, faConc, faPrem, p) cRule (S.fromList $ basisOfRule cRule) (S.fromList $ notBasisOfRule cRule) (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
                           -- insertDHMixedEdge True (c, faConc, faPrem, p) cRule pRule bset nbset (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
