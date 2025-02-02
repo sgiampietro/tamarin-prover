@@ -13,6 +13,7 @@ module Theory.Constraint.Solver.Combination
     getcoefromProd,
     getkeyfromProd,
     allNBExponents,
+    getVariablesOf,
     createMatrix,
     solveIndicatorGauss,
     solveIndicatorGaussProto,
@@ -352,14 +353,14 @@ solveIndicatorGaussProto :: MaudeHandle -> [LNTerm] -> LNTerm -> LNTerm -> [ May
 solveIndicatorGaussProto hnd basis term target =
     let (gt1, termsubst1) = gTerm2Exp' term "qwzk1"
         (gt2, termsubst2) = gTerm2Exp' target "qwzk2"
-        options = optionList (fAppdhOne:basis') (gt1,termsubst1) (gt2,termsubst2)
+        options = optionList (basis) (gt1,termsubst1) (gt2,termsubst2)
         (wzs, matriz) = trace (show ("gter2msexp", gt1, gt2)) $ createMatrixProto (allExponentsOf [term] target) (gt1) (gt2)
       -- (wzs, matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)       
       -- ([w1, z2], matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)
         pubg =  pubGTerm "g"
-        basis' = filter (\i-> i/= fAppdhOne) basis
+        --basis' = filter (\i-> i/= fAppdhOne) basis
         --sol = solveMatrix2 fAppdhZero (fAppdhOne:(basis'++map (\x->fAppdhMu (fAppdhExp (pubg, x))) basis')) matriz wzs
-        sol = Just $ solveMatrix2 fAppdhZero (fAppdhOne:basis') matriz wzs
+        sol = Just $ solveMatrix2 fAppdhZero (basis) matriz wzs
         getsol t1 t2 = case trace (show ("OKSOL", sol)) $ varTermsOf t1 of
             [] -> case varTermsOf t2 of
                   [] -> if sta1 == sta2 
@@ -371,8 +372,8 @@ solveIndicatorGaussProto hnd basis term target =
                                               (FApp (NoEq pairSym) [x, y]) ->(x,y)
                                               _ -> error $ "something went wrong" ++ show t
                                 (sta1,sta2) =  unpair normedpair
-                  _  -> Just $ solveMatrix2 fAppdhZero (fAppdhOne:basis') mat2 wz2
-            _ -> Just $ solveMatrix2 fAppdhZero (fAppdhOne:basis') mat2 wz2
+                  _  -> Just $ solveMatrix2 fAppdhZero (basis) mat2 wz2
+            _ -> Just $ solveMatrix2 fAppdhZero (basis) mat2 wz2
            where  
                   (wz2, mat2) = createMatrixProto [] (runReader (norm' t1) hnd) (runReader (norm' t2) hnd)
         retrieve s substss = case s of
@@ -385,58 +386,8 @@ solveIndicatorGaussProto hnd basis term target =
     Nothing -> trace (show ("systemdoesnthavesolutions",wzs)) [Nothing]
     Just sols -> Just (map (\s-> (oneSolution wzs s, termsubst1++termsubst2)) sols)
 
-let normedpair = (runReader (norm' $ fAppPair (apply subst ta1, apply subst ta2)) hndNormal)
-            unpair t = case viewTerm t of
-                        (FApp (NoEq pairSym) [x, y]) ->(x,y)
-                        _ -> error $ "something went wrong" ++ show t
-            (sta1,sta2) =  unpair normedpair
-        case varTermsOf sta2 of
-            [] -> case varTermsOf (sta1) of
-                    [] -> do
-                            if trace (show ("goodnorm",sta1,"And\n",sta2)) $ sta1 == sta2
-                              then do
-                                            void substSystem
-                                            void normSystem
-                              else contradictoryIf True
-                    _  -> do
-                            void substSystem
-                            let bb = map (applyVTerm subst) $ S.toList nbset 
-                                nb = filter (\i-> (isFrNZEVar i && (not $ i `elem` bb))) $ map (\v -> LIT (Var v)) $ varsRange subst                 
-                            trace (show ("canwegethere", sta1,"And\n", sta2, "**", ta1,"**", ta2, "bset", bset, "nbset", nb)) $ void $ solveIndicatorProto nb sta1 sta2
-                            void normSystem
-            _  -> do
-                    void substSystem
-                    let bb = map (applyVTerm subst) $ S.toList nbset 
-                        nb = filter (\i-> (isFrNZEVar i && (not $ i `elem` bb))) $ map (\v -> LIT (Var v)) $ varsRange subst                 
-                    trace (show ("canwegethere2", sta1,"And\n", sta2, "**", ta1,"**", ta2, "bset", bset, "nbset", nb)) $ void $ solveIndicatorProto nb sta2 sta1
-                    void normSystem
-     else do
 
 
 
 -}
 
-{-
-solveIndicatorGaussProto ::  LNTerm -> LNTerm -> Maybe ([(LVar, LNTerm)],[(LVar, LNTerm)],[(LVar, LNTerm)])
-solveIndicatorGaussProto  term target = 
-    let (gt1, termsubst1) = gTerm2Exp' term "qwzk1"
-        (gt2, termsubst2) = gTerm2Exp' target "qwzk2"
-        (wzs, matriz) = createMatrixProto (allExponentsOf [term] target) (gt1) (gt2)  
-      -- (wzs, matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)       
-      -- ([w1, z2], matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)
-        (solution, newwzs, subszero) = solveMatrix fAppdhZero matriz wzs
-    in
-  case solution of 
-    Nothing -> trace (show ("systemdoesnthavesolutions",newwzs,wzs,subszero)) Nothing
-    Just (ts) -> trace (show ("vars", wzs, "extra", extravars,"new", newwzs, "zero", zerovars)) (if (all (isJust) wzvars && all isJust zerovars) then
-                 Just (((zipWith zipfun wzvars ts) ++ map ((\i -> (i, getsubst i fAppdhZero)).fromJust) zerovars), termsubst1, termsubst2) else Nothing)
-                    where wzvars = map getVar newwzs
-                          --pubg = LIT (Var ( LVar "pg" LSortPubG 1))
-                          pubg = pubGTerm "g"
-                          getsubst v t = case sortOfLit (Var v) of
-                                        LSortVarG -> trace (show ("exponentiating here", v, t)) $ simplifyraw $ fAppdhExp (pubg, t)
-                                        _ -> t
-                          zipfun a b = (fromJust a, getsubst (fromJust a) b)
-                          extravars = (map getVar wzs) \\ wzvars
-                          zerovars = map getVar subszero ++ extravars 
--}

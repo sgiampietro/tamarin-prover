@@ -317,7 +317,7 @@ ppTheory msig = BC.unlines $
         , "eq tamXCdhExp(A, tamXCdhMinus(X) ) = tamXCdhGinv(tamXCdhExp(A, X)) ."
         , "eq tamXCdhGinv (tamXCdhEg) = tamXCdhEg ."
         , "eq tamXCdhMinus(tamXCdhZero) = tamXCdhZero ."
-        , "eq tamXCdhPlus(tamXCdhMinus(tamXCdhOne), X, Y) = tamXCdhMinus(tamXCdhPlus(X, Y)) ." 
+        -- , "eq tamXCdhTimesE(tamXCdhMinus(tamXCdhOne), X, Y) = tamXCdhMinus(tamXCdhTimesE(X, Y)) ." 
         , "eq tamXCdhMinus (tamXCdhPlus(X,Y)) = tamXCdhPlus((tamXCdhMinus(X)), (tamXCdhMinus(Y))) ."
         , "eq tamXCdhMinus( tamXCdhMinus(X)) = X ."
         , "eq tamXCdhTimesE(tamXCdhZero, X) = tamXCdhZero ."
@@ -392,7 +392,8 @@ parseVariantsReply msig reply = flip parseOnly reply $ do
                      <*> (string " --> " *> parseTerm msig <* endOfLine)
 
 -- for the maude command "variant-unify [1]"
-{-parseUnifyDHReply :: MaudeSig -> ByteString -> Either String [MSubst]
+{-
+parseUnifyDHReply :: MaudeSig -> ByteString -> Either String [MSubst]
 parseUnifyDHReply msig reply = flip parseOnly reply $ -- trace (show ("TRYINGTHIS", reply)) $ 
      choice [ endOfLine *> string "No unifiers." <* endOfLine <* string "rewrites: "
               <* takeWhile1 isDigit <* endOfLine *> pure []      <* endOfInput
@@ -405,6 +406,7 @@ parseUnifyDHReply msig reply = flip parseOnly reply $ -- trace (show ("TRYINGTHI
                                     <*> (string " --> " *> parseTerm msig <* endOfLine)
 -}
 
+--for the maude command "unify [1]"
 parseUnifyDHReply :: MaudeSig -> ByteString -> Either String [MSubst]
 parseUnifyDHReply msig reply = flip parseOnly reply $
      choice [ string "No unifier." <* endOfLine*> pure [] <* endOfInput
@@ -578,7 +580,7 @@ ppTheoryDHsimp = BC.unlines $
       , " op tamXCdhInv : NZE -> NZE ."
       , " op tamXCdhEg : -> G ."
       , " op tamXCdhTimesE : E E -> E [assoc comm] ."
-      , " op tamXCdhTimes : E E -> E [assoc comm] ."
+      , " op tamXCdhTimes : NZE NZE -> NZE [assoc comm] ."
       , " op tamXCdhExp : G E -> G ."
       , " op tamXCdhOne : -> NZE ."
       , " op tamXCdhMu : G -> NZE ."

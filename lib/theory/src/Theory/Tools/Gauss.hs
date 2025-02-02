@@ -23,7 +23,7 @@ import qualified Data.Map     as Map
 
 import GHC.Real
 import Term.LTerm -- (LNTerm)
-import Debug.Trace.Ignore
+import Debug.Trace -- .Ignore
 --import Term.Builtin.Convenience (x0)
 
 import Data.List (subsequences, (\\))
@@ -213,11 +213,11 @@ traceBack2' :: LNTerm -> Int -> Matrix LNTerm -> Vector LNTerm -> Vector LNTerm
 traceBack2' zero n [] extravars = []
 traceBack2' zero n (r:rows) extravars =  (var : (traceBack2' zero n rs extravars))
     where
-        var2 = simplifyraw $ negate (innerProduct zero extravars ((take n (drop 1 r))))
+        var2 = if length (drop 1 r) == 1 then fAppdhZero else (innerProduct zero extravars (map (simplifyraw . negate ) (take n (drop 1 r)))) -- negate
         var = simplifyraw $ (simplifyraw $ (head r) + var2)/(last r)
         rs = map substituteVariable rows
-        substituteVariable (x:(ys)) = ((simplifyraw $ x +(simplifyraw $ negate (simplifyraw $ var*(myButLast ys)) ) ):ys)
-        -- pad = if (currlength - prevlength > 0) then (replicate (currlength - prevlength) zero) else []
+        substituteVariable (x:(y:ys)) = ((simplifyraw $ x +(simplifyraw $ negate (simplifyraw $ var*y) ) ):ys) 
+        -- pad = if (currlength - prevlength > 0) then (replicate (currlength - prevlength) zero) else [] --(myButLast ys)
 
 traceBack2 :: LNTerm -> Matrix LNTerm -> [LVar] -> Vector LNTerm -> Vector LNTerm
 traceBack2 zero matrix vv vars =  if m>0  then reverse (traceBack2' zero m matrix' extravars) else reverse (traceBack2' zero 0 matrix' [])
@@ -266,8 +266,8 @@ solveMatrix2 zero basis matrix variables
       extravars = map fromJust $ ((map getVar variables) \\ (map getVar variablesP))\\zerovars
       -- extravars' = filter (\i-> lvarName i /= "yk") extravars
       m = trace (show "waiting") length extravars --'
-      extravarssubst = filter (\z-> not $ all (fAppdhZero == ) z) $ combineNlists m [fAppdhOne, fAppdhZero] -- trace (show ("m", m,"combineN", basis)) (createListBasis zero basis )
-      options = trace (show ("extravarsubst", extravarssubst, extravarssubst)) $ map (\ops -> zip extravars ops) extravarssubst -- (combineNlists m extravarssubst)
+      extravarssubst = take m basis-- filter (\z-> not $ all (fAppdhZero == ) z) $ combineNlists m [fAppdhOne, fAppdhZero]
+      options = trace (show ("extravarsubst", extravarssubst, extravarssubst)) $ [zip extravars extravarssubst] -- (combineNlists m extravarssubst)
 
 
 
