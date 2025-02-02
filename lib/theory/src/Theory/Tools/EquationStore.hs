@@ -735,26 +735,24 @@ addDHProtoEqs hnd allevars t1zzs permt zzbool eqdhstore = do
             changeqstore (x:xs) eq = changeqstore xs (addsubsts x eq)
             addgenterms evar = do
                 ek <- freshLVar "ek" LSortVarE
-                return (evar, varTerm ek) 
+                return (evar, fAppdhPlus (varTerm evar, varTerm ek)) 
             generaltup (c, cterm) = case (sortOfLNTerm (varTerm c)) of
-              -- a | a == LSortE  && ((ist1var c && (not $ elem c muvariablest1)) || (isindtvar c && (not $ elem c muvariablesindt)) ) -> do 
               a | a == LSortE && lvarName c == "ff1" -> do
                   w1 <- freshLVar "yk" LSortVarE
-                  v1 <- freshLVar "zk" LSortVarE
-                  return $ trace (show ("show", w1,v1)) (c, fAppdhPlus (fAppdhTimesE (cterm, varTerm v1), varTerm w1))
+                  --v1 <- freshLVar "zk" LSortVarE
+                  return (c, fAppdhPlus (cterm, varTerm w1))
               a | a == LSortE && lvarName c == "ff" -> do
-                  v1 <- freshLVar "zk" LSortVarE
-                  return $ trace (show ("show", v1)) (c, fAppdhTimesE (cterm, varTerm v1))
+                  return (c,cterm)
+                  --v1 <- freshLVar "zk" LSortVarE
+                  --return $ trace (show ("show", v1)) (c, fAppdhTimesE (cterm, varTerm v1))
               a | a == LSortE  -> do
                   w1 <- freshLVar "yk" LSortVarE
-                  v1 <- freshLVar "zk" LSortVarE
-                  return $ trace (show ("show", w1,v1)) (c, fAppdhPlus (fAppdhTimesE (cterm, varTerm v1), varTerm w1))
-                  --return $ trace (show ("show", v1)) (c, fAppdhTimesE (cterm, varTerm v1))
-              -- a | a == LSortG  && ((ist1var c && (not $ elem c muvariablest1)) || (isindtvar c && (not $ elem c muvariablesindt)) )  -> do 
+                  --v1 <- freshLVar "zk" LSortVarE
+                  return (c, fAppdhPlus (cterm, varTerm w1))
               a | a == LSortG -> do
                   w1 <- freshLVar "wk" LSortVarG
-                  v1 <- freshLVar "vk" LSortVarE
-                  return (c, fAppdhMult (fAppdhExp (cterm,varTerm v1), varTerm w1))
+                  --v1 <- freshLVar "vk" LSortVarE
+                  return (c, fAppdhMult (cterm, varTerm w1))
               _ -> return (c, cterm)
             generalize sub = liftM substFromListVFresh $ mapM generaltup $ filter (\(a,b)-> not $ elem a (map (\(_,_,a)->a) t1zzs)) (substToListVFresh sub)
 
