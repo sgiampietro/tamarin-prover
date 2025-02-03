@@ -142,6 +142,7 @@ coeffTermsOf t@(FAPP (DHMult o) ts) vart =     case ts of
     [ t1, t2 ] | o == dhTimesESym   -> simplifyraw $ fAppdhTimesE ( coeffTermsOf t1 vart, coeffTermsOf t2 vart)
     [ t1, t2 ] | o == dhTimesSym   -> simplifyraw $ fAppdhTimesE ( coeffTermsOf t1 vart, coeffTermsOf t2 vart)
     [t1]       | o == dhMuSym  -> t
+    [t1]       | o == dhInvSym  -> t
     _                               -> error $ "term not in normal form?: `"++show t++"'"
 
 
