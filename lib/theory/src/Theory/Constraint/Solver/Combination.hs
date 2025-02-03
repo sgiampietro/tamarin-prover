@@ -130,6 +130,11 @@ allExponentsOf tis target =
 allNBExponents :: [LNTerm] -> [LNTerm] -> ([LNTerm], [LNTerm])
 allNBExponents nbasis allexp = (nbasis `intersect` allexp, allexp \\ nbasis)
 
+allNBExponents3 :: [LNTerm] -> [LNTerm] -> ([LNTerm], [LNTerm])
+allNBExponents3 nbasis allexp = (nbasis3 `intersect` allexp, allexp \\ nbasis3)
+    where nbasis3 = nub (fAppdhOne:(fAppdhZero:nbasis))
+
+
 -- polynomials, how should we represent them? maps? vectors?
 
 
@@ -263,7 +268,8 @@ stripVars var t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhTimesESym   -> if (elem var (varTermsOf t)) then (coeffTermsOf t var) else fAppdhZero
     [ t1, t2 ] | o == dhTimesSym   -> if (elem var (varTermsOf t)) then (coeffTermsOf t var) else fAppdhZero
     [ t1 ]     | o == dhMinusSym   -> simplifyraw $ fAppdhMinus (stripVars var t1)
-    [ t1 ]     | o == dhMuSym      -> if (elem var (varTermsOf t)) then error ("variables inside mu term" ++ show t) else fAppdhZero
+    [ t1 ]     | o == dhMuSym      -> if (elem var (varTermsOf t)) then error ("variables inside mu term" ++ show t) else t
+    [t1]       | o == dhInvSym -> if (elem var (varTermsOf t1)) then fAppdhInv (coeffTermsOf t var) else fAppdhZero
     [  ]     | o == dhZeroSym      -> fAppdhZero
     [  ]     | o == dhOneSym      -> fAppdhZero
     _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
@@ -276,6 +282,7 @@ constCoeff t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhTimesSym   -> if (null $ varTermsOf t) then t else fAppdhZero
     [ t1 ]     | o == dhMinusSym   -> simplifyraw $ fAppdhMinus (constCoeff t1)
     [ t1 ]     | o == dhMuSym      -> if (null $ varTermsOf t) then t else fAppdhZero
+    [t1]       | o == dhInvSym -> if (null (varTermsOf t1)) then t else fAppdhZero
     [  ]     | o == dhZeroSym      -> fAppdhZero
     [  ]     | o == dhOneSym      -> fAppdhOne
     _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
@@ -401,7 +408,7 @@ solveIndicatorGauss nb terms target = (\(a,b,c) -> a) $ solveMatrix fAppdhZero (
 
 createMatrix3 :: [LNTerm] -> LNTerm -> LNTerm -> ([LNTerm], Matrix LNTerm)
 createMatrix3 nb term target =
-    let (nbexp, vars) =   allNBExponents nb (allExponentsOf [term] target) --
+    let (nbexp, vars) =   allNBExponents3 nb (allExponentsOf [term] target) --
         matrixvars = trace (show ("doestargethavevars",target)) $ getVariablesOfK [term, target]
         (coeffVars, (constOfTerm, constTarget)) = splitVars matrixvars term target
         --(coeffVarsTarget, constTarget) = splitVars matrixvars target trace (show ("coeffVars",coeffVars,"**",const)) $ 
