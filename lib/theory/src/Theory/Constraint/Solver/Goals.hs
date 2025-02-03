@@ -263,6 +263,27 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                    (void (solveFactEqs SplitNow [Equal fa act]))
                    void substSystem
                    return ru
+            {-_ | (isKdhFact fa)                     -> do
+                   nbset <- getM sNotBasis 
+                   case factTerms fa of 
+                    [y] | isDHLit y        ->  do
+                                  ru  <- labelNodeId i (annotatePrems <$> rules) Nothing -- TODO:probably want to also check existing rules
+                                  act <- disjunctionOfList (filter isDHFact $ get rActs ru)
+                                  trace (show ("IAMHEREKdhACTIOns", fa, act, ru)) (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
+                                  void substSystem
+                   --void normSystem
+                                  return ru 
+                    [y] | otherwise           -> do
+                              let premLearn = fa
+                                  concLearn = inFact y
+          -- !! Make sure that you construct the correct rule!
+                                  ruLearn = Rule (IntrInfo ISendRule) [premLearn] [concLearn] [] []
+                                  cLearn = (i, ConcIdx 0)
+                                  pLearn = (i, PremIdx 0)
+                              trace (show ("thisisyY", y)) modM sNodes  (M.insert i ruLearn)
+                              solvePremise rules pLearn premLearn
+                              return ruLearn -}
+                      -- do Rule ISendRule   [kdhFact x_varE] [inFact x_varE] [kLogFact x_varE]        []
             _ | (isDHFact fa)                       -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing -- TODO:probably want to also check existing rules
                    act <- disjunctionOfList (filter isDHFact $ get rActs ru)
