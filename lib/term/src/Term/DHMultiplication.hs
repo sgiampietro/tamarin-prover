@@ -190,6 +190,9 @@ eTermsOf t@(LIT l)
   | isNZEVar t = [t]
   | isFrNZEVar t = [t]
   | otherwise = []
+eTermsOf t@(FAPP (DHMult o) ts) 
+  | o == dhMuSym = [t]
+  | otherwise = concatMap eTermsOf ts
 eTermsOf t@(FAPP f ts) = concatMap eTermsOf ts
 
 varInMu :: LNTerm -> [LVar]
@@ -287,7 +290,7 @@ neededexponents b nb t
 
 neededexponentslist:: S.Set LNTerm -> S.Set LNTerm -> [LNTerm] -> Maybe (S.Set LNTerm)
 neededexponentslist b nb terms
-  | null es = Nothing
+  | null es = Nothing 
   | otherwise = Just es
       where es = S.fromList $ concatMap (neededexponents b nb) terms
 
@@ -344,20 +347,16 @@ rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhExp t1 t2) = runReader (norm' (FAPP (D
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhGinv dht) = rootIndKnown2 hnd b nb dht--(FAPP (DHMult dhGinvSym) [rootIndKnown b nb dht])
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhTimes t1 t2) = runReader (norm' (FAPP (DHMult dhTimesSym) [rootIndKnown2 hnd b nb t1, rootIndKnown2 hnd b nb t2] )) hnd
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhTimesE t1 t2) =  runReader (norm' (FAPP (DHMult dhTimesESym) [rootIndKnown2 hnd b nb t1, rootIndKnown2 hnd b nb t2])) hnd
-rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhMu t1) = if isMult t1 then t else (if (isPublic $ rootIndKnown2 hnd b nb t1) then trace (show ("pubind", t, t1, rootIndKnown2 hnd b nb t1)) (FAPP (DHMult dhOneSym) []) else trace (show ("privind", t, t1, rootIndKnown2 hnd b nb t1)) t) --  rootIndKnown b nb t1 -- TODO FIX: you should also consider the possibility of finding rootIndKnown of t1. -- (FAPP (DHMult dhZeroSym) [])
+rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhMu t1) 
+  | S.member t nb = FAPP (DHMult dhOneSym) []
+  | otherwise = t1
+--rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhMu t1) = if isMult t1 then t else (if (isPublic $ rootIndKnown2 hnd b nb t1) then trace (show ("pubind", t, t1, rootIndKnown2 hnd b nb t1)) (FAPP (DHMult dhOneSym) []) else trace (show ("privind", t, t1, rootIndKnown2 hnd b nb t1)) t) --  rootIndKnown b nb t1 -- TODO FIX: you should also consider the possibility of finding rootIndKnown of t1. -- (FAPP (DHMult dhZeroSym) [])
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhMinus t1) = rootIndKnown2 hnd b nb t1
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhInv t1) = FAPP (DHMult dhInvSym) [rootIndKnown2 hnd b nb t1]
---rootIndKnown b nb t@(viewTerm2 -> FdhBox (LIT a)) = (t)
---rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Var t1)))
---  | S.member (LIT (Var t1)) nb = (FAPP (DHMult dhOneSym) [])
---  | S.member (LIT (Var t1)) b = (t)
---  | otherwise = error ("this shouldn't happen" ++ show (t, b, nb) ++ "ops")
--- rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Con t1))) = (LIT (Con t1))
 rootIndKnown2 hnd b nb t@(viewTerm2 -> Lit2 (Var t1))
   | S.member t nb = (FAPP (DHMult dhOneSym) [])
-  -- | S.member t b = (t)
-  | otherwise  = t -- (if isPubGVar t then (FAPP (DHMult dhEgSym) []) else t) -- this is a G variable
-rootIndKnown2 hnd b nb t@(viewTerm2 -> Lit2 (Con _)) = t -- (FAPP (DHMult dhEgSym) [])
+  | otherwise  = t 
+rootIndKnown2 hnd b nb t@(viewTerm2 -> Lit2 (Con _)) = t 
 rootIndKnown2 hnd b nb t@(viewTerm2 -> DHZero) = (FAPP (DHMult dhOneSym) [])
 rootIndKnown2 hnd b nb t@(viewTerm2 -> DHOne) = (FAPP (DHMult dhOneSym) [])
 rootIndKnown2 hnd b nb t@(viewTerm2 -> DHEg) = (FAPP (DHMult dhEgSym) [])

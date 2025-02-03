@@ -14,6 +14,7 @@ module Theory.Constraint.Solver.Combination
     getkeyfromProd,
     allNBExponents,
     getVariablesOf,
+    getVariablesOfK, 
     createMatrix,
     solveIndicatorGauss,
     solveIndicatorGaussProto,
@@ -246,6 +247,14 @@ getVariablesOf tis = map (\v -> LIT (Var v)) (es ++ ys ++ zs)
                               ys = filter (\v-> lvarName v == "yk") start
                               zs = filter (\v-> lvarName v /= "yk" && lvarName v /= "ek") start
 
+getVariablesOfK :: [LNTerm] -> [LNTerm]
+getVariablesOfK tis = map (\v -> LIT (Var v)) (es ++ ys ++ zs)
+                        where start = S.toList (S.unions $ map (S.fromList . varTermsOf') tis)
+                              es = filter (\v-> lvarName v == "yk") start
+                              ys = filter (\v-> lvarName v == "wy") start
+                              zs = filter (\v-> lvarName v /= "yk" && lvarName v /= "wy") start
+
+
 stripVars :: LNTerm -> LNTerm -> LNTerm -- (coeff of X, coeff of Y, constant factor)
 stripVars var t@(LIT l) = if (t == var) then fAppdhOne else fAppdhZero
 stripVars var t@(FAPP (DHMult o) ts) = case ts of
@@ -392,7 +401,7 @@ solveIndicatorGauss nb terms target = (\(a,b,c) -> a) $ solveMatrix fAppdhZero (
 createMatrix3 :: [LNTerm] -> LNTerm -> LNTerm -> ([LNTerm], Matrix LNTerm)
 createMatrix3 nb term target =
     let (nbexp, vars) =   allNBExponents nb (allExponentsOf [term] target) --
-        matrixvars = trace (show ("doestargethavevars",target)) $ getVariablesOf [term, target]
+        matrixvars = trace (show ("doestargethavevars",target)) $ getVariablesOfK [term, target]
         (coeffVars, (constOfTerm, constTarget)) = splitVars matrixvars term target
         --(coeffVarsTarget, constTarget) = splitVars matrixvars target trace (show ("coeffVars",coeffVars,"**",const)) $ 
         polynomials = map (\(coeffX, coeffXTarget) -> parseToMap vars (simplifyraw $ fAppdhPlus (coeffX, simplifyraw $ fAppdhMinus coeffXTarget)) ) coeffVars -- this term now contains the introduced W and V variables. 
