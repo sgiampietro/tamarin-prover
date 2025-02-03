@@ -1351,8 +1351,9 @@ solveIndicatorProto basis t1 t2 = do
    --Just (subst',subst1, subst2) ->  do
         eqStore <-  getM sEqStore
         hndCR <- getMaudeHandleCR
+        bset <- getM sNotBasis
         (subst', subst12) <- disjunctionOfList substlist
-        let normsubst = trace (show ("isthisis?", subst', subst12)) (normalizeSubstList hndCR subst') 
+        let normsubst = trace (show ("isthisis?", subst', subst12, bset)) (normalizeSubstList hndCR subst') 
         contradictoryIf $ variableCheck t1 subst12 t2 normsubst
         -- hndCR
         let normsubst' = compose (substFromList subst12) (substFromList normsubst)
@@ -1367,7 +1368,8 @@ solveIndicatorProto basis t1 t2 = do
         trace (show ("neweqstore", neweqstore, newsubst)) $ void substSystem
         void normSystemCR
         neweqstore2 <- getM sEqStore
-        trace (show ("noContradictoryEqStore", neweqstore2, eqsIsFalse neweqstore2)) void normSystem
+        bset2 <- getM sNotBasis
+        trace (show ("noContradictoryEqStore", neweqstore2, eqsIsFalse neweqstore2, bset2)) void normSystem
         -- void normSystemCR
         --nodes <- getM sNodes
         --setM sNodes $ M.map (\r -> runReader (normRule r) hndCR) nodes
