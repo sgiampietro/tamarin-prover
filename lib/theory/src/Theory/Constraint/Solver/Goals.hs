@@ -596,6 +596,7 @@ solveDHInd rules p faPrem =  do
           [x] -> solveDHIndaux bset nbset x p rules 
           -- [x] -> solveDHIndaux bset nbset x p faPrem rules (M.assocs nodes)
           _   -> error "In Fact should have arity 1"
+          
 
 solveDHIndMixed ::  [RuleAC]        -- ^ All rules that have an Out fact containing a boxed term as conclusion. 
              -> NodePrem       -- ^ Premise to solve.
