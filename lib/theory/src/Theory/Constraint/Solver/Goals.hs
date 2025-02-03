@@ -263,7 +263,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                    (void (solveFactEqs SplitNow [Equal fa act]))
                    void substSystem
                    return ru
-            {-_ | (isKdhFact fa)                     -> do
+            _ | (isKdhFact fa)                     -> do
                    nbset <- getM sNotBasis 
                    case factTerms fa of 
                     [y] | isDHLit y        ->  do
@@ -271,19 +271,29 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                                   act <- disjunctionOfList (filter isDHFact $ get rActs ru)
                                   trace (show ("IAMHEREKdhACTIOns", fa, act, ru)) (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
                                   void substSystem
-                   --void normSystem
                                   return ru 
-                    [y] | otherwise           -> do
-                              let premLearn = fa
-                                  concLearn = inFact y
+                    [y] | otherwise ->        do
+                           case viewTerm2 y of
+                            FdhMu t1  -> do
+                                let premLearn = kdhFact t1
+                                    concLearn = inFact t1
           -- !! Make sure that you construct the correct rule!
-                                  ruLearn = Rule (IntrInfo ISendRule) [premLearn] [concLearn] [] []
-                                  cLearn = (i, ConcIdx 0)
-                                  pLearn = (i, PremIdx 0)
-                              trace (show ("thisisyY", y)) modM sNodes  (M.insert i ruLearn)
-                              solvePremise rules pLearn premLearn
-                              return ruLearn -}
-                      -- do Rule ISendRule   [kdhFact x_varE] [inFact x_varE] [kLogFact x_varE]        []
+                                    ruLearn = Rule (IntrInfo ISendRule) [premLearn] [concLearn] [] []
+                                    cLearn = (i, ConcIdx 0)
+                                    pLearn = (i, PremIdx 0)
+                                trace (show ("thisisyY", y)) modM sNodes  (M.insert i ruLearn)
+                                solvePremise rules pLearn premLearn
+                                return ruLearn 
+                            _   -> do
+                                let premLearn = fa
+                                    concLearn = inFact y
+          -- !! Make sure that you construct the correct rule!
+                                    ruLearn = Rule (IntrInfo ISendRule) [premLearn] [concLearn] [] []
+                                    cLearn = (i, ConcIdx 0)
+                                    pLearn = (i, PremIdx 0)
+                                trace (show ("thisisyY", y)) modM sNodes  (M.insert i ruLearn)
+                                solvePremise rules pLearn premLearn
+                                return ruLearn 
             _ | (isDHFact fa)                       -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing -- TODO:probably want to also check existing rules
                    act <- disjunctionOfList (filter isDHFact $ get rActs ru)
@@ -647,9 +657,9 @@ solveDHIndaux bset nbset term p rules = do
               let rules2add = map (\(a,(i,_),_,_,c,_) -> (i,a,c)) $ filter (\(a,_,_,_,c,b) -> b) possibletuple
               --is <- replicateM (length rules2add) $ freshLVar "jru" LSortNode
               forM_ rules2add (\(i,ru,c) -> exploitNodeId i ru c)
-              insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+              trace (show ("thistuple", possibletuple, (map fst neededInds), newterm))  $ insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
               -- insertKdhEdges possibletuple (map fst neededInds) (newterm) p 
-              return "FindingIndicators" 
+              trace (show "CANWEGETYHEREYAY") $ return "FindingIndicators" 
       es -> do
           -- solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) es
           --solveNeededList (insertMuAction rules) es

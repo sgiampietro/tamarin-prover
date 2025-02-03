@@ -263,7 +263,7 @@ enforceEdgeUniqueness = do
     -- | @proveLinearConc se (v,i)@ tries to prove that the @i@-th
     -- conclusion of node @v@ is a linear fact.
     proveLinearConc se (v, i) =
-        maybe False (isLinearFact . (get (rConc i))) $
+        maybe False (\y -> ((isLinearFact $ (get (rConc i)) y) || (isOut $ (get (rConc i)) y )) ) $
             M.lookup v $ get sNodes se
 
     -- merge the nodes on the 'mergeEnd' for edges that are equal on the
