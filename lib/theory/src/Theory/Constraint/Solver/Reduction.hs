@@ -762,7 +762,8 @@ insertDHEdges tuplelist indts premTerm p fun = do
     let rootpairs = zip (map (\(a,b,(c,t),d,e,f)-> (t,d)) tuplelist) indts
         cllist = nubBy (\(a,b,c,d,e,f) (a2,b2,c2,d2,e2,f2) -> b == b2) tuplelist
     --return ()
-    (faPremsubst, listterms) <- foldM (\faP c -> solveIndFactDH SplitNow c faP) (premTerm,[]) rootpairs
+    --(faPremsubst, listterms) <- foldM (\faP c -> solveIndFactDH SplitNow c faP) (premTerm,[]) rootpairs
+    (faPremsubst, listterms) <- solveIndFactDH SplitNow rootpairs premTerm
     void substSystem
     nodes <- getM sNodes
     contradictoryIf $ doubleFresh nodes
@@ -1768,6 +1769,26 @@ solveFactDHEqs split fa1 fa2 bset nbset fun= do
             contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
             solveListDHEqs (solveTermDHEqs split fun) $ zip (factTerms fa1) (factTerms fa2)
 
+createEqs t1 t2 =
+    case (isPubExp t1, isPubExp t2) of
+        (Just (pg1,e1), Just (pg2,e2)) -> (Equal e1 e2) 
+        _ ->  (Equal t1 t2)
+
+
+solveIndFactDH :: SplitStrategy -> [((LNTerm, LNTerm), LNTerm)] -> LNTerm -> Reduction (LNTerm, [LNTerm])
+solveIndFactDH split listtups faPrem = do
+    let queries = map (\((t,rt), ind)-> createEqs rt ind) listtups
+    se  <- gets id
+    hnd <- getMaudeHandleDH
+    (eqs2, maySplitId,subst1) <- addDHEqs2 hnd queries =<< getM sEqStore 
+    setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
+    trace (show ("here eqs2", eqs2)) $ noContradictoryEqStore
+    void substSystem
+    void normSystem
+    subst <- getM sEqStore
+    return (applyVTerm (_eqsSubst subst) faPrem, map (\((a,b),c)-> applyVTerm (_eqsSubst subst) a ) listtups)
+
+{-}
 
 solveIndFactDH :: SplitStrategy -> ((LNTerm, LNTerm), LNTerm) -> (LNTerm, [LNTerm]) -> Reduction (LNTerm, [LNTerm])
 solveIndFactDH split ((fa1, t1), t2) (fa2, acclist)=
@@ -1786,7 +1807,7 @@ solveIndFactDH split ((fa1, t1), t2) (fa2, acclist)=
                 void normSystem
                 subst <- getM sEqStore
                 return $ (applyVTerm (_eqsSubst subst) fa2, map (\y -> applyVTerm (_eqsSubst subst) y) $ acclist++[fa1])
-
+-}
 
 solveIndFactKdh :: SplitStrategy -> [(LNTerm, LNTerm)] -> (LNTerm,[LNTerm]) -> Reduction ()
 solveIndFactKdh split fa1ta1 (ta2, indterms) = do -- freshvars newfreshvars 

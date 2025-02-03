@@ -477,10 +477,16 @@ solveChain rules (c, p) = do
             case trace (show ("directedgecase", faPrem)) $ neededexponentslist bset nbset (factTerms faPrem) of
               (Just es) -> do
                               solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) (S.toList es)
+                              --(newb,newNb) <- disjunctionOfList $ solveNeededList2 (S.toList es)
+                              --forM_ newb (insertBasisElem)
+                              --forM_ newNb (insertNotBasisElem)
+                              --is<- replicateM (length newNb) $ freshLVar "vk" LSortNode
+                              --forM_ (zip is newNb) (\(i,x)-> insertMuAction (get crProtocol rules2 ++ get crConstruct rules2) x i)
+                              --trace (show ("ESSS", es, newb,newNb)) substSystem
                               insertDirectEdge faPrem faConc cRule pRule rules2
                               --trace (show ("I'malsohere", name)) $ return name
               Nothing -> do 
-                          insertDHMixedEdge False (c, faConc, faPrem, p) cRule (S.fromList $ basisOfRule cRule) (S.fromList $ notBasisOfRule cRule) (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
+                          trace (show ("MIXEDEDHFEE", faConc, faPrem)) $ insertDHMixedEdge False (c, faConc, faPrem, p) cRule (S.fromList $ basisOfRule cRule) (S.fromList $ notBasisOfRule cRule) (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
                           -- insertDHMixedEdge True (c, faConc, faPrem, p) cRule pRule bset nbset (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
                           let mPrem = case kFactView faConc of
                                             Just (DnK, m') -> m'

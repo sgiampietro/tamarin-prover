@@ -679,8 +679,8 @@ addDHEqs hnd t1zzs permt zzbool eqdhstore = do
 
 
 addDHEqs2 :: MonadFresh m
-       => MaudeHandle -> LNTerm -> LNTerm -> EqStore -> m (EqStore, Maybe SplitId, [Subst Name LVar])
-addDHEqs2 hnd t1 indt eqdhstore =
+       => MaudeHandle -> [Equal LNTerm] -> EqStore -> m (EqStore, Maybe SplitId, [Subst Name LVar])
+addDHEqs2 hnd t1indt eqdhstore =
     case (if (any (\(Equal x y)-> notUnifiableLits x y) eqs) then [] else unifyLNDHProtoTermFactored eqs `runReader` hnd) of
         [] -> return (set eqsConj falseEqConstrConj eqdhstore, Nothing, [])
         [substFresh] | substFresh == emptySubstVFresh ->
@@ -690,7 +690,7 @@ addDHEqs2 hnd t1 indt eqdhstore =
             let eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) newsubsts ) eqdhstore
             return (eqStore', Nothing, (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) newsubsts ) )
   where
-    eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt]
+    eqs = apply (L.get eqsSubst eqdhstore) $ t1indt
     addsubsts sub eqst= applyEqStore hnd sub eqst
     changeqstore [x] eq = addsubsts x eq
     changeqstore (x:xs) eq = changeqstore xs (addsubsts x eq)
