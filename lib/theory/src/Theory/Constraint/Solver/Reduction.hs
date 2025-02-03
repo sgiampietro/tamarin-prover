@@ -766,14 +766,15 @@ insertDHEdges tuplelist indts premTerm p fun = do
     (faPremsubst, listterms) <- solveIndFactDH SplitNow rootpairs premTerm
     void substSystem
     nodes <- getM sNodes
+    edges <- getM sEdges
     contradictoryIf $ doubleFresh nodes
     bset <- getM sBasis
     nbset <- getM sBasis
     case neededexponentslist bset nbset listterms of 
         Nothing -> do
             trace (show ("indicators", indts, listterms, "fromroot", rootpairs, "bset", bset)) $ solveIndicator faPremsubst listterms
-            forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
-            forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
+            trace (show ("THISWORKS",edges,"**",(map (\(_,b,_,_, _, _)->b) cllist),"**",p)) $ forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
+            -- forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
         Just es -> do
             (newb,newNb) <- disjunctionOfList $ solveNeededList2 (S.toList es)
             forM_ newb (insertBasisElem)
@@ -785,7 +786,7 @@ insertDHEdges tuplelist indts premTerm p fun = do
             bset2 <- getM sBasis
             nbset2 <- getM sBasis
             trace (show ("indicators2", indts, listterms, "fromroot", rootpairs, "bset", bset2, nbset2)) $ solveIndicator faPremsubst listterms
-            forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
+            trace (show ("THISWORKS2",edges,"**",(map (\(_,b,_,_, _, _)->b) cllist),"**",p)) $ forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
             -- forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
 
 
@@ -1777,7 +1778,7 @@ solveIndFactDH split listtups faPrem = do
     hnd <- getMaudeHandleDH
     (eqs2, maySplitId,subst1) <- addDHEqs2 hnd queries =<< getM sEqStore 
     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
-    trace (show ("here eqs2", eqs2)) $ noContradictoryEqStore
+    trace (show ("here eqs2", queries, eqs2)) $ noContradictoryEqStore
     void substSystem
     void normSystem
     subst <- getM sEqStore
