@@ -66,6 +66,7 @@ module Theory.Constraint.Solver.Reduction (
   , insertDHMixedEdge
   , solveNeeded
   , solveNeededList
+  , solveNeededList2
   --, setNotReachable
 
   -- ** Goal management
@@ -433,8 +434,9 @@ insertEdges edges = do
 
 insertOutKIEdge :: (NodeConc, LNFact, LNFact, NodePrem) -> Reduction ()
 insertOutKIEdge (c, fa1,fa2,p) = do
-    (solveFactOutKIEqs SplitNow (Equal fa1 fa2))
+    void (solveFactOutKIEqs SplitNow (Equal fa1 fa2))
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
+    --simplifySystem
 
 
 -- | Insert an 'Action' atom. Ensures that (almost all) trivial *KU* actions
@@ -739,15 +741,51 @@ insertDHEdge (c, fa1, fa2, p) bset nbset = do --fa1 should be an Out fact
     void (solveFactDHEqs SplitNow fa1 fa2 bset nbset (protoCase SplitNow bset nbset))
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
-insertDHEdges :: [(RuleACInst, NodeConc, (LNFact,LNTerm), LNTerm, Maybe RuleACConstrs, Bool)] -> [LNTerm] -> LNTerm -> NodePrem -> Reduction ()
-insertDHEdges tuplelist indts premTerm p = do
+
+doubleFresh :: M.Map NodeId RuleACInst -> Bool
+doubleFresh nodes = isitcontr
+    where   allprems = map (\(i, ru) -> (i, filter (\f -> isFrDHFact f) $ map snd $ enumPrems ru)) $ M.assocs nodes
+            allprems2 = nub $ concatMap snd allprems
+            isitcontr = any (\x-> length (filter (\(i,prems) -> elem x prems) allprems) > 1) allprems2
+
+
+insertMuAction ::  (LNTerm -> NodeId -> Reduction String) ->
+      Term (Lit Name LVar) -> NodeId -> Reduction String
+insertMuAction fun x@(LIT l) i =  fun x i
+insertMuAction _ x i = do
+    _ <- insertGoal (ActionG i (kdhFact x)) False
+    return "inserted"
+
+insertDHEdges :: [(RuleACInst, NodeConc, (LNFact,LNTerm), LNTerm, Maybe RuleACConstrs, Bool)] -> [LNTerm] -> LNTerm -> NodePrem -> 
+    (LNTerm -> NodeId -> Reduction String) -> Reduction ()
+insertDHEdges tuplelist indts premTerm p fun = do
     let rootpairs = zip (map (\(a,b,(c,t),d,e,f)-> (t,d)) tuplelist) indts
         cllist = nubBy (\(a,b,c,d,e,f) (a2,b2,c2,d2,e2,f2) -> b == b2) tuplelist
     --return ()
     (faPremsubst, listterms) <- foldM (\faP c -> solveIndFactDH SplitNow c faP) (premTerm,[]) rootpairs
-    trace (show ("indicators", indts, listterms, "fromroot", rootpairs)) $ solveIndicator faPremsubst listterms
-    forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
-    forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
+    void substSystem
+    nodes <- getM sNodes
+    contradictoryIf $ doubleFresh nodes
+    bset <- getM sBasis
+    nbset <- getM sBasis
+    case neededexponentslist bset nbset listterms of 
+        Nothing -> do
+            trace (show ("indicators", indts, listterms, "fromroot", rootpairs, "bset", bset)) $ solveIndicator faPremsubst listterms
+            forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
+            forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
+        Just es -> do
+            (newb,newNb) <- disjunctionOfList $ solveNeededList2 (S.toList es)
+            forM_ newb (insertBasisElem)
+            forM_ newNb (insertNotBasisElem)
+            is<- replicateM (length newNb) $ freshLVar "vk" LSortNode
+            forM_ (zip is newNb) (\(i,x)-> insertMuAction fun x i)
+            trace (show ("ESSS", es, newb,newNb)) substSystem
+            --solveNeededList fun (S.toList es)
+            bset2 <- getM sBasis
+            nbset2 <- getM sBasis
+            trace (show ("indicators2", indts, listterms, "fromroot", rootpairs, "bset", bset2, nbset2)) $ solveIndicator faPremsubst listterms
+            forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
+            -- forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
 
 
 insertKdhEdges :: [(RuleACInst, NodeConc, (LNFact,LNTerm), LNTerm, Maybe RuleACConstrs, Bool)] -> [LNTerm] -> LNTerm -> NodePrem ->  Reduction ()
@@ -767,7 +805,8 @@ insertKdhEdges tuplelist indts premTerm p = do -- instrules
 
 insertDHMixedEdge :: Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> RuleACInst
                     -> S.Set LNTerm -> S.Set LNTerm -> [RuleAC] -> [(NodeId, RuleACInst)] ->
-                    (LNTerm -> NodeId -> StateT System (FreshT (DisjT (Reader ProofContext))) a0) -> Reduction ()
+                    (LNTerm -> NodeId -> Reduction String) -> Reduction ()
+                    --(LNTerm -> NodeId -> StateT System (FreshT (DisjT (Reader ProofContext))) a0) -> Reduction ()
 -- fa1 is conclusion, fa2 is premise
 insertDHMixedEdge True (c, fa1, fa2, p) cRule bset nbset rules rulesinst fun = do --fa1 should be an Out fact
     (solveMixedFactEqs SplitNow (Equal fa2 fa1) bset nbset (protoCase SplitNow bset nbset) )
@@ -1190,29 +1229,37 @@ solveIndicator t2 terms  = do
 -}
 
 
+secretmonomials :: [LNTerm] -> LNTerm -> LNTerm -> [LNTerm]
+secretmonomials bb indt t@(viewTerm2 -> FdhPlus t1 t2) = (secretmonomials bb indt t1) ++ (secretmonomials bb indt t2)
+secretmonomials bb indt t@(viewTerm2 -> FdhTimes t1 t2) = if ((nub $ varsVTerm t) \\ (nub $ varsVTerm indt)) `intersect` (concatMap varsVTerm bb) == (nub $ varsVTerm t) then [t] else []
+secretmonomials bb indt t@(viewTerm2 -> FdhTimesE t1 t2) = if ((nub $ varsVTerm t) \\ (nub $ varsVTerm indt)) `intersect` (concatMap varsVTerm bb) == (nub $ varsVTerm t) then [t] else []
+secretmonomials bb indt t@(viewTerm2 -> FdhMinus t2) = secretmonomials bb indt t2
+secretmonomials _ _ _ = []
+
 solveIndicator ::  LNTerm -> [LNTerm] -> Reduction String
 solveIndicator t22 terms2  = do
   let t2 = gTerm2Exp t22
       terms = map gTerm2Exp terms2
   hndNormal  <- getMaudeHandle
   bb <- getM sBasis
-  let newsecretvars = (( (nub $ concatMap varsVTerm terms2) \\ (nub $ varsVTerm t22)) ) `intersect` (concatMap varsVTerm $ S.toList bb)
-  evars <- replicateM (length newsecretvars) $ freshLVar "esw" LSortE
-  zvars <- replicateM (length newsecretvars) $ freshLVar "zz" LSortVarE 
+  let newsecretvars = (( (nub $ concatMap varsVTerm terms) \\ (nub $ varsVTerm t22)) ) `intersect` (concatMap varsVTerm $ S.toList bb)
+      secretmonoms = concatMap (secretmonomials (S.toList bb) t22) terms 
+  -- evars <- replicateM (length secretmonoms) $ freshLVar "esw" LSortE
+  zvars <- replicateM (length secretmonoms) $ freshLVar "zz" LSortVarE 
   js <- freshLVar "jz" LSortNode
   wvars <- replicateM (length terms) $ freshLVar "wy" LSortVarE
   is <- replicateM (length terms + 1) $ freshLVar "iw" LSortNode
   wvarextra <- freshLVar "ww" LSortVarE
   forM_ (zip (map varTerm (wvars ++ [wvarextra])) (is)) (\(t,i)-> insertAction i (kdhFact t) ) 
   let genterms = zipWith multiplyterm wvars terms
-      extraterms = zipWith (\a b -> fAppdhTimesE (varTerm a, varTerm b)) evars zvars 
+      extraterms = zipWith (\a b -> fAppdhTimesE (a, varTerm b)) secretmonoms zvars 
       extraterm = runReader (norm' $ foldr (\a b -> if b == fAppdhZero then a else fAppdhPlus (a,b)) fAppdhZero extraterms) hndNormal 
       advterm = runReader (norm' $ foldr (\a b -> fAppdhPlus (a,b)) (varTerm wvarextra) genterms) hndNormal 
       advterm2 = if null extraterms then advterm else fAppdhPlus (advterm, extraterm)
       nt2 = runReader (norm' t2) hndNormal
-      matrixvars = getVariablesOf [nt2,advterm2]   
+      matrixvars = getVariablesOfK [nt2,advterm2]   
   forM_ (if null newsecretvars then [] else [extraterm]) (\t -> insertAction js (kdhFact t))     
-  freevars <- trace (show ("Kmatrix", matrixvars, nt2,(varsVTerm t22), genterms, "extravars", newsecretvars)) $ replicateM (length matrixvars) $ freshLVar "vy" LSortE
+  freevars <- trace (show ("Kmatrix", matrixvars, nt2,(varsVTerm t22), genterms, "extravars", newsecretvars, bb)) $ replicateM (length matrixvars) $ freshLVar "vy" LSortE
   if length matrixvars >1 
     then solveIndicatorKFacts (map varTerm freevars) nt2 advterm2 `disjunction` (solveIndicatorKFacts2 (map varTerm freevars) nt2 advterm2)
     else solveIndicatorKFacts (map varTerm freevars) nt2 advterm2
@@ -1335,7 +1382,7 @@ solveIndicatorKFacts :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
 solveIndicatorKFacts basis t1 t2 = do
   hnd  <- getMaudeHandle
   nb <- getM sNotBasis
-  let bb = (solveIndicatorGauss3 hnd (S.toList nb) basis t1 t2 )
+  let bb = (solveIndicatorGauss3 hnd (S.toList nb) basis t2 t1 )
   case bb of
    Just substlist ->  do
    --Just (subst',subst1, subst2) ->  do
@@ -1359,7 +1406,7 @@ solveIndicatorKFacts2 :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
 solveIndicatorKFacts2 basis t1 t2 = do
   hnd  <- getMaudeHandle
   nb <- getM sNotBasis
-  let matrixvars = getVariablesOf [t1, t2]
+  let matrixvars = getVariablesOfK [t1, t2]
       subst0 = substFromList [(fromJust $ getVar (head matrixvars), fAppdhZero)]
       newt1 = trace (show ("tryingOUt", matrixvars, fromJust $ getVar (head matrixvars))) $ runReader (norm' $ applyVTerm subst0 t1) hnd
       newt2 = runReader (norm' $ applyVTerm subst0 t2) hnd
@@ -1367,7 +1414,7 @@ solveIndicatorKFacts2 basis t1 t2 = do
   setM sEqStore $ applyEqStore hnd subst0 eqStore
   void substSystem
   void normSystem
-  let bb = (solveIndicatorGauss3 hnd (S.toList nb) basis t1 t2 )
+  let bb = (solveIndicatorGauss3 hnd (S.toList nb) basis t2 t1 )
   case bb of
    Just substlist ->  do
    --Just (subst',subst1, subst2) ->  do
@@ -1504,10 +1551,21 @@ solveNeeded fun x i = do
     `disjunction`
     (do
           (insertNotBasisElem x)
-          _ <- fun x i
-          return "case Leaked Set" )
+          case viewTerm x of 
+            Lit (Var lvar) -> do
+                _ <- fun x i
+                return "case Leaked Set"
+            _ -> do
+                _ <- insertAction i (kdhFact x)
+                return "case Leaked Set"
+           )
 
-solveNeededList :: (LNTerm -> NodeId -> StateT  System (FreshT (DisjT (Reader ProofContext))) a0) -> [LNTerm] ->        -- exponent that is needed.
+solveNeededList2 :: [LNTerm] -> [([LNTerm], [LNTerm])]
+solveNeededList2 es = map (\b -> (b, es \\ b)) sublists
+    where sublists = nub $ subsequences es
+
+--solveNeededList :: (LNTerm -> NodeId -> StateT  System (FreshT (DisjT (Reader ProofContext))) a0) -> [LNTerm] ->        -- exponent that is needed.
+solveNeededList :: (LNTerm -> NodeId -> Reduction String) -> [LNTerm] ->  
                 Reduction String -- ^ Case name to use.
 solveNeededList fun [x] = do
       i <- freshLVar "vk" LSortNode
@@ -1518,7 +1576,7 @@ solveNeededList fun (x:xs) = do
       solveNeededList fun xs
 
 solveTermDHEqsChain :: SplitStrategy -> [RuleAC] -> [(NodeId,RuleACInst)] ->
-                        (LNTerm -> NodeId -> StateT  System (FreshT (DisjT (Reader ProofContext))) a0)
+                        (LNTerm -> NodeId -> Reduction String)
                         -> NodePrem -> LNFact -> (NodeId, RuleACInst, LNFact, ConcIdx)
                         -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
 solveTermDHEqsChain splitStrat rules instrules fun p faPrem (j,ruj, fa1, c) (ta2,ta1) = do
@@ -1535,7 +1593,7 @@ solveTermDHEqsChain splitStrat rules instrules fun p faPrem (j,ruj, fa1, c) (ta2
      then insertDHEdge ((j,c), fa1, faPrem, p) bset nbset -- TODO: fix this
      else do
             possibletuple <- insertFreshNodeConcOutInst rules instrules n (Just ((j,ruj, fa1, c), ta1))
-            insertDHEdges possibletuple neededInds ta2 p
+            insertDHEdges possibletuple neededInds ta2 p fun
     return Changed
     --  es -> do
     --      solveNeededList fun es
@@ -1687,7 +1745,7 @@ solveFactOutKIEqs :: SplitStrategy -> Equal LNFact -> Reduction ChangeIndicator
 solveFactOutKIEqs split (Equal fa1 fa2) = do
     contradictoryIf (not (factTag fa1 == OutFact) && (factTag fa2 == KIFact ) )
     contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
-    (solveTermEqs split) $ (zipWith (\a b-> Equal a b) (factTerms fa1) (factTerms fa2))
+    trace (show ("unifyinghere", factTerms fa1, factTerms fa2)) $ (solveTermEqs split) $ (zipWith (\a b-> Equal a b) (factTerms fa1) (factTerms fa2))
 
 
 solveMixedFactEqs :: SplitStrategy -> Equal LNFact -> S.Set LNTerm -> S.Set LNTerm -> ((LNTerm, LNTerm) -> Reduction ChangeIndicator) -> Reduction ChangeIndicator

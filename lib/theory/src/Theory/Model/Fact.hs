@@ -83,7 +83,6 @@ module Theory.Model.Fact (
   , isKDFact
   , isKdhFact
   , isFrDHFact
---  , isOutFact
   , isKIFact
   --, isKdhIndFact
   , isKDXorFact

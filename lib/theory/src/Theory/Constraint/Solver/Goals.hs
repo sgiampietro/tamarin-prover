@@ -62,6 +62,7 @@ import           Term.Rewriting.Norm
 import           Theory.Constraint.Solver.Combination
 
 import           Utils.Misc                              (twoPartitions)
+-- import Theory.Constraint.Solver.Simplify (simplifySystem)
 
 
 
@@ -550,12 +551,12 @@ solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact as conclusio
              -> Reduction String -- ^ Case name to use.
 solveDHInd rules p faPrem =  do
         bset <- getM sBasis
-        nbset <- getM sNotBasis
-        nodes <-trace (show ("solveDHIND", faPrem, bset, nbset)) $  getM sNodes
-        pRule <- gets $ nodeRule (nodePremNode p)
-        case factTerms faPrem of 
+        nbset <-  getM sNotBasis
+        --nodes <-trace (show ("solveDHIND", faPrem, bset, nbset)) $  getM sNodes
+        --pRule <- gets $ nodeRule (nodePremNode p)
+        case trace (show ("solveDHIND", faPrem, bset, nbset)) $ factTerms faPrem of 
           -- [x] -> solveDHIndaux bset nbset x p faPrem (filter isProtocolRule rules) (M.assocs nodes)
-          [x] -> solveDHIndaux bset nbset x p faPrem rules (filter (\i-> snd i /= pRule) $ M.assocs nodes)
+          [x] -> solveDHIndaux bset nbset x p rules 
           -- [x] -> solveDHIndaux bset nbset x p faPrem rules (M.assocs nodes)
           _   -> error "In Fact should have arity 1"
 
@@ -582,34 +583,60 @@ solveDHIndauxMixed bset nbset terms p faPrem rules instrules =
           return $ showRuleCaseName ru -- (return "done") 
 
 
-solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> NodePrem -> LNFact -> [RuleAC] -> [(NodeId,RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
-solveDHIndaux bset nbset term p faPrem rules instrules =
+insertMuAction :: [RuleAC] -> Term (Lit Name LVar) -> NodeId -> Reduction String
+insertMuAction rules x@(LIT l) i = trace (show ("solvingprmieshere", x)) $ solvePremise rules (i, PremIdx 0) (kIFact x)
+insertMuAction _ x i = do
+      _ <- insertGoal (ActionG i (kdhFact x)) False
+      return "inserted"
+
+--solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> NodePrem -> LNFact -> [RuleAC] -> [(NodeId,RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
+--solveDHIndaux bset nbset term p faPrem rules instrules =
+solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> NodePrem -> [RuleAC]  -> StateT System (FreshT (DisjT (Reader ProofContext))) String
+solveDHIndaux bset nbset term p rules = do
+  nodes <- getM sNodes
+  pRule <- gets $ nodeRule (nodePremNode p)
+  let instrules = (filter (\i-> snd i /= pRule) $ M.assocs nodes)
   case neededexponents bset nbset term of
       [] -> do  -- TODO: this is where we need to check multiple Out facts!! 
           hndNormal <- trace (show ("SOLVEINDAUX", term, bset,nbset)) getMaudeHandle
           let nterm = runReader (norm' term) hndNormal
+              inds = map (\x -> (rootIndKnown2 hndNormal bset nbset x,x)) $ multRootList (clterm nterm)
+              neededInds = filter (\(a,b)-> not $ isPublic a) inds
+              newterm = foldr (\a b -> if b == fAppdhEg then a else fAppdhMult (a,b)) fAppdhEg $ map snd neededInds
               clterm t = case viewTerm2 t of --todo: need to refine this. 
-                              FdhMu t1 -> clterm t1
+                              FdhMu t1 -> if S.member t nbset then t else clterm t1
                               FdhMinus t1 -> clterm t1
                               FdhInv t1 -> clterm t1
                               FdhGinv t1 -> clterm t1
                               _        -> t
-              indlist = map (\x -> rootIndKnown2 hndNormal bset nbset x) (multRootList $ clterm nterm)
+              --indlist = map (\x -> rootIndKnown2 hndNormal bset nbset x) (multRootList $ clterm nterm)
               --indlist =  map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' term) hndNormal)
-              neededInds =  filter (not . isPublic) indlist
+              --neededInds =  filter (not . isPublic) indlist
               n = trace (show ("thisisn", length neededInds, neededInds) ) $ length neededInds
-          if null neededInds 
+          if trace (show ("null", neededInds)) $ null neededInds 
             then return "Indicators are public"
             else do
               possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n Nothing
-              --insertDHEdges possibletuple neededInds term p
-              insertKdhEdges possibletuple neededInds (clterm term) p 
-              return "MatchingEachIndicatorWithOutFacts" 
+              let rules2add = map (\(a,(i,_),_,_,c,_) -> (i,a,c)) $ filter (\(a,_,_,_,c,b) -> b) possibletuple
+              --is <- replicateM (length rules2add) $ freshLVar "jru" LSortNode
+              forM_ rules2add (\(i,ru,c) -> exploitNodeId i ru c)
+              insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+              -- insertKdhEdges possibletuple (map fst neededInds) (newterm) p 
+              return "FindingIndicators" 
       es -> do
-          solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) es
+          -- solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) es
+          --solveNeededList (insertMuAction rules) es
+          (newb,newNb) <- disjunctionOfList $ solveNeededList2 es
+          forM_ newb (insertBasisElem)
+          forM_ newNb (insertNotBasisElem)
+          is<- replicateM (length newNb) $ freshLVar "vk" LSortNode
+          forM_ (zip is newNb) (\(i,x)-> insertMuAction rules x i)
+          trace (show ("ESSS", es, newb,newNb)) substSystem
           bset2 <- getM sBasis
-          nbset2 <- getM sBasis
-          trace (show ("new indicators, old", bset2, nbset2, bset, nbset)) (solveDHInd rules p faPrem)
+          nbset2 <- getM sNotBasis
+          nodes <- getM sNodes
+          substs <- getM sSubst
+          trace (show ("new indicators, old", bset2, nbset2)) (solveDHIndaux bset2 nbset2 (applyVTerm substs term) p rules)
           return "LeakedSetInserted"
 
 

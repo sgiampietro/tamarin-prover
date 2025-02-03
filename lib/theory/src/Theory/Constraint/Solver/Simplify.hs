@@ -64,7 +64,7 @@ simplifySystem :: Reduction ()
 simplifySystem = do
     -- normSystemCR
     -- normSystem
-    isdiff <- getM sDiffSystem
+    isdiff <- trace (show "IAMSIMPLIFYNING SYTME") $ getM sDiffSystem
     -- Start simplification, indicating that some change happened
     go (0 :: Int) [Changed]
     if isdiff
@@ -269,7 +269,7 @@ enforceEdgeUniqueness = do
     -- merge the nodes on the 'mergeEnd' for edges that are equal on the
     -- 'compareEnd'
     mergeNodes mergeEnd compareEnd edges
-      | null eqs  = return Unchanged
+      | null (trace (show ("thesearehteqee,", edges)) eqs)  = return Unchanged
       | otherwise = do
             -- all indices of merged premises and conclusions must be equal
             contradictoryIf (not $ and [snd l == snd r | Equal l r <- eqs])
