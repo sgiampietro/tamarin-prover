@@ -735,10 +735,10 @@ addDHProtoEqs hnd allevars t1zzs permt zzbool eqdhstore = do
         --ist1var x = elem x $ concatMap varsVTerm t1
         --isindtvar x = elem x $ concatMap varsVTerm permt
     case (if (any (uncurry notUnifiableLits) (zip permt t1)) then [] else unifyLNDHProtoTermFactored (zipWith Equal permt t1) `runReader` hnd) of
-        [] | zzbool ->  return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
+        [] | zzbool ->  trace (show "amIhere?") $ return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
         [] | not zzbool -> trace (show ("GENERALIZING", permt, t1)) $ addDHProtoEqs hnd allevars (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) permt True eqdhstore
         [substFresh] | substFresh == emptySubstVFresh ->
-            return (eqdhstore, Nothing)
+            trace (show "amIhere?22") $ return (eqdhstore, Nothing)
         substs -> do
             let rangesubst = concatMap varsRangeVFresh substs -- TODO: can we delete this and following 3 lines?
                 toset = rangesubst \\ (concatMap varsOfSubsts substs)

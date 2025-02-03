@@ -1383,7 +1383,7 @@ solveIndicatorKFacts :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
 solveIndicatorKFacts basis t1 t2 = do
   hnd  <- getMaudeHandle
   nb <- getM sNotBasis
-  let bb = (solveIndicatorGauss3 hnd (S.toList nb) basis t2 t1 )
+  let bb = trace (show ("withthisbasis", nb)) (solveIndicatorGauss3 hnd (S.toList nb) basis t2 t1 )
   case bb of
    Just substlist ->  do
    --Just (subst',subst1, subst2) ->  do
@@ -1407,7 +1407,7 @@ solveIndicatorKFacts2 :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
 solveIndicatorKFacts2 basis t1 t2 = do
   hnd  <- getMaudeHandle
   nb <- getM sNotBasis
-  let matrixvars = getVariablesOfK [t1, t2]
+  let matrixvars =  trace (show ("withthisbasis", nb)) $ getVariablesOfK [t1, t2]
       subst0 = substFromList [(fromJust $ getVar (head matrixvars), fAppdhZero)]
       newt1 = trace (show ("tryingOUt", matrixvars, fromJust $ getVar (head matrixvars))) $ runReader (norm' $ applyVTerm subst0 t1) hnd
       newt2 = runReader (norm' $ applyVTerm subst0 t2) hnd
@@ -1446,9 +1446,10 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms ta1 ta
     (eqs2, maySplitId) <- addDHProtoEqs hnd allevars genindterms permutedlist False eqstore
     se  <-  gets id
     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
+    noContradictoryEqStore
     -- setM sEqStore eqs2 
     subst <- getM sSubst
-    let substlist = M.fromList $ substToList subst
+    let substlist = trace (show ("isTHISTHEPROBELSM",substToList subst, allevars)) $ M.fromList $ substToList subst
         newvars = concatMap (\e -> filter (\v->sortOfLNTerm (varTerm v) == LSortE) $ varsVTerm $ substlist M.! e) allevars
         varta1 = filter (\x -> not (isvarEVar (LIT (Var x)) || isvarGVar (LIT (Var x)))) $ varsVTerm ta1
         varta2 = filter (\x -> not (isvarEVar (LIT (Var x)) || isvarGVar (LIT (Var x)))) $ varsVTerm ta2
@@ -1618,15 +1619,7 @@ etermOf :: LNTerm -> Maybe LVar
 etermOf x =  if null elist then Nothing else Just (head elist)
               where elist = filter (\v->lvarSort v == LSortE) $ varsVTerm x
 
-{-}
-replacesubsts :: [LNTerm] -> M.Map (Maybe LVar) [(LVar,LNTerm)] -> [LNTerm]
-replacesubsts [] _ = []
-replacesubsts [x] map1 | M.notMember (etermOf x) map1 = [x]
-replacesubsts [x] map1 | otherwise = trace (show ("orhere", x, (map1 M.! (etermOf x)))) $ [applyVTerm (substFromList $ [head (map1 M.! (etermOf x))]) x]
-replacesubsts (x:xs) map1 | M.notMember (etermOf x) map1 = x : (replacesubsts xs map1)
-replacesubsts (x:xs) map1 | otherwise = trace (show ("orhere2",x,(map1 M.! (etermOf x)))) $ (applyVTerm (substFromList [head (map1 M.! (etermOf x))]) x): (replacesubsts xs map')
-                             where map' = M.adjust (drop 1) (etermOf x) map1
--}
+
 
 replacesubsts :: [LNTerm] -> M.Map LNTerm [(LVar,LNTerm)] -> [LNTerm]
 replacesubsts [] _ = []
