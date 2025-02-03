@@ -1398,6 +1398,13 @@ solveIndicatorKFacts basis t1 t2 = do
         void substSystem
         void normSystemCR
         neweqstore2 <- getM sEqStore
+        subst <- getM sSubst
+        let normedpair = (runReader (norm' $ fAppPair ((applyVTerm subst t1, applyVTerm subst t2))) hnd)
+            unpair t = case viewTerm t of
+                            (FApp (NoEq pairSym) [x, y]) ->(x,y)
+                            _ -> error $ "something went wrong" ++ show t
+            (sta1,sta2) =  unpair normedpair
+        contradictoryIf (not (sta1 == sta2))                                 
         trace (show ("noContradictoryEqStore", neweqstore2, eqsIsFalse neweqstore2)) void normSystem
         return "Matched"
    Nothing -> do
@@ -1430,6 +1437,13 @@ solveIndicatorKFacts2 basis t1 t2 = do
         void substSystem
         void normSystemCR
         neweqstore2 <- getM sEqStore
+        subst <- getM sSubst
+        let normedpair = (runReader (norm' $ fAppPair ((applyVTerm subst t1, applyVTerm subst t2))) hnd)
+            unpair t = case viewTerm t of
+                            (FApp (NoEq pairSym) [x, y]) ->(x,y)
+                            _ -> error $ "something went wrong" ++ show t
+            (sta1,sta2) =  unpair normedpair
+        contradictoryIf (not (sta1 == sta2))                                 
         trace (show ("noContradictoryEqStore", neweqstore2, eqsIsFalse neweqstore2)) void normSystem
         return "Matched"
    Nothing -> do

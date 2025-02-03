@@ -140,6 +140,7 @@ simplifySystem = do
               c9 <- freshOrdering
               c10 <- simpSubterms
               c11 <- simpInjectiveFactEqMon
+              c12 <- removeRedundantGoals
 
               -- Report on looping behaviour if necessary
               let changes = filter ((Changed ==) . snd) $
@@ -154,6 +155,7 @@ simplifySystem = do
                     , ("orderings for ~vars (S_fresh-order)",             c9)
                     , ("simplification of SubtermStore",                  c10)
                     , ("equations and monotonicity from injective Facts", c11)
+                    , ("remove redundant trivial action goals", c12)
                     ]
                   traceIfLooping
                     | n <= 10   = id
@@ -166,6 +168,17 @@ simplifySystem = do
                         ]
 
               traceIfLooping $ go (n + 1) (map snd changes)
+
+
+removeRedundantGoals :: Reduction ChangeIndicator
+removeRedundantGoals = do
+    oldOpenGoals <- gets plainOpenGoals
+    oldGoals <- M.toList <$> getM sGoals
+    let kdhActions = [ActionG i g | (ActionG i g, _) <- oldOpenGoals,  isKdhFact g] 
+        goalsToRemove = filter (\(ActionG i g) -> factTerms g == [fAppdhOne] || factTerms g == [fAppdhZero] ) kdhActions
+    forM_ goalsToRemove (modM sGoals . M.delete)
+    return (if (length goalsToRemove) > 0 then Changed else Unchanged)
+
 
 
 -- | CR-rule *N6*: add ordering constraints between all KU-actions and
