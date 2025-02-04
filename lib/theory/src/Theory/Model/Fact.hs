@@ -82,6 +82,7 @@ module Theory.Model.Fact (
   --, isKdhIndFact
   , isKDXorFact
   , isDHFact
+  , hasFreshArgument
   , isMixedTerm
   , isMixedFact
   , isProtoDHFact
@@ -508,6 +509,10 @@ outFactView fa = case fa of
     Fact OutFact _ _   -> errMalformed "outFactView" fa
     _                  -> Nothing
 
+hasFreshArgument :: LNFact -> Bool 
+hasFreshArgument fa = case factTerms fa of 
+    [t] | isDHLit t -> sortOfLNTerm t == LSortFrNZE
+    _ | otherwise -> False
 
 isDHFact :: LNFact -> Bool
 isDHFact fa1 = all isOfDHSort (factTerms fa1)

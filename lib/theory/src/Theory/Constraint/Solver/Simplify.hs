@@ -173,10 +173,13 @@ simplifySystem = do
 removeRedundantGoals :: Reduction ChangeIndicator
 removeRedundantGoals = do
     oldOpenGoals <- gets plainOpenGoals
-    oldGoals <- M.toList <$> getM sGoals
+    nodes <- getM sNodes
+    let rus = M.elems nodes
+        check x = (sortOfLNTerm x == LSortFrNZE) && (elem (outFact x) $ concatMap (\ru -> filter isDHFact $ get rConcs ru) rus)
     let kdhActions = [ActionG i g | (ActionG i g, _) <- oldOpenGoals,  isKdhFact g] 
         goalsToRemove = filter (\(ActionG i g) -> factTerms g == [fAppdhOne] || factTerms g == [fAppdhZero] ) kdhActions
-    forM_ goalsToRemove (modM sGoals . M.delete)
+        goalsToRemove2 = filter (\(ActionG i g) -> all check $ factTerms g) kdhActions   
+    forM_ (goalsToRemove++goalsToRemove2) (modM sGoals . M.delete)
     return (if (length goalsToRemove) > 0 then Changed else Unchanged)
 
 

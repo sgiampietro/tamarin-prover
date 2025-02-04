@@ -725,7 +725,13 @@ doubleFresh nodes = isitcontr
 
 insertMuAction ::  (LNTerm -> NodeId -> Reduction String) ->
       Term (Lit Name LVar) -> NodeId -> Reduction String
-insertMuAction fun x@(LIT l) i =  fun x i
+insertMuAction fun x@(LIT l) i | sortOfLNTerm x == LSortFrNZE =  do 
+           nodes <- getM sNodes
+           let rus = M.elems nodes
+           if (elem (outFact x) $ concatMap (\ru -> filter isDHFact $ get rConcs ru) rus)
+             then return "isAlreadyKnown"
+             else fun x i
+insertMuAction fun x@(LIT l) i | otherwise = fun x i 
 insertMuAction _ x i = do
     _ <- insertGoal (ActionG i (kdhFact x)) False
     return "inserted"
