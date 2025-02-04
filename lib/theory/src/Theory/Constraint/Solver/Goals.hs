@@ -25,7 +25,7 @@ module Theory.Constraint.Solver.Goals (
   , plainOpenGoals
   ) where
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 
 import           Prelude                                 hiding (id, (.))
 
@@ -388,7 +388,7 @@ solvePremise rules p faPrem
   | isKIFact faPrem && isDHFact faPrem = do 
       (ru, c, faConc) <- insertFreshNodeConc rules
       insertOutKIEdge (c, faConc, faPrem, p)
-      trace (show "orhere?") $ return $ showRuleCaseName ru
+      return $ showRuleCaseName ru
   | isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
   | otherwise = do
       (ru, c, faConc) <- insertFreshNodeConc rules
@@ -608,13 +608,13 @@ insertMuAction _ x i = do
 --solveDHIndaux bset nbset term p faPrem rules instrules =
 solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> NodePrem -> [RuleAC]  -> StateT System (FreshT (DisjT (Reader ProofContext))) String
 solveDHIndaux bset nbset term p rules = do
-  nodes <- trace (show "here") $ getM sNodes
-  pRule <-   trace (show "here2") $ gets $ nodeRule (nodePremNode p)
-  let instrules =  trace (show "here3") $ (filter (\i-> snd i /= pRule) $ M.assocs nodes)
-  case  trace (show "here4") $ neededexponents bset nbset term of
+  nodes <- getM sNodes
+  pRule <-   gets $ nodeRule (nodePremNode p)
+  let instrules =  (filter (\i-> snd i /= pRule) $ M.assocs nodes)
+  case  neededexponents bset nbset term of
       [] -> do  -- TODO: this is where we need to check multiple Out facts!! 
-          hndNormal <-  trace (show "here5") $ getMaudeHandle
-          let nterm = trace (show ("CALLINGIN-SOLEDHINDAUX"))  $ runReader (norm' term) hndNormal
+          hndNormal <-  getMaudeHandle
+          let nterm = runReader (norm' term) hndNormal
               inds = map (\x -> (rootIndKnown2 hndNormal bset nbset x,x)) $ multRootList (clterm nterm)
               neededInds = filter (\(a,b)-> not $ isPublic a) inds
               newterm = foldr (\a b -> if b == fAppdhEg then a else fAppdhMult (a,b)) fAppdhEg $ map snd neededInds
@@ -649,8 +649,8 @@ solveDHIndaux bset nbset term p rules = do
           substSystem
           bset2 <- getM sBasis
           nbset2 <- getM sNotBasis
-          substs <- trace (show ("amiloopingagainhere", bset2,nbset2)) getM sSubst
-          trace (show ("calling", substs)) (solveDHIndaux bset2 nbset2 (applyVTerm substs term) p rules)
+          substs <- getM sSubst
+          (solveDHIndaux bset2 nbset2 (applyVTerm substs term) p rules)
           return "LeakedSetInserted"
 
 

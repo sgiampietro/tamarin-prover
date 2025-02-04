@@ -103,8 +103,8 @@ replaceMuTerms t@(FAPP (DHMult o) ts) mapp = case ts of
     [ t1, t2 ] | o == dhExpSym   ->  FAPP (DHMult dhExpSym) [replaceMuTerms t1 mapp, replaceMuTerms t2 mapp]
     [ t1, t2 ] | o == dhPlusSym   -> FAPP (DHMult dhPlusSym) [replaceMuTerms t1 mapp, replaceMuTerms t2 mapp]
     [ t1 ]     | o == dhGinvSym    -> FAPP (DHMult dhGinvSym) [replaceMuTerms t1 mapp]
-    [ t1 ]     | o == dhInvSym    -> FAPP (DHMult dhGinvSym) [replaceMuTerms t1 mapp]
-    [ t1 ]     | o == dhMinusSym    -> FAPP (DHMult dhGinvSym) [replaceMuTerms t1 mapp]
+    [ t1 ]     | o == dhInvSym    -> FAPP (DHMult dhInvSym) [replaceMuTerms t1 mapp]
+    [ t1 ]     | o == dhMinusSym    -> FAPP (DHMult dhMinusSym) [replaceMuTerms t1 mapp]
     [ t1 ]     | o == dhMuSym    ->  varTerm $ fromJust $ Map.lookup t mapp
     []         | o == dhZeroSym    -> t
     []         | o == dhEgSym    -> t
@@ -217,7 +217,7 @@ combineMaps key oldvalue newvalue = simplifyraw $ fAppdhPlus (oldvalue,newvalue)
 
 addToMap :: Map.Map (S.Set LNTerm) LNTerm -> [LNTerm] -> LNTerm  -> Map.Map (S.Set LNTerm) LNTerm
 addToMap currmap vars t@(LIT l) = if (elem t vars) then (Map.insertWithKey combineMaps (S.singleton t) fAppdhOne currmap) else (Map.insertWithKey combineMaps (S.singleton fAppdhOne) t currmap)
-addToMap currmap vars t@(FAPP (DHMult o) ts) = case trace (show ("probcoming from here", t)) ts of
+addToMap currmap vars t@(FAPP (DHMult o) ts) = case ts of
     -- [ t1, t2 ] | o == dhMultSym   -> this shouldn't happen. only root terms. 
     [ t1, t2 ] | o == dhTimesSym   -> Map.insertWithKey combineMaps (getkeyfromProd vars t) (getcoefromProd vars t) currmap
     [ t1, t2 ] | o == dhTimesESym   -> Map.insertWithKey combineMaps (getkeyfromProd vars t) (getcoefromProd vars t) currmap
@@ -235,7 +235,7 @@ addToMap currmap vars t@(FAPP (DHMult o) ts) = case trace (show ("probcoming fro
 
 
 parseToMap ::  [LNTerm] -> LNTerm  -> Map.Map (S.Set LNTerm) LNTerm
-parseToMap ts t = trace (show ("parsingPoly vars term,", ts, t)) (addToMap Map.empty ts t)
+parseToMap ts t = (addToMap Map.empty ts t)
 
 getvalue :: Map.Map (S.Set LNTerm) LNTerm -> (S.Set LNTerm) -> LNTerm
 getvalue somemap key = case Map.lookup key somemap of
@@ -301,21 +301,19 @@ oneIfOne _ = fAppdhZero
 createMatrixProto :: [LNTerm] -> LNTerm -> LNTerm -> ([LNTerm], Matrix LNTerm)
 createMatrixProto nb term target =
     let (nbexp, vars) =   (allExponentsOf [term] target, []) --allNBExponents nb (allExponentsOf [term] target) --
-        matrixvars = trace (show ("doestargethavevars",target)) $ getVariablesOf [term, target]
+        matrixvars = getVariablesOf [term, target]
         (coeffVars, (constOfTerm, constTarget)) = splitVars matrixvars term target
         --(coeffVarsTarget, constTarget) = splitVars matrixvars target trace (show ("coeffVars",coeffVars,"**",const)) $ 
         polynomials = map (\(coeffX, coeffXTarget) -> parseToMap vars (simplifyraw $ fAppdhPlus (coeffX, simplifyraw $ fAppdhMinus coeffXTarget)) ) coeffVars -- this term now contains the introduced W and V variables. 
-        targetvalue = trace (show (matrixvars, "thistermmm", polynomials, "thistermmm", constTarget, "*", constOfTerm, "*", (simplifyraw $ fAppdhPlus (constTarget, simplifyraw $ fAppdhMinus $ simplifyraw constOfTerm)))) $ parseToMap vars (simplifyraw $ fAppdhPlus (constTarget, simplifyraw $ fAppdhMinus $ simplifyraw constOfTerm))
+        targetvalue = parseToMap vars (simplifyraw $ fAppdhPlus (constTarget, simplifyraw $ fAppdhMinus $ simplifyraw constOfTerm))
         allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetvalue):(map Map.keys polynomials))
-        resultmatrix = map (\key -> ((map (\p -> getvalue p key) polynomials )++ [getvalue targetvalue key])) allkeys
-        -- allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetpoly):[Map.keys polynomial])
-        -- row = map( \i -> getvalue targetpoly i) allkeys 
+        resultmatrix = map (\key -> ((map (\p -> getvalue p key) polynomials )++ [getvalue targetvalue key])) allkeys 
     in
-  trace (show ("OBTAINEDMATRIX!!:", "**", matrixvars,"**", targetvalue,"**", resultmatrix,"**", allkeys, "Term,target:", term,"**",target)) (matrixvars, resultmatrix)
--- w1 is multiplied term, z1 is the summed term. 
+  (matrixvars, resultmatrix)
+
 
 oneSolution :: [LNTerm] -> ([LNTerm], [LNTerm], [LNTerm],[(LVar,LNTerm)]) -> [(LVar, LNTerm)]
-oneSolution wzs a@(ts, newwzs, subszero, subextra) =  trace (show ("vars", wzs, "extrareplacewith", subextra, "zero", zerovars)) (if (all (isJust) wzvars && all isJust zerovars) then
+oneSolution wzs a@(ts, newwzs, subszero, subextra) =  (if (all (isJust) wzvars && all isJust zerovars) then
                  ((zipWith zipfun wzvars ts) ++ subextra ++ map ((\i -> (i, getsubst i fAppdhZero)).fromJust) zerovars) else [])
                     where wzvars = map getVar newwzs
                           --pubg = LIT (Var ( LVar "pg" LSortPubG 1))
@@ -336,19 +334,19 @@ replace :: [LNTerm] -> (LNTerm, LNTerm, LNSubst, Bool) -> (LVar, LNTerm, LVar, L
   | (extractMu mu1) == (extractMu mu2) = (gt1, applyVTerm (substFromList [(var2, LIT (Var var1))]) gt2, subst0, True) -}
 replace basis (gt1, gt2, subst0, True) (var1, mu1, var2, mu2) = case sol of
   Nothing -> (gt1,gt2,subst0, False)
-  Just sols | null sols -> trace (show ("nullmatrix", gt1,gt2)) (gt1,applyVTerm (substFromList [(var2, LIT (Var var1))]) gt2,subst0, True)
+  Just sols | null sols -> (gt1,applyVTerm (substFromList [(var2, LIT (Var var1))]) gt2,subst0, True)
             | otherwise -> (applyVTerm subst1 gt1, applyVTerm subst1 newgt2, newsubst, True)
                   where s = oneSolution wzs (head sols)
                         subst1 = substFromList s
                         newsubst = compose subst1 subst0
     where newgt2 = applyVTerm (substFromList [(var2, LIT (Var var1))]) gt2
-          (wzs, matriz) = trace (show ("notnormalizes?",extractMu mu1, extractMu mu2 )) $ createMatrixProto [] (extractMu mu1) (extractMu mu2)
+          (wzs, matriz) = createMatrixProto [] (extractMu mu1) (extractMu mu2)
           sol = solveMatrix2 fAppdhZero basis matriz wzs
 replace _ (gt1, gt2, subst0, False) _ = (gt1,gt2,subst0, False)
 
 optionList :: [LNTerm] -> (LNTerm, [(LVar, LNTerm)]) -> (LNTerm, [ (LVar, LNTerm)]) ->  [ (LNTerm, LNTerm, LNSubst) ]
 optionList basis (gt1,mut1) (gt2,mut2)
-      | length mut1 == length mut2 = trace (show ("resultss", results)) $ map (\(a,b,c,d) -> (a,b,c)) results
+      | length mut1 == length mut2 = map (\(a,b,c,d) -> (a,b,c)) results
       | otherwise = []
              where replacements = map (\pm -> zipWith (\(a,b) (c,d) -> (a,b,c,d)) mut1 pm) (permutations mut2)
                    foldmu permlist = foldl (replace basis) (gt1,gt2, substFromList (mut1++mut2) , True) permlist
@@ -359,14 +357,14 @@ solveIndicatorGaussProto hnd basis term target =
     let (gt1, termsubst1) = gTerm2Exp' term "qwzk1"
         (gt2, termsubst2) = gTerm2Exp' target "qwzk2"
         options = optionList (basis) (gt1,termsubst1) (gt2,termsubst2)
-        (wzs, matriz) = trace (show ("gter2msexp", gt1, gt2)) $ createMatrixProto (allExponentsOf [term] target) (gt1) (gt2)
+        (wzs, matriz) = createMatrixProto (allExponentsOf [term] target) (gt1) (gt2)
       -- (wzs, matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)       
       -- ([w1, z2], matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)
         pubg =  pubGTerm "g"
         --basis' = filter (\i-> i/= fAppdhOne) basis
         --sol = solveMatrix2 fAppdhZero (fAppdhOne:(basis'++map (\x->fAppdhMu (fAppdhExp (pubg, x))) basis')) matriz wzs
         sol = Just $ solveMatrix2 fAppdhZero (basis) matriz wzs
-        getsol t1 t2 = case trace (show ("OKSOL", sol)) $ varTermsOf t1 of
+        getsol t1 t2 = case varTermsOf t1 of
             [] -> case varTermsOf t2 of
                   [] -> if sta1 == sta2 
                           then Nothing
@@ -400,7 +398,7 @@ createMatrix nb terms target =
         -- row = map( \i -> getvalue targetpoly i) allkeys 
         createdmatrix = (map (\key -> ((map (\p -> getvalue p key) polynomials )++ [getvalue targetpoly key])) allkeys)
     in
-  trace (show ("polynomials", polynomials, "targetpoly", targetpoly, "allkeys", allkeys, "thisistheresultingmatrix", createdmatrix, "vars", vars, "nb", nb)) createdmatrix -- todo: double check if row/column is ok or needs to be switched
+  createdmatrix 
 
 solveIndicatorGauss :: [LNTerm] -> [LNTerm] -> LNTerm -> Maybe [LNTerm]
 solveIndicatorGauss nb terms target = (\(a,b,c) -> a) $ solveMatrix fAppdhZero (createMatrix (nb) (map gTerm2Exp terms) (gTerm2Exp target)) []
@@ -409,22 +407,22 @@ solveIndicatorGauss nb terms target = (\(a,b,c) -> a) $ solveMatrix fAppdhZero (
 createMatrix3 :: [LNTerm] -> LNTerm -> LNTerm -> ([LNTerm], Matrix LNTerm)
 createMatrix3 nb term target =
     let (nbexp, vars) =   allNBExponents3 nb (allExponentsOf [term] target) --
-        matrixvars = trace (show ("doestargethavevars",target)) $ getVariablesOfK [term, target]
+        matrixvars = getVariablesOfK [term, target]
         (coeffVars, (constOfTerm, constTarget)) = splitVars matrixvars term target
         --(coeffVarsTarget, constTarget) = splitVars matrixvars target trace (show ("coeffVars",coeffVars,"**",const)) $ 
         polynomials = map (\(coeffX, coeffXTarget) -> parseToMap vars (simplifyraw $ fAppdhPlus (coeffX, simplifyraw $ fAppdhMinus coeffXTarget)) ) coeffVars -- this term now contains the introduced W and V variables. 
-        targetvalue = trace (show (matrixvars, "thistermmm", polynomials, "thistermmm", constTarget, "*", constOfTerm, "*", (simplifyraw $ fAppdhPlus (constTarget, simplifyraw $ fAppdhMinus $ simplifyraw constOfTerm)))) $ parseToMap vars (simplifyraw $ fAppdhPlus (constTarget, simplifyraw $ fAppdhMinus $ simplifyraw constOfTerm))
+        targetvalue = parseToMap vars (simplifyraw $ fAppdhPlus (constTarget, simplifyraw $ fAppdhMinus $ simplifyraw constOfTerm))
         allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetvalue):(map Map.keys polynomials))
         resultmatrix = map (\key -> ((map (\p -> getvalue p key) polynomials )++ [getvalue targetvalue key])) allkeys
         -- allkeys =  S.toList $ S.fromList $ concat ((Map.keys targetpoly):[Map.keys polynomial])
         -- row = map( \i -> getvalue targetpoly i) allkeys 
     in
-  trace (show ("OBTAINEDMATRIX!!:", "**", matrixvars,"**", targetvalue,"**", resultmatrix,"**", allkeys, "Term,target:", term,"**",target)) (matrixvars, resultmatrix)
+  (matrixvars, resultmatrix)
 -- w1 is multiplied term, z1 is the summed term. 
 
 
 oneSolution3 :: [LNTerm] -> ([LNTerm], [LNTerm], [LNTerm],[(LVar,LNTerm)]) -> [(LVar, LNTerm)]
-oneSolution3 wzs a@(ts, newwzs, subszero, subextra) =  trace (show ("vars", wzs, "extrareplacewith", subextra, "zero", zerovars)) (if (all (isJust) wzvars && all isJust zerovars) then
+oneSolution3 wzs a@(ts, newwzs, subszero, subextra) =  (if (all (isJust) wzvars && all isJust zerovars) then
                  ((zipWith zipfun wzvars ts) ++ subextra ++ map ((\i -> (i, getsubst i fAppdhZero)).fromJust) zerovars) else [])
                     where wzvars = map getVar newwzs
                           --pubg = LIT (Var ( LVar "pg" LSortPubG 1))
@@ -439,7 +437,7 @@ solveIndicatorGauss3 :: MaudeHandle -> [LNTerm] -> [LNTerm] -> LNTerm -> LNTerm 
 solveIndicatorGauss3 hnd nb basis term target =
     let gt1 = gTerm2Exp term 
         gt2 = gTerm2Exp target 
-        (wzs, matriz) = trace (show ("gter2msexp", gt1, gt2)) $ createMatrix3 nb (gt1) (gt2)
+        (wzs, matriz) = createMatrix3 nb (gt1) (gt2)
         pubg =  pubGTerm "g"
         sol = solveMatrix2 fAppdhZero (basis) matriz wzs
         retrieve s = case s of

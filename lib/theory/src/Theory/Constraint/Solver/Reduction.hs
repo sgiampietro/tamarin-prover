@@ -106,7 +106,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -1378,7 +1378,7 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms ta1 ta
                     let matrixvars = getVariablesOf [sta1, sta2]                 
                     freevars <- replicateM (length matrixvars) $ freshLVar "vy" LSortE
                     if length matrixvars >1 
-                              then trace (show ("theseterms",sta2,sta1)) $ (solveIndicatorProto (map varTerm freevars) sta1 sta2) `disjunction` (solveIndicatorProto2 (map varTerm freevars) sta1 sta2)
+                              then (solveIndicatorProto (map varTerm freevars) sta1 sta2) `disjunction` (solveIndicatorProto2 (map varTerm freevars) sta1 sta2)
                               else solveIndicatorProto (map varTerm freevars) sta1 sta2
                     void normSystem
      else do
@@ -1455,7 +1455,7 @@ solveTermDHEqsChain :: SplitStrategy -> [RuleAC] -> [(NodeId,RuleACInst)] ->
 solveTermDHEqsChain splitStrat rules instrules fun p faPrem (j,ruj, fa1, c) (ta2,ta1) = do
     hndNormal <- getMaudeHandle
     bset <- getM sBasis
-    nbset <- trace (show ("calling-TermsChaing",runReader (norm' ta2) hndNormal, ta2, (multRootList $ runReader (norm' ta2) hndNormal))) $ getM sNotBasis
+    nbset <- getM sNotBasis
     let indlist = map (\x -> rootIndKnown2 hndNormal bset nbset x) (multRootList $ runReader (norm' ta2) hndNormal)
         --indlist = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' ta2) hndNormal)
         neededInds = filter (not . isPublic) indlist
@@ -1511,7 +1511,7 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
         case prodTerms nta1 of
             Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
                           else do
-                            let xrooterms = trace (show ("callingprotocase", nta1, multRootList nta1, ta1)) $ multRootList nta1
+                            let xrooterms = multRootList nta1
                                 repxindterms = map (\x -> rootIndKnown2 hndNormal bset nbset x) xrooterms
                                 xindterms = nub repxindterms 
                                 n = length xindterms
@@ -1641,27 +1641,6 @@ solveIndFactDH split listtups faPrem = do
     void normSystem
     subst <- getM sEqStore
     return (applyVTerm (_eqsSubst subst) faPrem, map (\((a,b),c)-> applyVTerm (_eqsSubst subst) a ) listtups)
-
-{-}
-
-solveIndFactDH :: SplitStrategy -> ((LNTerm, LNTerm), LNTerm) -> (LNTerm, [LNTerm]) -> Reduction (LNTerm, [LNTerm])
-solveIndFactDH split ((fa1, t1), t2) (fa2, acclist)=
-    case trace (show ("whatsgoingon", t1, t2)) (isPubExp t1, isPubExp t2) of
-        (Just (pg1,e1), Just (pg2,e2)) -> do
-                solveTermEqs split [(Equal pg1 pg2)]
-                trace (show ("isithere", e1,e2)) solveIndFactDH split ((fa1, e1), e2) (fa2, acclist)
-        _ ->  do
-                se  <- gets id
-                hnd <- getMaudeHandleDH
-                (eqs2, maySplitId,subst1) <- addDHEqs2 hnd t1 t2 =<< getM sEqStore -- this should be generalized!
-                setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
-                --let subst2 = foldl compose accsubst subst1
-                trace (show ("here eqs2", eqs2)) $ noContradictoryEqStore
-                void substSystem
-                void normSystem
-                subst <- getM sEqStore
-                return $ (applyVTerm (_eqsSubst subst) fa2, map (\y -> applyVTerm (_eqsSubst subst) y) $ acclist++[fa1])
--}
 
 
 
