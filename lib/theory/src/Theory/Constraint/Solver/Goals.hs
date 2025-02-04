@@ -217,7 +217,7 @@ plainOpenGoals sys = openGoalsLeft
 solveGoal :: Goal -> Reduction String
 solveGoal goal = do
     -- mark before solving, as representation might change due to unification
-    trace (show ("IAMSOLVINGGOALNOW", goal)) $ markGoalAsSolved "directly" goal
+    markGoalAsSolved "directly" goal
     rules <- askM pcRules
     case goal of
       ActionG i fa  -> solveAction  (nonSilentRules rules) (i, fa)
@@ -269,7 +269,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                     [y] | isDHLit y        ->  do
                                   ru  <- labelNodeId i (annotatePrems <$> rules) Nothing -- TODO:probably want to also check existing rules
                                   act <- disjunctionOfList (filter isDHFact $ get rActs ru)
-                                  trace (show ("IAMHEREKdhACTIOns", fa, act, ru)) (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
+                                  (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
                                   void substSystem
                                   return ru 
                     [y] | otherwise ->        do
@@ -277,37 +277,34 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                             FdhMu t1  -> do
                                 let premLearn = kdhFact t1
                                     concLearn = inFact t1
-          -- !! Make sure that you construct the correct rule!
                                     ruLearn = Rule (IntrInfo ISendRule) [premLearn] [concLearn] [] []
                                     cLearn = (i, ConcIdx 0)
                                     pLearn = (i, PremIdx 0)
-                                trace (show ("thisisyY", y)) modM sNodes  (M.insert i ruLearn)
+                                modM sNodes  (M.insert i ruLearn)
                                 solvePremise rules pLearn premLearn
                                 return ruLearn 
                             _   -> do
                                 let premLearn = fa
                                     concLearn = inFact y
-          -- !! Make sure that you construct the correct rule!
                                     ruLearn = Rule (IntrInfo ISendRule) [premLearn] [concLearn] [] []
                                     cLearn = (i, ConcIdx 0)
                                     pLearn = (i, PremIdx 0)
-                                trace (show ("thisisyY", y)) modM sNodes  (M.insert i ruLearn)
+                                modM sNodes (M.insert i ruLearn)
                                 solvePremise rules pLearn premLearn
                                 return ruLearn 
             _ | (isDHFact fa)                       -> do
-                   ru  <- labelNodeId i (annotatePrems <$> rules) Nothing -- TODO:probably want to also check existing rules
+                   ru  <- labelNodeId i (annotatePrems <$> rules) Nothing 
                    act <- disjunctionOfList (filter isDHFact $ get rActs ru)
-                   trace (show ("IAMHERE", fa, act, ru)) (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
+                   (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
                    void substSystem
                    --void normSystem
                    return ru 
             _ | (isMixedFact fa)                       -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList (filter isMixedFact $ get rActs ru)
-                   -- act <- disjunctionOfList (get rActs ru)
                    let bset = (S.fromList $ basisOfRule ru)
                        nbset = (S.fromList $ notBasisOfRule ru) 
-                   trace (show ("solvingACTIONOON", fa, act)) (void (solveMixedFactEqs SplitNow (Equal fa act) bset nbset (protoCase SplitNow bset nbset)))
+                   (void (solveMixedFactEqs SplitNow (Equal fa act) bset nbset (protoCase SplitNow bset nbset)))
                    void substSystem
                    --void normSystem
                    return ru
@@ -326,7 +323,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                    return ru 
             _ | isDHFact fa                       -> do unless (fa `elem` get rActs ru) $ do
                                                           act <- disjunctionOfList (filter isDHFact $ get rActs ru)
-                                                          trace (show ("alsohere", fa, act, ru)) (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
+                                                          (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
                                                           void substSystem
                                                           --void normSystem
                                                         return ru 
@@ -367,28 +364,10 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
              -> LNFact         -- ^ Fact required at this premise.
              -> Reduction String -- ^ Case name to use.
 solvePremise rules p faPrem
-  | isKdhFact faPrem && isDHFact faPrem =  trace (show ("solving KdhFacts", faPrem)) (solveDHInd rules p faPrem)
-  | isKdhFact faPrem && isMixedFact faPrem = trace (show ("solving KdhFactsMixed", faPrem)) (solveDHIndMixed rules p faPrem)
-  | isProtoDHFact faPrem =  trace (show ("solving KdhFactsProto", faPrem)) $ solveDHIndProto rules p faPrem
-  | isProtoMixedFact faPrem = trace (show ("solving KdhFactsProtoMixed", faPrem)) $ solveDHMixedPremise rules p faPrem
-  {-| isKDFact faPrem && isMixedFact faPrem = do
-      -- nodes <- getM sNodes
-      -- ruless <- askM pcRules
-      iLearn    <- freshLVar "vl" LSortNode
-      mLearn    <- varTerm <$> freshLVar "t" LSortMsg 
-      let concLearn = kdFact mLearn
-          premLearn = outFact mLearn
-          -- !! Make sure that you construct the correct rule!
-          ruLearn = Rule (IntrInfo IRecvRule) [premLearn] [concLearn] [] []
-          cLearn = (iLearn, ConcIdx 0)
-          pLearn = (iLearn, PremIdx 0)
-      modM sNodes  (M.insert iLearn ruLearn)
-      insertChain cLearn p
-      solveDHMixedPremise rules pLearn premLearn
-      void substSystem
-      void normSystem
-      seqst <- getM sEqStore
-      trace (show ("currenteqstore", seqst)) $ return "chain inserted" -}
+  | isKdhFact faPrem && isDHFact faPrem =  (solveDHInd rules p faPrem)
+  | isKdhFact faPrem && isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
+  | isProtoDHFact faPrem =  solveDHIndProto rules p faPrem
+  | isProtoMixedFact faPrem = solveDHMixedPremise rules p faPrem
   | isKDFact faPrem = do
       iLearn    <- freshLVar "vl" LSortNode
       mLearn    <- varTerm <$> freshLVar "t" LSortMsg
@@ -408,8 +387,8 @@ solvePremise rules p faPrem
       return $ showRuleCaseName ru  
   | isKIFact faPrem && isDHFact faPrem = do 
       (ru, c, faConc) <- insertFreshNodeConc rules
-      trace (show ("herekipremise", faPrem)) insertOutKIEdge (c, faConc, faPrem, p)
-      trace (show ("igothere??", faPrem,faConc, ru)) $ return $ showRuleCaseName ru
+      insertOutKIEdge (c, faConc, faPrem, p)
+      trace (show "orhere?") $ return $ showRuleCaseName ru
   | isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
   | otherwise = do
       (ru, c, faConc) <- insertFreshNodeConc rules
@@ -460,7 +439,7 @@ solveChain rules (c, p) = do
                 contradictoryIf (isMsgVar m || isGVar m || isEVar m)
                 cRule <- gets $ nodeRule (nodeConcNode c)
                 (i, ru) <- insertFreshNode rules (Just cRule)
-                trace (show ("lengthruleshere", length rules)) $ contradictoryIf (forbiddenEdge cRule ru)
+                contradictoryIf (forbiddenEdge cRule ru)
                 -- This requires a modified chain constraint def:
                 -- path via first destruction premise of rule ...
                 (v, faPrem) <- disjunctionOfList $ take 1 $ enumPrems ru
@@ -468,7 +447,7 @@ solveChain rules (c, p) = do
                 --nbset <- getM sNotBasis
                 --if (isMixedFact faConc) 
                 --  then extendAndMarkMixed i ru v faPrem faConc bset nbset
-                trace (show ("tryingEDGEMark", faConc, faPrem)) $ extendAndMark i ru v faPrem faConc
+                extendAndMark i ru v faPrem faConc
          _ -> error "solveChain: not a down fact" )
   where
     extendAndMark :: NodeId -> RuleACInst -> PremIdx -> LNFact -> LNFact
@@ -505,7 +484,7 @@ solveChain rules (c, p) = do
             bset <- getM sBasis
             nbset <- getM sNotBasis
             nodes <- getM sNodes
-            case trace (show ("directedgecase", faPrem)) $ neededexponentslist bset nbset (factTerms faPrem) of
+            case neededexponentslist bset nbset (factTerms faPrem) of
               (Just es) -> do
                               --solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) (S.toList es)
                               (newb,newNb) <- disjunctionOfList $ solveNeededList2 (S.toList es)
@@ -513,12 +492,10 @@ solveChain rules (c, p) = do
                               forM_ newNb (insertNotBasisElem)
                               is<- replicateM (length newNb) $ freshLVar "vk" LSortNode
                               forM_ (zip is newNb) (\(i,x)-> insertMuAction rules x i)
-                              trace (show ("ESSS", es, newb,newNb)) substSystem
+                              substSystem
                               insertDirectEdge faPrem faConc cRule pRule rules2
-                              --trace (show ("I'malsohere", name)) $ return name
               Nothing -> do 
-                          trace (show ("MIXEDEDHFEE", faConc, faPrem)) $ insertDHMixedEdge False (c, faConc, faPrem, p) cRule (S.fromList $ basisOfRule cRule) (S.fromList $ notBasisOfRule cRule) (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
-                          -- insertDHMixedEdge True (c, faConc, faPrem, p) cRule pRule bset nbset (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
+                          insertDHMixedEdge False (c, faConc, faPrem, p) cRule (S.fromList $ basisOfRule cRule) (S.fromList $ notBasisOfRule cRule) (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
                           let mPrem = case kFactView faConc of
                                             Just (DnK, m') -> m'
                                             _              -> error $ "solveChain: impossible"
@@ -527,7 +504,7 @@ solveChain rules (c, p) = do
                           void substSystem
                           void normSystem
                           contradictoryIf (illegalCoerce pRule mPrem)
-                          trace (show ("I'm here", (caseName mPrem))) $ return (caseName mPrem)  ) 
+                          return (caseName mPrem)  ) 
       | otherwise =    (do
                 insertEdges [(c, faConc, faPrem, p)]  
                 let mPrem = case kFactView faConc of
@@ -572,14 +549,11 @@ solveNoCanc :: LNTerm -> LNTerm -> Reduction String
 solveNoCanc x y = do
     nocancs <- getM sNoCanc
     if ( S.member (x,y) nocancs)
-      then  (do
-        --markGoalAsSolved "directly" (NoCancG (x, y))
-        return "NoCancsolved")
+      then  return "NoCancsolved"
       else (
-        if (isNoCanc x y) then (do
-          --markGoalAsSolved "directly" (NoCancG (x, y))
-          return "NoCancsolved" )
-        else error "NoCanc does not hold"  -- TODO: not sure what to do if you don't have this condition? maybe add y and inv(x) to the DH-equation store? 
+        if (isNoCanc x y) 
+          then return "NoCancsolved" 
+          else error "NoCanc does not hold"  
       )
 
 solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact as conclusion. 
@@ -591,12 +565,15 @@ solveDHInd rules p faPrem =  do
         nbset <-  getM sNotBasis
         --nodes <-trace (show ("solveDHIND", faPrem, bset, nbset)) $  getM sNodes
         --pRule <- gets $ nodeRule (nodePremNode p)
-        case trace (show ("solveDHIND", faPrem, bset, nbset)) $ factTerms faPrem of 
+        case factTerms faPrem of 
           -- [x] -> solveDHIndaux bset nbset x p faPrem (filter isProtocolRule rules) (M.assocs nodes)
-          [x] -> solveDHIndaux bset nbset x p rules 
+          [x] | S.member x bset  -> do 
+                    contradictoryIf True
+                    return "basis element is not known"
+          [x] | otherwise -> solveDHIndaux bset nbset x p rules 
           -- [x] -> solveDHIndaux bset nbset x p faPrem rules (M.assocs nodes)
           _   -> error "In Fact should have arity 1"
-          
+
 
 solveDHIndMixed ::  [RuleAC]        -- ^ All rules that have an Out fact containing a boxed term as conclusion. 
              -> NodePrem       -- ^ Premise to solve.
@@ -622,7 +599,7 @@ solveDHIndauxMixed bset nbset terms p faPrem rules instrules =
 
 
 insertMuAction :: [RuleAC] -> Term (Lit Name LVar) -> NodeId -> Reduction String
-insertMuAction rules x@(LIT l) i = trace (show ("solvingprmieshere", x)) $ solvePremise rules (i, PremIdx 0) (kIFact x)
+insertMuAction rules x@(LIT l) i = solvePremise rules (i, PremIdx 0) (kIFact x)
 insertMuAction _ x i = do
       _ <- insertGoal (ActionG i (kdhFact x)) False
       return "inserted"
@@ -631,13 +608,13 @@ insertMuAction _ x i = do
 --solveDHIndaux bset nbset term p faPrem rules instrules =
 solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> NodePrem -> [RuleAC]  -> StateT System (FreshT (DisjT (Reader ProofContext))) String
 solveDHIndaux bset nbset term p rules = do
-  nodes <- getM sNodes
-  pRule <- gets $ nodeRule (nodePremNode p)
-  let instrules = (filter (\i-> snd i /= pRule) $ M.assocs nodes)
-  case neededexponents bset nbset term of
+  nodes <- trace (show "here") $ getM sNodes
+  pRule <-   trace (show "here2") $ gets $ nodeRule (nodePremNode p)
+  let instrules =  trace (show "here3") $ (filter (\i-> snd i /= pRule) $ M.assocs nodes)
+  case  trace (show "here4") $ neededexponents bset nbset term of
       [] -> do  -- TODO: this is where we need to check multiple Out facts!! 
-          hndNormal <- trace (show ("SOLVEINDAUX", term, bset,nbset)) getMaudeHandle
-          let nterm = runReader (norm' term) hndNormal
+          hndNormal <-  trace (show "here5") $ getMaudeHandle
+          let nterm = trace (show ("CALLINGIN-SOLEDHINDAUX"))  $ runReader (norm' term) hndNormal
               inds = map (\x -> (rootIndKnown2 hndNormal bset nbset x,x)) $ multRootList (clterm nterm)
               neededInds = filter (\(a,b)-> not $ isPublic a) inds
               newterm = foldr (\a b -> if b == fAppdhEg then a else fAppdhMult (a,b)) fAppdhEg $ map snd neededInds
@@ -650,17 +627,17 @@ solveDHIndaux bset nbset term p rules = do
               --indlist = map (\x -> rootIndKnown2 hndNormal bset nbset x) (multRootList $ clterm nterm)
               --indlist =  map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' term) hndNormal)
               --neededInds =  filter (not . isPublic) indlist
-              n = trace (show ("thisisn", length neededInds, neededInds) ) $ length neededInds
-          if trace (show ("null", neededInds)) $ null neededInds 
+              n = length neededInds
+          if null neededInds 
             then return "Indicators are public"
             else do
               possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n Nothing
               let rules2add = map (\(a,(i,_),_,_,c,_) -> (i,a,c)) $ filter (\(a,_,_,_,c,b) -> b) possibletuple
               --is <- replicateM (length rules2add) $ freshLVar "jru" LSortNode
               forM_ rules2add (\(i,ru,c) -> exploitNodeId i ru c)
-              trace (show ("thistuple", possibletuple, (map fst neededInds), newterm))  $ insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+              insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
               -- insertKdhEdges possibletuple (map fst neededInds) (newterm) p 
-              trace (show "CANWEGETYHEREYAY") $ return "FindingIndicators" 
+              return "FindingIndicators" 
       es -> do
           -- solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) es
           --solveNeededList (insertMuAction rules) es
@@ -669,12 +646,11 @@ solveDHIndaux bset nbset term p rules = do
           forM_ newNb (insertNotBasisElem)
           is<- replicateM (length newNb) $ freshLVar "vk" LSortNode
           forM_ (zip is newNb) (\(i,x)-> insertMuAction rules x i)
-          trace (show ("ESSS", es, newb,newNb)) substSystem
+          substSystem
           bset2 <- getM sBasis
           nbset2 <- getM sNotBasis
-          nodes <- getM sNodes
-          substs <- getM sSubst
-          trace (show ("new indicators, old", bset2, nbset2)) (solveDHIndaux bset2 nbset2 (applyVTerm substs term) p rules)
+          substs <- trace (show ("amiloopingagainhere", bset2,nbset2)) getM sSubst
+          trace (show ("calling", substs)) (solveDHIndaux bset2 nbset2 (applyVTerm substs term) p rules)
           return "LeakedSetInserted"
 
 
@@ -695,9 +671,7 @@ solveDHMixedPremise ::  [RuleAC]        -- ^ All rules that have an Out fact con
              -> Reduction String -- ^ Case name to use.
 solveDHMixedPremise rules p faPrem = do
       nodes <- getM sNodes
-      --_ <- trace (show ("all asscisc", M.assocs nodes)) $ return ()
       (ru, c@(i,ci), faConc) <-  insertFreshNodeConcMixed rules (M.assocs nodes)
-      -- trace (show ("CURIOUS", faConc, faPrem, i, showRuleCaseName ru)) $ 
       insertDHMixedEdge True (c, faConc, faPrem, p) ru (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x))
       newnodes <- getM sNodes
       let newlist = [ t | (_, ru2) <- M.assocs newnodes, (isFreshRule ru2), (_,fa) <- enumConcs ru2 , t<- factTerms fa ]

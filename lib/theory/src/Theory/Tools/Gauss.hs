@@ -23,7 +23,7 @@ import qualified Data.Map     as Map
 
 import GHC.Real
 import Term.LTerm -- (LNTerm)
-import Debug.Trace -- .Ignore
+import Debug.Trace.Ignore
 --import Term.Builtin.Convenience (x0)
 
 import Data.List (subsequences, (\\))
