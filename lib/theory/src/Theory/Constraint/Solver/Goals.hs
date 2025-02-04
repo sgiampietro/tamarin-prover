@@ -266,12 +266,12 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
             _ | (isKdhFact fa)                     -> do
                    nbset <- getM sNotBasis 
                    case factTerms fa of 
-                    [y] | isDHLit y        ->  do
-                                  ru  <- labelNodeId i (annotatePrems <$> rules) Nothing -- TODO:probably want to also check existing rules
-                                  act <- disjunctionOfList (filter isDHFact $ get rActs ru)
-                                  (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
-                                  void substSystem
-                                  return ru 
+                    [y] | isDHLit y ->   do
+                                            ru  <- labelNodeId i (annotatePrems <$> rules) Nothing -- TODO:probably want to also check existing rules
+                                            act <- disjunctionOfList (filter isDHFact $ get rActs ru)
+                                            (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
+                                            void substSystem
+                                            return ru 
                     [y] | otherwise ->        do
                            case viewTerm2 y of
                             FdhMu t1  -> do
@@ -599,6 +599,12 @@ solveDHIndauxMixed bset nbset terms p faPrem rules instrules =
 
 
 insertMuAction :: [RuleAC] -> Term (Lit Name LVar) -> NodeId -> Reduction String
+insertMuAction rules x@(LIT l) i | sortOfLNTerm x == LSortFrNZE = do 
+          nodes <- getM sNodes
+          let rus = M.elems nodes
+          if (elem (outFact x) $ concatMap (\ru -> filter isDHFact $ get rConcs ru) rus)
+            then return "isAlreadyKnown"
+            else solvePremise rules (i, PremIdx 0) (kIFact x)
 insertMuAction rules x@(LIT l) i = solvePremise rules (i, PremIdx 0) (kIFact x)
 insertMuAction _ x i = do
       _ <- insertGoal (ActionG i (kdhFact x)) False
@@ -631,7 +637,7 @@ solveDHIndaux bset nbset term p rules = do
               n = length neededInds
               h = head xrooterms
               toaddnocanc = filter (\t -> not $ isNoCanc h t) (tail xrooterms)
-          forM_ (toaddnocanc) (\t->insertNoCanc h t)
+          forM_ (toaddnocanc) (insertNoCanc h )
           if null neededInds 
             then return "Indicators are public"
             else do   
