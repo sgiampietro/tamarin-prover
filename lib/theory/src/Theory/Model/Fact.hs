@@ -72,11 +72,6 @@ module Theory.Model.Fact (
 
   , kdhFact
   , kIFact
-  --, bFact
-  --, nbFact
-  --, indEqFact
-  --, noCancFact
-  --, neededFact
 
   , isKFact
   , isKUFact
@@ -160,16 +155,6 @@ data Multiplicity = Persistent | Linear
 ------------------------------------------------------------------------------
 -- Diffie-Hellman special facts
 ------------------------------------------------------------------------------
-
-{-
-data DHFact = 
-    B LNTerm LVar  -- TODO: LVar indicates the timepoint?
-  | NB LNTerm LVar
-  | IndEq LNTerm LNTerm
-  | Needed LVar --TODO: check if we want LVar or just a literal
-  | NoCanc LNTerm LNTerm
-  deriving( Eq, Ord, Show, Generic, NFData, Binary )
-  -}
 
 
 -- | Fact tags/symbols
@@ -263,14 +248,6 @@ kdhFact = Fact KdhFact S.empty . return
 kIFact :: t -> Fact t
 kIFact = Fact KIFact S.empty . return
 
---neededFact :: t -> Fact t
---neededFact x = Fact NeededFact S.empty [x]
-
---bFact, nbFact, indEqFact, noCancFact :: t -> t -> Fact t 
---bFact x i = Fact BFact S.empty [x, i]
---nbFact x i = Fact NBFact S.empty [x, i]
---indEqFact x i = Fact IndEqFact S.empty [x, i]
---noCancFact x i = Fact NoCancFact S.empty [x, i]
 
 -- | Make annotated KU/KD facts
 kdFactAnn, kuFactAnn :: S.Set FactAnnotation -> t -> Fact t
