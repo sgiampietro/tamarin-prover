@@ -1709,6 +1709,7 @@ prettyNonGraphSystem se = vsep $ map combine_ -- text $ show se
   , ("lemmas",          vsep $ map prettyGuarded $ S.toList $ L.get sLemmas se)
   , ("basis",           text $ show $ L.get sBasis se)
   , ("NotBasis",        text $ show $ L.get sNotBasis se)
+  , ("Assumed NoCanc",  text $ show $ L.get sNoCanc se)
   , ("allowed cases",   text $ show $ L.get sSourceKind se)
   , ("solved formulas", vsep $ map prettyGuarded $ S.toList $ L.get sSolvedFormulas se)
   , ("unsolved goals",  prettyGoals False se)

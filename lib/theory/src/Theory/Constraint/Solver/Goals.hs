@@ -615,7 +615,8 @@ solveDHIndaux bset nbset term p rules = do
       [] -> do  -- TODO: this is where we need to check multiple Out facts!! 
           hndNormal <-  getMaudeHandle
           let nterm = runReader (norm' term) hndNormal
-              inds = map (\x -> (rootIndKnown2 hndNormal bset nbset x,x)) $ multRootList (clterm nterm)
+              xrooterms = multRootList (clterm nterm)
+              inds = map (\x -> (rootIndKnown2 hndNormal bset nbset x,x)) $ xrooterms
               neededInds = filter (\(a,b)-> not $ isPublic a) inds
               newterm = foldr (\a b -> if b == fAppdhEg then a else fAppdhMult (a,b)) fAppdhEg $ map snd neededInds
               clterm t = case viewTerm2 t of --todo: need to refine this. 
@@ -628,9 +629,12 @@ solveDHIndaux bset nbset term p rules = do
               --indlist =  map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' term) hndNormal)
               --neededInds =  filter (not . isPublic) indlist
               n = length neededInds
+              h = head xrooterms
+              toaddnocanc = filter (\t -> not $ isNoCanc h t) (tail xrooterms)
+          forM_ (toaddnocanc) (\t->insertNoCanc h t)
           if null neededInds 
             then return "Indicators are public"
-            else do
+            else do   
               possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n Nothing
               let rules2add = map (\(a,(i,_),_,_,c,_) -> (i,a,c)) $ filter (\(a,_,_,_,c,b) -> b) possibletuple
               --is <- replicateM (length rules2add) $ freshLVar "jru" LSortNode

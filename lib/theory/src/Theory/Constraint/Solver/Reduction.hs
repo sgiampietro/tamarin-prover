@@ -58,6 +58,7 @@ module Theory.Constraint.Solver.Reduction (
 
   , insertNotBasisElem
   , insertBasisElem
+  , insertNoCanc
   , insertDHEdge
   , insertDHEdges
   , insertDHMixedEdge
@@ -785,6 +786,11 @@ insertNotBasisElem :: LNTerm -> Reduction ()
 insertNotBasisElem x = do
     modM sNotBasis (\es -> S.insert x es)
 
+insertNoCanc :: LNTerm -> LNTerm -> Reduction ()
+insertNoCanc x y = do
+    modM sNoCanc (\es -> S.insert (x,y) es)
+
+
 
 ------------------------------------------------------------------------------
 
@@ -1456,10 +1462,14 @@ solveTermDHEqsChain splitStrat rules instrules fun p faPrem (j,ruj, fa1, c) (ta2
     hndNormal <- getMaudeHandle
     bset <- getM sBasis
     nbset <- getM sNotBasis
-    let indlist = map (\x -> rootIndKnown2 hndNormal bset nbset x) (multRootList $ runReader (norm' ta2) hndNormal)
+    let xrooterms = (multRootList $ runReader (norm' ta2) hndNormal)
+        indlist = map (\x -> rootIndKnown2 hndNormal bset nbset x) xrooterms
         --indlist = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' ta2) hndNormal)
         neededInds = filter (not . isPublic) indlist
         n = length neededInds
+        h = head xrooterms
+        toaddnocanc = filter (\t -> not $ isNoCanc h t) (tail xrooterms)
+    forM_ (toaddnocanc) (\t->insertNoCanc h t)
     if null neededInds
      then insertDHEdge ((j,c), fa1, faPrem, p) bset nbset -- TODO: fix this
      else do
@@ -1509,12 +1519,14 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
             nta2 = runReader (norm' ta22) hndNormal
             nta1 = runReader (norm' ta11) hndNormal
         case prodTerms nta1 of
-            Just (x,y) -> if not (S.member (x,y) nocancs  || isNoCanc x y) then error "TODO"
-                          else do
+            Just (x,y) ->   do 
                             let xrooterms = multRootList nta1
                                 repxindterms = map (\x -> rootIndKnown2 hndNormal bset nbset x) xrooterms
                                 xindterms = nub repxindterms 
                                 n = length xindterms
+                                h = head xrooterms
+                                toaddnocanc = filter (\t -> not $ isNoCanc h t) (tail xrooterms)
+                            forM_ (toaddnocanc) (\t->insertNoCanc h t)   
                             hnd <- getMaudeHandleDH
                             permutedlist <- disjunctionOfList $ createPerms n nta2
                             let nublist = nub permutedlist
