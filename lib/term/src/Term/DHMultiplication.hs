@@ -200,8 +200,6 @@ varInMu t@(LIT l) = []
 varInMu t@(viewTerm2 -> FdhMu t1) =  varsVTerm t1
 varInMu t@(FAPP (DHMult o) []) = []
 varInMu t@(FAPP (DHMult o) ts) = concatMap varInMu ts
--- varInMu t@(FAPP (DHMult dhEgSym) ts) = error ("soitisthis:"++(show ts))
--- varInMu t@(FAPP (NoEq o) []) = [] -- TODO: FIX THIS. Unclear why Maude normalized a term into sort Msg instead of G??
 varInMu t = error ("shouldn't get to this term"++(show t))
 
 varTermsOf :: LNTerm -> [ LNTerm ]
@@ -370,7 +368,12 @@ rootIndUnknown n nb t = ( LIT (Var newv), [(newv, t)])
 
 
 isNoCanc :: LNTerm -> LNTerm -> Bool
-isNoCanc _ _ = True
+isNoCanc x y 
+      | all (\x -> sortOfLNTerm x == LSortFrNZE ) (evars1++evars2) = True 
+      | all (\x -> elem x $ varInMu y) (varsVTerm x) = True
+      | otherwise = False
+    where evars1 = eTermsOf x
+          evars2 = eTermsOf y
 
 {-
 isNoCanc :: LNTerm -> LNTerm -> Bool
