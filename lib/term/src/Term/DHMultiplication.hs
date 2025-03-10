@@ -127,12 +127,15 @@ determineSort t@(FAPP (DHMult o) ts ) = case o of
     dhGinvSym    -> LSortG
     dhInvSym    -> LSortG
     dhMinusSym    -> LSortE
-    dhMuSym    -> LSortE
+    dhMuSym    -> LSortNZE
+    dhMu2Sym    -> LSortNZE
     --[ t1 ]     | o == dhBoxSym    -> Box (t1)
     --[ t1 ]     | o == dhBoxESym    -> BoxE (t1)
     dhZeroSym    -> LSortE
     dhEgSym    -> LSortG
     dhOneSym    -> LSortE
+    dhBPSym -> LSortG
+    dhHSym -> LSortG
 
 clean :: MonadFresh m => Term (Lit Name LVar) -> m (Term (Lit Name LVar), [(LVar,VTerm Name LVar)])
 clean t@(viewTerm3 -> MsgLit l) = return (LIT l, [])

@@ -424,6 +424,10 @@ sortOfLTerm sortOfConst t = case viewTerm2 t of
     FdhTimesE _ _ -> LSortE
     FdhPlus _ _ -> LSortE
     FdhMu _ -> LSortNZE
+    FdhMu2 _ _ -> LSortNZE
+    -- for bilinear pairings
+    FdhBP _ _ -> LSortG
+    FdhH _ -> LSortG
     --FdhBox _ -> LSortG
     --FdhBoxE _ -> LSortE
     _             -> LSortMsg

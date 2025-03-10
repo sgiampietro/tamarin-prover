@@ -86,7 +86,10 @@ reservedBuiltins =  map unpackChars [
   , dhExpSymString
   , dhOneSymString
   , dhMuSymString
-  --, dhBoxSymString
+  , dhMu2SymString
+  , dhBPSymString
+  , dhHSymString
+    --, dhBoxSymString
   --, dhBoxESymString  
   ]
 
@@ -104,6 +107,9 @@ dhMultBuiltins =  [
   , dhExpSymString
   , dhOneSymString
   , dhMuSymString
+  , dhMu2SymString
+  , dhBPSymString
+  , dhHSymString
   --, dhBoxSymString
   --, dhBoxESymString  
   ] 

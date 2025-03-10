@@ -161,7 +161,8 @@ data TermView2 a = FExp (Term a) (Term a)   | FInv (Term a) | FMult [Term a] | O
                  -- SOFIA: added DH options
                  | FdhMult (Term a) (Term a)| FdhGinv (Term a) | FdhMinus (Term a) | DHZero 
                  | FdhInv (Term a) | DHEg | FdhTimesE (Term a) (Term a) | FdhExp (Term a) (Term a) | DHOne
-                 | FdhTimes (Term a) (Term a) | FdhPlus (Term a) (Term a) | FdhMu (Term a) -- | FdhBox (Term a) | FdhBoxE (Term a)
+                 | FdhTimes (Term a) (Term a) | FdhPlus (Term a) (Term a) | FdhMu (Term a) | FdhMu2 (Term a) (Term a) 
+                 | FdhBP (Term a) (Term a) | FdhH (Term a) -- | FdhBox (Term a) | FdhBoxE (Term a)
                  -- | LitG a | LitE a
                  -- SOFIA: end of modified part
                  | FXor [Term a] | Zero
@@ -217,10 +218,13 @@ viewTerm2 t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhTimesESym   -> FdhTimesE  t1 t2
     [ t1, t2 ] | o == dhExpSym   -> FdhExp  t1 t2
     [ t1, t2 ] | o == dhPlusSym   -> FdhPlus  t1 t2
+    [ t1, t2 ] | o == dhMu2Sym    -> FdhMu2 t1 t2
+    [ t1, t2 ] | o == dhBPSym    -> FdhBP t1 t2
     [ t1 ]     | o == dhGinvSym    -> FdhGinv   t1
     [ t1 ]     | o == dhInvSym    -> FdhInv   t1
     [ t1 ]     | o == dhMinusSym    -> FdhMinus   t1
     [ t1 ]     | o == dhMuSym    -> FdhMu  t1
+    [ t1 ]     | o == dhHSym    -> FdhH t1
     -- [ t1 ]     | o == dhBoxSym    -> FdhBox  t1
     -- [ t1 ]     | o == dhBoxESym    -> FdhBoxE  t1
     []         | o == dhZeroSym    -> DHZero
@@ -229,7 +233,7 @@ viewTerm2 t@(FAPP (DHMult o) ts) = case ts of
     _          | o `elem` ssyms -> error $ "viewTerm2: malformed term `"++show t++"'"
   where
     -- special symbols
-    ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym , dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym, dhTimesSym, dhPlusSym, dhMuSym]
+    ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym , dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym, dhTimesSym, dhPlusSym, dhMuSym, dhMu2Sym, dhBPSym, dhHSym]
 
 
 -- | View on terms that distinguishes between diffie-hellman and non diffie-hellman terms.
@@ -275,10 +279,13 @@ viewTerm3 t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhTimesESym   -> DH (DHMult o) ts
     [ t1, t2 ] | o == dhExpSym   -> DH (DHMult o) ts
     [ t1, t2 ] | o == dhPlusSym   -> DH (DHMult o) ts
+    [ t1, t2 ] | o == dhMu2Sym   -> DH (DHMult o) ts
+    [ t1, t2 ] | o == dhBPSym   -> DH (DHMult o) ts
     [ t1 ]     | o == dhGinvSym    -> DH (DHMult o) ts
     [ t1 ]     | o == dhInvSym    -> DH (DHMult o) ts
     [ t1 ]     | o == dhMinusSym    -> DH (DHMult o) ts
     [ t1 ]     | o == dhMuSym    -> DH (DHMult o) ts
+    [ t1 ]     | o == dhHSym    -> DH (DHMult o) ts
     --[ t1 ]     | o == dhBoxSym    -> Box (t1)
     --[ t1 ]     | o == dhBoxESym    -> BoxE (t1)
     []         | o == dhZeroSym    -> DH (DHMult o) ts
