@@ -31,6 +31,10 @@ dhMultBuiltins =  [
   , dhExpSymString
   , dhOneSymString
   , dhMuSymString
+  , dhMu2SymString
+  -- for bilinear pairings:
+  , dhBPSymString
+  , dhHSymString
   -- , dhBoxSymString
   -- , dhBoxESymString  
   ] 
