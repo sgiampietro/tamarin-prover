@@ -295,7 +295,7 @@ viewTerm3 t@(FAPP (DHMult o) ts) = case ts of
     _                           -> MsgFApp (DHMult o) ts
   where
     -- special symbols
-    ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym , dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym, dhTimesSym, dhPlusSym, dhMuSym]
+    ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym , dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym, dhTimesSym, dhPlusSym, dhMuSym, dhMu2Sym, dhBPSym, dhHSym]
 
 
 

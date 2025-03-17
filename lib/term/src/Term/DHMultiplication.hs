@@ -13,6 +13,7 @@
 --
 module Term.DHMultiplication (
     clean
+  , RootSet(..)
   , rootSet
   , multRootList
   , isRoot
@@ -135,7 +136,7 @@ determineSort t@(FAPP (DHMult o) ts ) = case o of
     dhEgSym    -> LSortG
     dhOneSym    -> LSortE
     dhBPSym -> LSortG
-    dhHSym -> LSortG
+    dhHSym -> LSortNZE
 
 clean :: MonadFresh m => Term (Lit Name LVar) -> m (Term (Lit Name LVar), [(LVar,VTerm Name LVar)])
 clean t@(viewTerm3 -> MsgLit l) = return (LIT l, [])
@@ -146,6 +147,34 @@ clean t@(viewTerm3 -> DH f dht) = do
                                       varx <- freshLVar "clt" (determineSort t)
                                       return ( LIT (Var varx) , [(varx, t)] )
 
+
+data RootSet = RootSet (Maybe DHMultSym) [LNTerm] | RootSet2 (Maybe DHMultSym) [LNTerm] [LNTerm] | RootSet3 (Maybe DHMultSym) [LNTerm] [LNTerm] [LNTerm]
+  deriving (Show, Eq, Ord)
+
+extractRoot :: RootSet -> [LNTerm]
+extractRoot (RootSet _ ts) = ts
+extractRoot (RootSet2 _ ts ts2) = ts ++ ts2
+
+roots :: LNTerm -> RootSet
+roots t@(viewTerm2 -> FdhExp t1 t2) = case viewTerm2 t1 of 
+                                                FdhBP s1 s2 -> RootSet3 (Just dhBPSym) (extractRoot $ roots s1) (extractRoot $ roots s2) (extractRoot $ roots t2)
+                                                _ -> RootSet Nothing [t]
+roots t@(viewTerm2 -> FdhGinv dht) = roots dht--(FAPP (DHMult dhGinvSym) [rootIndKnown b nb dht])
+roots t@(viewTerm2 -> FdhTimes t1 t2) = RootSet Nothing [t]
+roots t@(viewTerm2 -> FdhTimesE t1 t2) =  RootSet Nothing [t]
+roots t@(viewTerm2 -> FdhPlus t1 t2) =  RootSet Nothing (extractRoot (roots t1) ++ extractRoot (roots t2))
+roots t@(viewTerm2 -> FdhTimes t1 t2) =  RootSet Nothing (extractRoot (roots t1) ++ extractRoot (roots t2))
+roots t@(viewTerm2 -> FdhMu t1) = RootSet (Just dhMuSym) (extractRoot (roots t1)) 
+roots t@(viewTerm2 -> FdhMu2 t1 t2) =  RootSet2 (Just dhMu2Sym) (extractRoot (roots t1)) (extractRoot (roots t2)) 
+roots t@(viewTerm2 -> FdhMinus t1) = RootSet Nothing $ extractRoot (roots t1)
+roots t@(viewTerm2 -> FdhInv t1) = RootSet Nothing $ extractRoot (roots t1)
+roots t@(viewTerm2 -> FdhBP t1 t2) = RootSet2 (Just dhBPSym) (extractRoot (roots t1)) (extractRoot (roots t2)) -- TODO: how to handle this??
+roots t@(viewTerm2 -> Lit2 (Var t1)) = RootSet Nothing [t]
+roots t@(viewTerm2 -> Lit2 (Con _)) = RootSet Nothing [t]
+roots t@(viewTerm2 -> DHZero) = RootSet Nothing [t]
+roots t@(viewTerm2 -> DHOne) = RootSet Nothing [t]
+roots t@(viewTerm2 -> DHEg) = RootSet Nothing [t]
+roots t = error ("rootSet applied on non DH"++show t++"term")
 
 
 rootSet :: (Show a, Ord a ) => DHMultSym -> Term a -> S.Set (Term a)
@@ -165,11 +194,11 @@ rootSet operator t = error ("rootSet applied on non DH term'"++show t++"Done")
 
 multRootList :: LNTerm ->  [LNTerm]
 multRootList a = case sortOfLNTerm a of
-  LSortG -> trace (show (a, "LSORTG", S.toList (rootSet dhMultSym a))) $ S.toList (rootSet dhMultSym a)
-  LSortPubG -> trace (show (a, "LSORTPubG", S.toList (rootSet dhMultSym a))) $ S.toList (rootSet dhMultSym a)
-  LSortE -> trace (show (a, "LSORTE", S.toList (rootSet dhPlusSym a))) $ S.toList (rootSet dhPlusSym a)
-  LSortNZE -> trace (show (a, "LSORTNZE", S.toList (rootSet dhPlusSym a))) $ S.toList (rootSet dhPlusSym a)
-  LSortFrNZE -> trace (show (a, "LSORTFrNZE", S.toList (rootSet dhPlusSym a))) $ S.toList (rootSet dhPlusSym a)
+  LSortG -> S.toList (rootSet dhMultSym a)
+  LSortPubG -> S.toList (rootSet dhMultSym a)
+  LSortE -> S.toList (rootSet dhPlusSym a)
+  LSortNZE -> S.toList (rootSet dhPlusSym a)
+  LSortFrNZE -> S.toList (rootSet dhPlusSym a)
   _ -> error ("rootSet applied on non DH term'"++show a)
 
 
@@ -215,8 +244,6 @@ varTermsOf t@(LIT l)
 varTermsOf t@(FAPP f ts) = concatMap varTermsOf ts
 
 varTermsOf' :: LNTerm -> [ LVar ]
---varTermsOf t@(viewTerm3 -> Box dht) = varTermsOf dht
---varTermsOf t@(viewTerm3 -> BoxE dht) = varTermsOf dht
 varTermsOf' t@(LIT (Var l))
   | isvarGVar t = [l]
   | isvarEVar t = [l]
@@ -224,37 +251,12 @@ varTermsOf' t@(LIT (Var l))
 varTermsOf' t@(LIT _) = []
 varTermsOf' t@(FAPP f ts) = concatMap varTermsOf' ts
 
-{-}
-varTermOf :: LNTerm -> LNTerm -> [(LNTerm, LNTerm)]
-varTermOf t@(LIT l) var
-  | isvarGVar t = (t, acc) 
-  | isvarEVar t = []
-  | otherwise =  []
-varTermOf t@(FAPP (DHMult o) ts) acc =     case ts of 
-    [ t1, t2 ] | o == dhMultSym   -> (case sortOfLNTerm t2 
-                                        LsortVarG -> (t1, basisOf t2)
-                                        _ -> ) 
-    [ t1, t2 ] | o == dhPlusSym   -> varTermOf t1 acc ++ varTermOf t2 acc
-    [ t1, t2 ] | o == dhTimesESym   -> ( Just ( (Maybe.fromMaybe [] $ fst $ varTermOf t1) ++ (Maybe.fromMaybe [] $ fst $ varTermOf t2)) , Nothing)
-    [ t1, t2 ] | o == dhTimesSym   -> ( Just ( (Maybe.fromMaybe [] $ fst $ varTermOf t1) ++ (Maybe.fromMaybe [] $ fst $ varTermOf t2)) , Nothing)
-    [t1]       | o == dhMuSym  -> (Nothing, Nothing)
-    _                               -> error $ "term not in normal form?: `"++show t++"'"
--}
-
---indComputable :: S.Set LNTerm -> LNTerm -> Bool
---indComputable bs t = S.fromList ( eTermsOf t ) `S.isSubsetOf` bs
-
-
 isDHLit :: LNTerm -> Bool
--- isDHLit t@(viewTerm3 -> Box dht) = isDHLit dht
--- isDHLit t@(viewTerm3 -> BoxE dht) = isDHLit dht
 isDHLit t@(viewTerm -> Lit (Var _)) = isOfDHSort t
 isDHLit _ = False
 
 
 isPubExp :: LNTerm -> Maybe (LNTerm, LNTerm)
--- isDHLit t@(viewTerm3 -> Box dht) = isDHLit dht
--- isDHLit t@(viewTerm3 -> BoxE dht) = isDHLit dht
 isPubExp t@(viewTerm2 -> FdhExp t1 t2) = if (isPubGVar t1 || isGConst t1) then (Just (t1,t2)) else Nothing
 isPubExp _ = Nothing
 
@@ -271,15 +273,6 @@ notUnifiableLits ta1 ta2
   | (isDHLit ta2 && (not $ compatibleLits ta2 ta1) ) = True
   | otherwise = False
 
-
-{-
-compatibleLits :: LNTerm -> LNTerm -> Maybe Bool
-compatibleLits ta1 ta2 = (if (sortCompare (sortOfLNTerm ta1) (sortOfLNTerm ta2) == Nothing) then Nothing else 
-                            (case (isDHLit ta1, isDHLit ta2) of
-                                  (True, True) ->  Just True
-                                  (True, _ ) -> Just (sortCompare (sortOfLNTerm ta1) (sortOfLNTerm ta2) == Just GT)
-                                  (_, True) -> Just (sortCompare (sortOfLNTerm ta1) (sortOfLNTerm ta2) == Just LT)
-                                  (_, _) -> Just False)) -}
 
 -- TODO: this function should actually return which indicators are needed too in the 
 -- case it's not computable. 
@@ -307,10 +300,6 @@ isMult :: LNTerm -> Bool
 isMult t@(viewTerm2 -> FdhMult t1 t2) = True
 isMult _ = False
 
---rootIndicator :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> (LNTerm, [(LVar, VTerm Name LVar)])
---rootIndicator b nb t
---  | indComputable (b `S.union` nb) t = (rootIndKnown b nb t,[])
---  | otherwise = rootIndUnknown b nb t
 
 indIsOne :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> Bool
 indIsOne b nb t@(viewTerm2 -> FdhExp t1 t2) = if S.member t2 nb then True else False
@@ -321,9 +310,11 @@ rootIndKnown b nb t@(viewTerm2 -> FdhExp t1 t2) = (FAPP (DHMult dhExpSym) [ root
 rootIndKnown b nb t@(viewTerm2 -> FdhGinv dht) = rootIndKnown b nb dht--(FAPP (DHMult dhGinvSym) [rootIndKnown b nb dht])
 rootIndKnown b nb t@(viewTerm2 -> FdhTimes t1 t2) = (FAPP (DHMult dhTimesSym) [rootIndKnown b nb t1, rootIndKnown b nb t2] )
 rootIndKnown b nb t@(viewTerm2 -> FdhTimesE t1 t2) =  (FAPP (DHMult dhTimesESym) [rootIndKnown b nb t1, rootIndKnown b nb t2])
-rootIndKnown b nb t@(viewTerm2 -> FdhMu t1) = if indIsOne b nb t1 then trace (show ("HERE",t) ) (FAPP (DHMult dhOneSym) []) else t --  rootIndKnown b nb t1 -- TODO FIX: you should also consider the possibility of finding rootIndKnown of t1. -- (FAPP (DHMult dhZeroSym) [])
+rootIndKnown b nb t@(viewTerm2 -> FdhMu t1) = if indIsOne b nb t1 then (FAPP (DHMult dhOneSym) []) else t --  rootIndKnown b nb t1 -- TODO FIX: you should also consider the possibility of finding rootIndKnown of t1. -- (FAPP (DHMult dhZeroSym) [])
+rootIndKnown b nb t@(viewTerm2 -> FdhMu2 t1 t2) = if indIsOne b nb t1 then (if indIsOne b nb t2 then (FAPP (DHMult dhOneSym) []) else (FAPP (DHMult dhMuSym) [t2])) else (if indIsOne b nb t2 then (FAPP (DHMult dhMuSym) [t1]) else t) --  rootIndKnown b nb t1 -- TODO FIX: you should also consider the possibility of finding rootIndKnown of t1. -- (FAPP (DHMult dhZeroSym) [])
 rootIndKnown b nb t@(viewTerm2 -> FdhMinus t1) = rootIndKnown b nb t1
 rootIndKnown b nb t@(viewTerm2 -> FdhInv t1) = FAPP (DHMult dhInvSym) [rootIndKnown b nb t1]
+rootIndKnown b nb t@(viewTerm2 -> FdhBP t1 t2) = t -- TODO: how to handle this??
 --rootIndKnown b nb t@(viewTerm2 -> FdhBox (LIT a)) = (t)
 --rootIndKnown b nb t@(viewTerm2 -> FdhBoxE (LIT (Var t1)))
 --  | S.member (LIT (Var t1)) nb = (FAPP (DHMult dhOneSym) [])

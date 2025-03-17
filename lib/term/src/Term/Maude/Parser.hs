@@ -287,8 +287,8 @@ ppTheory msig = BC.unlines $
         , theoryOpEq "dhMu : G -> NZE"
         , theoryOpEq "dhMu2 : G G -> NZE"
         -- for the theory of bilinear pairings: 
-        , theoryOpC "dhBP : G G -> G [comm]"
-        , theoryOpEq "dhH : Msg -> G" -- TODO: double check if Msg is OK, or better to put a DH sort? 
+        , theoryOpEq "dhBP : G G -> G "
+        , theoryOpEq "dhH : Msg -> NZE" -- TODO: double check if Msg is OK, or better to put a DH sort? 
         -- , theoryDH "dhBox : G -> G"
         -- , theoryDH "dhBoxE : E -> E"
         , "vars A B : G . "
@@ -329,6 +329,8 @@ ppTheory msig = BC.unlines $
         -- for bilinear paring operators: 
         , "eq tamXCdhBP( tamXCdhExp(A, X), B) = tamXCdhExp(tamXCdhBP(A,B), X) ." -- by Commutativity, don't need to add equation for also b right?
         , "eq tamXCdhBP(tamXCdhMult(tamXCdhExp(A, X), tamXCdhExp(A, Y)), B) = tamXCdhExp(tamXCdhBP(A,B), tamXCdhPlus(X,Y)) ."
+        , "eq tamXCdhBP(B,  tamXCdhExp(A, X)) = tamXCdhExp(tamXCdhBP(B,A), X) ." -- by Commutativity, don't need to add equation for also b right?
+        , "eq tamXCdhBP(B, tamXCdhMult(tamXCdhExp(A, X), tamXCdhExp(A, Y))) = tamXCdhExp(tamXCdhBP(B,A), tamXCdhPlus(X,Y)) ."
         ]
        else [])
     ++
