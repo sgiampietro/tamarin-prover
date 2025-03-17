@@ -631,9 +631,6 @@ solveDHIndaux bset nbset term p rules = do
                               FdhInv t1 -> clterm t1
                               FdhGinv t1 -> clterm t1
                               _        -> t
-              --indlist = map (\x -> rootIndKnown2 hndNormal bset nbset x) (multRootList $ clterm nterm)
-              --indlist =  map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' term) hndNormal)
-              --neededInds =  filter (not . isPublic) indlist
               n = length neededInds
               h = head xrooterms
               toaddnocanc = filter (\t -> not $ isNoCanc h t) (tail xrooterms)
