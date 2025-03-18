@@ -621,29 +621,44 @@ solveDHIndaux bset nbset term p rules = do
       [] -> do  -- TODO: this is where we need to check multiple Out facts!! 
           hndNormal <-  getMaudeHandle
           let nterm = runReader (norm' term) hndNormal
-              xrooterms = multRootList (clterm nterm)
-              inds = map (\x -> (rootIndKnown2 hndNormal bset nbset x,x)) $ xrooterms
-              neededInds = filter (\(a,b)-> not $ isPublic a) inds
-              newterm = foldr (\a b -> if b == fAppdhEg then a else fAppdhMult (a,b)) fAppdhEg $ map snd neededInds
-              clterm t = case viewTerm2 t of --todo: need to refine this. 
+              --xrooterms = multRootList (clterm nterm)
+              xrooterms = roots nterm
+              inds = case xrooterms of 
+                            RootSet Nothing ts -> [map (\x -> (rootIndKnown2 hndNormal bset nbset x,x)) $ ts]
+                            RootSet (Just _) ts -> [map (\x -> (rootIndKnown2 hndNormal bset nbset x,x)) $ ts]
+                            RootSet2 _ ts ts2 -> map (map (\x -> (rootIndKnown2 hndNormal bset nbset x,x))) [ts,ts2]
+                            RootSet3 _ ts ts2 ts3 -> map (map (\x -> (rootIndKnown2 hndNormal bset nbset x,x))) [ts, ts2, ts3]
+              --inds = map (\x -> (rootIndKnown2 hndNormal bset nbset x,x)) $ xrooterms
+              neededInds = map (filter (\(a,b)-> not $ isPublic a)) inds
+              newterm = foldr (\a b -> if b == fAppdhEg then a else fAppdhMult (a,b)) fAppdhEg $ map snd $ concat neededInds
+              {-clterm t = case viewTerm2 t of --todo: need to refine this. 
                               FdhMu t1 -> if S.member t nbset then t else clterm t1
                               FdhMinus t1 -> clterm t1
                               FdhInv t1 -> clterm t1
                               FdhGinv t1 -> clterm t1
-                              _        -> t
-              n = length neededInds
-              h = head xrooterms
-              toaddnocanc = filter (\t -> not $ isNoCanc h t) (tail xrooterms)
+                              _        -> t -}
+              n = length $ concat neededInds
+              h = head $ extractRoot xrooterms
+              toaddnocanc = filter (\t -> not $ isNoCanc h t) (tail $ extractRoot xrooterms)
           forM_ (toaddnocanc) (insertNoCanc h )
           if null neededInds 
             then return "Indicators are public"
             else do   
-              possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n Nothing
+              possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules (extractRootSym xrooterms) n Nothing
               let rules2add = map (\(a,(i,_),_,_,c,_) -> (i,a,c)) $ filter (\(a,_,_,_,c,b) -> b) possibletuple
               --is <- replicateM (length rules2add) $ freshLVar "jru" LSortNode
               forM_ rules2add (\(i,ru,c) -> exploitNodeId i ru c)
-              insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
-              -- insertKdhEdges possibletuple (map fst neededInds) (newterm) p 
+              --todo: the possibletuple needs to be split in possibletuple 1 2 and 3.
+              case neededInds of 
+                [nInds] -> insertDHEdges possibletuple (map fst nInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+                [nInds, nInds2] -> do 
+                    insertDHEdges possibletuple (map fst nInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+                    insertDHEdges possibletuple (map fst nInds2) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+                [nInds, nInds2, nInds3] -> do
+                    insertDHEdges possibletuple (map fst nInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+                    insertDHEdges possibletuple (map fst nInds2) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+                    insertDHEdges possibletuple (map fst nInds3) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+              -- insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x))  
               return "FindingIndicators" 
       es -> do
           -- solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) es
