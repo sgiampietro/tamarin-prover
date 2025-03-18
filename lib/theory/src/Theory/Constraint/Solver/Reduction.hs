@@ -283,7 +283,23 @@ traverseDHNodes rules = do
     -- | Import a rule with all its variables renamed to fresh variables.
     importRule ru = someRuleACInst ru `evalBindT` noBindings
 
-insertFreshNodeConcOutInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Int -> Maybe ((NodeId, RuleACInst, LNFact, ConcIdx), LNTerm) -> Reduction [(RuleACInst, NodeConc, (LNFact, LNTerm), LNTerm, Maybe RuleACConstrs,Bool)]
+--TODO: should take into account also the RootSet outer operator. 
+--need to match the Nothings and need to match the functions. 
+-- for mu function, need to consider both (Just mu) and Nothing.
+insertFreshNodeConcOutInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> (Maybe DHMultSym) -> Int -> Maybe ((NodeId, RuleACInst, LNFact, ConcIdx), LNTerm) -> Reduction [(RuleACInst, NodeConc, (LNFact, LNTerm), LNTerm, Maybe RuleACConstrs,Bool)]
+insertFreshNodeConcOutInst rules instrules dhsym n Nothing = do
+      -- irulist <- replicateM n $ traverseDHNodes rules
+      irulist <- traverseDHNodes rules
+      let pairs = [(ru, (i,c), (f, head $ factTerms f), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, rootSymEq dhsym $ extractRootSym (roots (head $ factTerms f)), rterm <- extractRoot (roots (head $ factTerms f))  ]
+      disjunctionOfList (nub $ concatMap permutations (nub $ combinations n pairs))
+insertFreshNodeConcOutInst rules instrules dhsym n (Just ((j,ruj,faConc,cj), ta)) = do
+      -- irulist <- replicateM n $ traverseDHNodes rules
+      irulist <- traverseDHNodes rules
+      let pairs = [(ru, (i,c), (f, head $ factTerms f), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f,  rootSymEq dhsym $ extractRootSym (roots (head $ factTerms f)), rterm <- extractRoot (roots (head $ factTerms f))]
+          pairs2 =  [(ruj, (j,cj), (faConc, ta), rterm , Nothing,False) | rterm <- multRootList ta ]
+          finallist = nub $ (concatMap permutations (filter ( any (\(a,(i,b),c,d,e,f) -> i==j && a ==ruj)) (combinations n $ pairs++pairs2)) )
+      disjunctionOfList finallist
+{-insertFreshNodeConcOutInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Int -> Maybe ((NodeId, RuleACInst, LNFact, ConcIdx), LNTerm) -> Reduction [(RuleACInst, NodeConc, (LNFact, LNTerm), LNTerm, Maybe RuleACConstrs,Bool)]
 insertFreshNodeConcOutInst rules instrules n Nothing = do
       -- irulist <- replicateM n $ traverseDHNodes rules
       irulist <- traverseDHNodes rules
@@ -296,7 +312,7 @@ insertFreshNodeConcOutInst rules instrules n (Just ((j,ruj,faConc,cj), ta)) = do
           pairs2 =  [(ruj, (j,cj), (faConc, ta), rterm , Nothing,False) | rterm <- multRootList ta ]
           finallist = nub $ (concatMap permutations (filter ( any (\(a,(i,b),c,d,e,f) -> i==j && a ==ruj)) (combinations n $ pairs++pairs2)) )
       disjunctionOfList finallist
-
+-}
 
 insertFreshNodeConcOutInstMixed ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, LNFact)
 insertFreshNodeConcOutInstMixed rules instrules = do
@@ -1468,18 +1484,18 @@ solveTermDHEqsChain splitStrat rules instrules fun p faPrem (j,ruj, fa1, c) (ta2
     hndNormal <- getMaudeHandle
     bset <- getM sBasis
     nbset <- getM sNotBasis
-    let xrooterms = (multRootList $ runReader (norm' ta2) hndNormal)
-        indlist = map (\x -> rootIndKnown2 hndNormal bset nbset x) xrooterms
-        --indlist = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' ta2) hndNormal)
+    let -- xrooterms = (multRootList $ runReader (norm' ta2) hndNormal)
+        xrooterms = roots $ runReader (norm' ta2) hndNormal
+        indlist = map (\x -> rootIndKnown2 hndNormal bset nbset x) $ extractRoot xrooterms
         neededInds = filter (not . isPublic) indlist
         n = length neededInds
-        h = head xrooterms
-        toaddnocanc = filter (\t -> not $ isNoCanc h t) (tail xrooterms)
+        h = head $ extractRoot xrooterms
+        toaddnocanc = filter (\t -> not $ isNoCanc h t) (tail $ extractRoot xrooterms)
     forM_ (toaddnocanc) (\t->insertNoCanc h t)
     if null neededInds
      then insertDHEdge ((j,c), fa1, faPrem, p) bset nbset -- TODO: fix this
      else do
-            possibletuple <- insertFreshNodeConcOutInst rules instrules n (Just ((j,ruj, fa1, c), ta1))
+            possibletuple <- insertFreshNodeConcOutInst rules instrules (extractRootSym xrooterms) n (Just ((j,ruj, fa1, c), ta1))
             insertDHEdges possibletuple neededInds ta2 p fun
     return Changed
 

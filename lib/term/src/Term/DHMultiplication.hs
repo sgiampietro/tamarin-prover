@@ -17,6 +17,10 @@ module Term.DHMultiplication (
   , rootSet
   , multRootList
   , isRoot
+  , roots
+  , extractRoot
+  , extractRootSym
+  , rootSymEq
   --, isOfDHSort
   , isDHTerm
   , isExpTerm
@@ -154,6 +158,31 @@ data RootSet = RootSet (Maybe DHMultSym) [LNTerm] | RootSet2 (Maybe DHMultSym) [
 extractRoot :: RootSet -> [LNTerm]
 extractRoot (RootSet _ ts) = ts
 extractRoot (RootSet2 _ ts ts2) = ts ++ ts2
+extractRoot (RootSet3 _ ts ts2 ts3) = ts ++ ts2
+
+extractRootSym :: RootSet -> (Maybe DHMultSym)
+extractRootSym (RootSet s _) = s 
+extractRootSym (RootSet2 s _ _) = s 
+extractRootSym (RootSet3 s _ _ _) = s 
+
+rootSymEq :: (Maybe DHMultSym) -> (Maybe DHMultSym) -> Bool
+rootSymEq Nothing Nothing = True
+{-rootSymEq Nothing (Just o)  -- if the term we search for is nothing, cannot be matched with mu term
+  | o == dhMuSym = True
+  | o == dhMu2Sym = True
+  | o == dhHSym = True
+  | otherwise = False -}
+rootSymEq Nothing _ = False
+rootSymEq (Just o) Nothing -- however, a mu term can be built from a non-mu term. 
+  | o == dhMuSym = True
+  | o == dhMu2Sym = True
+  | o == dhHSym = True
+  | otherwise = False
+rootSymEq _ Nothing = False
+rootSymEq (Just o1) (Just o2) 
+  | o1 == dhBPSym && o2 == dhBPSym = True
+  | otherwise = False
+rootSymEq _ _ = False
 
 roots :: LNTerm -> RootSet
 roots t@(viewTerm2 -> FdhExp t1 t2) = case viewTerm2 t1 of 
