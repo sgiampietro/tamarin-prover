@@ -658,7 +658,6 @@ solveDHIndaux bset nbset term p rules = do
                     insertDHEdges possibletuple (map fst nInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
                     insertDHEdges possibletuple (map fst nInds2) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
                     insertDHEdges possibletuple (map fst nInds3) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
-              -- insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x))  
               return "FindingIndicators" 
       es -> do
           -- solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) es

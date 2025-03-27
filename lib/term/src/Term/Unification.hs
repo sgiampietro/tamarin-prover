@@ -137,6 +137,8 @@ unifyLNTermFactored :: [Equal LNTerm]
 unifyLNTermFactored = unifyLTermFactored sortOfName
 
 
+
+
 unifyLDHTermFactored :: (IsConst c)
                    => (c -> LSort)
                    -> [Equal (LTerm c)]
@@ -169,7 +171,7 @@ unifyLDHProtoTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ 
 
 unifyLNDHProtoTermFactored :: [Equal LNTerm]
                     -> WithMaude [SubstVFresh Name LVar]
-unifyLNDHProtoTermFactored eq = trace (show ("TRYINGTOUNIFYIND+ROOTof", eq)) $ unifyLDHProtoTermFactored sortOfName  eq            
+unifyLNDHProtoTermFactored eq = unifyLDHProtoTermFactored sortOfName  eq            
 
 -- | @unifyLNTerm eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLTerm :: (IsConst c)

@@ -86,7 +86,7 @@ import qualified Control.Monad.State   as MS
 import           Data.Binary
 import qualified Data.Foldable         as F
 import           Data.List          (delete,find,intersect,intersperse,nub,(\\), permutations)
-import           Data.Maybe
+import Data.Maybe ( fromJust, isJust )
 import qualified Data.Set              as S
 import           Extension.Data.Label  hiding (for, get)
 import qualified Extension.Data.Label  as L
@@ -725,6 +725,23 @@ varOfSubst (a, ta@(FAPP o ts)) = []
 varsOfSubsts :: LNSubstVFresh -> [LVar]
 varsOfSubsts substs = concatMap varOfSubst $ substToListVFresh substs
 
+
+splitBPeqs :: (IsConst c) => Equal (LTerm c) -> Maybe [Equal (LTerm c)]
+splitBPeqs (Equal l r) = case (viewTerm2 l, viewTerm2 r) of 
+  (FdhBP l1 l2, FdhBP r1 r2) -> Just [Equal l1 r1, Equal r1 r2]
+  (FdhBP _ _, _) -> Nothing
+  (_ , FdhBP _ _ ) -> Nothing
+  (FdhExp l1 l2, FdhExp r1 r2) -> case (viewTerm2 l1, viewTerm2 r1) of 
+                                          (FdhBP c1 c2, FdhBP d1 d2) -> Just [(Equal c1 d1), (Equal c2 d2), (Equal l2 r2)]
+                                          (FdhBP _ _ , _ ) -> Nothing
+                                          (_ , FdhBP _ _ ) -> Nothing
+                                          _ -> Just [(Equal l r)]
+  _ -> Just [(Equal l r)]
+
+newBPeqs :: (IsConst c) => [Equal (LTerm c)] -> Maybe [Equal (LTerm c)]
+newBPeqs eqs = if (all isJust maybeEqs) then Just $ concat (map fromJust maybeEqs) else Nothing
+                  where maybeEqs = map splitBPeqs eqs
+
 addDHProtoEqs :: MonadFresh m
        => MaudeHandle -> [LVar] -> [(LNTerm,LNTerm, LVar)] -> [LNTerm] -> Bool -> EqStore -> m (EqStore, Maybe SplitId)
 addDHProtoEqs hnd allevars t1zzs permt zzbool eqdhstore = do
@@ -734,6 +751,7 @@ addDHProtoEqs hnd allevars t1zzs permt zzbool eqdhstore = do
         --muvariablesindt = (concatMap varInMu permt)
         --ist1var x = elem x $ concatMap varsVTerm t1
         --isindtvar x = elem x $ concatMap varsVTerm permt
+-- TODO: need to add change the "zipWith" Equal in the next line, with the newBPeqs function above!
     case (if (any (uncurry notUnifiableLits) (zip permt t1)) then [] else unifyLNDHProtoTermFactored (zipWith Equal permt t1) `runReader` hnd) of
         [] | zzbool ->  trace (show "amIhere?") $ return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
         [] | not zzbool -> trace (show ("GENERALIZING", permt, t1)) $ addDHProtoEqs hnd allevars (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) permt True eqdhstore
