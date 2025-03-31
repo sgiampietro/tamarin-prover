@@ -632,7 +632,8 @@ ppTheoryComRing ::  ByteString
 ppTheoryComRing = BC.unlines $
       [ "fmod CR is "
       , "  protecting NAT ."
-      , "  sort DH E NZE G BG FrNZE ."
+      , "  sort Msg Fresh DH E NZE G BG FrNZE ."
+      , "  subsort Fresh < Msg ."
       , "  subsort E < DH ."
       , "  subsort NZE < DH ."
       , "  subsort G < DH ."
@@ -647,6 +648,8 @@ ppTheoryComRing = BC.unlines $
       , "  op tamXCdhTimesE : DH DH -> DH [assoc comm] ."
       , "  op tamXCdhTimes : DH DH -> DH ."
       , "  op tamXCdhExp : DH DH -> DH ."
+      , "  op tamXCdhBP : DH DH -> DH ."
+      , "  op tamXCdhH : Msg -> DH ."
       , "  op tamXCdhOne : -> DH ."
       , "  op tamXCdhMu : DH -> DH ."
       , "  op tamXCdhMinus : DH -> DH ."
