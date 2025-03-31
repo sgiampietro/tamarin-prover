@@ -102,9 +102,11 @@ replaceMuTerms t@(FAPP (DHMult o) ts) mapp = case ts of
     [ t1, t2 ] | o == dhTimesESym   -> FAPP (DHMult dhTimesESym) [replaceMuTerms t1 mapp, replaceMuTerms t2 mapp]
     [ t1, t2 ] | o == dhExpSym   ->  FAPP (DHMult dhExpSym) [replaceMuTerms t1 mapp, replaceMuTerms t2 mapp]
     [ t1, t2 ] | o == dhPlusSym   -> FAPP (DHMult dhPlusSym) [replaceMuTerms t1 mapp, replaceMuTerms t2 mapp]
+    [ t1, t2 ] | o == dhBPSym   -> FAPP (DHMult dhBPSym) [replaceMuTerms t1 mapp, replaceMuTerms t2 mapp]
     [ t1 ]     | o == dhGinvSym    -> FAPP (DHMult dhGinvSym) [replaceMuTerms t1 mapp]
     [ t1 ]     | o == dhInvSym    -> FAPP (DHMult dhInvSym) [replaceMuTerms t1 mapp]
     [ t1 ]     | o == dhMinusSym    -> FAPP (DHMult dhMinusSym) [replaceMuTerms t1 mapp]
+    [ t1 ]     | o == dhHSym    -> FAPP (DHMult dhHSym) [replaceMuTerms t1 mapp]
     [ t1 ]     | o == dhMuSym    ->  varTerm $ fromJust $ Map.lookup t mapp
     []         | o == dhZeroSym    -> t
     []         | o == dhEgSym    -> t
