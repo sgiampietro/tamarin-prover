@@ -577,7 +577,8 @@ ppTheoryDHsimp ::  ByteString
 ppTheoryDHsimp = BC.unlines $
       [ "fmod DHsimp is"
       , " protecting NAT ."
-      , " sort DH G E NZE BG FrNZE ."
+      , " sort Msg Fresh DH G E NZE BG FrNZE ."
+      , " subsort Fresh < Msg ."
       , " subsort G < DH ."
       , " subsort E < DH ."
       , " subsort NZE < E ."
@@ -593,6 +594,7 @@ ppTheoryDHsimp = BC.unlines $
       , " op tamXCdhExp : G E -> G ."
       , " op tamXCdhOne : -> NZE ."
       , " op tamXCdhMu : G -> NZE ."
+      , " op tamXCdhH : Msg -> NZE. " 
       -- , "op tamPCdhBox : G -> G ."
       -- , "op tamPCdhBoxE : E -> E ."
       , " op dh : Nat -> DH ."
