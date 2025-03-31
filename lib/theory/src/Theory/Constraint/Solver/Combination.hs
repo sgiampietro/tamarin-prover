@@ -63,10 +63,12 @@ gTerm2Exp t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhTimesESym   -> t
     [ t1, t2 ] | o == dhExpSym   ->  simplifyraw $ (FAPP (DHMult dhTimesESym) [gTerm2Exp t1, gTerm2Exp t2])
     [ t1, t2 ] | o == dhPlusSym   -> t
+    [ t1, t2 ] | o == dhBPSym -> fAppdhOne
     [ t1 ]     | o == dhGinvSym    ->  simplifyraw $ (FAPP (DHMult dhMinusSym) [gTerm2Exp t1])
     [ t1 ]     | o == dhInvSym    -> t
     [ t1 ]     | o == dhMinusSym    -> t
     [ t1 ]     | o == dhMuSym    -> FAPP (DHMult dhMuSym) [simplifyraw t1]
+    [ t1 ]     | o == dhHSym     -> t
     --[ t1 ]     | o == dhBoxSym    -> gTerm2Exp t1
     --[ t1 ]     | o == dhBoxESym    -> gTerm2Exp t1
     []         | o == dhZeroSym    -> t
@@ -83,9 +85,11 @@ getMuTerms t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhTimesESym   -> nub $ (getMuTerms t1)++(getMuTerms t2)
     [ t1, t2 ] | o == dhExpSym   ->  nub $ (getMuTerms t1)++(getMuTerms t2)
     [ t1, t2 ] | o == dhPlusSym   -> nub $ (getMuTerms t1)++(getMuTerms t2)
+    [ t1, t2 ] | o == dhBPSym   -> nub $ (getMuTerms t1)++(getMuTerms t2)
     [ t1 ]     | o == dhGinvSym    -> (getMuTerms t1)
     [ t1 ]     | o == dhInvSym    -> (getMuTerms t1)
     [ t1 ]     | o == dhMinusSym    -> (getMuTerms t1)
+    [ t1 ]     | o == dhHSym    -> (getMuTerms t1)
     [ t1 ]     | o == dhMuSym    -> [t]
     --[ t1 ]     | o == dhBoxSym    -> gTerm2Exp t1
     --[ t1 ]     | o == dhBoxESym    -> gTerm2Exp t1
