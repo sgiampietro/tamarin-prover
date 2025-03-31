@@ -352,6 +352,40 @@ optionList basis (gt1,mut1) (gt2,mut2)
                    foldmu permlist = foldl (replace basis) (gt1,gt2, substFromList (mut1++mut2) , True) permlist
                    results = filter (\(_,_,_,b) -> b) $ map foldmu replacements
 
+{-
+subSolveExponents :: MaudeHandle -> [LNTerm] -> LNTerm -> LNTerm -> LNTerm -> LNTerm -> [(LVar, LNTerm)] -> [(LVar, LNTerm)] -> [Maybe [([(LVar, LNTerm)], [(LVar, LNTerm)])]]
+subSolveExponents hnd basis term target gt1 gt2 termsubst1 termsubst2 =
+    let options = optionList (basis) (gt1,termsubst1) (gt2,termsubst2)
+        (wzs, matriz) = createMatrixProto (allExponentsOf [term] target) (gt1) (gt2)
+      -- (wzs, matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)       
+      -- ([w1, z2], matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)
+        pubg =  pubGTerm "g"
+        --basis' = filter (\i-> i/= fAppdhOne) basis
+        --sol = solveMatrix2 fAppdhZero (fAppdhOne:(basis'++map (\x->fAppdhMu (fAppdhExp (pubg, x))) basis')) matriz wzs
+        sol = Just $ solveMatrix2 fAppdhZero (basis) matriz wzs
+        getsol t1 t2 = case varTermsOf t1 of
+            [] -> case varTermsOf t2 of
+                  [] -> if sta1 == sta2 
+                          then Nothing
+                          else Just (Nothing)   
+                              where 
+                                normedpair = (runReader (norm' $ fAppPair (t1, t2)) hnd)
+                                unpair t = case viewTerm t of
+                                              (FApp (NoEq pairSym) [x, y]) ->(x,y)
+                                              _ -> error $ "something went wrong" ++ show t
+                                (sta1,sta2) =  unpair normedpair
+                  _  -> Just $ solveMatrix2 fAppdhZero (basis) mat2 wz2
+            _ -> Just $ solveMatrix2 fAppdhZero (basis) mat2 wz2
+           where  
+                  (wz2, mat2) = createMatrixProto [] (runReader (norm' t1) hnd) (runReader (norm' t2) hnd)
+        retrieve s substss = case s of
+          Nothing -> Just [(substss, [])]
+          Just (Nothing) -> Nothing
+          Just (Just sols) -> Just (map (\s-> (oneSolution wzs s, substss)) sols)
+    in
+    (retrieve sol (termsubst1++termsubst2)):(map ((\(s,t) -> retrieve s (substToList t)) . (\(t1,t2,sub) -> (getsol t1 t2, sub))) options )
+-}
+
 solveIndicatorGaussProto :: MaudeHandle -> [LNTerm] -> LNTerm -> LNTerm -> [ Maybe [([(LVar, LNTerm)],[(LVar, LNTerm)]) ] ]
 solveIndicatorGaussProto hnd basis term target =
     let (gt1, termsubst1) = gTerm2Exp' term "qwzk1"
@@ -385,8 +419,6 @@ solveIndicatorGaussProto hnd basis term target =
           Just (Just sols) -> Just (map (\s-> (oneSolution wzs s, substss)) sols)
     in
     (retrieve sol (termsubst1++termsubst2)):(map ((\(s,t) -> retrieve s (substToList t)) . (\(t1,t2,sub) -> (getsol t1 t2, sub))) options )
-
-
 
 
 createMatrix :: [LNTerm] -> [LNTerm] -> LNTerm -> Matrix LNTerm
