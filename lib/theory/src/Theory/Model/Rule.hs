@@ -751,11 +751,11 @@ normTermCR t hnd = case viewTerm3 t of
   MsgFApp o ts -> FAPP o (map (\x -> normTermCR x hnd) ts)
   DH _ _ -> case sortOfLNTerm t of 
               LSortG -> normalized
-                          where pubg = pubGTerm "g"
+                          where pubg = expBase t--pubGTerm "g"
                                 normexp = (runReader (norm' (gTerm2Exp t)) hnd)
                                 normalized = fAppdhExp (pubg, normexp) 
               LSortPubG -> normalized
-                          where pubg = pubGTerm "g"
+                          where pubg = expBase t-- pubGTerm "g"
                                 normexp = (runReader (norm' (gTerm2Exp t)) hnd)
                                 normalized = fAppdhExp (pubg, normexp) 
               _ -> (runReader (norm' t) hnd) 

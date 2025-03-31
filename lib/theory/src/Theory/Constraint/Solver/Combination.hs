@@ -22,13 +22,14 @@ module Theory.Constraint.Solver.Combination
     parseToMap,
     gTerm2Exp,
     gTerm2Exp',
+    expBase ,
     getvalue
   )
 where
 
 
 import qualified Data.Set                          as S
-import Data.List ( (\\), intersect, nub, permutations )
+import Data.List ( (\\), intersect, nub, permutations, tails )
 import qualified Data.Map                          as Map
 import Data.Maybe ( fromJust, isJust )
 import Data.Tuple (swap)
@@ -53,6 +54,27 @@ import           Control.Monad.Reader
 import Data.Primitive (mutableByteArrayContents)
 
 
+expBase ::  LNTerm -> LNTerm
+expBase t@(LIT l) = t
+expBase t@(FAPP (DHMult o) ts) = case ts of
+    [ t1, t2 ] | o == dhMultSym   -> expBase t1
+    [ t1, t2 ] | o == dhTimesSym   -> pubGTerm "g"
+    [ t1, t2 ] | o == dhTimesESym   -> pubGTerm "g"
+    [ t1, t2 ] | o == dhExpSym   ->  t1
+    [ t1, t2 ] | o == dhPlusSym   -> pubGTerm "g"
+    [ t1, t2 ] | o == dhBPSym -> t
+    [ t1 ]     | o == dhGinvSym    ->  expBase t1
+    [ t1 ]     | o == dhInvSym    -> pubGTerm "g"
+    [ t1 ]     | o == dhMinusSym    -> pubGTerm "g"
+    [ t1 ]     | o == dhMuSym    -> pubGTerm "g"
+    [ t1 ]     | o == dhHSym     -> pubGTerm "g"
+    --[ t1 ]     | o == dhBoxSym    -> gTerm2Exp t1
+    --[ t1 ]     | o == dhBoxESym    -> gTerm2Exp t1
+    []         | o == dhZeroSym    -> pubGTerm "g"
+    []         | o == dhEgSym    ->  t
+    []         | o == dhOneSym    -> pubGTerm "g"
+    _                               -> error $ "unexpected term form: `"++show t++"'"
+expBase t =  error $ "unexpected term form2: `"++show t++"'"
 
 
 gTerm2Exp ::  LNTerm -> LNTerm
@@ -321,14 +343,13 @@ createMatrixProto nb term target =
   (matrixvars, resultmatrix)
 
 
-oneSolution :: [LNTerm] -> ([LNTerm], [LNTerm], [LNTerm],[(LVar,LNTerm)]) -> [(LVar, LNTerm)]
-oneSolution wzs a@(ts, newwzs, subszero, subextra) =  (if (all (isJust) wzvars && all isJust zerovars) then
+oneSolution :: LNTerm -> [LNTerm] -> ([LNTerm], [LNTerm], [LNTerm],[(LVar,LNTerm)]) -> [(LVar, LNTerm)]
+oneSolution ebase wzs a@(ts, newwzs, subszero, subextra) =  (if (all (isJust) wzvars && all isJust zerovars) then
                  ((zipWith zipfun wzvars ts) ++ subextra ++ map ((\i -> (i, getsubst i fAppdhZero)).fromJust) zerovars) else [])
                     where wzvars = map getVar newwzs
-                          --pubg = LIT (Var ( LVar "pg" LSortPubG 1))
-                          pubg = pubGTerm "g"
+                          -- pubg = pubGTerm "g"
                           getsubst v t = case sortOfLit (Var v) of
-                                        LSortVarG -> simplifyraw $ fAppdhExp (pubg, t)
+                                        LSortVarG -> simplifyraw $ fAppdhExp (ebase, t)
                                         _ -> t
                           zipfun a b = (fromJust a, getsubst (fromJust a) b)
                           zerovars = map getVar subszero
@@ -338,27 +359,27 @@ extractMu t@(FAPP (DHMult o) ts) = case ts of
    [ t1 ]     | o == dhMuSym      -> gTerm2Exp t1
    _ -> t
 
-replace :: [LNTerm] -> (LNTerm, LNTerm, LNSubst, Bool) -> (LVar, LNTerm, LVar, LNTerm) -> (LNTerm, LNTerm, LNSubst, Bool)
+replace :: LNTerm -> [LNTerm] -> (LNTerm, LNTerm, LNSubst, Bool) -> (LVar, LNTerm, LVar, LNTerm) -> (LNTerm, LNTerm, LNSubst, Bool)
 {-replace basis (gt1, gt2, subst0, True) (var1, mu1, var2, mu2) 
   | (extractMu mu1) == (extractMu mu2) = (gt1, applyVTerm (substFromList [(var2, LIT (Var var1))]) gt2, subst0, True) -}
-replace basis (gt1, gt2, subst0, True) (var1, mu1, var2, mu2) = case sol of
+replace ebase basis (gt1, gt2, subst0, True) (var1, mu1, var2, mu2) = case sol of
   Nothing -> (gt1,gt2,subst0, False)
   Just sols | null sols -> (gt1,applyVTerm (substFromList [(var2, LIT (Var var1))]) gt2,subst0, True)
             | otherwise -> (applyVTerm subst1 gt1, applyVTerm subst1 newgt2, newsubst, True)
-                  where s = oneSolution wzs (head sols)
+                  where s = oneSolution ebase wzs (head sols)
                         subst1 = substFromList s
                         newsubst = compose subst1 subst0
     where newgt2 = applyVTerm (substFromList [(var2, LIT (Var var1))]) gt2
           (wzs, matriz) = createMatrixProto [] (extractMu mu1) (extractMu mu2)
           sol = solveMatrix2 fAppdhZero basis matriz wzs
-replace _ (gt1, gt2, subst0, False) _ = (gt1,gt2,subst0, False)
+replace _ _ (gt1, gt2, subst0, False) _ = (gt1,gt2,subst0, False)
 
-optionList :: [LNTerm] -> (LNTerm, [(LVar, LNTerm)]) -> (LNTerm, [ (LVar, LNTerm)]) ->  [ (LNTerm, LNTerm, LNSubst) ]
-optionList basis (gt1,mut1) (gt2,mut2)
+optionList :: LNTerm -> [LNTerm] -> (LNTerm, [(LVar, LNTerm)]) -> (LNTerm, [ (LVar, LNTerm)]) ->  [ (LNTerm, LNTerm, LNSubst) ]
+optionList ebase basis (gt1,mut1) (gt2,mut2)
       | length mut1 == length mut2 = map (\(a,b,c,d) -> (a,b,c)) results
       | otherwise = []
              where replacements = map (\pm -> zipWith (\(a,b) (c,d) -> (a,b,c,d)) mut1 pm) (permutations mut2)
-                   foldmu permlist = foldl (replace basis) (gt1,gt2, substFromList (mut1++mut2) , True) permlist
+                   foldmu permlist = foldl (replace ebase basis) (gt1,gt2, substFromList (mut1++mut2) , True) permlist
                    results = filter (\(_,_,_,b) -> b) $ map foldmu replacements
 
 {-
@@ -399,7 +420,8 @@ solveIndicatorGaussProto :: MaudeHandle -> [LNTerm] -> LNTerm -> LNTerm -> [ May
 solveIndicatorGaussProto hnd basis term target =
     let (gt1, termsubst1) = gTerm2Exp' term "qwzk1"
         (gt2, termsubst2) = gTerm2Exp' target "qwzk2"
-        options = optionList (basis) (gt1,termsubst1) (gt2,termsubst2)
+        ebase = expBase target
+        options = optionList ebase (basis) (gt1,termsubst1) (gt2,termsubst2)
         (wzs, matriz) = createMatrixProto (allExponentsOf [term] target) (gt1) (gt2)
       -- (wzs, matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)       
       -- ([w1, z2], matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)
@@ -425,7 +447,7 @@ solveIndicatorGaussProto hnd basis term target =
         retrieve s substss = case s of
           Nothing -> Just [(substss, [])]
           Just (Nothing) -> Nothing
-          Just (Just sols) -> Just (map (\s-> (oneSolution wzs s, substss)) sols)
+          Just (Just sols) -> Just (map (\s-> (oneSolution ebase wzs s, substss)) sols)
     in
     (retrieve sol (termsubst1++termsubst2)):(map ((\(s,t) -> retrieve s (substToList t)) . (\(t1,t2,sub) -> (getsol t1 t2, sub))) options )
 
@@ -462,14 +484,13 @@ createMatrix3 nb term target =
 -- w1 is multiplied term, z1 is the summed term. 
 
 
-oneSolution3 :: [LNTerm] -> ([LNTerm], [LNTerm], [LNTerm],[(LVar,LNTerm)]) -> [(LVar, LNTerm)]
-oneSolution3 wzs a@(ts, newwzs, subszero, subextra) =  (if (all (isJust) wzvars && all isJust zerovars) then
+oneSolution3 :: LNTerm -> [LNTerm] -> ([LNTerm], [LNTerm], [LNTerm],[(LVar,LNTerm)]) -> [(LVar, LNTerm)]
+oneSolution3 ebase wzs a@(ts, newwzs, subszero, subextra) =  (if (all (isJust) wzvars && all isJust zerovars) then
                  ((zipWith zipfun wzvars ts) ++ subextra ++ map ((\i -> (i, getsubst i fAppdhZero)).fromJust) zerovars) else [])
                     where wzvars = map getVar newwzs
-                          --pubg = LIT (Var ( LVar "pg" LSortPubG 1))
-                          pubg = pubGTerm "g"
+                          -- pubg = pubGTerm "g"
                           getsubst v t = case sortOfLit (Var v) of
-                                        LSortVarG -> simplifyraw $ fAppdhExp (pubg, t)
+                                        LSortVarG -> simplifyraw $ fAppdhExp (ebase, t)
                                         _ -> t
                           zipfun a b = (fromJust a, getsubst (fromJust a) b)
                           zerovars = map getVar subszero
@@ -478,10 +499,10 @@ solveIndicatorGauss3 :: MaudeHandle -> [LNTerm] -> [LNTerm] -> LNTerm -> LNTerm 
 solveIndicatorGauss3 hnd nb basis term target =
     let gt1 = gTerm2Exp term 
         gt2 = gTerm2Exp target 
+        ebase = expBase target
         (wzs, matriz) = createMatrix3 nb (gt1) (gt2)
-        pubg =  pubGTerm "g"
         sol = solveMatrix2 fAppdhZero (basis) matriz wzs
         retrieve s = case s of
           (Nothing) -> Nothing
-          (Just sols) -> Just (map (\s-> (oneSolution3 wzs s)) sols)
+          (Just sols) -> Just (map (\s-> (oneSolution3 ebase wzs s)) sols)
     in retrieve sol
