@@ -154,6 +154,7 @@ coeffTermsOf t@(FAPP (DHMult o) ts) vart =     case ts of
     [ t1, t2 ] | o == dhTimesSym   -> simplifyraw $ fAppdhTimesE ( coeffTermsOf t1 vart, coeffTermsOf t2 vart)
     [t1]       | o == dhMuSym  -> t
     [t1]       | o == dhInvSym  -> t
+    [t1]       | o == dhHSym -> t
     _                               -> error $ "term not in normal form?: `"++show t++"'"
 
 
@@ -197,6 +198,7 @@ getkeyfromProd vars t@(FAPP (DHMult o) ts) = case ts of
     [ t1 ]     | o == dhInvSym    -> if (elem t1 vars) then S.singleton t else S.singleton fAppdhOne
     [ t1 ]     | o == dhMinusSym    -> getkeyfromProd vars t1
     [ t1 ]     | o == dhMuSym    -> S.singleton fAppdhOne  -- if (elem t1 vars) then S.singleton $ fAppdhMu t1 else--TODO: not sure what to do here? t1 is actually a G term??
+    [ t1 ]     | o == dhHSym     -> S.singleton fAppdhOne
     []         | o == dhZeroSym    -> S.singleton fAppdhOne
     []         | o == dhOneSym    -> S.singleton fAppdhOne
     _                               -> error $ "this shouldn't have happened: `"++show t++"'"
@@ -213,6 +215,7 @@ getcoefromProd vars t@(FAPP (DHMult o) ts) = case ts of
     [ t1 ]     | o == dhInvSym    -> if (elem t1 vars) then fAppdhOne else t -- check how to deal with inverse!
     [ t1 ]     | o == dhMinusSym    -> simplifyraw $ fAppdhMinus (getcoefromProd vars t1)
     [ t1 ]     | o == dhMuSym    -> fAppdhMu t1  --TODO: not sure what to do here? t1 is actually a G term??
+    [ t1 ]     | o == dhHSym    -> t
     []         | o == dhZeroSym    -> t
     []         | o == dhOneSym    -> t
     _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
