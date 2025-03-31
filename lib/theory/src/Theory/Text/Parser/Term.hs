@@ -73,7 +73,7 @@ reservedBuiltins =  map unpackChars [
   , pmultSymString 
   , emapSymString 
   , zeroSymString
-  , xorSymString 
+  , xorSymString {-}
   , dhMultSymString -- g1.g2
   , dhGinvSymString -- g^-1
   , dhZeroSymString
@@ -88,7 +88,7 @@ reservedBuiltins =  map unpackChars [
   , dhMuSymString
   , dhMu2SymString
   , dhBPSymString
-  , dhHSymString
+  , dhHSymString -}
     --, dhBoxSymString
   --, dhBoxESymString  
   ]
