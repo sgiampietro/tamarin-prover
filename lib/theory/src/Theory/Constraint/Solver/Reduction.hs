@@ -107,7 +107,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -1123,7 +1123,7 @@ solveMixedTermEqs splitStrat bset nbset fun (lhs,rhs)
                   _                        -> return eqs2
         let substdhvars = map (\(a,b) -> (applyVTerm compsubst a, applyVTerm compsubst b)) dheqs
             compsubst = substFromList (lhsDHvars ++ rhsDHvars)
-        if all (\x -> elem x (varsVTerm lhs) ) (concatMap varsVTerm (map fst substdhvars))
+        if trace (show ("HERE ARE EQS: FDD", substdhvars)) $ all (\x -> elem x (varsVTerm lhs) ) (concatMap varsVTerm (map fst substdhvars))
             then solveListDHEqs (solveTermDHEqs splitStrat (protoCase SplitNow bset nbset)) substdhvars
             else solveListDHEqs (\(a,b)-> solveTermDHEqs splitStrat (protoCase SplitNow bset nbset) (b,a)) substdhvars
         noContradictoryEqStore
@@ -1538,9 +1538,18 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
         hndNormal <- getMaudeHandle
         let ta11 = applyVTerm (_eqsSubst subst) ta1
             ta22 = applyVTerm (_eqsSubst subst) ta2
-            nta2 = runReader (norm' ta22) hndNormal
-            nta1 = runReader (norm' ta11) hndNormal
-        case prodTerms nta1 of
+            -- todo! check here if nta1 and nta2 are already equal!
+            normedpair = (runReader (norm' $ fAppPair (ta11, ta22)) hndNormal)
+            unpair t = case viewTerm t of
+                                (FApp (NoEq pairSym) [x, y]) ->(x,y)
+                                _ -> error $ "something went wrong" ++ show t
+            (nta1,nta2) =  unpair normedpair
+            --nta2 = runReader (norm' ta22) hndNormal
+            --nta1 = runReader (norm' ta11) hndNormal
+        if nta1 == nta2
+         then do
+            return Changed
+         else case prodTerms nta1 of
             Just (x,y) ->   do 
                             let xrooterms = multRootList nta1
                                 repxindterms = map (\x -> rootIndKnown2 hndNormal bset nbset x) xrooterms
