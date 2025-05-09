@@ -23,7 +23,7 @@ module Theory.Constraint.Solver.Simplify (
 
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Prelude                            hiding (id, (.))
 
@@ -64,7 +64,8 @@ simplifySystem :: Reduction ()
 simplifySystem = do
     -- normSystemCR
     -- normSystem
-    isdiff <- trace (show "IAMSIMPLIFYNING SYTME") $ getM sDiffSystem
+    sg <- gets plainOpenGoals
+    isdiff <- trace (show ("IAMSIMPLIFYNING SYTME", sg)) $ getM sDiffSystem
     -- Start simplification, indicating that some change happened
     go (0 :: Int) [Changed]
     if isdiff
@@ -89,7 +90,8 @@ simplifySystem = do
           -- Perform one initial substitution. We do not have to consider its
           -- changes as 'substSystem' is idempotent.
           void substSystem
-          void normSystem
+          sg <- gets plainOpenGoals
+          trace (show ("stillhere", sg)) $ void normSystem
           -- Perform one simplification pass.
           isdiff <- getM sDiffSystem
           -- In the diff case, we cannot enfore N4-N6.
@@ -131,16 +133,16 @@ simplifySystem = do
 
               traceIfLooping $ go (n + 1) (map snd changes)
             else do
-              (c1,c2,c3) <- enforceNodeUniqueness
-              c4 <- enforceEdgeUniqueness
-              c5 <- solveUniqueActions
-              c6 <- reduceFormulas
-              c7 <- evalFormulaAtoms
-              c8 <- insertImpliedFormulas
-              c9 <- freshOrdering
-              c10 <- simpSubterms
-              c11 <- simpInjectiveFactEqMon
-              c12 <- removeRedundantGoals
+              (c1,c2,c3) <- trace (show ("start")) enforceNodeUniqueness
+              c4 <- trace (show ("c1,c2,c3", c1,c2,c3)) enforceEdgeUniqueness
+              c5 <- trace (show ("c4", c4)) solveUniqueActions
+              c6 <- trace (show ("c45", c5)) reduceFormulas
+              c7 <- trace (show ("c6", c6)) evalFormulaAtoms
+              c8 <- trace (show ("c7", c7)) insertImpliedFormulas
+              c9 <- trace (show ("c8", c8)) freshOrdering
+              c10 <- trace (show ("c9", c9)) simpSubterms
+              c11 <- trace (show ("c10", c10))  simpInjectiveFactEqMon
+              c12 <- trace (show ("c11", c11)) removeRedundantGoals
 
               -- Report on looping behaviour if necessary
               let changes = filter ((Changed ==) . snd) $
@@ -176,11 +178,12 @@ removeRedundantGoals = do
     nodes <- getM sNodes
     let rus = M.elems nodes
         check x = (sortOfLNTerm x == LSortFrNZE) && (elem (outFact x) $ concatMap (\ru -> filter isDHFact $ get rConcs ru) rus)
-    let kdhActions = [ActionG i g | (ActionG i g, _) <- oldOpenGoals,  isKdhFact g] 
+    let kdhActions = [ActionG i g | (ActionG i g, _) <- oldOpenGoals,  isKLogFact g] 
         goalsToRemove = filter (\(ActionG i g) -> factTerms g == [fAppdhOne] || factTerms g == [fAppdhZero] ) kdhActions
         goalsToRemove2 = filter (\(ActionG i g) -> all check $ factTerms g) kdhActions   
     forM_ (goalsToRemove++goalsToRemove2) (modM sGoals . M.delete)
-    return (if (length goalsToRemove) > 0 then Changed else Unchanged)
+    newOpenGoals <- gets plainOpenGoals
+    return $ trace (show ("xx", newOpenGoals)) (if (length goalsToRemove) > 0 then Changed else Unchanged)
 
 
 
@@ -208,13 +211,15 @@ enforceNodeUniqueness =
     -- *DG4*
     freshRuleInsts se = do
         (i, ru) <- M.toList $ get sNodes se
-        trace (show ("merge here?", ru)) $ guard (isFreshRule ru)
+        guard (isFreshRule ru)
         return (ru, ((), i))  -- no need to merge equal rules
 
     -- *N5_d*
+    kdConcs :: System -> [(LNTerm, (RuleACInst, NodeId))]
     kdConcs sys = (\(i, ru, m) -> (m, (ru, i))) <$> allKDConcs sys
 
     -- *N5_u*
+    kuActions :: System -> [(LNTerm, (LNFact, NodeId))]
     kuActions se = (\(i, fa, m) -> (m, (fa, i))) <$> allKUActions se
 
     merge :: Ord b
@@ -245,7 +250,7 @@ enforceFreshAndKuNodeUniqueness =
     -- *DG4*
     freshRuleInsts se = do
         (i, ru) <- M.toList $ get sNodes se
-        trace (show ("merge here?", ru)) $ guard (isFreshRule ru)
+        guard (isFreshRule ru)
         return (ru, ((), i))  -- no need to merge equal rules
 
     -- *N5_u*
@@ -285,10 +290,10 @@ enforceEdgeUniqueness = do
     -- merge the nodes on the 'mergeEnd' for edges that are equal on the
     -- 'compareEnd'
     mergeNodes mergeEnd compareEnd edges
-      | null (trace (show ("thesearehteqee,", edges)) eqs)  = return Unchanged
+      | null eqs  = return Unchanged
       | otherwise = do
             -- all indices of merged premises and conclusions must be equal
-            contradictoryIf (not $ and [snd l == snd r | Equal l r <- eqs])
+            trace (show ("edges", not $ and [snd l == snd r | Equal l r <- eqs], eqs, edges)) $ contradictoryIf (not $ and [snd l == snd r | Equal l r <- eqs])
             -- nodes must be equal
             solveNodeIdEqs $ map (fmap fst) eqs
       where

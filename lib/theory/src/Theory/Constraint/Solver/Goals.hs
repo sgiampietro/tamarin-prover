@@ -25,7 +25,7 @@ module Theory.Constraint.Solver.Goals (
   , plainOpenGoals
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Prelude                                 hiding (id, (.))
 
@@ -220,11 +220,11 @@ solveGoal goal = do
     markGoalAsSolved "directly" goal
     rules <- askM pcRules
     case goal of
-      ActionG i fa  -> solveAction  (nonSilentRules rules) (i, fa)
+      ActionG i fa  -> trace (show ("solvingactiongoal", fa)) $ solveAction  (nonSilentRules rules) (i, fa)
       DHEqG t1 t2 -> solveDHEq t1 t2
       PremiseG p fa ->
            solvePremise (get crProtocol rules ++ get crConstruct rules) p fa
-      ChainG c p    -> solveChain (get crDestruct rules) (c, p)
+      ChainG c p    -> trace (show ("solvingchaingfoal")) $ solveChain (get crDestruct rules) (c, p)
       SplitG i      -> solveSplit i
       DisjG disj    -> solveDisjunction disj
       SubtermG st   -> solveSubterm st
@@ -293,7 +293,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                                 solvePremise rules pLearn premLearn
                                 return ruLearn 
             _ | (isDHFact fa)                       -> do
-                   ru  <- labelNodeId i (annotatePrems <$> rules) Nothing 
+                   ru  <- trace (show ("solvingactionhere", fa)) $ labelNodeId i (annotatePrems <$> rules) Nothing 
                    act <- disjunctionOfList (filter isDHFact $ get rActs ru)
                    (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
                    void substSystem
@@ -367,7 +367,7 @@ solvePremise rules p faPrem
   | isKdhFact faPrem && isDHFact faPrem =  (solveDHInd rules p faPrem)
   | isKdhFact faPrem && isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
   | isProtoDHFact faPrem =  solveDHIndProto rules p faPrem
-  | isProtoMixedFact faPrem = solveDHMixedPremise rules p faPrem
+  | isProtoMixedFact faPrem = trace (show ("solvingMixedPremise", faPrem)) $ solveDHMixedPremise rules p faPrem
   | isKDFact faPrem = do
       iLearn    <- freshLVar "vl" LSortNode
       mLearn    <- varTerm <$> freshLVar "t" LSortMsg
@@ -385,7 +385,7 @@ solvePremise rules p faPrem
       (ru, c, faConc) <- insertFreshNodeConcOutInstMixed rules (M.assocs nodes)
       insertEdges [(c, faConc, faPrem, p)] 
       return $ showRuleCaseName ru  
-  | isKIFact faPrem && isDHFact faPrem = do 
+  | isKIFact faPrem && isDHFact faPrem = do -- should match indicators with indicators (avoiding mu). In paper transform the mu rule also with any 1 way function.
       (ru, c, faConc) <- insertFreshNodeConc rules
       insertOutKIEdge (c, faConc, faPrem, p)
       return $ showRuleCaseName ru
@@ -414,6 +414,7 @@ solveChain rules (c, p) = do
         contradictoryIf (forbiddenEdge cRule pRule)
         --insertEdges [(c, faConc, faPrem, p)]
         insertDirectEdge faPrem faConc cRule pRule rules2
+        --trace (show ("solvededge", faPrem)) $ return ("directedge")
      `disjunction`
      -- extend it with one step
      case kFactView faConc of
@@ -504,7 +505,7 @@ solveChain rules (c, p) = do
                           void substSystem
                           void normSystem
                           contradictoryIf (illegalCoerce pRule mPrem)
-                          return (caseName mPrem)  ) 
+                          trace (show ("comingbackhere>?", faPrem, faConc, (illegalCoerce pRule mPrem), (caseName mPrem))) $ return (caseName mPrem)  ) 
       | otherwise =    (do
                 insertEdges [(c, faConc, faPrem, p)]  
                 let mPrem = case kFactView faConc of
@@ -602,7 +603,8 @@ insertMuAction :: [RuleAC] -> Term (Lit Name LVar) -> NodeId -> Reduction String
 insertMuAction rules x@(LIT l) i | sortOfLNTerm x == LSortFrNZE = do 
           nodes <- getM sNodes
           let rus = M.elems nodes
-          if (elem (outFact x) $ concatMap (\ru -> filter isDHFact $ get rConcs ru) rus)
+              outconcs = concatMap (\ru -> filter isDHFact $ get rConcs ru) rus
+          if (elem (outFact x) outconcs || elem (outFact $ fAppdhInv x) outconcs)
             then return "isAlreadyKnown"
             else solvePremise rules (i, PremIdx 0) (kIFact x)
 insertMuAction rules x@(LIT l) i = solvePremise rules (i, PremIdx 0) (kIFact x)
@@ -624,10 +626,9 @@ solveDHIndaux bset nbset term p rules = do
               --xrooterms = multRootList (clterm nterm)
               xrooterms = roots nterm
               inds = case xrooterms of 
-                            RootSet Nothing ts -> [map (\x -> (rootIndKnown2 hndNormal bset nbset x,x)) $ ts]
-                            RootSet (Just _) ts -> [map (\x -> (rootIndKnown2 hndNormal bset nbset x,x)) $ ts]
-                            RootSet2 _ ts ts2 -> map (map (\x -> (rootIndKnown2 hndNormal bset nbset x,x))) [ts,ts2]
-                            RootSet3 _ ts ts2 ts3 -> map (map (\x -> (rootIndKnown2 hndNormal bset nbset x,x))) [ts, ts2, ts3]
+                            RootSet Nothing [ts] -> [map (\x -> (rootIndKnown2 hndNormal bset nbset x,x)) $ ts]
+                            RootSet (Just _) [ts] -> [map (\x -> (rootIndKnown2 hndNormal bset nbset x,x)) $ ts]
+                            RootSet _ tss -> map (map (\x -> (rootIndKnown2 hndNormal bset nbset x,x))) tss
               --inds = map (\x -> (rootIndKnown2 hndNormal bset nbset x,x)) $ xrooterms
               neededInds = map (filter (\(a,b)-> not $ isPublic a)) inds
               newterm = foldr (\a b -> if b == fAppdhEg then a else fAppdhMult (a,b)) fAppdhEg $ map snd $ concat neededInds

@@ -253,7 +253,7 @@ execProofMethod ctxt method sys =
             && not (finishedSubterms ctxt sys) -> return M.empty
           | otherwise                          -> Nothing
         SolveGoal goal
-          | goal `M.member` L.get sGoals sys   -> execSolveGoal goal
+          | goal `M.member` L.get sGoals sys   -> do trace (show ("execProofMethod", goal)) $ execSolveGoal goal
           | otherwise                          -> Nothing
         Simplify                               -> singleCase simplifySystem
         Induction                              -> M.map cleanupSystem <$> execInduction
