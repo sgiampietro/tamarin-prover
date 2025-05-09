@@ -32,6 +32,7 @@ module Term.DHMultiplication (
   -- , isMult
   -- , isVarEGTerm
   , compatibleLits
+  , compatibleLitsStrict
   , neededexponents
   , neededexponentslist
   , rootIndKnown
@@ -152,18 +153,14 @@ clean t@(viewTerm3 -> DH f dht) = do
                                       return ( LIT (Var varx) , [(varx, t)] )
 
 
-data RootSet = RootSet (Maybe DHMultSym) [LNTerm] | RootSet2 (Maybe DHMultSym) [LNTerm] [LNTerm] | RootSet3 (Maybe DHMultSym) [LNTerm] [LNTerm] [LNTerm]
-  deriving (Show, Eq, Ord)
+data RootSet = RootSet (Maybe DHMultSym) [[LNTerm]] 
 
 extractRoot :: RootSet -> [LNTerm]
-extractRoot (RootSet _ ts) = ts
-extractRoot (RootSet2 _ ts ts2) = ts ++ ts2
-extractRoot (RootSet3 _ ts ts2 ts3) = ts ++ ts2
+extractRoot (RootSet _ [ts]) = ts
+extractRoot (RootSet _  (ts:ts2)) = ts
 
 extractRootSym :: RootSet -> (Maybe DHMultSym)
 extractRootSym (RootSet s _) = s 
-extractRootSym (RootSet2 s _ _) = s 
-extractRootSym (RootSet3 s _ _ _) = s 
 
 rootSymEq :: (Maybe DHMultSym) -> (Maybe DHMultSym) -> Bool
 rootSymEq Nothing Nothing = True
@@ -186,23 +183,23 @@ rootSymEq _ _ = False
 
 roots :: LNTerm -> RootSet
 roots t@(viewTerm2 -> FdhExp t1 t2) = case viewTerm2 t1 of 
-                                                FdhBP s1 s2 -> RootSet3 (Just dhBPSym) (extractRoot $ roots s1) (extractRoot $ roots s2) (extractRoot $ roots t2)
-                                                _ -> RootSet Nothing [t]
+                                                FdhBP s1 s2 -> RootSet (Just dhBPSym) [[s1], [s2], [t2]]
+                                                _ -> RootSet Nothing [[t]]
 roots t@(viewTerm2 -> FdhGinv dht) = roots dht--(FAPP (DHMult dhGinvSym) [rootIndKnown b nb dht])
-roots t@(viewTerm2 -> FdhTimes t1 t2) = RootSet Nothing [t]
-roots t@(viewTerm2 -> FdhTimesE t1 t2) =  RootSet Nothing [t]
-roots t@(viewTerm2 -> FdhPlus t1 t2) =  RootSet Nothing (extractRoot (roots t1) ++ extractRoot (roots t2))
-roots t@(viewTerm2 -> FdhTimes t1 t2) =  RootSet Nothing (extractRoot (roots t1) ++ extractRoot (roots t2))
-roots t@(viewTerm2 -> FdhMu t1) = RootSet (Just dhMuSym) (extractRoot (roots t1)) 
-roots t@(viewTerm2 -> FdhMu2 t1 t2) =  RootSet2 (Just dhMu2Sym) (extractRoot (roots t1)) (extractRoot (roots t2)) 
-roots t@(viewTerm2 -> FdhMinus t1) = RootSet Nothing $ extractRoot (roots t1)
-roots t@(viewTerm2 -> FdhInv t1) = RootSet Nothing $ extractRoot (roots t1)
-roots t@(viewTerm2 -> FdhBP t1 t2) = RootSet2 (Just dhBPSym) (extractRoot (roots t1)) (extractRoot (roots t2)) -- TODO: how to handle this??
-roots t@(viewTerm2 -> Lit2 (Var t1)) = RootSet Nothing [t]
-roots t@(viewTerm2 -> Lit2 (Con _)) = RootSet Nothing [t]
-roots t@(viewTerm2 -> DHZero) = RootSet Nothing [t]
-roots t@(viewTerm2 -> DHOne) = RootSet Nothing [t]
-roots t@(viewTerm2 -> DHEg) = RootSet Nothing [t]
+roots t@(viewTerm2 -> FdhTimes t1 t2) = RootSet Nothing [[t]]
+roots t@(viewTerm2 -> FdhTimesE t1 t2) =  RootSet Nothing [[t]]
+roots t@(viewTerm2 -> FdhPlus t1 t2) =  RootSet Nothing [multRootList t1 ++  (multRootList t2)]
+roots t@(viewTerm2 -> FdhTimes t1 t2) =  RootSet Nothing [multRootList t1 ++  (multRootList t2)]
+roots t@(viewTerm2 -> FdhMu t1) = RootSet (Just dhMuSym) [multRootList t1] 
+roots t@(viewTerm2 -> FdhMu2 t1 t2) =  RootSet (Just dhMu2Sym) [multRootList t1, multRootList t2]
+roots t@(viewTerm2 -> FdhMinus t1) = RootSet Nothing [multRootList t1]
+roots t@(viewTerm2 -> FdhInv t1) = RootSet Nothing [multRootList t1]
+roots t@(viewTerm2 -> FdhBP t1 t2) = RootSet (Just dhBPSym) [multRootList t1, multRootList t2]-- TODO: how to handle this??
+roots t@(viewTerm2 -> Lit2 (Var t1)) = RootSet Nothing [[t]]
+roots t@(viewTerm2 -> Lit2 (Con _)) = RootSet Nothing [[t]]
+roots t@(viewTerm2 -> DHZero) = RootSet Nothing [[t]]
+roots t@(viewTerm2 -> DHOne) = RootSet Nothing [[t]]
+roots t@(viewTerm2 -> DHEg) = RootSet Nothing [[t]]
 roots t = error ("rootSet applied on non DH"++show t++"term")
 
 
@@ -289,15 +286,29 @@ isPubExp :: LNTerm -> Maybe (LNTerm, LNTerm)
 isPubExp t@(viewTerm2 -> FdhExp t1 t2) = if (isPubGVar t1 || isGConst t1) then (Just (t1,t2)) else Nothing
 isPubExp _ = Nothing
 
-compatibleLits :: LNTerm -> LNTerm -> Bool
-compatibleLits ta1 ta2 = case sortCompare (sortOfLNTerm ta1) (sortOfLNTerm ta2) of
+compatibleVars :: LVar -> LVar -> Bool
+compatibleVars ta1 ta2 = case sortCompare (sortOfLNTerm (varTerm ta1)) (sortOfLNTerm (varTerm ta2)) of
                           Just GT -> True
                           Just EQ -> True
                           Just LT -> False
                           Nothing -> False
 
+compatibleLitsStrict :: LNTerm -> LNTerm -> Bool
+compatibleLitsStrict ta1 ta2 = case sortCompare (sortOfLNTerm ta1) (sortOfLNTerm ta2) of
+                          Just GT -> True
+                          Just EQ -> True
+                          Just LT -> False
+                          Nothing -> False
+
+
+compatibleLits :: LNTerm -> LNTerm -> Bool
+compatibleLits ta1@(viewTerm -> Lit (Var v1)) ta2 = all (compatibleVars v1) $ varsVTerm ta2
+                      
+
 notUnifiableLits :: LNTerm -> LNTerm -> Bool
 notUnifiableLits ta1 ta2 
+  | (isDHLit ta1 && (compatibleLits ta1 ta2) ) = False
+  | (isDHLit ta2 && (compatibleLits ta2 ta1) ) = False
   | (isDHLit ta1 && (not $ compatibleLits ta1 ta2) ) = True
   | (isDHLit ta2 && (not $ compatibleLits ta2 ta1) ) = True
   | otherwise = False

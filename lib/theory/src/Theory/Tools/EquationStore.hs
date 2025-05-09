@@ -76,7 +76,7 @@ import           Control.Monad.Reader
 import           Extension.Prelude
 import           Utils.Misc
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Control.Basics
 import           Control.DeepSeq
@@ -679,17 +679,24 @@ addDHEqs hnd t1zzs permt zzbool eqdhstore = do
 
 
 addDHEqs2 :: MonadFresh m
-       => MaudeHandle -> [Equal LNTerm] -> EqStore -> m (EqStore, Maybe SplitId, [Subst Name LVar])
-addDHEqs2 hnd t1indt eqdhstore =
-    case (if (any (\(Equal x y)-> notUnifiableLits x y) eqs) then [] else unifyLNDHProtoTermFactored eqs `runReader` hnd) of
-        [] -> return (set eqsConj falseEqConstrConj eqdhstore, Nothing, [])
+       => MaudeHandle -> Bool ->  [(LNTerm,LNTerm, LVar)] -> [LNTerm] -> EqStore -> m (EqStore, Maybe SplitId, [Subst Name LVar])
+addDHEqs2 hnd zzbool t1zzs permt eqdhstore =
+    case trace (show ("thisisaddDHEqs2", t1indt, t1zzs)) (if (any (\(Equal x y)-> notUnifiableLits x y) eqs) then [] else unifyLNDHProtoTermFactored eqs `runReader` hnd) of
+        [] | zzbool ->  trace (show ("afadfgdasmkooot?", eqs)) $ return (set eqsConj falseEqConstrConj eqdhstore, Nothing, [])
+        [] | not zzbool -> trace (show ("GENERALIZINGdfggfd", permt, t1)) $ addDHEqs2 hnd True (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) permt eqdhstore
         [substFresh] | substFresh == emptySubstVFresh ->
-            return (eqdhstore, Nothing,[])
+            trace (show "gothere") $ return (eqdhstore, Nothing,[])
         substs -> do
             newsubsts <- mapM generalize substs 
             let eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) newsubsts ) eqdhstore
-            return (eqStore', Nothing, (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) newsubsts ) )
+            return $ trace (show "gotherefirst") $ (eqStore', Nothing, (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) newsubsts ) )
   where
+    t1 = (map (\(a,_,_)->a) t1zzs)
+        --muvariablest1 = (concatMap varInMu t1)
+        --muvariablesindt = (concatMap varInMu permt)
+        --ist1var x = elem x $ concatMap varsVTerm t1
+        --isindtvar x = elem x $ concatMap varsVTerm permt
+    t1indt = zipWith Equal permt t1
     eqs = apply (L.get eqsSubst eqdhstore) $ t1indt
     addsubsts sub eqst= applyEqStore hnd sub eqst
     changeqstore [x] eq = addsubsts x eq
@@ -712,8 +719,7 @@ addDHEqs2 hnd t1indt eqdhstore =
                   --v1 <- freshLVar "vk" LSortVarE
                   return (c, fAppdhMult (cterm, varTerm w1))
         _ -> return (c, cterm)
-    generalize sub = liftM substFromListVFresh $ mapM generaltup (substToListVFresh sub)
-
+    generalize sub = liftM substFromListVFresh $ mapM generaltup $ filter (\(a,b)-> (not $ elem a (map (\(_,_,a)->a) t1zzs))) (substToListVFresh sub)
 
 
 varOfSubst :: (LVar,LNTerm) -> [LVar]
@@ -752,13 +758,13 @@ addDHProtoEqs hnd allevars t1zzs permt zzbool eqdhstore = do
         --ist1var x = elem x $ concatMap varsVTerm t1
         --isindtvar x = elem x $ concatMap varsVTerm permt
         eqst1 = zipWith Equal permt t1
-        splitBPeqs = newBPeqs eqst1
+        splitBPeqs = trace (show ("unifying permt1", eqst1)) $ newBPeqs eqst1
         newlist = case splitBPeqs of 
                         Nothing -> []
                         Just ts -> ts
--- TODO: need to add change the "zipWith" Equal in the next line, with the newBPeqs function above!
+-- TODO: need to generalize only 1 of the G variables on both sides of equality, not both!
     case (if ((any (uncurry notUnifiableLits) (zip permt t1)) || isNothing splitBPeqs) then [] else unifyLNDHProtoTermFactored newlist `runReader` hnd) of
-        [] | zzbool ->  trace (show "amIhere?") $ return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
+        [] | zzbool ->  trace (show ("amIhere?", newlist)) $ return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
         [] | not zzbool -> trace (show ("GENERALIZING", permt, t1)) $ addDHProtoEqs hnd allevars (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) permt True eqdhstore
         [substFresh] | substFresh == emptySubstVFresh ->
             trace (show "amIhere?22") $ return (eqdhstore, Nothing)
@@ -772,11 +778,14 @@ addDHProtoEqs hnd allevars t1zzs permt zzbool eqdhstore = do
             substs' <- trace (show ("orifinal subst", substs, "newsubsts", newsubsts, "esubsts", esubsts) )$  mapM generalize newsubsts
             let esubsts' = freshToFreeAvoidingFast esubsts (_eqsSubst eqdhstore)
                 eqStore' = changeqstore (map (\x-> compose esubsts' $ freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs' ) eqdhstore
-            trace (show ("theneweqstoreaftersubsts", eqStore')) return (eqStore', Nothing)
+            trace (show ("permvars", permvars, "theneweqstoreaftersubsts", eqStore')) return (eqStore', Nothing)
           where
             addsubsts sub eqst= applyEqStore hnd sub eqst
             changeqstore [x] eq = addsubsts x eq
             changeqstore (x:xs) eq = changeqstore xs (addsubsts x eq)
+            permvars = nub $ concatMap varsVTerm permt
+            --t1vars = nub $ concatMap varsVTerm t1
+            allGterms t ssrt = all (\b -> sortOfLNTerm (varTerm b) == ssrt)  $ varsVTerm t 
             addgenterms evar = do
                 ek <- freshLVar "ek" LSortVarE
                 return (evar, fAppdhPlus (varTerm evar, varTerm ek)) 
@@ -789,16 +798,16 @@ addDHProtoEqs hnd allevars t1zzs permt zzbool eqdhstore = do
                   return (c,cterm)
                   --v1 <- freshLVar "zk" LSortVarE
                   --return $ trace (show ("show", v1)) (c, fAppdhTimesE (cterm, varTerm v1))
-              a | a == LSortE  -> do
+              a | a == LSortE  && (not $ allGterms cterm LSortE)  -> do
                   w1 <- freshLVar "yk" LSortVarE
                   --v1 <- freshLVar "zk" LSortVarE
                   return (c, fAppdhPlus (cterm, varTerm w1))
-              a | a == LSortG -> do
+              a | a == LSortG  && (not $ allGterms cterm LSortG)  -> do
                   w1 <- freshLVar "wk" LSortVarG
                   --v1 <- freshLVar "vk" LSortVarE
                   return (c, fAppdhMult (cterm, varTerm w1))
               _ -> return (c, cterm)
-            generalize sub = liftM substFromListVFresh $ mapM generaltup $ filter (\(a,b)-> not $ elem a (map (\(_,_,a)->a) t1zzs)) (substToListVFresh sub)
+            generalize sub = liftM substFromListVFresh $ mapM generaltup $ filter (\(a,b)-> (not $ elem a (map (\(_,_,a)->a) t1zzs))) (substToListVFresh sub)
 
 
 ------------------------------------------------------------------------------

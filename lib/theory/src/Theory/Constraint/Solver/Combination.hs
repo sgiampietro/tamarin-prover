@@ -55,7 +55,7 @@ import Data.Primitive (mutableByteArrayContents)
 
 
 expBase ::  LNTerm -> LNTerm
-expBase t@(LIT l) = t
+expBase t@(LIT l) = if (isPubGVar t || isGConst t) then t else pubGTerm "g"
 expBase t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhMultSym   -> expBase t1
     [ t1, t2 ] | o == dhTimesSym   -> pubGTerm "g"
@@ -345,13 +345,14 @@ createMatrixProto nb term target =
 
 oneSolution :: LNTerm -> [LNTerm] -> ([LNTerm], [LNTerm], [LNTerm],[(LVar,LNTerm)]) -> [(LVar, LNTerm)]
 oneSolution ebase wzs a@(ts, newwzs, subszero, subextra) =  (if (all (isJust) wzvars && all isJust zerovars) then
-                 ((zipWith zipfun wzvars ts) ++ subextra ++ map ((\i -> (i, getsubst i fAppdhZero)).fromJust) zerovars) else [])
+                 ((zipWith zipfun wzvars ts) ++ (zipextra subextra) ++ map ((\i -> (i, getsubst i fAppdhZero)).fromJust) zerovars) else [])
                     where wzvars = map getVar newwzs
                           -- pubg = pubGTerm "g"
                           getsubst v t = case sortOfLit (Var v) of
                                         LSortVarG -> simplifyraw $ fAppdhExp (ebase, t)
                                         _ -> t
                           zipfun a b = (fromJust a, getsubst (fromJust a) b)
+                          zipextra ts = map (\(a,b) -> (a, getsubst a b)) ts
                           zerovars = map getVar subszero
 
 extractMu :: LNTerm -> LNTerm
