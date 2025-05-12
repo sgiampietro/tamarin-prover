@@ -13,21 +13,18 @@
 --
 module Term.DHMultiplication (
     clean
-  , RootSet(..)
   , rootSet
   , multRootList
   , extractMixedRoot
   , isRoot
-  , roots
-  , extractRoot
-  , extractRootSym
-  , rootSymEq
   --, isOfDHSort
   , isDHTerm
   , isExpTerm
   , isMuTerm
   --, isDHFact
   , isDHLit
+  , isDHInvLit
+  , getInvLit
   , isPubExp
   , isPublic
   -- , isMult
@@ -153,55 +150,6 @@ clean t@(viewTerm3 -> DH f dht) = do
                                       return ( LIT (Var varx) , [(varx, t)] )
 
 
-data RootSet = RootSet (Maybe DHMultSym) [[LNTerm]] 
-
-extractRoot :: RootSet -> [LNTerm]
-extractRoot (RootSet _ [ts]) = ts
-extractRoot (RootSet _  (ts:ts2)) = ts
-
-extractRootSym :: RootSet -> (Maybe DHMultSym)
-extractRootSym (RootSet s _) = s 
-
-rootSymEq :: (Maybe DHMultSym) -> (Maybe DHMultSym) -> Bool
-rootSymEq Nothing Nothing = True
-{-rootSymEq Nothing (Just o)  -- if the term we search for is nothing, cannot be matched with mu term
-  | o == dhMuSym = True
-  | o == dhMu2Sym = True
-  | o == dhHSym = True
-  | otherwise = False -}
-rootSymEq Nothing _ = False
-rootSymEq (Just o) Nothing -- however, a mu term can be built from a non-mu term. 
-  | o == dhMuSym = True
-  | o == dhMu2Sym = True
-  | o == dhHSym = True
-  | otherwise = False
-rootSymEq _ Nothing = False
-rootSymEq (Just o1) (Just o2) 
-  | o1 == dhBPSym && o2 == dhBPSym = True
-  | otherwise = False
-rootSymEq _ _ = False
-
-roots :: LNTerm -> RootSet
-roots t@(viewTerm2 -> FdhExp t1 t2) = case viewTerm2 t1 of 
-                                                FdhBP s1 s2 -> RootSet (Just dhBPSym) [[s1], [s2], [t2]]
-                                                _ -> RootSet Nothing [[t]]
-roots t@(viewTerm2 -> FdhGinv dht) = roots dht--(FAPP (DHMult dhGinvSym) [rootIndKnown b nb dht])
-roots t@(viewTerm2 -> FdhTimes t1 t2) = RootSet Nothing [[t]]
-roots t@(viewTerm2 -> FdhTimesE t1 t2) =  RootSet Nothing [[t]]
-roots t@(viewTerm2 -> FdhPlus t1 t2) =  RootSet Nothing [multRootList t1 ++  (multRootList t2)]
-roots t@(viewTerm2 -> FdhTimes t1 t2) =  RootSet Nothing [multRootList t1 ++  (multRootList t2)]
-roots t@(viewTerm2 -> FdhMu t1) = RootSet (Just dhMuSym) [multRootList t1] 
-roots t@(viewTerm2 -> FdhMu2 t1 t2) =  RootSet (Just dhMu2Sym) [multRootList t1, multRootList t2]
-roots t@(viewTerm2 -> FdhMinus t1) = RootSet Nothing [multRootList t1]
-roots t@(viewTerm2 -> FdhInv t1) = RootSet Nothing [multRootList t1]
-roots t@(viewTerm2 -> FdhBP t1 t2) = RootSet (Just dhBPSym) [multRootList t1, multRootList t2]-- TODO: how to handle this??
-roots t@(viewTerm2 -> Lit2 (Var t1)) = RootSet Nothing [[t]]
-roots t@(viewTerm2 -> Lit2 (Con _)) = RootSet Nothing [[t]]
-roots t@(viewTerm2 -> DHZero) = RootSet Nothing [[t]]
-roots t@(viewTerm2 -> DHOne) = RootSet Nothing [[t]]
-roots t@(viewTerm2 -> DHEg) = RootSet Nothing [[t]]
-roots t = error ("rootSet applied on non DH"++show t++"term")
-
 
 rootSet :: (Show a, Ord a ) => DHMultSym -> Term a -> S.Set (Term a)
 rootSet operator t@(LIT l) = S.singleton t
@@ -236,10 +184,10 @@ multRootMixed a = case sortOfLNTerm a of
   LSortFrNZE -> S.toList (rootSet dhPlusSym a)
   _ -> [] -- error ("rootSet applied on non DH term'"++show a)
 
-extractMixedRoot :: LNTerm -> [LNTerm]
+extractMixedRoot :: LNTerm -> [(LNTerm, LNTerm)]
 extractMixedRoot t = case viewTerm t of
-                        (FApp (NoEq pairSym) [x, y]) -> multRootMixed x ++ extractMixedRoot y  
-                        _ -> if isDHTerm t then multRootList t else []
+                        (FApp (NoEq pairSym) [x, y]) -> (map (\rx -> (rx,x) ) $ multRootMixed x) ++ (map (\ry -> (ry,y) ) $ multRootMixed y)  
+                        _ -> if isDHTerm t then map (\rt -> (rt, t)) $ multRootList t else []
  
 isRoot :: (Show a, Ord a ) => DHMultSym -> Term a -> Bool
 isRoot o (LIT l) = True
@@ -294,6 +242,13 @@ isDHLit :: LNTerm -> Bool
 isDHLit t@(viewTerm -> Lit (Var _)) = isOfDHSort t
 isDHLit _ = False
 
+isDHInvLit :: LNTerm -> Bool
+isDHInvLit t@(viewTerm2 -> FdhInv t1) = isDHLit t1
+isDHInvLit _ = False
+
+getInvLit:: LNTerm -> LNTerm
+getInvLit t@(viewTerm2 -> FdhInv t1) = t1
+getInvLit _ = error "not inverse term for getInvLit function"
 
 isPubExp :: LNTerm -> Maybe (LNTerm, LNTerm)
 isPubExp t@(viewTerm2 -> FdhExp t1 t2) = if (isPubGVar t1 || isGConst t1) then (Just (t1,t2)) else Nothing
@@ -315,7 +270,7 @@ compatibleLitsStrict ta1 ta2 = case sortCompare (sortOfLNTerm ta1) (sortOfLNTerm
 
 
 compatibleLits :: LNTerm -> LNTerm -> Bool
-compatibleLits ta1@(viewTerm -> Lit (Var v1)) ta2 = all (compatibleVars v1) $ varsVTerm ta2
+compatibleLits t t2 = True -- ta1@(viewTerm -> Lit (Var v1)) ta2 = all (compatibleVars v1) $ varsVTerm ta2
                       
 
 notUnifiableLits :: LNTerm -> LNTerm -> Bool
@@ -399,7 +354,7 @@ rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhBP t1 t2) = t
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhH t1) = t
 --rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhMu t1) = if isMult t1 then t else (if (isPublic $ rootIndKnown2 hnd b nb t1) then trace (show ("pubind", t, t1, rootIndKnown2 hnd b nb t1)) (FAPP (DHMult dhOneSym) []) else trace (show ("privind", t, t1, rootIndKnown2 hnd b nb t1)) t) --  rootIndKnown b nb t1 -- TODO FIX: you should also consider the possibility of finding rootIndKnown of t1. -- (FAPP (DHMult dhZeroSym) [])
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhMinus t1) = rootIndKnown2 hnd b nb t1
-rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhInv t1) = rootIndKnown2 hnd b nb t1-- FAPP (DHMult dhInvSym) [rootIndKnown2 hnd b nb t1]
+rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhInv t1) = FAPP (DHMult dhInvSym) [rootIndKnown2 hnd b nb t1]
 rootIndKnown2 hnd b nb t@(viewTerm2 -> Lit2 (Var t1))
   | S.member t nb = (FAPP (DHMult dhOneSym) [])
   | otherwise  = t 

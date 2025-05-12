@@ -632,7 +632,7 @@ addDHEqs hnd t1 indt eqdhstore =
 addDHEqs :: MonadFresh m
        => MaudeHandle -> [(LNTerm,LNTerm, LVar)] -> [(LNTerm,LNTerm, LVar)] -> Bool -> EqStore -> m (EqStore, Maybe SplitId)
 addDHEqs hnd t1zzs genpermt zzbool eqdhstore = do
-    let t1 = (map (\(a,_,_)->a) t1zzs)
+    let t1 = trace (show ("unifiying possibly gen", t1zzs,"with", genpermt)) (map (\(a,_,_)->a) t1zzs)
         permt =  (map (\(a,_,_)->a) genpermt)
     case (if (any (\(Equal x y)-> notUnifiableLits x y) (zipWith eqs permt t1)) then [] else unifyLNDHProtoTermFactored (zipWith eqs permt t1) `runReader` hnd) of
         [] | zzbool ->  return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
@@ -681,7 +681,7 @@ addDHEqs hnd t1zzs permt zzbool eqdhstore = do
 addDHEqs2 :: MonadFresh m
        => MaudeHandle -> Bool ->  [(LNTerm,LNTerm, LVar)] -> [LNTerm] -> EqStore -> m (EqStore, Maybe SplitId, [Subst Name LVar])
 addDHEqs2 hnd zzbool t1zzs permt eqdhstore =
-    case trace (show ("thisisaddDHEqs2", t1indt, t1zzs)) (if (any (\(Equal x y)-> notUnifiableLits x y) eqs) then [] else unifyLNDHProtoTermFactored eqs `runReader` hnd) of
+    case trace (show ("thisisaddDHEqs2", t1indt, t1zzs)) (unifyLNDHProtoTermFactored eqs `runReader` hnd) of
         [] | zzbool ->  trace (show ("afadfgdasmkooot?", eqs)) $ return (set eqsConj falseEqConstrConj eqdhstore, Nothing, [])
         [] | not zzbool -> trace (show ("GENERALIZINGdfggfd", permt, t1)) $ addDHEqs2 hnd True (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) permt eqdhstore
         [substFresh] | substFresh == emptySubstVFresh ->
