@@ -293,7 +293,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                                 solvePremise rules pLearn premLearn
                                 return ruLearn 
             _ | (isDHFact fa)                       -> do
-                   ru  <- trace (show ("solvingactionhere", fa)) $ labelNodeId i (annotatePrems <$> rules) Nothing 
+                   ru  <- labelNodeId i (annotatePrems <$> rules) Nothing 
                    act <- disjunctionOfList (filter isDHFact $ get rActs ru)
                    (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
                    void substSystem
@@ -386,8 +386,9 @@ solvePremise rules p faPrem
       insertEdges [(c, faConc, faPrem, p)] 
       return $ showRuleCaseName ru  
   | isKIFact faPrem && isDHFact faPrem = do -- should match indicators with indicators (avoiding mu). In paper transform the mu rule also with any 1 way function.
-      (ru, c, faConc) <- insertFreshNodeConc rules
-      insertOutKIEdge (c, faConc, faPrem, p)
+      nodes <- getM sNodes
+      (ru, c, (faConc, t)) <- trace (show ("insertingthispremise", faPrem)) $ insertFreshNodeConcKI (rules) (M.assocs nodes)
+      insertOutKIEdge (c, faConc, t, faPrem, p)
       return $ showRuleCaseName ru
   | isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
   | otherwise = do
@@ -505,7 +506,7 @@ solveChain rules (c, p) = do
                           void substSystem
                           void normSystem
                           contradictoryIf (illegalCoerce pRule mPrem)
-                          trace (show ("comingbackhere>?", faPrem, faConc, (illegalCoerce pRule mPrem), (caseName mPrem))) $ return (caseName mPrem)  ) 
+                          return (caseName mPrem)  ) 
       | otherwise =    (do
                 insertEdges [(c, faConc, faPrem, p)]  
                 let mPrem = case kFactView faConc of

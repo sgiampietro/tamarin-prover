@@ -16,6 +16,7 @@ module Term.DHMultiplication (
   , RootSet(..)
   , rootSet
   , multRootList
+  , extractMixedRoot
   , isRoot
   , roots
   , extractRoot
@@ -106,7 +107,6 @@ getVarGAvoid t vs= getNewSimilarVar (LVar "t" LSortG 0) (t ++ vs)
 
 getVarEAvoid:: [LVar]  -> [LVar] -> LVar
 getVarEAvoid t vs= getNewSimilarVar (LVar "t" LSortE 0) (t ++ vs)
-
 
 
 applyTermSubst:: Map.Map LVar LVar -> Term (Lit Name LVar) -> Term (Lit Name LVar)
@@ -225,9 +225,22 @@ multRootList a = case sortOfLNTerm a of
   LSortE -> S.toList (rootSet dhPlusSym a)
   LSortNZE -> S.toList (rootSet dhPlusSym a)
   LSortFrNZE -> S.toList (rootSet dhPlusSym a)
-  _ -> error ("rootSet applied on non DH term'"++show a)
+  -- error ("rootSet applied on non DH term'"++show a)
 
+multRootMixed :: LNTerm ->  [LNTerm]
+multRootMixed a = case sortOfLNTerm a of
+  LSortG -> S.toList (rootSet dhMultSym a)
+  LSortPubG -> S.toList (rootSet dhMultSym a)
+  LSortE -> S.toList (rootSet dhPlusSym a)
+  LSortNZE -> S.toList (rootSet dhPlusSym a)
+  LSortFrNZE -> S.toList (rootSet dhPlusSym a)
+  _ -> [] -- error ("rootSet applied on non DH term'"++show a)
 
+extractMixedRoot :: LNTerm -> [LNTerm]
+extractMixedRoot t = case viewTerm t of
+                        (FApp (NoEq pairSym) [x, y]) -> multRootMixed x ++ extractMixedRoot y  
+                        _ -> if isDHTerm t then multRootList t else []
+ 
 isRoot :: (Show a, Ord a ) => DHMultSym -> Term a -> Bool
 isRoot o (LIT l) = True
 --isRoot o t@(viewTerm3 -> Box dht) = isRoot o dht
@@ -386,7 +399,7 @@ rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhBP t1 t2) = t
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhH t1) = t
 --rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhMu t1) = if isMult t1 then t else (if (isPublic $ rootIndKnown2 hnd b nb t1) then trace (show ("pubind", t, t1, rootIndKnown2 hnd b nb t1)) (FAPP (DHMult dhOneSym) []) else trace (show ("privind", t, t1, rootIndKnown2 hnd b nb t1)) t) --  rootIndKnown b nb t1 -- TODO FIX: you should also consider the possibility of finding rootIndKnown of t1. -- (FAPP (DHMult dhZeroSym) [])
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhMinus t1) = rootIndKnown2 hnd b nb t1
-rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhInv t1) = FAPP (DHMult dhInvSym) [rootIndKnown2 hnd b nb t1]
+rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhInv t1) = rootIndKnown2 hnd b nb t1-- FAPP (DHMult dhInvSym) [rootIndKnown2 hnd b nb t1]
 rootIndKnown2 hnd b nb t@(viewTerm2 -> Lit2 (Var t1))
   | S.member t nb = (FAPP (DHMult dhOneSym) [])
   | otherwise  = t 

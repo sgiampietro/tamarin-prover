@@ -37,6 +37,7 @@ module Theory.Model.Rule (
   , enumConcs
   , enumConcsDhOut
   , enumConcsDhExpOut
+  , basisVars
 
   -- ** Extended positions
   , ExtendedPosition
@@ -254,12 +255,21 @@ enumPrems = zip [(PremIdx 0)..] . L.get rPrems
 enumConcs :: Rule i -> [(ConcIdx, LNFact)]
 enumConcs = zip [(ConcIdx 0)..] . L.get rConcs
 
+-- | Enumerate all actions of a rule.
+enumActs :: Rule i -> [LNFact]
+enumActs = L.get rActs
+
 -- | Enumerate all DH Out conclusions of a rule.
 enumConcsDhOut :: Rule i -> [LNTerm]
 enumConcsDhOut ru = filter (\i -> isDHTerm i && sortOfLNTerm i == LSortG && isExpTerm i) $ concat [ factTerms f | (c,f) <- enumConcs ru, factTag f == OutFact]
 
 enumConcsDhExpOut :: Rule i -> [LNTerm]
 enumConcsDhExpOut ru = filter (isDHTerm) $ concat [ factTerms f | (c,f) <- enumConcs ru, factTag f == OutFact]
+
+basisVars :: Rule i -> [LNTerm]
+basisVars ru = filter (\i -> isDHLit i && ( sortCompare (sortOfLNTerm i) LSortE == Just LT || sortOfLNTerm i == LSortE)) $ concat [ factTerms f | f <- (map (\(c,f)->f) $ enumConcs ru) ++ enumActs ru , factTag f == OutFact || factTag f == KdhFact]
+
+
 
 -- Instances
 ------------
