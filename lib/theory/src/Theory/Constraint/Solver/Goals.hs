@@ -387,7 +387,7 @@ solvePremise rules p faPrem
       return $ showRuleCaseName ru  
   | isKIFact faPrem && isDHFact faPrem = do -- should match indicators with indicators (avoiding mu). In paper transform the mu rule also with any 1 way function.
       nodes <- getM sNodes
-      (ru, c, (faConc, t)) <- trace (show ("insertingthispremise", faPrem)) $ insertFreshNodeConcKI (rules) (M.assocs nodes)
+      (ru, c, (faConc, t)) <- trace (show ("insertingthispremise", faPrem)) $ insertFreshNodeConcKI (filter isIntruderRule rules) (M.assocs nodes)
       insertOutKIEdge (c, faConc, t, faPrem, p)
       return $ showRuleCaseName ru
   | isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
@@ -624,42 +624,32 @@ solveDHIndaux bset nbset term p rules = do
       [] -> do  -- TODO: this is where we need to check multiple Out facts!! 
           hndNormal <-  getMaudeHandle
           let nterm = runReader (norm' term) hndNormal
-              --xrooterms = multRootList (clterm nterm)
-              xrooterms = roots nterm
-              inds = case xrooterms of 
-                            RootSet Nothing [ts] -> [map (\x -> (rootIndKnown2 hndNormal bset nbset x,x)) $ ts]
-                            RootSet (Just _) [ts] -> [map (\x -> (rootIndKnown2 hndNormal bset nbset x,x)) $ ts]
-                            RootSet _ tss -> map (map (\x -> (rootIndKnown2 hndNormal bset nbset x,x))) tss
-              --inds = map (\x -> (rootIndKnown2 hndNormal bset nbset x,x)) $ xrooterms
-              neededInds = map (filter (\(a,b)-> not $ isPublic a)) inds
-              newterm = foldr (\a b -> if b == fAppdhEg then a else fAppdhMult (a,b)) fAppdhEg $ map snd $ concat neededInds
-              {-clterm t = case viewTerm2 t of --todo: need to refine this. 
+              xrooterms = multRootList (clterm nterm)
+              inds = map (\x -> (rootIndKnown2 hndNormal bset nbset x,x)) $ xrooterms
+              neededInds = filter (\(a,b)-> not $ isPublic a) inds
+              newterm = foldr (\a b -> if b == fAppdhEg then a else fAppdhMult (a,b)) fAppdhEg $ map snd neededInds
+              clterm t = case viewTerm2 t of --todo: need to refine this. 
                               FdhMu t1 -> if S.member t nbset then t else clterm t1
                               FdhMinus t1 -> clterm t1
                               FdhInv t1 -> clterm t1
                               FdhGinv t1 -> clterm t1
-                              _        -> t -}
-              n = length $ concat neededInds
-              h = head $ extractRoot xrooterms
-              toaddnocanc = filter (\t -> not $ isNoCanc h t) (tail $ extractRoot xrooterms)
+                              _        -> t
+              --indlist = map (\x -> rootIndKnown2 hndNormal bset nbset x) (multRootList $ clterm nterm)
+              --indlist =  map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' term) hndNormal)
+              --neededInds =  filter (not . isPublic) indlist
+              n = length neededInds
+              h = head xrooterms
+              toaddnocanc = filter (\t -> not $ isNoCanc h t) (tail xrooterms)
           forM_ (toaddnocanc) (insertNoCanc h )
           if null neededInds 
             then return "Indicators are public"
             else do   
-              possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules (extractRootSym xrooterms) n Nothing
+              possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n Nothing
               let rules2add = map (\(a,(i,_),_,_,c,_) -> (i,a,c)) $ filter (\(a,_,_,_,c,b) -> b) possibletuple
               --is <- replicateM (length rules2add) $ freshLVar "jru" LSortNode
-              forM_ rules2add (\(i,ru,c) -> exploitNodeId i ru c)
-              --todo: the possibletuple needs to be split in possibletuple 1 2 and 3.
-              case neededInds of 
-                [nInds] -> insertDHEdges possibletuple (map fst nInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
-                [nInds, nInds2] -> do 
-                    insertDHEdges possibletuple (map fst nInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
-                    insertDHEdges possibletuple (map fst nInds2) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
-                [nInds, nInds2, nInds3] -> do
-                    insertDHEdges possibletuple (map fst nInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
-                    insertDHEdges possibletuple (map fst nInds2) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
-                    insertDHEdges possibletuple (map fst nInds3) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+              trace (show ("adding edge", map (\(_,_,x,_,_,_)-> x) possibletuple, term)) $ forM_ rules2add (\(i,ru,c) -> exploitNodeId i ru c)
+              insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+              -- insertKdhEdges possibletuple (map fst neededInds) (newterm) p 
               return "FindingIndicators" 
       es -> do
           -- solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) es
@@ -669,12 +659,13 @@ solveDHIndaux bset nbset term p rules = do
           forM_ newNb (insertNotBasisElem)
           is<- replicateM (length newNb) $ freshLVar "vk" LSortNode
           forM_ (zip is newNb) (\(i,x)-> insertMuAction rules x i)
-          substSystem
+          trace (show ("solving kdh", term, es, newb,newNb)) substSystem
           bset2 <- getM sBasis
           nbset2 <- getM sNotBasis
           substs <- getM sSubst
           (solveDHIndaux bset2 nbset2 (applyVTerm substs term) p rules)
           return "LeakedSetInserted"
+
 
 
 

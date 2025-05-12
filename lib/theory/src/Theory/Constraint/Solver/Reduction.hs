@@ -263,13 +263,13 @@ insertFreshNodeConcKI ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Reduction (RuleAC
 insertFreshNodeConcKI rules instrules = do
       -- irulist <- replicateM n $ traverseDHNodes rules
       irulist <- traverseDHNodes rules
-      let pairs = [(ru, (i,c), (f, rterm), mc) | (i, ru, mc) <- irulist, (c,f) <- enumConcs ru, (factTag f == OutFact), isMixedFact f, rterm <- extractMixedRoot ((head $ factTerms f))  ]
+      let pairs = [(ru, (i,c), (f, rterm), mc) | (i, ru, mc) <- irulist, (c,f) <- enumConcs ru, (factTag f == OutFact), isMixedFact f, rterm <- map fst $ extractMixedRoot ((head $ factTerms f))  ]
       (ru,(i,c),f, mc) <- disjunctionOfList pairs
       exploitNodeId i ru mc 
       return (ru, (i,c),f)
     `disjunction`
     (do 
-        let pairs = [(ru, (i,c), (f, rterm)) | (i, ru) <- instrules, (c,f) <- enumConcs ru, (factTag f == OutFact), isMixedFact f, rterm <- extractMixedRoot ((head $ factTerms f))  ]
+        let pairs = [(ru, (i,c), (f, rterm)) | (i, ru) <- instrules, (c,f) <- enumConcs ru, (factTag f == OutFact), isMixedFact f, rterm <- map fst $ extractMixedRoot ((head $ factTerms f))  ]
         disjunctionOfList pairs )
 
 
@@ -300,36 +300,21 @@ traverseDHNodes rules = do
     -- | Import a rule with all its variables renamed to fresh variables.
     importRule ru = someRuleACInst ru `evalBindT` noBindings
 
---TODO: should take into account also the RootSet outer operator. 
---need to match the Nothings and need to match the functions. 
--- for mu function, need to consider both (Just mu) and Nothing.
-insertFreshNodeConcOutInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> (Maybe DHMultSym) -> Int -> Maybe ((NodeId, RuleACInst, LNFact, ConcIdx), LNTerm) -> Reduction [(RuleACInst, NodeConc, (LNFact, LNTerm), LNTerm, Maybe RuleACConstrs,Bool)]
-insertFreshNodeConcOutInst rules instrules dhsym n Nothing = do
-      -- irulist <- replicateM n $ traverseDHNodes rules
-      irulist <- traverseDHNodes rules
-      let pairs = [(ru, (i,c), (f, head $ factTerms f), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, rootSymEq dhsym $ extractRootSym (roots (head $ factTerms f)), rterm <- extractRoot (roots (head $ factTerms f))  ]
-      disjunctionOfList (nub $ concatMap permutations (nub $ combinations n pairs))
-insertFreshNodeConcOutInst rules instrules dhsym n (Just ((j,ruj,faConc,cj), ta)) = do
-      -- irulist <- replicateM n $ traverseDHNodes rules
-      irulist <- traverseDHNodes rules
-      let pairs = [(ru, (i,c), (f, head $ factTerms f), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f,  rootSymEq dhsym $ extractRootSym (roots (head $ factTerms f)), rterm <- extractRoot (roots (head $ factTerms f))]
-          pairs2 =  [(ruj, (j,cj), (faConc, ta), rterm , Nothing,False) | rterm <- multRootList ta ]
-          finallist = nub $ (concatMap permutations (filter ( any (\(a,(i,b),c,d,e,f) -> i==j && a ==ruj)) (combinations n $ pairs++pairs2)) )
-      disjunctionOfList finallist
-{-insertFreshNodeConcOutInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Int -> Maybe ((NodeId, RuleACInst, LNFact, ConcIdx), LNTerm) -> Reduction [(RuleACInst, NodeConc, (LNFact, LNTerm), LNTerm, Maybe RuleACConstrs,Bool)]
+
+insertFreshNodeConcOutInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Int -> Maybe ((NodeId, RuleACInst, LNFact, ConcIdx), LNTerm) -> Reduction [(RuleACInst, NodeConc, (LNFact, LNTerm), LNTerm, Maybe RuleACConstrs,Bool)]
 insertFreshNodeConcOutInst rules instrules n Nothing = do
       -- irulist <- replicateM n $ traverseDHNodes rules
       irulist <- traverseDHNodes rules
-      let pairs = [(ru, (i,c), (f, head $ factTerms f), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, not $ isMuTerm (head $ factTerms f), rterm <- multRootList (head $ factTerms f)]
-      disjunctionOfList (nub $ concatMap permutations (nub $ combinations n pairs))
+      let pairs = [(ru, (i,c), (f, headf), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isMixedFact f, not $ isMuTerm (head $ factTerms f), (rterm, headf) <- extractMixedRoot (head $ factTerms f)]
+      trace (show ("candidates", map (\(_,_,a,_,_,_) -> a) pairs)) $ disjunctionOfList (nub $ concatMap permutations (nub $ combinations n pairs))
 insertFreshNodeConcOutInst rules instrules n (Just ((j,ruj,faConc,cj), ta)) = do
       -- irulist <- replicateM n $ traverseDHNodes rules
       irulist <- traverseDHNodes rules
-      let pairs = [(ru, (i,c), (f, head $ factTerms f), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isDHFact f, not $ isMuTerm (head $ factTerms f), rterm <- multRootList (head $ factTerms f)]
+      let pairs = [(ru, (i,c), (f, headf), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isMixedFact f, not $ isMuTerm (head $ factTerms f), (rterm, headf) <- extractMixedRoot (head $ factTerms f)]
           pairs2 =  [(ruj, (j,cj), (faConc, ta), rterm , Nothing,False) | rterm <- multRootList ta ]
           finallist = nub $ (concatMap permutations (filter ( any (\(a,(i,b),c,d,e,f) -> i==j && a ==ruj)) (combinations n $ pairs++pairs2)) )
       disjunctionOfList finallist
--}
+
 
 insertFreshNodeConcOutInstMixed ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, LNFact)
 insertFreshNodeConcOutInstMixed rules instrules = do
@@ -446,7 +431,7 @@ insertEdges edges = do
 insertOutKIEdge :: (NodeConc, LNFact,LNTerm, LNFact, NodePrem) -> Reduction ()
 insertOutKIEdge (c, fa1,t1,fa2,p) = do
     void (solveFactOutKIEqs SplitNow fa1 t1 fa2)
-    trace (show ("inserting edfde", c, p)) $ modM sEdges (\es -> foldr S.insert es [ Edge c p ])
+    modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
 
 -- | Insert an 'Action' atom. Ensures that (almost all) trivial *KU* actions
@@ -787,8 +772,8 @@ insertDHEdges tuplelist indts premTerm p fun = do
     case neededexponentslist bset nbset listterms of 
         Nothing -> do
             solveIndicator faPremsubst listterms
-            return ()-- $ forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
-            -- forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
+            forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
+            forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
         Just es -> do
             (newb,newNb) <- disjunctionOfList $ solveNeededList2 (S.toList es)
             forM_ newb (insertBasisElem)
@@ -801,8 +786,8 @@ insertDHEdges tuplelist indts premTerm p fun = do
             nbset2 <- getM sNotBasis
             solveIndicator faPremsubst listterms
             return () -- $
-            -- forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
-            -- forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
+            forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
+            forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
 
 
 insertDHMixedEdge :: Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> RuleACInst
@@ -1507,18 +1492,18 @@ solveTermDHEqsChain splitStrat rules instrules fun p faPrem (j,ruj, fa1, c) (ta2
     hndNormal <- getMaudeHandle
     bset <- getM sBasis
     nbset <- getM sNotBasis
-    let -- xrooterms = (multRootList $ runReader (norm' ta2) hndNormal)
-        xrooterms = roots $ runReader (norm' ta2) hndNormal
-        indlist = map (\x -> rootIndKnown2 hndNormal bset nbset x) $ extractRoot xrooterms
+    let xrooterms = (multRootList $ runReader (norm' ta2) hndNormal)
+        indlist = map (\x -> rootIndKnown2 hndNormal bset nbset x) xrooterms
+        --indlist = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' ta2) hndNormal)
         neededInds = filter (not . isPublic) indlist
         n = length neededInds
-        h = head $ extractRoot xrooterms
-        toaddnocanc = filter (\t -> not $ isNoCanc h t) (tail $ extractRoot xrooterms)
+        h = head xrooterms
+        toaddnocanc = filter (\t -> not $ isNoCanc h t) (tail xrooterms)
     forM_ (toaddnocanc) (\t->insertNoCanc h t)
     if null neededInds
      then insertDHEdge ((j,c), fa1, faPrem, p) bset nbset -- TODO: fix this
      else do
-            possibletuple <- insertFreshNodeConcOutInst rules instrules (extractRootSym xrooterms) n (Just ((j,ruj, fa1, c), ta1))
+            possibletuple <- insertFreshNodeConcOutInst rules instrules n (Just ((j,ruj, fa1, c), ta1))
             insertDHEdges possibletuple neededInds ta2 p fun
     return Changed
 
@@ -1666,7 +1651,7 @@ solveFactEqs split eqs = do
 solveFactOutKIEqs :: SplitStrategy -> LNFact -> LNTerm -> LNFact -> Reduction ChangeIndicator
 solveFactOutKIEqs split fa1 ta1 fa2 = do
     contradictoryIf (not (factTag fa1 == OutFact) && (factTag fa2 == KIFact ) )
-    trace (show "doIgethere??*?") $ contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
+    contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
     hndNormal <- getMaudeHandle
     case (factTerms fa2) of 
         [ta2] -> (solveTermEqs split)  $ [Equal (rootIndKnown2 hndNormal S.empty S.empty ta1) (rootIndKnown2 hndNormal S.empty S.empty ta2)]
