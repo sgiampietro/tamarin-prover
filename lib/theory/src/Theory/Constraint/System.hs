@@ -1036,7 +1036,7 @@ isCorrectDG sys = M.foldrWithKey (\k x y -> y && (checkRuleInstance sys k x)) Tr
 --
 safePartialAtomValuation :: ProofContext -> System -> LNAtom -> Maybe Bool
 safePartialAtomValuation ctxt sys =
-    trace (show "I;m hereeee") eval
+    eval
   where
     runMaude   = (`runReader` L.get pcMaudeHandle ctxt)
     before     = alwaysBefore sys
@@ -1064,7 +1064,7 @@ safePartialAtomValuation ctxt sys =
     eval ato = case ato of
           Action (ltermNodeId' -> i) fa
             | otherwise ->
-                case trace (show ("here?", fa)) $ M.lookup i (L.get sNodes sys) of
+                case M.lookup i (L.get sNodes sys) of
                   Just ru
                     | any (fa ==) (L.get rActs ru)                                -> Just True
                     | any (\g -> samefacts (fa,g)) (filter (\g -> factTag g == factTag fa) $ L.get rActs ru)  -> Just True
@@ -1081,7 +1081,7 @@ safePartialAtomValuation ctxt sys =
 
           EqE x y
             | x == y                                -> Just True
-            | trace (show ("couldbenere?",x,y)) $ (uncurry (==)) $ unpair $ isEq (x,y) ->  Just True
+            | (uncurry (==)) $ unpair $ isEq (x,y) ->  Just True
             -- | not (unifiableDHTerms x y) ->            Just False
             | (isDHTerm x) && (isDHTerm y) -> Nothing
             | not (runMaude (unifiableLNTerms x y)) -> Just False
@@ -1152,11 +1152,11 @@ impliedFormulas hnd sys gf0 = res
 impliedFormulasAndSystems :: MaudeHandle -> System -> LNGuarded -> [(LNGuarded, System)]
 impliedFormulasAndSystems hnd sys gf = res
   where
-    res = case trace (show ("here yes!", sys)) (openGuarded gf `evalFresh` avoid (gf, sys)) of
+    res = case (openGuarded gf `evalFresh` avoid (gf, sys)) of
       Just (All, _vs, antecedent, succedent) ->  map (\x -> apply x (succedent', sys')) subst 
         where
           sys' = foldl (\sys2 newgoal-> (L.modify (sGoals) (M.insert newgoal (GoalStatus False 0 False))) sys2 ) sys newgoals
-          newgoals = trace (show ("amhere")) newgoalsDH actionsEqs
+          newgoals = newgoalsDH actionsEqs
           (actionsEqs, otherAtoms) = first sortGAtoms . partitionEithers $ map prepare antecedent
           succedent'               = gall [] otherAtoms succedent
           subst' = concat $ map (\(x, y) ->
@@ -1173,7 +1173,7 @@ impliedFormulasAndSystems hnd sys gf = res
     sysActions = allActions sys
 
     newgoalsDH :: [GAtom (Term (Lit Name LVar))] -> [Goal]
-    newgoalsDH ((GEqE s t):as) = if (isDHTerm s && isDHTerm t) then trace (show ("tjos", s, t)) (DHEqG s t):(newgoalsDH as) else trace (show ("tjos2", s, t))  $ newgoalsDH as
+    newgoalsDH ((GEqE s t):as) = if (isDHTerm s && isDHTerm t) then (DHEqG s t):(newgoalsDH as) else newgoalsDH as
     {-newgoalsDH ((GAction a fa):as) = go sysActions
       where 
         go :: [(NodeId, LNFact)] -> [Goal]
@@ -1183,7 +1183,7 @@ impliedFormulasAndSystems hnd sys gf = res
               where
                 sysTerms = (factTerms sysAct)
                 faTerms = factTerms fa -}
-    newgoalsDH (_:as) = trace (show ("tjo44", as))  newgoalsDH as
+    newgoalsDH (_:as) = newgoalsDH as
 
     equalities :: [GAtom (Term (Lit Name LVar))] -> [([Equal LNTerm], [Equal LNTerm])]
     equalities []                  = [([], [])]
@@ -1271,7 +1271,7 @@ evaluateRestrictions dctxt dsys mirrors isSolved =
 doRestrictionsHold :: ProofContext -> System -> [LNGuarded] -> Bool -> (Trivalent, [System])
 doRestrictionsHold _    sys []       _        = trace (show "wereee'") (TTrue, [sys])
 doRestrictionsHold ctxt sys formulas isSolved = -- Just (True, [sys]) -- FIXME Jannik: This is a temporary simulation of diff-safe restrictions!
-  if trace (show "wereee'HERE?") (all (\(x, _) -> x == gtrue) simplifiedForms)
+  if (all (\(x, _) -> x == gtrue) simplifiedForms)
     then {-trace ("doRestrictionsHold: True " ++ (render. vsep $ map (prettyGuarded) formulas) ++ " - " ++ (render. vsep $ map (\(x, _) -> prettyGuarded x) simplifiedForms) ++ " - " ++ (render $ prettySystem sys))-} (TTrue, map snd simplifiedForms)
     else if (any (\(x, _) -> x == gfalse) simplifiedForms)
           then {-trace ("doRestrictionsHold: False " ++ (render. vsep $ map (prettyGuarded) formulas) ++ " - " ++ (render. vsep $ map (\(x, _) -> prettyGuarded x) simplifiedForms))-} (TFalse, map snd $ filter (\(x, _) -> x == gfalse) simplifiedForms)

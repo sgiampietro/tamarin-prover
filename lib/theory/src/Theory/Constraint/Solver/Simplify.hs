@@ -23,7 +23,7 @@ module Theory.Constraint.Solver.Simplify (
 
   ) where
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 
 import           Prelude                            hiding (id, (.))
 
@@ -65,7 +65,7 @@ simplifySystem = do
     -- normSystemCR
     -- normSystem
     sg <- gets plainOpenGoals
-    isdiff <- trace (show ("IAMSIMPLIFYNING SYTME", sg)) $ getM sDiffSystem
+    isdiff <- getM sDiffSystem
     -- Start simplification, indicating that some change happened
     go (0 :: Int) [Changed]
     if isdiff
@@ -277,23 +277,38 @@ enforceFreshAndKuNodeUniqueness =
 enforceEdgeUniqueness :: Reduction ChangeIndicator
 enforceEdgeUniqueness = do
     se <- gets id
-    let edges = S.toList (get sEdges se)
+    let fedges =  S.toList (get sEdges se)
+        nodess = M.toList (get sNodes se)
+        edges = trace (show ("nodes",nodess, "unfiltered", fedges)) (filter (\e -> isnotOutP se e && isnotOutC se e) fedges)
     (<>) <$> mergeNodes eSrc eTgt edges
          <*> mergeNodes eTgt eSrc (filter (proveLinearConc se . eSrc) edges)
   where
     -- | @proveLinearConc se (v,i)@ tries to prove that the @i@-th
     -- conclusion of node @v@ is a linear fact.
+    isnotOutP se Edge {eTgt = (vp,ip)} = 
+      maybe False (\y -> not ((isMixedFact $ (get (rPrem ip)) y) && (isOut $ (get (rPrem ip)) y))) $ 
+        M.lookup vp $ get sNodes se   
+    isnotOutC se Edge {eSrc = (vc, ic)} = 
+      maybe False (\y -> not ((isMixedFact $ (get (rConc ic)) y) && (isOut $ (get (rConc ic)) y))) $ 
+        M.lookup vc $ get sNodes se  
+        {-
+    isnotOut se (v,i) = 
+        maybe False (\y -> not ((isOut $ (get (rPrem i)) y ) && ((isMixedFact $ (get (rPrem i)) y)) )) 
+        $ M.lookup v $ get sNodes se
     proveLinearConc se (v, i) =
-        maybe False (\y -> ((isLinearFact $ (get (rConc i)) y) || (isOut $ (get (rConc i)) y )) ) $
-            M.lookup v $ get sNodes se
+        maybe False (\y -> ((isLinearFact $ (get (rConc i)) y) && (not (isOut $ (get (rConc i)) y )) ) ) $
+            M.lookup v $ get sNodes se-}
+    proveLinearConc se (v, i) =
+        maybe False (isLinearFact . (get (rConc i))) $
+            M.lookup v $ get sNodes se        
 
     -- merge the nodes on the 'mergeEnd' for edges that are equal on the
     -- 'compareEnd'
     mergeNodes mergeEnd compareEnd edges
       | null eqs  = return Unchanged
-      | otherwise = do
+      | otherwise = do 
             -- all indices of merged premises and conclusions must be equal
-            trace (show ("edges", not $ and [snd l == snd r | Equal l r <- eqs], eqs, edges)) $ contradictoryIf (not $ and [snd l == snd r | Equal l r <- eqs])
+            trace (show ("edges", not $ and [snd l == snd r | Equal l r <- eqs], eqs, "filtered", edges)) $ contradictoryIf (not $ and [snd l == snd r | Equal l r <- eqs])
             -- nodes must be equal
             solveNodeIdEqs $ map (fmap fst) eqs
       where
