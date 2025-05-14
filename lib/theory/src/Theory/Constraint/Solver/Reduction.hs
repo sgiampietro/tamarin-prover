@@ -108,7 +108,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -306,7 +306,7 @@ insertFreshNodeConcOutInst rules instrules n Nothing = do
       -- irulist <- replicateM n $ traverseDHNodes rules
       irulist <- traverseDHNodes rules
       let pairs = [(ru, (i,c), (f, headf), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isMixedFact f, not $ isMuTerm (head $ factTerms f), (rterm, headf) <- extractMixedRoot (head $ factTerms f)]
-      trace (show ("candidates", map (\(_,_,a,_,_,_) -> a) pairs)) $ disjunctionOfList (nub $ concatMap permutations (nub $ combinations n pairs))
+      disjunctionOfList (nub $ concatMap permutations (nub $ combinations n pairs))
 insertFreshNodeConcOutInst rules instrules n (Just ((j,ruj,faConc,cj), ta)) = do
       -- irulist <- replicateM n $ traverseDHNodes rules
       irulist <- traverseDHNodes rules
@@ -383,7 +383,7 @@ exploitNodeId i ru mrconstrs = do
             ruKnows <- mkISendRuleAC ann m
             modM sNodes (M.insert j ruKnows)
             modM sEdges (S.insert $ Edge (j, ConcIdx 0) (i, v))
-            exploitPrems j ruKnows
+            trace (show ("infacts", m)) $ exploitPrems j ruKnows
 
         -- CR-rule *DG2_2* specialized for *Fr* facts.
         Fact FreshFact _ [m] -> do
@@ -780,7 +780,7 @@ insertDHEdges tuplelist indts premTerm p fun = do
             forM_ newNb (insertNotBasisElem)
             is<- replicateM (length newNb) $ freshLVar "vk" LSortNode
             forM_ (zip is newNb) (\(i,x)-> insertMuAction fun x i)
-            substSystem
+            trace (show ("shouldnotfethereinsertDHEdges", es))  substSystem
             --solveNeededList fun (S.toList es)
             bset2 <- getM sBasis
             nbset2 <- getM sNotBasis
@@ -801,7 +801,7 @@ insertDHMixedEdge True (c, fa1, fa2, p) cRule bset nbset rules rulesinst fun = d
 insertDHMixedEdge False ((ic,c), fa1, fa2, p) cRule bset nbset rules rulesinst fun= do --fa1 should be an Out fact
     let chainFun = solveTermDHEqsChain SplitNow rules rulesinst fun p fa2 (ic, cRule, fa1, c)
     (solveMixedFactEqs SplitNow (Equal fa2 fa1) bset nbset chainFun)
-    (modM sEdges (\es -> foldr S.insert es [ Edge (ic,c) p ]))
+    return ()-- (modM sEdges (\es -> foldr S.insert es [ Edge (ic,c) p ]))
 
 
 insertBasisElem :: LNTerm -> Reduction ()

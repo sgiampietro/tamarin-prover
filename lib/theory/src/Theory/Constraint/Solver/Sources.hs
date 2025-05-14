@@ -66,7 +66,7 @@ import           Theory.Model
 
 import           Control.Monad.Bind
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 import qualified GHC.Generics as G
 import qualified Data.Binary  as B
 
@@ -291,7 +291,7 @@ matchToGoal ctxt th0 goalTerm =
                 in Just $ snd $ refineSource ctxt refine (set cdGoal goalTerm th)
 
     (ActionG iTerm faTerm, ActionG iPat faPat) ->
-        case doMatch (faTerm `matchFact` faPat <> iTerm `matchLVar` iPat) of
+        case trace (show ("matchtoGoal", goalTerm, faTerm, faPat)) $ doMatch (faTerm `matchFact` faPat <> iTerm `matchLVar` iPat) of
             []      -> Nothing
             subst:_ -> Just $ snd $ refineSource ctxt
                                         (refineSubst subst) (set cdGoal goalTerm th)
