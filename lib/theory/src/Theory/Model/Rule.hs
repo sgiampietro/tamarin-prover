@@ -267,7 +267,7 @@ enumConcsDhExpOut :: Rule i -> [LNTerm]
 enumConcsDhExpOut ru = filter (isDHTerm) $ concat [ factTerms f | (c,f) <- enumConcs ru, factTag f == OutFact]
 
 basisVars :: Rule i -> [LNTerm]
-basisVars ru = map (\y -> if isDHInvLit y then getInvLit y else y) $ filter (\i -> (isDHLit i || isDHInvLit i) && ( sortCompare (sortOfLNTerm i) LSortE == Just LT || sortOfLNTerm i == LSortE)) allterms
+basisVars ru = map (\y -> if isDHInvLit y then getInvLit y else y) $ filter (\i -> (isDHLit i || isDHInvLit i) && ( sortOfLNTerm i == LSortFrNZE)) allterms
                 where allterms = [ t | f <- (map (\(c,f)->f) $ enumConcs ru) ++ enumActs ru , factTag f == OutFact || factTag f == KdhFact, t<- factTerms f]
 
 
