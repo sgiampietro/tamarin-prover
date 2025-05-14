@@ -25,7 +25,7 @@ module Theory.Constraint.Solver.Goals (
   , plainOpenGoals
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Prelude                                 hiding (id, (.))
 
@@ -365,7 +365,7 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
              -> LNFact         -- ^ Fact required at this premise.
              -> Reduction String -- ^ Case name to use.
 solvePremise rules p faPrem
-  | isKdhFact faPrem && isDHFact faPrem =  (solveDHInd rules p faPrem)
+  | isKdhFact faPrem && isDHFact faPrem = trace (show ("solvingkdf", faPrem)) (solveDHInd rules p faPrem)
   | isKdhFact faPrem && isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
   | isProtoDHFact faPrem =  solveDHIndProto rules p faPrem
   | isProtoMixedFact faPrem = trace (show ("solvingMixedPremise", faPrem)) $ solveDHMixedPremise rules p faPrem
@@ -491,7 +491,7 @@ solveChain rules (c, p) = do
               (Just es) -> do
                               --solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) (S.toList es)
                               (newb,newNb) <- disjunctionOfList $ solveNeededList2 (S.toList es)
-                              forM_ newb (insertBasisElem)
+                              trace (show ("insertingBasisDirectEdge", newb, faPrem, "old", bset,nbset)) $ forM_ newb (insertBasisElem)
                               forM_ newNb (insertNotBasisElem)
                               is<- replicateM (length newNb) $ freshLVar "vk" LSortNode
                               forM_ (zip is newNb) (\(i,x)-> insertMuAction rules x i)
@@ -573,9 +573,9 @@ solveDHInd rules p faPrem =  do
         case factTerms faPrem of 
           -- [x] -> solveDHIndaux bset nbset x p faPrem (filter isProtocolRule rules) (M.assocs nodes)
           [x] | S.member x bset  -> do 
-                    contradictoryIf True
+                    trace (show ("Ishouldn't be here", x, faPrem)) $ contradictoryIf True
                     return "basis element is not known"
-          [x] | otherwise -> solveDHIndaux bset nbset x p rules 
+          [x] | otherwise -> trace (show ("dhinf", x, bset, nbset)) $ solveDHIndaux bset nbset x p rules 
           -- [x] -> solveDHIndaux bset nbset x p faPrem rules (M.assocs nodes)
           _   -> error "In Fact should have arity 1"
 
@@ -610,13 +610,10 @@ insertMuAction rules x@(LIT l) i | sortOfLNTerm x == LSortFrNZE = do
               outconcs = concatMap (\ru -> filter isDHFact $ get rConcs ru) rus
           if (elem (outFact x) outconcs || elem (outFact $ fAppdhInv x) outconcs)
             then trace (show ("showinsertMuAction", x)) $ return "isAlreadyKnown"
-            else trace (show ("showinsertMuAction2", x)) $ 
-              do 
-              contradictoryIf True
-              return "false" -- solvePremise rules (i, PremIdx 0) (kIFact x)
-insertMuAction rules x@(LIT l) i = solvePremise rules (i, PremIdx 0) (kIFact x)-- do
-              --insertGoal (PremiseG (i, PremIdx 0) (kIFact x)) False
-              --return "inserted"--  
+            else trace (show ("showinsertMuAction2", x)) $ solvePremise rules (i, PremIdx 0) (kIFact x)
+insertMuAction rules x@(LIT l) i = do -- solvePremise rules (i, PremIdx 0) (kIFact x)
+              insertGoal (PremiseG (i, PremIdx 0) (kIFact x)) False
+              trace (show ("showinsertMuAction", x)) $ return "inserted"--  
 insertMuAction _ x i = do
       _ <- insertGoal (ActionG i (kdhFact x)) False
       return "inserted"
@@ -653,21 +650,21 @@ solveDHIndaux bset nbset term p rules = do
             then return "Indicators are public"
             else do   
               possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n Nothing
-              let rules2add = map (\(a,(i,_),_,_,c,_) -> (i,a,c)) $ filter (\(a,_,_,_,c,b) -> b) possibletuple
+              --let rules2add = map (\(a,(i,_),_,_,c,_) -> (i,a,c)) $ filter (\(a,_,_,_,c,b) -> b) possibletuple
               --is <- replicateM (length rules2add) $ freshLVar "jru" LSortNode
-              trace (show ("adding edge", map (\(_,_,x,_,_,_)-> x) possibletuple, term)) $ forM_ rules2add (\(i,ru,c) -> exploitNodeId i ru c)
-              insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+              -- forM_ rules2add (\(i,ru,c) -> exploitNodeId i ru c)
+              trace (show ("adding edge", bset, nbset, map (\(_,_,x,_,_,_)-> x) possibletuple, term, (map fst neededInds))) $ insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
               -- insertKdhEdges possibletuple (map fst neededInds) (newterm) p 
               return "FindingIndicators" 
       es -> do
           -- solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) es
           --solveNeededList (insertMuAction rules) es
           (newb,newNb) <- disjunctionOfList $ solveNeededList2 es
-          forM_ newb (insertBasisElem)
-          forM_ newNb (insertNotBasisElem)
+          trace (show ("insertingBasisel", term, es, newb,newNb, "old", bset,nbset)) $ forM_ newb (insertBasisElem)
+          trace (show ("solving kdh", term, es, newb,newNb, "old", bset,nbset)) $ forM_ newNb (insertNotBasisElem)
           is<- replicateM (length newNb) $ freshLVar "vk" LSortNode
           forM_ (zip is newNb) (\(i,x)-> insertMuAction rules x i)
-          trace (show ("solving kdh", term, es, newb,newNb)) substSystem
+          substSystem
           bset2 <- getM sBasis
           nbset2 <- getM sNotBasis
           substs <- getM sSubst

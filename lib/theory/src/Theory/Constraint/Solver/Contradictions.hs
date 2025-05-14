@@ -439,12 +439,14 @@ isForbiddenDEMapOrder sys (i, ruDEMap) = fromMaybe False $ do
 
 -- adversary cannot know terms that are supposed to be secret
 hasAdvKnowsBasis :: System -> Bool
-hasAdvKnowsBasis sys = isitcontr
+hasAdvKnowsBasis sys = isitcontr1 || isitcontr2
     where   nodes = L.get sNodes sys
             bb = L.get sBasis sys
+            nb = L.get sNotBasis sys
             allprems = map (\(i, ru) -> (i, filter (\f -> isOut f) $ map snd $ enumConcs ru)) $ M.assocs nodes
             allprems2 = map outFact $ S.toList bb 
-            isitcontr = any (\x-> length (filter (\(i,prems) -> elem x prems) allprems) > 1) allprems2
+            isitcontr1 = any (\x-> length (filter (\(i,prems) -> elem x prems) allprems) > 1) allprems2
+            isitcontr2 = not $ (bb `S.intersection` nb) == S.empty
     
   -- (any isKnown $ M.elems $ L.get sNodes sys)
   {-where

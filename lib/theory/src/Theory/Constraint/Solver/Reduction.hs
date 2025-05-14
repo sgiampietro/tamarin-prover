@@ -108,7 +108,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -760,32 +760,34 @@ insertDHEdges :: [(RuleACInst, NodeConc, (LNFact,LNTerm), LNTerm, Maybe RuleACCo
 insertDHEdges tuplelist indts premTerm p fun = do
     let rootpairs = zip (map (\(a,b,(c,t),d,e,f)-> (t,d)) tuplelist) indts
         cllist = nubBy (\(a,b,c,d,e,f) (a2,b2,c2,d2,e2,f2) -> b == b2) tuplelist
+        temppairs = map (\((a,b),c)-> a ) rootpairs
     --return ()
     --(faPremsubst, listterms) <- foldM (\faP c -> solveIndFactDH SplitNow c faP) (premTerm,[]) rootpairs
-    (faPremsubst, listterms) <- solveIndFactDH SplitNow rootpairs premTerm
     void substSystem
     nodes <- getM sNodes
     edges <- getM sEdges
-    contradictoryIf $ doubleFresh nodes
+    trace (show ("onDHEDges",doubleFresh nodes)) $ contradictoryIf $ doubleFresh nodes
     bset <- getM sBasis
     nbset <- getM sNotBasis
-    case neededexponentslist bset nbset listterms of 
+    case neededexponentslist bset nbset temppairs of 
         Nothing -> do
-            solveIndicator faPremsubst listterms
+            (faPremsubst, listterms) <-  solveIndFactDH SplitNow rootpairs premTerm
+            trace (show ("insertDHedhes", faPremsubst, bset, nbset, listterms)) $ solveIndicator faPremsubst listterms
             forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
             forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
         Just es -> do
             (newb,newNb) <- disjunctionOfList $ solveNeededList2 (S.toList es)
-            forM_ newb (insertBasisElem)
+            trace (show ("insertBasisDHEdges", newb,newNb, "old", bset,nbset,"rootpairs", rootpairs,"temppairs",temppairs, premTerm)) $ forM_ newb (insertBasisElem)
             forM_ newNb (insertNotBasisElem)
             is<- replicateM (length newNb) $ freshLVar "vk" LSortNode
-            forM_ (zip is newNb) (\(i,x)-> insertMuAction fun x i)
-            trace (show ("shouldnotfethereinsertDHEdges", es))  substSystem
+            trace (show ("shouldnotfethereinsertDHEdges1", es)) $ forM_ (zip is newNb) (\(i,x)-> insertMuAction fun x i)
+            (faPremsubst, listterms) <-  trace (show ("shouldnotfethereinsertDHEdges2", es)) $  solveIndFactDH SplitNow rootpairs premTerm
+            trace (show ("shouldnotfethereinsertDHEdges", es, listterms))  substSystem
             --solveNeededList fun (S.toList es)
             bset2 <- getM sBasis
             nbset2 <- getM sNotBasis
-            solveIndicator faPremsubst listterms
-            return () -- $
+            trace (show ("tryingthis", es, listterms))  $ solveIndicator faPremsubst listterms
+            -- return () -- $
             forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
             forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
 
@@ -1163,29 +1165,36 @@ multiplyterm wvar t@(FAPP (DHMult o) ts) = case ts of
     _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
 
 
-
+monomials :: LNTerm -> [LNTerm]
+monomials t@(viewTerm2 -> FdhPlus t1 t2) = (monomials t1) ++ (monomials t2)
+monomials t@(viewTerm2 -> FdhTimes t1 t2) = [t]
+monomials t@(viewTerm2 -> FdhTimesE t1 t2) = [t]
+monomials t@(viewTerm2 -> FdhMinus t2) = monomials t2
+monomials t = [t]
 
 secretmonomials :: [LNTerm] -> LNTerm -> LNTerm -> [LNTerm]
 secretmonomials bb indt t@(viewTerm2 -> FdhPlus t1 t2) = (secretmonomials bb indt t1) ++ (secretmonomials bb indt t2)
-secretmonomials bb indt t@(viewTerm2 -> FdhTimes t1 t2) = if ((nub $ varsVTerm t) \\ (nub $ varsVTerm indt)) `intersect` (concatMap varsVTerm bb) == (nub $ varsVTerm t) then [t] else []
-secretmonomials bb indt t@(viewTerm2 -> FdhTimesE t1 t2) = if ((nub $ varsVTerm t) \\ (nub $ varsVTerm indt)) `intersect` (concatMap varsVTerm bb) == (nub $ varsVTerm t) then [t] else []
+secretmonomials bb indt t@(viewTerm2 -> FdhTimes t1 t2) = if null newsecrets then [] else [foldr (\a b -> if b == fAppdhOne then a else fAppdhTimes (a,b)) fAppdhOne newsecrets]
+        where newsecrets = map (\v -> varTerm v) ( ((nub $ varsVTerm t) \\ (nub $ varsVTerm indt)) `intersect` (concatMap varsVTerm bb))
+secretmonomials bb indt t@(viewTerm2 -> FdhTimesE t1 t2) = if null newsecrets then [] else [foldr (\a b -> if b == fAppdhOne then a else fAppdhTimes (a,b)) fAppdhOne newsecrets]
+        where newsecrets = map (\v -> varTerm v) ( ((nub $ varsVTerm t) \\ (nub $ varsVTerm indt)) `intersect` (concatMap varsVTerm bb))
 secretmonomials bb indt t@(viewTerm2 -> FdhMinus t2) = secretmonomials bb indt t2
 secretmonomials _ _ _ = []
 
 solveIndicator ::  LNTerm -> [LNTerm] -> Reduction String
 solveIndicator t22 terms2  = do
-  let t2 = gTerm2Exp t22
+  let t2 = trace (show ("nowsolving", t22, terms2)) $ gTerm2Exp t22
       terms = map gTerm2Exp terms2
   hndNormal  <- getMaudeHandle
   bb <- getM sBasis
-  let newsecretvars = (( (nub $ concatMap varsVTerm terms) \\ (nub $ varsVTerm t22)) ) `intersect` (concatMap varsVTerm $ S.toList bb)
+  let newsecretvars = trace (show ("nowsolving", t2, terms, bb)) $ (( (nub $ concatMap varsVTerm terms) \\ (nub $ varsVTerm t22)) ) `intersect` (concatMap varsVTerm $ S.toList bb)
       secretmonoms = concatMap (secretmonomials (S.toList bb) t22) terms 
   zvars <- replicateM (length secretmonoms) $ freshLVar "zz" LSortVarE 
   js <- freshLVar "jz" LSortNode
   wvars <- replicateM (length terms) $ freshLVar "wy" LSortVarE
   is <- replicateM (length terms + 1) $ freshLVar "iw" LSortNode
   wvarextra <- freshLVar "ww" LSortVarE
-  forM_ (zip (map varTerm (wvars ++ [wvarextra])) (is)) (\(t,i)-> insertAction i (kLogFact t) ) -- kdhFact 
+  trace (show ("secretmons", secretmonoms)) $ forM_ (zip (map varTerm (wvars ++ [wvarextra])) (is)) (\(t,i)-> insertAction i (kLogFact t) ) -- kdhFact 
   let genterms = zipWith multiplyterm wvars terms
       extraterms = zipWith (\a b -> fAppdhTimesE (a, varTerm b)) secretmonoms zvars 
       extraterm = runReader (norm' $ foldr (\a b -> if b == fAppdhZero then a else fAppdhPlus (a,b)) fAppdhZero extraterms) hndNormal 
@@ -1193,7 +1202,8 @@ solveIndicator t22 terms2  = do
       advterm2 = if null extraterms then advterm else fAppdhPlus (advterm, extraterm)
       nt2 = runReader (norm' t2) hndNormal
       matrixvars = getVariablesOfK [nt2,advterm2]   
-  forM_ (if null newsecretvars then [] else [extraterm]) (\t -> insertAction js (kLogFact t)) --kdhFact     
+      kterm = if sortOfLNTerm (head terms2) == LSortG then fAppdhExp(pubGTerm "g", extraterm) else extraterm
+  forM_ (if null newsecretvars then [] else [kterm]) (\t -> insertAction js (kLogFact t)) --kdhFact     
   freevars <- replicateM (length matrixvars) $ freshLVar "vy" LSortE
   if length matrixvars >1 
     then solveIndicatorKFacts (map varTerm freevars) nt2 advterm2 `disjunction` (solveIndicatorKFacts2 (map varTerm freevars) nt2 advterm2)
@@ -1290,8 +1300,9 @@ solveIndicatorProto basis t1 t2 = do
 
 solveIndicatorKFacts :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
 solveIndicatorKFacts basis t1 t2 = do
-  hnd  <- getMaudeHandle
+  hnd  <- trace (show ("KFACTS", t1,t2, basis)) getMaudeHandle
   nb <- getM sNotBasis
+  bb<-getM sBasis
   let bb = (solveIndicatorGauss3 hnd (S.toList nb) basis t2 t1 )
   case bb of
    Just substlist ->  do
@@ -1312,7 +1323,7 @@ solveIndicatorKFacts basis t1 t2 = do
                             (FApp (NoEq pairSym) [x, y]) ->(x,y)
                             _ -> error $ "something went wrong" ++ show t
             (sta1,sta2) =  unpair normedpair
-        contradictoryIf (not (sta1 == sta2))                                 
+        trace (show ("solutionfound", sta1,sta2, "nb", nb, bb)) $ contradictoryIf (not (sta1 == sta2))                                 
         void normSystem
         return "Matched"
    Nothing -> do
@@ -1697,14 +1708,14 @@ solveIndFactDH split listtups faPrem = do
     --  let genindterms = zip xindterms zzs
     --eqstore <- getM sEqStore
     --(eqs2, maySplitId) <- addDHProtoEqs hnd allevars genindterms permutedlist False eqstore
-    hndNormal <- getMaudeHandle
+    hndNormal <- trace (show ("Iamhere", faPrem)) getMaudeHandle
     let queries = map (\((t,rt), ind)-> createEqs rt ind) listtups
         xindterms = map (\(Equal rt ind) -> ind) queries
         prterms = map (\(Equal rt ind) -> rt) queries
     zzs <- replicateM (length xindterms) $ freshLVar "zz" LSortE
     let genindterms = zipWith (genTerm hndNormal) xindterms zzs
     se  <- gets id
-    hnd <- getMaudeHandleDH
+    hnd <- trace (show ("gen", genindterms, "p", prterms)) getMaudeHandleDH
     (eqs2, maySplitId,subst1) <- addDHEqs2 hnd False genindterms prterms =<< getM sEqStore 
     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
     noContradictoryEqStore

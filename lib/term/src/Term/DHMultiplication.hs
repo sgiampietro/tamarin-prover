@@ -88,7 +88,7 @@ import Term.Maude.Process
 --import Data.Bool (Bool)
 --import Theory.Model (getFactTerms)
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 import Text.PrettyPrint.Class (Document(text))
 
 -- Useful functions for the diffie-hellman multiplication approach
@@ -288,7 +288,7 @@ neededexponents:: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> [LNTerm]
 neededexponents b nb t
   | null es = []
   | otherwise = S.toList es
-      where es =S.fromList ( eTermsOf t ) `S.difference` (b `S.union` nb)
+      where es = trace (show ("thishose", b, nb, eTermsOf t)) $ S.fromList ( eTermsOf t ) `S.difference` (b `S.union` nb)
 
 neededexponentslist:: S.Set LNTerm -> S.Set LNTerm -> [LNTerm] -> Maybe (S.Set LNTerm)
 neededexponentslist b nb terms
