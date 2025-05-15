@@ -978,6 +978,12 @@ someRuleACInst :: MonadFresh m
 someRuleACInst =
     fmap extractInsts . rename
   where
+    extractInsts (Rule (ProtoInfo i) ps cs as nvs) | any isMixedFact cs=
+      ( Rule (ProtoInfo i') ps cs as nvs, Nothing)
+      where
+        i' = ProtoRuleACInstInfo (L.get pracName i)
+                                 (L.get pracAttributes i)
+                                 (L.get pracLoopBreakers i)
     extractInsts (Rule (ProtoInfo i) ps cs as nvs) =
       ( Rule (ProtoInfo i') ps cs as nvs
       , Just (L.get pracVariants i)

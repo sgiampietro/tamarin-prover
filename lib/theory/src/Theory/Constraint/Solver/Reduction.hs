@@ -108,7 +108,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -262,10 +262,10 @@ insertFreshNodeConcInst rules instrules = do
 insertFreshNodeConcKI ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, (LNFact, LNTerm))
 insertFreshNodeConcKI rules instrules = do
       -- irulist <- replicateM n $ traverseDHNodes rules
-      irulist <- traverseDHNodes rules
+      irulist <- trace (show ("tryingthis!")) $ traverseDHNodes rules
       let pairs = [(ru, (i,c), (f, rterm), mc) | (i, ru, mc) <- irulist, (c,f) <- enumConcs ru, (factTag f == OutFact), isMixedFact f, rterm <- map fst $ extractMixedRoot ((head $ factTerms f))  ]
       (ru,(i,c),f, mc) <- disjunctionOfList pairs
-      exploitNodeId i ru mc 
+      trace (show ("inserting this", ru)) $ exploitNodeId i ru mc 
       return (ru, (i,c),f)
     `disjunction`
     (do 
@@ -292,7 +292,7 @@ combinations k ns = filter ((k==).length) $ subsequences ns
 
 traverseDHNodes :: [RuleAC] -> Reduction [(NodeId, RuleACInst, Maybe RuleACConstrs)]
 traverseDHNodes rules = do
-    let m = length rules
+    let m = trace (show "I get here") length rules
     ilist <- replicateM m $ freshLVar "vr" LSortNode
     tuplist <- mapM importRule rules
     return $ zipWith (\i (ru,mrconstrs) -> (i,ru, mrconstrs)) ilist tuplist
@@ -430,8 +430,8 @@ insertEdges edges = do
 
 insertOutKIEdge :: (NodeConc, LNFact,LNTerm, LNFact, NodePrem) -> Reduction ()
 insertOutKIEdge (c, fa1,t1,fa2,p) = do
-    void (solveFactOutKIEqs SplitNow fa1 t1 fa2)
-    modM sEdges (\es -> foldr S.insert es [ Edge c p ])
+    trace (show ("solvingfactsoutKI", fa1,fa2) ) $ void (solveFactOutKIEqs SplitNow fa1 t1 fa2)
+    trace (show ("inesrting edge", fa1,fa2) ) $ modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
 
 -- | Insert an 'Action' atom. Ensures that (almost all) trivial *KU* actions
@@ -1661,10 +1661,10 @@ solveFactEqs split eqs = do
 
 solveFactOutKIEqs :: SplitStrategy -> LNFact -> LNTerm -> LNFact -> Reduction ChangeIndicator
 solveFactOutKIEqs split fa1 ta1 fa2 = do
-    contradictoryIf (not (factTag fa1 == OutFact) && (factTag fa2 == KIFact ) )
+    trace (show ("factOutKI", fa1,fa2)) $ contradictoryIf (not (factTag fa1 == OutFact) && (factTag fa2 == KIFact ) )
     contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
     hndNormal <- getMaudeHandle
-    case (factTerms fa2) of 
+    case trace (show ("therearerootterms", [Equal (rootIndKnown2 hndNormal S.empty S.empty ta1) (rootIndKnown2 hndNormal S.empty S.empty (head $ factTerms fa2))])) (factTerms fa2) of 
         [ta2] -> (solveTermEqs split)  $ [Equal (rootIndKnown2 hndNormal S.empty S.empty ta1) (rootIndKnown2 hndNormal S.empty S.empty ta2)]
         _ -> error "Out and KI facts should be of arity 1"
     --(solveTermEqs split) $ (zipWith (\a b-> Equal a b) (factTerms fa1) (factTerms fa2))
