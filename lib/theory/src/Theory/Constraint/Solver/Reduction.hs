@@ -108,7 +108,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -1202,7 +1202,7 @@ solveIndicator t22 terms2  = do
       nt2 = runReader (norm' t2) hndNormal
       matrixvars = getVariablesOfK [nt2,advterm2]   
       kterm = if sortOfLNTerm (head terms2) == LSortG then fAppdhExp(pubGTerm "g", extraterm) else extraterm
-  forM_ (if null newsecretvars then [] else [kterm]) (\t -> insertAction js (kLogFact t)) --kdhFact     
+  forM_ (if null newsecretvars then [] else [kterm]) (\t -> insertAction js (kdhFact t)) --kdhFact     
   freevars <- replicateM (length matrixvars) $ freshLVar "vy" LSortE
   if length matrixvars >1 
     then solveIndicatorKFacts (map varTerm freevars) nt2 advterm2 `disjunction` (solveIndicatorKFacts2 (map varTerm freevars) nt2 advterm2)
