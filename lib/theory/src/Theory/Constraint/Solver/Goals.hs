@@ -25,7 +25,7 @@ module Theory.Constraint.Solver.Goals (
   , plainOpenGoals
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Prelude                                 hiding (id, (.))
 
@@ -35,7 +35,7 @@ import qualified Data.DAG.Simple                         as D (reachableSet)
 import qualified Data.Map                                as M
 import qualified Data.Monoid                             as Mono
 import qualified Data.Set                                as S
-import           Data.List                               (nub)
+import           Data.List                               (nub, (\\))
 
 import           Control.Basics
 import           Control.Category
@@ -497,35 +497,6 @@ solveChain rules (c, p) = do
             void normSystem
             contradictoryIf (illegalCoerce pRule mPrem)
             return (caseName mPrem)  ) 
-            {-let (currbset, currnbset) = (case (mayB, mayNB) of 
-                                          (Nothing, Nothing) -> (bset, nbset)
-                                          (Just maybset, Just maynbset) -> (maybset, maynbset)
-                                          _ -> (bset, nbset))
-            --nbset <- getM sNotBasis
-            --nodes <- trace (show ("insertingDirectEdge", bset, nbset, faPrem)) $ getM sNodes
-            case neededexponentslist currbset currnbset (factTerms faPrem) of
-              (Just es) -> do
-                              --solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) (S.toList es)
-                              (newb,newNb) <- disjunctionOfList $ solveNeededList2 (S.toList es)
-                              trace (show ("insertingBasisDirectEdge", newb, faPrem, "old", bset,nbset)) $ forM_ newb (insertBasisElem)
-                              forM_ newNb (insertNotBasisElem)
-                              is<- replicateM (length newNb) $ freshLVar "vk" LSortNode
-                              forM_ (zip is newNb) (\(i,x)-> insertMuAction x i)
-                              newbset <- getM sBasis
-                              newnbset <- getM sNotBasis
-                              trace (show ("shouldnevergethereDirectEdge", newb, newNb, "old",bset,nbset,"updated",newbset,newnbset, (factTerms faPrem, es))) substSystem
-                              insertDirectEdge (Just newbset) (Just newnbset) faPrem faConc cRule pRule rules2
-              Nothing -> do 
-                          trace (show ("neededtermsok", bset, nbset, faPrem)) $ insertDHMixedEdge False (c, faConc, faPrem, p) cRule (S.fromList $ basisOfRule cRule) (S.fromList $ notBasisOfRule cRule) (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
-                          let mPrem = case kFactView faConc of
-                                            Just (DnK, m') -> m'
-                                            _              -> error $ "solveChain: impossible"
-                              caseName (viewTerm -> FApp o _)    = showFunSymName o
-                              caseName (viewTerm -> Lit l)       = showLitName l 
-                          void substSystem
-                          void normSystem
-                          contradictoryIf (illegalCoerce pRule mPrem)
-                          return (caseName mPrem)  ) -}
       | otherwise =    (do
                 insertEdges [(c, faConc, faPrem, p)]  
                 let mPrem = case kFactView faConc of
@@ -589,9 +560,9 @@ solveDHInd rules p faPrem =  do
         case factTerms faPrem of 
           -- [x] -> solveDHIndaux bset nbset x p faPrem (filter isProtocolRule rules) (M.assocs nodes)
           [x] | S.member x bset  -> do 
-                    trace (show ("Ishouldn't be here", x, faPrem)) $ contradictoryIf True
+                    contradictoryIf True
                     return "basis element is not known"
-          [x] | otherwise -> trace (show ("dhinf", x, bset, nbset)) $ solveDHIndaux bset nbset x p rules 
+          [x] | otherwise -> solveDHIndaux bset nbset x p rules 
           -- [x] -> solveDHIndaux bset nbset x p faPrem rules (M.assocs nodes)
           _   -> error "In Fact should have arity 1"
 
@@ -608,18 +579,12 @@ solveDHIndMixed rules p faPrem =  do
 
 solveDHIndauxMixed :: S.Set LNTerm -> S.Set LNTerm -> [LNTerm] -> NodePrem -> LNFact -> [RuleAC] -> [(NodeId,RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
 solveDHIndauxMixed bset nbset terms p faPrem rules instrules = do
-  {-case neededexponentslist bset nbset terms of
-      (Just es) -> do
-          solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) (S.toList es)
-          (solveDHIndMixed rules p faPrem)
-          return "LeakedSetInserted"
-      Nothing -> do -}
   (ru, c, faConc) <- insertFreshNodeConcOutInstMixed rules instrules
   insertDHMixedEdge False (c, faConc, faPrem, p) ru (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) rules instrules (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x))-- instead of root indicator this should be Y.ind^Z.
-  return $ showRuleCaseName ru -- (return "done") 
+  return $ showRuleCaseName ru 
 
 
-insertMuAction :: Term (Lit Name LVar) -> NodeId -> Reduction String
+insertMuAction :: Term (Lit Name LVar) -> (NodeId) -> Reduction ()
 insertMuAction x@(LIT l) i | sortOfLNTerm x == LSortFrNZE = do 
           nodes <- getM sNodes
           rulesAll <- askM pcRules
@@ -627,14 +592,13 @@ insertMuAction x@(LIT l) i | sortOfLNTerm x == LSortFrNZE = do
           let rus = M.elems nodes
               outconcs = concatMap (\ru -> filter isDHFact $ get rConcs ru) rus
           if (elem (outFact x) outconcs || elem (outFact $ fAppdhInv x) outconcs)
-            then trace (show ("showinsertMuAction", x)) $ return "isAlreadyKnown"
-            else trace (show ("showinsertMuAction2", x)) $ solvePremise rules (i, PremIdx 0) (kIFact x)
-insertMuAction x@(LIT l) i = do -- solvePremise rules (i, PremIdx 0) (kIFact x)
-              insertGoal (ActionG i (kdhFact x)) False
-              trace (show ("showinsertMuAction3", x)) $ return "inserted"--  
-insertMuAction x i = do
-      insertGoal (ActionG i (kdhFact x)) False
-      trace (show ("showinsertMuAction4", x)) $ return "inserted"
+            then insertNotBasisElem x
+            else do 
+                  insertBasisElem x
+                  `disjunction` do
+                    solvePremise rules (i, PremIdx 0) (kIFact x)
+                    insertNotBasisElem x
+
 
 --solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> NodePrem -> LNFact -> [RuleAC] -> [(NodeId,RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
 --solveDHIndaux bset nbset term p faPrem rules instrules =
@@ -677,13 +641,16 @@ solveDHIndaux bset nbset term p rules = do
               -- insertKdhEdges possibletuple (map fst neededInds) (newterm) p 
               return "FindingIndicators" 
       (Just es) -> do
-          -- solveNeededList (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) es
-          --solveNeededList (insertMuAction rules) es
-          (newb,newNb) <- disjunctionOfList $ solveNeededList2 (S.toList es)
+          let les = (S.toList es)
+              fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) les
+              otheres = les \\ fres
+          ifs<- replicateM (length fres) $ freshLVar "vk" LSortNode
+          forM_ (zip ifs fres) (\(i,x) -> insertMuAction x i)
+          (newb,newNb) <- disjunctionOfList $ solveNeededList2 otheres
           trace (show ("insertingBasiselKdh", term, es, newb,newNb, "old", bset,nbset, "allops", solveNeededList2 (S.toList es))) $ forM_ newb (insertBasisElem)
           trace (show ("solving kdh", term, es, newb,newNb, "old", bset,nbset)) $ forM_ newNb (insertNotBasisElem)
           is<- replicateM (length newNb) $ freshLVar "vk" LSortNode
-          trace (show ("got here", newNb)) $ forM_ (zip is newNb) (\(i,x)-> insertMuAction x i)
+          trace (show ("got here", newNb)) $ forM_ (zip is newNb) (\(i,x)-> insertGoal (ActionG i (kdhFact x)) False)
           trace (show ("here2", newNb)) substSystem
           bset2 <- getM sBasis
           nbset2 <- getM sNotBasis
