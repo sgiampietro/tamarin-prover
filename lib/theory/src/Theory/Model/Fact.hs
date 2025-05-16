@@ -527,6 +527,11 @@ isMixedFact :: LNFact -> Bool
 isMixedFact fa1 = (any isOfDHSort varsof)
     where varsof = (map (\x -> LIT (Var x) ) (concatMap varsVTerm (factTerms fa1)))++(map (\x -> LIT (Con x) ) (concatMap constsVTerm (factTerms fa1)))
 
+-- isPairFact :: LNTerm -> Bool
+--isPairFact t = case viewTerm t of
+--                         (FApp (NoEq pairSym) [x, y]) -> True
+--                        _ -> False
+
 isProtoMixedFact :: LNFact -> Bool
 isProtoMixedFact fa1 = (isMixedFact fa1) && (isProtoFact fa1)
 
