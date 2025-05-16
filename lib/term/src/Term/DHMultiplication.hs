@@ -15,6 +15,7 @@ module Term.DHMultiplication (
     clean
   , rootSet
   , multRootList
+  , multRootMixed
   , extractMixedRoot
   , isRoot
   --, isOfDHSort
@@ -88,7 +89,7 @@ import Term.Maude.Process
 --import Data.Bool (Bool)
 --import Theory.Model (getFactTerms)
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 import Text.PrettyPrint.Class (Document(text))
 
 -- Useful functions for the diffie-hellman multiplication approach
@@ -175,19 +176,35 @@ multRootList a = case sortOfLNTerm a of
   LSortFrNZE -> S.toList (rootSet dhPlusSym a)
   -- error ("rootSet applied on non DH term'"++show a)
 
+rootSetMu :: (Show a, Ord a ) => DHMultSym -> Term a -> S.Set (Term a)
+rootSetMu operator t@(LIT l) = S.singleton t
+rootSetMu operator t@(FAPP (DHMult o) ts) = case ts of
+    --[t1]       | o == dhBoxSym    -> rootSet operator t1
+    --[t1]       | o == dhBoxESym    -> rootSet operator t1
+    [ t1, t2 ] | o == operator    -> S.union (rootSet operator t1) (rootSet operator t2)
+    [ t1, t2 ] | o /= operator    -> S.singleton t
+    [ t1 ]     | o == dhGinvSym   -> rootSet o t1
+    [ t1 ]     | o == dhInvSym   -> rootSet o t1
+    [ t1 ]     | o == dhMinusSym  -> rootSet o t1
+    [ t1 ]     | o == dhMuSym  -> rootSet o t1
+    [ t1 ]                        -> S.singleton t
+    []                            -> S.singleton t
+    _         -> error $ "malformed term `"++show t++"'"
+rootSetMu operator t = error ("rootSet applied on non DH term'"++show t++"Done")
+
 multRootMixed :: LNTerm ->  [LNTerm]
 multRootMixed a = case sortOfLNTerm a of
-  LSortG -> S.toList (rootSet dhMultSym a)
-  LSortPubG -> S.toList (rootSet dhMultSym a)
-  LSortE -> S.toList (rootSet dhPlusSym a)
-  LSortNZE -> S.toList (rootSet dhPlusSym a)
-  LSortFrNZE -> S.toList (rootSet dhPlusSym a)
+  LSortG -> S.toList (rootSetMu dhMultSym a)
+  LSortPubG -> S.toList (rootSetMu dhMultSym a)
+  LSortE -> S.toList (rootSetMu dhPlusSym a)
+  LSortNZE -> S.toList (rootSetMu dhPlusSym a)
+  LSortFrNZE -> S.toList (rootSetMu dhPlusSym a)
   _ -> [] -- error ("rootSet applied on non DH term'"++show a)
 
 extractMixedRoot :: LNTerm -> [(LNTerm, LNTerm)]
-extractMixedRoot t = case viewTerm t of
-                        (FApp (NoEq pairSym) [x, y]) -> (map (\rx -> (rx,x) ) $ multRootMixed x) ++ (map (\ry -> (ry,y) ) $ multRootMixed y)  
-                        _ -> if isDHTerm t then map (\rt -> (rt, t)) $ multRootList t else []
+extractMixedRoot t = case viewTerm2 t of
+                        (FPair x y) -> trace (show ("extractmiced root", t)) (map (\rx -> (rx,x) ) $ multRootMixed x) ++ (map (\ry -> (ry,y) ) $ multRootMixed y)  
+                        _ -> if isDHTerm t then  trace (show ("extractmiced root2", t)) $ trace (show ("extractmiced root", t))  map (\rt -> (rt, t)) $ multRootList t else trace (show ("extractmiced root3", t)) []
  
 isRoot :: (Show a, Ord a ) => DHMultSym -> Term a -> Bool
 isRoot o (LIT l) = True
