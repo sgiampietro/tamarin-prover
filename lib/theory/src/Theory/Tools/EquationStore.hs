@@ -681,15 +681,15 @@ addDHEqs hnd t1zzs permt zzbool eqdhstore = do
 addDHEqs2 :: MonadFresh m
        => MaudeHandle -> Bool ->  [(LNTerm,LNTerm, LVar)] -> [LNTerm] -> EqStore -> m (EqStore, Maybe SplitId, [Subst Name LVar])
 addDHEqs2 hnd zzbool t1zzs permt eqdhstore =
-    case trace (show ("thisisaddDHEqs2", t1indt, t1zzs)) (unifyLNDHProtoTermFactored eqs `runReader` hnd) of
-        [] | zzbool ->  trace (show ("afadfgdasmkooot?", eqs)) $ return (set eqsConj falseEqConstrConj eqdhstore, Nothing, [])
-        [] | not zzbool -> trace (show ("GENERALIZINGdfggfd", permt, t1)) $ addDHEqs2 hnd True (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) permt eqdhstore
+    case (unifyLNDHProtoTermFactored eqs `runReader` hnd) of
+        [] | zzbool ->  return (set eqsConj falseEqConstrConj eqdhstore, Nothing, [])
+        [] | not zzbool -> addDHEqs2 hnd True (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) permt eqdhstore
         [substFresh] | substFresh == emptySubstVFresh ->
-            trace (show "gothere") $ return (eqdhstore, Nothing,[])
+            return (eqdhstore, Nothing,[])
         substs -> do
             newsubsts <- mapM generalize substs 
             let eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) newsubsts ) eqdhstore
-            return $ trace (show "gotherefirst") $ (eqStore', Nothing, (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) newsubsts ) )
+            return $ (eqStore', Nothing, (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) newsubsts ) )
   where
     t1 = (map (\(a,_,_)->a) t1zzs)
         --muvariablest1 = (concatMap varInMu t1)
@@ -758,16 +758,16 @@ addDHProtoEqs hnd allevars t1zzs permt zzbool eqdhstore = do
         --ist1var x = elem x $ concatMap varsVTerm t1
         --isindtvar x = elem x $ concatMap varsVTerm permt
         eqst1 = zipWith Equal permt t1
-        splitBPeqs = trace (show ("unifying permt1", eqst1)) $ newBPeqs eqst1
+        splitBPeqs = newBPeqs eqst1
         newlist = case splitBPeqs of 
                         Nothing -> []
                         Just ts -> ts
 -- TODO: need to generalize only 1 of the G variables on both sides of equality, not both!
     case (if ((any (uncurry notUnifiableLits) (zip permt t1)) || isNothing splitBPeqs) then [] else unifyLNDHProtoTermFactored newlist `runReader` hnd) of
-        [] | zzbool ->  trace (show ("amIhere?", newlist)) $ return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
-        [] | not zzbool -> trace (show ("GENERALIZING", permt, t1)) $ addDHProtoEqs hnd allevars (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) permt True eqdhstore
+        [] | zzbool ->  return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
+        [] | not zzbool ->  addDHProtoEqs hnd allevars (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) permt True eqdhstore
         [substFresh] | substFresh == emptySubstVFresh ->
-            trace (show "amIhere?22") $ return (eqdhstore, Nothing)
+            return (eqdhstore, Nothing)
         substs -> do
             let rangesubst = concatMap varsRangeVFresh substs -- TODO: can we delete this and following 3 lines?
                 toset = rangesubst \\ (concatMap varsOfSubsts substs)
@@ -775,10 +775,10 @@ addDHProtoEqs hnd allevars t1zzs permt zzbool eqdhstore = do
                 newsubsts' = map (map (\(a,b)-> (a, (applyVTerm toapply b)))) $ map substToListVFresh substs
                 newsubsts = map (substFromListVFresh) newsubsts'
             esubsts <- liftM substFromListVFresh $ mapM addgenterms (allevars \\ concatMap domVFresh substs)
-            substs' <- trace (show ("orifinal subst", substs, "newsubsts", newsubsts, "esubsts", esubsts) )$  mapM generalize newsubsts
+            substs' <- mapM generalize newsubsts
             let esubsts' = freshToFreeAvoidingFast esubsts (_eqsSubst eqdhstore)
                 eqStore' = changeqstore (map (\x-> compose esubsts' $ freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs' ) eqdhstore
-            trace (show ("permvars", permvars, "theneweqstoreaftersubsts", eqStore')) return (eqStore', Nothing)
+            return (eqStore', Nothing)
           where
             addsubsts sub eqst= applyEqStore hnd sub eqst
             changeqstore [x] eq = addsubsts x eq

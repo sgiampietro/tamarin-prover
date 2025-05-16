@@ -108,7 +108,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -740,19 +740,18 @@ doubleFresh nodes = isitcontr
 
 
 insertMuAction ::  (LNTerm -> NodeId -> Reduction String) ->
-      Term (Lit Name LVar) -> NodeId -> Reduction String
+      Term (Lit Name LVar) -> NodeId -> Reduction ()
 insertMuAction fun x@(LIT l) i | sortOfLNTerm x == LSortFrNZE =  do 
            nodes <- getM sNodes
            let rus = M.elems nodes
-           if (elem (outFact x) $ concatMap (\ru -> filter isDHFact $ get rConcs ru) rus) || (elem (outFact $ fAppdhInv x) $ concatMap (\ru -> filter isDHFact $ get rConcs ru) rus)
-             then return "isAlreadyKnown"
-             else fun x i
-insertMuAction fun x@(LIT l) i | otherwise = do
-    _ <- insertGoal (ActionG i (kdhFact x)) False
-    return "inserted" 
-insertMuAction _ x i = do
-    _ <- insertGoal (ActionG i (kdhFact x)) False
-    return "inserted"
+               outconcs = concatMap (\ru -> filter isDHFact $ get rConcs ru) rus
+           if (elem (outFact x) outconcs ) || (elem (outFact $ fAppdhInv x) outconcs)
+             then insertNotBasisElem x
+                else do 
+                  insertBasisElem x
+                  `disjunction` do
+                    fun x i
+                    insertNotBasisElem x
 
 insertDHEdges :: [(RuleACInst, NodeConc, (LNFact,LNTerm), LNTerm, Maybe RuleACConstrs, Bool)] -> [LNTerm] -> LNTerm -> NodePrem -> 
     (LNTerm -> NodeId -> Reduction String) -> Reduction ()
@@ -775,17 +774,20 @@ insertDHEdges tuplelist indts premTerm p fun = do
             forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
             forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
         Just es -> do
-            (newb,newNb) <- disjunctionOfList $ solveNeededList2 (S.toList es)
+            let les = S.toList es
+                fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) les
+                otheres = les \\ fres
+            ifs <- replicateM (length fres) $ freshLVar "vk" LSortNode
+            forM_ (zip ifs fres) (\(i,x) -> insertMuAction fun x i)
+            (newb,newNb) <- disjunctionOfList $ solveNeededList2 otheres
             trace (show ("insertBasisDHEdges", newb,newNb, "old", bset,nbset,"rootpairs", rootpairs,"temppairs",temppairs, premTerm)) $ forM_ newb (insertBasisElem)
             forM_ newNb (insertNotBasisElem)
             is<- replicateM (length newNb) $ freshLVar "vk" LSortNode
-            trace (show ("shouldnotfethereinsertDHEdges1", es)) $ forM_ (zip is newNb) (\(i,x)-> insertMuAction fun x i)
+            trace (show ("shouldnotfethereinsertDHEdges1", es)) $ forM_ (zip is newNb) (\(i,x)-> insertGoal (ActionG i (kdhFact x)) False)
             (faPremsubst, listterms) <-  trace (show ("shouldnotfethereinsertDHEdges2", es)) $  solveIndFactDH SplitNow rootpairs premTerm
-            trace (show ("shouldnotfethereinsertDHEdges", es, listterms))  substSystem
             --solveNeededList fun (S.toList es)
-            bset2 <- getM sBasis
-            nbset2 <- getM sNotBasis
             trace (show ("tryingthis", es, listterms))  $ solveIndicator faPremsubst listterms
+            -- trace (show ("shouldnotfethereinsertDHEdges", es, listterms))  substSystem
             -- return () -- $
             forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
             forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
@@ -1301,14 +1303,16 @@ solveIndicatorKFacts :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
 solveIndicatorKFacts basis t1 t2 = do
   hnd  <- trace (show ("KFACTS", t1,t2, basis)) getMaudeHandle
   nb <- getM sNotBasis
-  bb<-getM sBasis
+  bb <-getM sBasis
   let bb = (solveIndicatorGauss3 hnd (S.toList nb) basis t2 t1 )
   case bb of
    Just substlist ->  do
-        eqStore <-  getM sEqStore
-        hndCR <- getMaudeHandleCR
+        eqStore <-  trace (show ("thisissolution", substlist))$ getM sEqStore
+        hndCR <- trace (show ("thisiseqStore", eqStore))$ getMaudeHandleCR
         (subst') <- disjunctionOfList substlist
-        let normsubst = (normalizeSubstList hndCR subst') 
+        let checksub = substFromList subst'
+        trace (show ("contr", subst',(dom checksub `intersect` varsRange checksub /= []))) $ contradictoryIf (dom checksub `intersect` varsRange checksub /= [])
+        let normsubst = trace (show ("tryingthis", subst')) (normalizeSubstList hndCR subst') 
         setM sEqStore $ applyEqStore hnd (substFromList normsubst) eqStore
         neweqstore <- getM sEqStore
         let oldsubsts =  _eqsSubst neweqstore
@@ -1348,6 +1352,8 @@ solveIndicatorKFacts2 basis t1 t2 = do
         eqStore <-  getM sEqStore
         hndCR <- getMaudeHandleCR
         (subst') <- disjunctionOfList substlist
+        let checksub = substFromList subst'
+        contradictoryIf (dom checksub `intersect` varsRange checksub /= [])
         let normsubst = (normalizeSubstList hndCR subst') 
         setM sEqStore $ applyEqStore hnd (substFromList normsubst) eqStore
         neweqstore <- getM sEqStore
@@ -1505,8 +1511,10 @@ solveTermDHEqsChain splitStrat mayB rules instrules fun p faPrem (j,ruj, fa1, c)
     let (currB, currNB) = case mayB of 
                             Nothing -> (bset, nbset)
                             Just (bb,nbb) -> (bb, nbb)
-    let nta2 = runReader (norm' ta2) hndNormal
-        nta1 = runReader (norm' ta1) hndNormal
+    substs <- getM sSubst
+    substSystem
+    let nta2 = runReader (norm' ((applyVTerm substs ta2))) hndNormal
+        nta1 = runReader (norm'((applyVTerm substs ta1))) hndNormal
     case neededexponents currB currNB nta2 of
         [] -> do
             let xrooterms = (multRootList nta2)
@@ -1524,11 +1532,15 @@ solveTermDHEqsChain splitStrat mayB rules instrules fun p faPrem (j,ruj, fa1, c)
                     insertDHEdges possibletuple neededInds ta2 p fun
             return Changed
         es -> do
-                (newb,newNb) <- disjunctionOfList $ solveNeededList2 es
+                let fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) es
+                    otheres = es \\ fres
+                ifs<- replicateM (length fres) $ freshLVar "vk" LSortNode
+                forM_ (zip ifs fres) (\(i,x) -> insertMuAction fun x i)
+                (newb,newNb) <- disjunctionOfList $ solveNeededList2 otheres
                 trace (show ("insertingBasisDirectEdge", newb, faPrem, nta2, "old", bset,nbset)) $ forM_ newb (insertBasisElem)
                 forM_ newNb (insertNotBasisElem)
                 is<- replicateM (length newNb) $ freshLVar "vk" LSortNode
-                forM_ (zip is newNb) (\(i,x)-> insertMuAction fun x i)
+                forM_ (zip is newNb) (\(i,x)-> insertGoal (ActionG i (kdhFact x)) False)
                 newbset <- getM sBasis
                 newnbset <- getM sNotBasis
                 trace (show ("shouldnevergethereDirectEdge", newb, newNb, "old",bset,nbset,"updated",newbset,newnbset, (factTerms faPrem, es))) substSystem
