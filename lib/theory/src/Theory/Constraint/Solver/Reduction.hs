@@ -108,7 +108,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -1746,8 +1746,8 @@ solveIndFactDH split listtups faPrem = do
     (eqs2, maySplitId,subst1) <- addDHEqs2 hnd False genindterms prterms =<< getM sEqStore 
     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
     noContradictoryEqStore
-    void substSystem
-    void normSystem
+    -- void substSystem
+    -- void normSystem
     subst <- getM sEqStore
     return (applyVTerm (_eqsSubst subst) faPrem, map (\((a,b),c)-> applyVTerm (_eqsSubst subst) a ) listtups)
 

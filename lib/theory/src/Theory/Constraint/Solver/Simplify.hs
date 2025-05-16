@@ -179,7 +179,7 @@ removeRedundantGoals = do
     let rus = M.elems nodes
         check x = (sortOfLNTerm x == LSortFrNZE) && (elem (outFact x) $ concatMap (\ru -> filter isDHFact $ get rConcs ru) rus)
     let kdhActions = [ActionG i g | (ActionG i g, _) <- oldOpenGoals,  isKLogFact g || isKdhFact g] 
-        goalsToRemove = filter (\(ActionG i g) -> factTerms g == [fAppdhOne] || factTerms g == [fAppdhZero] ) kdhActions
+        goalsToRemove = filter (\(ActionG i g) -> factTerms g == [fAppdhOne] || factTerms g == [fAppdhZero] || factTerms g ==[fAppdhEg] ) kdhActions
         goalsToRemove2 = filter (\(ActionG i g) -> all check $ factTerms g) kdhActions   
         --singleGoals = nubBy (\(ActionG i g) (ActionG i2 g2) -> g == g2) kdhActions
         --goalstoRemove3 = kdhActions \\ singleGoals
