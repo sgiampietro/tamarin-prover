@@ -1420,9 +1420,9 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms ta1 ta
                             freevars <- replicateM (length matrixvars) $ freshLVar "vy" LSortE
                             if length matrixvars >1 
                               
-                              then (solveIndicatorProto (map varTerm freevars) sta1 sta2
+                              then (solveIndicatorProto2 (map varTerm freevars) sta1 sta2
                                 `disjunction`
-                                    solveIndicatorProto2 (map varTerm freevars) sta1 sta2)
+                                    solveIndicatorProto (map varTerm freevars) sta1 sta2)
                               else solveIndicatorProto (map varTerm freevars) sta1 sta2-- nb sta1 sta2
                             void normSystem
             _  -> do
@@ -1430,7 +1430,7 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms ta1 ta
                     let matrixvars = getVariablesOf [sta1, sta2]                 
                     freevars <- replicateM (length matrixvars) $ freshLVar "vy" LSortE
                     if length matrixvars >1 
-                              then (solveIndicatorProto (map varTerm freevars) sta1 sta2) `disjunction` (solveIndicatorProto2 (map varTerm freevars) sta1 sta2)
+                              then (solveIndicatorProto2 (map varTerm freevars) sta1 sta2) `disjunction` (solveIndicatorProto (map varTerm freevars) sta1 sta2)
                               else solveIndicatorProto (map varTerm freevars) sta1 sta2
                     void normSystem
      else do
@@ -1634,7 +1634,7 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
                                         allevars = filter (\x -> lvarSort x == LSortE) $ nub $ varsVTerm nta1 ++ varsVTerm nta2p
                                     solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms nta1 nta2p newpermlist -- $ map (rootIndKnown2 hndNormal bset $ S.fromList (filter isFrNZEVar $ S.toList nbset)) newpermlist
                             return Changed
-            _ -> error "TODO"
+            _ -> error "Error in prod function"
 
 solveTermDHEqs :: SplitStrategy -> ((LNTerm,LNTerm)->Reduction ChangeIndicator) -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
 solveTermDHEqs splitStrat fun (ta1, ta2)
