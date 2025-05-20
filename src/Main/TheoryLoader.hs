@@ -192,7 +192,7 @@ defaultTheoryLoadOptions :: TheoryLoadOptions
 defaultTheoryLoadOptions = TheoryLoadOptions {
     _oProveMode         = False
   , _oLemmaNames        = []
-  , _oStopOnTrace       = CutDFS
+  , _oStopOnTrace       = CutSingleThreadDFS -- CutDFS
   , _oProofBound        = Nothing
   , _oHeuristic         = Nothing
   , _oPartialEvaluation = Nothing

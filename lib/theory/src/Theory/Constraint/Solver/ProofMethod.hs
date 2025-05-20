@@ -1073,7 +1073,7 @@ smartRanking :: ProofContext
              -> System
              -> [AnnotatedGoal] -> [AnnotatedGoal]
 smartRanking ctxt allowPremiseGLoopBreakers sys =
-    moveKdhToEnd . moveNatToEnd . sortOnUsefulness . unmark . sortDecisionTree notSolveLast . sortDecisionTree solveFirst . goalNrRanking
+    moveEvarToEnd . moveNatToEnd . sortOnUsefulness . unmark . sortDecisionTree notSolveLast . sortDecisionTree solveFirst . goalNrRanking
   where
     oneCaseOnly = catMaybes . map getMsgOneCase . L.get pcSources $ ctxt
 
@@ -1088,10 +1088,19 @@ smartRanking ctxt allowPremiseGLoopBreakers sys =
     isNatSubtermSplit (SubtermG st, _) = isNatSubterm st
     isNatSubtermSplit _                = False
 
-    moveKdhToEnd = sortOn isNonKdhGoal
-    isNonKdhGoal (PremiseG _ fa, _) = isKdhFact fa
-    isNonKdhGoal (ActionG  _ fa,_ ) = isKdhFact fa
-    isNonKdhGoal _               = False  
+    moveEvarToEnd = sortOn isEKVar
+    isEKVar (PremiseG _ fa, _) = case factTerms fa of 
+                                  [ta] -> isDHLit ta && sortOfLNTerm ta == LSortE
+                                  _  -> False
+    isEKVar (ActionG  _ fa, _) = case factTerms fa of 
+                                  [ta] ->  isDHLit ta && sortOfLNTerm ta == LSortE
+                                  _  -> False
+    isEKVar _               = False  
+
+    --moveKdhToEnd = sortOn isAllFreshGoal
+    isAllFreshGoal (PremiseG _ fa) = all (\v -> sortOfLNTerm (varTerm v) == LSortFrNZE) $ concatMap varsVTerm $ factTerms fa
+    isAllFreshGoal (ActionG  _ fa) = all (\v -> sortOfLNTerm (varTerm v) == LSortFrNZE) $ concatMap varsVTerm $ factTerms fa
+    isAllFreshGoal _               = False  
 
     tagUsefulness Useful                = 0 :: Int
     tagUsefulness ProbablyConstructible = 1
@@ -1107,6 +1116,7 @@ smartRanking ctxt allowPremiseGLoopBreakers sys =
 
     solveFirst =
         [ isChainGoal . fst
+        , isAllFreshGoal . fst
         , isDisjGoal . fst
         , isSolveFirstGoal . fst
         , isNonLoopBreakerProtoFactGoal

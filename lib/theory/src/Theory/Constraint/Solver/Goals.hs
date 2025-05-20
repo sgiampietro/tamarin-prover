@@ -23,6 +23,7 @@ module Theory.Constraint.Solver.Goals (
   openGoals
   , solveGoal
   , plainOpenGoals
+  , isDHLit
   ) where
 
 import           Debug.Trace.Ignore
