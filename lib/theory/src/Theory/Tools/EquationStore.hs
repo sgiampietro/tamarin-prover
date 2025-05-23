@@ -238,7 +238,7 @@ addEqs hnd eqs0 eqStore =
         (_, []) ->
             (return (set eqsConj falseEqConstrConj eqStore, Nothing))
         (subst, [substFresh]) | substFresh == emptySubstVFresh ->
-            (return (eqStore', Nothing))
+            trace (show ("before", eqStore, "isthiswherethingsgowrong", eqStore')) (return (eqStore', Nothing))
               where eqStore' =(applyEqStore hnd subst eqStore)
             --return (applyEqStore hnd subst eqStore, Nothing)
         (subst, substs) -> do
@@ -258,26 +258,28 @@ addEqs hnd eqs0 eqStore =
 
 
 addMixedEqs :: MonadFresh m
-       => MaudeHandle -> [Equal LNTerm] -> [LVar] -> EqStore -> m (EqStore, Maybe SplitId, [(LNTerm, LNTerm)])
-addMixedEqs hnd eqs0 dhvars eqStore =
+       => MaudeHandle -> [Equal LNTerm] -> [(LVar, VTerm Name LVar)] -> EqStore -> m (EqStore, Maybe SplitId, [(LNTerm, LNTerm)])
+addMixedEqs hnd eqs0 dhsubstvars eqStore =
     --trace ("DEBUG-ADDEQS:"++ show eqs) 
     (case unifyLNTermFactored eqs `runReader` hnd of
         (_, []) ->
             (return (set eqsConj falseEqConstrConj eqStore, Nothing, []))
         (subst, [substFresh]) | substFresh == emptySubstVFresh ->
-            (return (eqStore', Nothing, map (\(a,b) -> (LIT (Var a), b)) substdh))
+            trace (show ("thisone", subst)) (return (eqStore', Nothing, map (\(a,b) -> (LIT (Var a), b)) substdh))
               where eqStore' = if (subst' ==  emptySubst) then eqStore else (applyEqStore hnd subst' eqStore)
-                    subst' = substFromList ( filter (\(a,b) -> not $ elem a dhvars) $ substToList subst)
+                    subst' = substFromList (map (\(a,b) -> (a,applyVTerm compsubst b)) $ filter (\(a,b) -> not $ elem a dhvars) $ substToList subst)
                     substdh = ( filter (\(a,b) -> elem a dhvars) $ substToList subst)
         (subst, substs) -> do
             let (eqStore', sid) = addDisj (applyEqStore hnd subst' eqStore)
                                           (S.fromList substs)
-                subst' = substFromList ( filter (\(a,b) -> not $ elem a dhvars) $ substToList subst)
-                substdh = ( filter (\(a,b) -> elem a dhvars) $ substToList subst)
+                subst' = substFromList ( map (\(a,b) -> (a,applyVTerm compsubst b)) $ filter (\(a,b) -> not $ elem a dhvars) $ substToList subst)
+                substdh = trace (show ("thisone2", subst)) ( filter (\(a,b) -> elem a dhvars) $ substToList subst)
             return (eqStore', Just sid, map (\(a,b) -> (LIT (Var a), b)) substdh)
             -- TODO: check if we need to filter out elements in dhvars also in the addDisj
             )
   where
+    dhvars = map fst dhsubstvars
+    compsubst = substFromList (dhsubstvars)
     eqs = apply (L.get eqsSubst eqStore) $ eqs0 -- trace (unlines ["addEqs: ", show eqs0]) $ eqs0
 
 

@@ -247,13 +247,13 @@ data TermView3 a = MsgLit a
 
 -- | Returns the 'TermView3' of the given term.
 viewTerm3 :: Show a => Term a -> TermView3 a
-viewTerm3 (LIT l) = MsgLit l
+viewTerm3 t@(LIT l) = MsgLit l
     -- |  (sortOfLit l) == LSortG  = GLit l 
     -- |  sortCompare (sortOfLit l) LSortG == Just LT = GLit l 
     -- |  (sortOfLit l) == LSortE  = ELit l 
     -- |  sortCompare (sortOfLit l) LSortE == Just LT = ELit l 
     -- |  otherwise = MsgLit l
-viewTerm3 (FAPP List ts) = MsgFApp List ts
+viewTerm3 t@(FAPP List ts) = MsgFApp List ts
 viewTerm3 t@(FAPP (AC o) ts)
   | length ts < 2 = error $ "viewTerm3: malformed term `"++show t++"'"
   | otherwise     = MsgFApp (AC o) ts

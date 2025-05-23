@@ -1095,12 +1095,22 @@ smartRanking ctxt allowPremiseGLoopBreakers sys =
     isEKVar (ActionG  _ fa, _) = case factTerms fa of 
                                   [ta] ->  isDHLit ta && sortOfLNTerm ta == LSortE
                                   _  -> False
-    isEKVar _               = False  
+    isEKVar _               = False
+
+    moveKFactToEnd = sortOn isKDHFact
+    isKDHFact (ActionG _ fa, _) = isKLogFact fa && isMixedFact fa 
+    isKDHFact _               = False    
 
     --moveKdhToEnd = sortOn isAllFreshGoal
-    isAllFreshGoal (PremiseG _ fa) = all (\v -> sortOfLNTerm (varTerm v) == LSortFrNZE) $ concatMap varsVTerm $ factTerms fa
-    isAllFreshGoal (ActionG  _ fa) = all (\v -> sortOfLNTerm (varTerm v) == LSortFrNZE) $ concatMap varsVTerm $ factTerms fa
+    onlyFreshVars fa = all (\v -> ((sortOfLNTerm (varTerm v) == LSortFrNZE) || (not $ isOfDHSort (varTerm v)) )) $ concatMap varsVTerm $ factTerms fa
+
+    isAllFreshGoal (PremiseG _ fa) = isMixedFact fa && onlyFreshVars fa
+    isAllFreshGoal (ActionG  _ fa) = (not (isKFact fa || isKdhFact fa || isKLogFact fa)) && isMixedFact fa && onlyFreshVars fa
     isAllFreshGoal _               = False  
+
+    isAllFreshGoal2 (PremiseG _ fa) = isMixedFact fa && onlyFreshVars fa
+    isAllFreshGoal2 (ActionG  _ fa) = isMixedFact fa && onlyFreshVars fa
+    isAllFreshGoal2 _               = False  
 
     tagUsefulness Useful                = 0 :: Int
     tagUsefulness ProbablyConstructible = 1
@@ -1128,7 +1138,8 @@ smartRanking ctxt allowPremiseGLoopBreakers sys =
         , isMsgOneCaseGoal . fst
         , isSignatureGoal . fst
         , isDoubleExpGoal . fst
-        , isNoLargeSplitGoal . fst]
+        , isNoLargeSplitGoal . fst
+        , isAllFreshGoal2 . fst]
         -- move the rest (mostly more expensive KU-goals) before expensive
         -- equation splits
 

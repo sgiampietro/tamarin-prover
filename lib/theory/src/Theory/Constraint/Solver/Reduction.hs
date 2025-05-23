@@ -143,7 +143,7 @@ import           Theory.Model
 import           Utils.Misc
 import           Term.DHMultiplication
 import           Term.Rewriting.Norm (norm')
-import           Theory.Tools.DHActionFacts
+
 
 ------------------------------------------------------------------------------
 -- The constraint reduction monad
@@ -1105,7 +1105,7 @@ solveTermEqs splitStrat eqs0 =
                       insertGoal (SplitG splitId) False
                       return eqs2
                   _                        -> return eqs2
-        noContradictoryEqStore
+        trace (show ("solveetermeqs", eqs0, eqs2)) $ noContradictoryEqStore
         return Changed
 
 solveMixedTermEqs :: SplitStrategy -> S.Set LNTerm -> S.Set LNTerm  -> ((LNTerm,LNTerm)->Reduction ChangeIndicator) -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
@@ -1115,10 +1115,10 @@ solveMixedTermEqs splitStrat bset nbset fun (lhs,rhs)
     | isMixedTerm rhs = do
         (cleanedlhs, lhsDHvars) <- clean lhs
         (cleanedrhs, rhsDHvars) <- clean rhs
-        hnd <- getMaudeHandle
+        hnd <- trace (show ("cleanedequations", cleanedlhs,"vars", lhsDHvars, "rhd", cleanedrhs,"vars", rhsDHvars)) getMaudeHandle
         se  <- gets id
-        (eqs2, maySplitId,dheqs) <- addMixedEqs hnd [Equal cleanedlhs cleanedrhs] ((map fst lhsDHvars) ++ (map fst rhsDHvars)) =<< getM sEqStore
-        setM sEqStore
+        (eqs2, maySplitId,dheqs) <- addMixedEqs hnd [Equal cleanedlhs cleanedrhs] (lhsDHvars ++ rhsDHvars) =<< getM sEqStore
+        setM sEqStore -- eqs2
             =<< simp hnd (substCreatesNonNormalTerms hnd se)
             =<< case (maySplitId, splitStrat) of
                   (Just splitId, SplitNow) -> disjunctionOfList
@@ -1127,16 +1127,17 @@ solveMixedTermEqs splitStrat bset nbset fun (lhs,rhs)
                   (Just splitId, SplitLater) -> do
                       insertGoal (SplitG splitId) False
                       return eqs2
-                  _                        -> return eqs2
+                  _                        -> return eqs2 
         let substdhvars = map (\(a,b) -> (applyVTerm compsubst a, applyVTerm compsubst b)) dheqs
             compsubst = substFromList (lhsDHvars ++ rhsDHvars)
-        eqStore <- getM sEqStore 
-        setM sEqStore $ applyEqStore hnd (compsubst) eqStore
-        void substSystem
+        eqStore <- trace (show ("egs2", eqs2)) $ getM sEqStore 
+        --setM sEqStore $ applyEqStore hnd (compsubst) eqStore
+        trace (show ("solving", substdhvars, "bset", bset,nbset, "eqs",eqsIsFalse eqStore, eqStore )) $ void substSystem
         if all (\x -> elem x (varsVTerm lhs) ) (concatMap varsVTerm (map fst substdhvars))
-            then solveListDHEqs (solveTermDHEqs splitStrat (protoCase SplitNow bset nbset)) substdhvars
-            else solveListDHEqs (\(a,b)-> solveTermDHEqs splitStrat (protoCase SplitNow bset nbset) (b,a)) substdhvars
-        noContradictoryEqStore
+            then trace (show ("isthistheproblem?")) $ solveListDHEqs (solveTermDHEqs splitStrat (protoCase SplitNow bset nbset)) substdhvars
+            else trace (show ("isthistheproblem?2")) $ solveListDHEqs (\(a,b)-> solveTermDHEqs splitStrat (protoCase SplitNow bset nbset) (b,a)) substdhvars
+        eqStore2 <- getM sEqStore 
+        trace (show ("amhere",eqsIsFalse eqStore2)) noContradictoryEqStore
         return Changed
     | otherwise =  solveTermEqs splitStrat [(Equal lhs rhs)]
 
@@ -1643,15 +1644,15 @@ solveTermDHEqs splitStrat fun (ta1, ta2)
                                                      return Changed
         | ta1 == fAppdhOne && ta2 == fAppdhZero = do contradictoryIf True
                                                      return Changed
-        | (isDHLit ta1 && compatibleLitsStrict ta1 ta2) = (do
+        | (isDHLit ta1 && compatibleLitsStrict ta1 ta2) = trace (show ("strictcom2", ta1,ta2)) (do
                             solveTermEqs splitStrat [(Equal ta1 ta2)]
-                            void substSystem
-                            void normSystem
+                            trace (show "subst1") $ void substSystem
+                            trace (show "subst2") $ void normSystem
                             return Changed)
-        | (isDHLit ta2 && compatibleLitsStrict ta2 ta1) = ( do
+        | (isDHLit ta2 && compatibleLitsStrict ta2 ta1) = trace (show ("strictcom", ta1,ta2)) ( do
                             solveTermEqs splitStrat [(Equal ta1 ta2)]
-                            void substSystem
-                            void normSystem
+                            trace (show "subst1") $ void substSystem
+                            trace (show "subst2") $ void normSystem
                             return Changed)
         | (isDHLit ta1 && (not $ compatibleLits ta1 ta2)) = do
             contradictoryIf True 
@@ -1663,7 +1664,7 @@ solveTermDHEqs splitStrat fun (ta1, ta2)
                 (Just (pg1,e1), Just (pg2,e2)) -> do
                     if pg1 == pg2
                      then do
-                        solveTermDHEqs splitStrat fun (e1, e2)
+                        trace (show ("strictcom3", ta2,ta2, e1, e2)) $ solveTermDHEqs splitStrat fun (e1, e2)
                      else do
                         solveTermEqs splitStrat [(Equal pg1 pg2)]
                         solveTermDHEqs splitStrat fun (e1, e2)
