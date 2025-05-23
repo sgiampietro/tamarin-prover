@@ -11,6 +11,7 @@ module Term.Rewriting.Norm (
     norm'
   , norm
   , nf'
+  , nfViaHaskell
   , nfSubstVFresh'
   , normSubstVFresh'
   , maybeNotNfSubterms
@@ -76,8 +77,8 @@ nfViaMaude sortOf t = (t ==) <$> norm sortOf t
 
 -- | @nfViaHaskell t@ returns @True@ if the term @t@ is in normal form.
 nfViaHaskell :: LNTerm -> WithMaude Bool
-nfViaHaskell = nfViaMaude sortOfName
-{-nfViaHaskell t0 = reader $ \hnd -> check hnd
+-- nfViaHaskell = nfViaMaude sortOfName
+nfViaHaskell t0 = reader $ \hnd -> check hnd
   where
     check hnd = go t0
       where
@@ -113,23 +114,22 @@ nfViaHaskell = nfViaMaude sortOfName
             FEMap _                         (viewTerm2 -> FPMult _ _) -> False
             FEMap (viewTerm2 -> FPMult _ _) _                         -> False
             -- DH MULTIPLICATION STUFF (todo: almost all Trues should be false)
-            FdhMult t1 t2 -> go t1 && go t2
+            FdhMult t1 t2 -> True-- go t1 && go t2
             FdhGinv _ -> True -- False
             FdhMinus _ -> True --False
             DHZero  -> True --True
             FdhInv (viewTerm2 -> Lit2 _ ) -> True
             FdhInv _ -> True -- False
             DHEg -> True
-            FdhTimesE t1 t2 -> go t1 && go t2
+            FdhTimesE t1 t2 -> True -- go t1 && go t2
             FdhExp _ _ -> True --False
             DHOne -> True
             FdhTimes _ _ -> True --False
-            FdhPlus t1 t2 -> go t1 && go t2
-            FdhMu t -> go t
-            FdhBox t -> go t
-            FdhBoxE t ->  go t
-            --- Just put false on every DH term so they get normalized just in case anyway. 
-            --- initial, fixme!!
+            FdhPlus t1 t2 -> True-- go t1 && go t2
+            FdhMu t -> True
+            -- FdhBox t -> go t
+            -- FdhBoxE t ->  go t
+
 
             -- topmost position not reducible, check subterms
             FExp       t1 t2 -> go t1 && go t2
@@ -167,12 +167,12 @@ nfViaHaskell = nfViaMaude sortOfName
         msig        = mhMaudeSig hnd
         strules     = stRules msig
         irreducible = irreducibleFunSyms msig
--}
+
 
 
 -- | @nf' t@ returns @True@ if the term @t@ is in normal form.
 nf' :: LNTerm -> WithMaude Bool
-nf' = nfViaHaskell
+nf' = nfViaMaude sortOfName --nfViaHaskell
 
 
 -- | @nfCompare t@ performs normal-form checks using maude and the haskell function

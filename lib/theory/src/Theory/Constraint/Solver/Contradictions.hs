@@ -52,8 +52,7 @@ import           Theory.Model
 import           Theory.Tools.IntruderRules
 import           Theory.Text.Pretty
 
-import           Term.Rewriting.Norm            (maybeNotNfSubterms, nf')
-
+import           Term.Rewriting.Norm            (maybeNotNfSubterms, nf', nfViaHaskell)
 
 ------------------------------------------------------------------------------
 -- Contradictions
@@ -162,7 +161,7 @@ substCreatesNonNormalTerms :: MaudeHandle -> System -> LNSubst -> LNSubstVFresh 
 substCreatesNonNormalTerms hnd sys fsubst =
     \subst -> any (not . nfApply subst) terms
   where terms = apply fsubst $ maybeNonNormalTerms hnd sys
-        nfApply subst0 t = t == t'  || nf' t' `runReader` hnd
+        nfApply subst0 t = t == t'  || nfViaHaskell t' `runReader` hnd-- nf' t' `runReader` hnd
           where tvars = freesList t
                 subst = restrictVFresh tvars subst0
                 t'    = apply (freshToFreeAvoidingFast subst tvars) t
