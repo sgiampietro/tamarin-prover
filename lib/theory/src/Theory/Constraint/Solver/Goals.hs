@@ -380,8 +380,19 @@ solvePremise rules p faPrem
           cLearn = (iLearn, ConcIdx 0)
           pLearn = (iLearn, PremIdx 0)
       modM sNodes  (M.insert iLearn ruLearn)
-      insertChain cLearn p
-      solvePremise rules pLearn premLearn
+      if not $ isOfDHSort (head $ factTerms faPrem)
+        then do 
+          insertChain cLearn p
+          solvePremise rules pLearn premLearn
+        else (do 
+          bset <- getM sBasis
+          nbset <- getM sNotBasis
+          nodes <- trace (show ("insertDirectEdge1Goals", bset, nbset,faPrem)) $ getM sNodes
+          let ta2 = head $ factTerms faPrem
+          insertDHdirectEdge ta2 faPrem pLearn rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+          void substSystem
+          void normSystem
+          return "Using All Out Facts" )
   | isOut faPrem = do    
       nodes <- getM sNodes
       (ru, c, faConc) <- insertFreshNodeConcOutInstMixed rules (M.assocs nodes)
@@ -487,7 +498,7 @@ solveChain rules (c, p) = do
       | isMixedFact faPrem =  (do 
             bset <- getM sBasis
             nbset <- getM sNotBasis
-            nodes <- trace (show ("insertDirectEdge1", bset, nbset,faPrem)) $ getM sNodes
+            nodes <- trace (show ("insertDirectEdge1Goals", bset, nbset,faPrem)) $ getM sNodes
             insertDHMixedEdge False (c, faConc, faPrem, p) cRule (S.fromList $ basisOfRule cRule) (S.fromList $ notBasisOfRule cRule) (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
             let mPrem = case kFactView faConc of
                                 Just (DnK, m') -> m'
