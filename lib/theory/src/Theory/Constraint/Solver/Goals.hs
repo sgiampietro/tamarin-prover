@@ -389,10 +389,26 @@ solvePremise rules p faPrem
           nbset <- getM sNotBasis
           nodes <- trace (show ("insertDirectEdge1Goals", bset, nbset,faPrem)) $ getM sNodes
           let ta2 = head $ factTerms faPrem
-          insertDHdirectEdge ta2 faPrem pLearn rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
-          void substSystem
-          void normSystem
-          return "Using All Out Facts" )
+          case  neededexponents bset nbset ta2 of 
+            [] -> do 
+                    insertDHdirectEdge ta2 faPrem pLearn rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+                    void substSystem
+                    void normSystem
+                    return "Using All Out Facts"
+            les -> do 
+              let fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) les
+                  otheres = les \\ fres
+              ifs<- replicateM (length fres) $ freshLVar "vk" LSortNode
+              forM_ (zip ifs fres) (\(i,x) -> insertMuAction x i)
+              (newb,newNb) <- disjunctionOfList $ solveNeededList2 otheres
+              forM_ newb (insertBasisElem)
+              forM_ newNb (insertNotBasisElem)
+              is<- replicateM (length newNb) $ freshLVar "vk" LSortNode
+              forM_ (zip is newNb) (\(i,x)-> insertGoal (ActionG i (kdhFact x)) False)
+              insertDHdirectEdge ta2 faPrem pLearn rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+              void substSystem
+              void normSystem
+              return "Using All Out Facts")
   | isOut faPrem = do    
       nodes <- getM sNodes
       (ru, c, faConc) <- insertFreshNodeConcOutInstMixed rules (M.assocs nodes)
