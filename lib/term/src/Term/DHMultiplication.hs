@@ -61,10 +61,11 @@ module Term.DHMultiplication (
 import Control.Monad.Fresh
 import           Control.Monad.Reader
 
---import           Data.List
+import qualified          Data.List as List
 import qualified Data.Map                         as Map
 import qualified Data.Set                          as S
 import qualified Data.Maybe                       as Maybe
+
 --import           Data.ByteString.Char8 (ByteString, append, pack, empty)
 
 -- import           Extension.Data.Label
@@ -298,20 +299,19 @@ notUnifiableLits ta1 ta2
   | (isDHLit ta2 && (not $ compatibleLits ta2 ta1) ) = True
   | otherwise = False
 
-
--- TODO: this function should actually return which indicators are needed too in the 
--- case it's not computable. 
-neededexponents:: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> [LNTerm]
+ 
+neededexponents:: S.Set LNTerm -> S.Set (LNTerm, NodeId) -> LNTerm -> ([LNTerm], [NodeId])
 neededexponents b nb t
-  | null es = []
-  | otherwise = S.toList es
-      where es = trace (show ("thishose", b, nb, eTermsOf t)) $ S.fromList ( eTermsOf t ) `S.difference` (b `S.union` nb)
+  | null es = ([], map snd (filter (\(y,_) -> y `elem` et) (S.toList nb)))
+  | otherwise = (S.toList es, map snd (filter (\(y,_) -> y `elem` et) (S.toList nb)))
+      where et = eTermsOf t
+            es = trace (show ("thishose", b, nb, eTermsOf t)) $ S.fromList et `S.difference` (b `S.union` (S.map fst nb))
 
-neededexponentslist:: S.Set LNTerm -> S.Set LNTerm -> [LNTerm] -> Maybe (S.Set LNTerm)
-neededexponentslist b nb terms
-  | null es = Nothing 
-  | otherwise = Just es
-      where es = S.fromList $ concatMap (neededexponents b nb) terms
+neededexponentslist:: S.Set LNTerm -> S.Set (LNTerm,NodeId) -> [LNTerm] -> ([LNTerm], [NodeId])
+neededexponentslist b nb terms = myNub es
+      where es1 = map (neededexponents b nb) terms
+            es = foldr (\(a,b) (c,d) -> (a++c,b++d)) ([],[]) es1
+            myNub (a,b) = (List.nub a, List.nub b) 
 
 isPublic :: LNTerm -> Bool
 isPublic indt = case viewTerm2 (indt) of

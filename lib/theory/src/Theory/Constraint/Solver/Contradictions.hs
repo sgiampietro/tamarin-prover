@@ -441,7 +441,7 @@ hasAdvKnowsBasis :: System -> Bool
 hasAdvKnowsBasis sys = isitcontr1 || isitcontr2
     where   nodes = L.get sNodes sys
             bb = L.get sBasis sys
-            nb = L.get sNotBasis sys
+            nb = S.map fst $ L.get sNotBasis sys
             allprems = map (\(i, ru) -> (i, filter (\f -> isOut f) $ map snd $ enumConcs ru)) $ M.assocs nodes
             allprems2 = map outFact $ S.toList bb 
             isitcontr1 = any (\x-> length (filter (\(i,prems) -> elem x prems) allprems) > 1) allprems2

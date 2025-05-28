@@ -391,7 +391,7 @@ data System = System
     , _sEdges          :: S.Set Edge
     , _sNoCanc         :: S.Set NoCanc
     , _sBasis          :: S.Set LNTerm
-    , _sNotBasis       :: S.Set LNTerm
+    , _sNotBasis       :: S.Set (LNTerm, NodeId)
     , _sGNotBasis      :: S.Set LNTerm
     , _sLessAtoms      :: S.Set (NodeId, NodeId, Reason)
     , _sLastAtom       :: Maybe NodeId
