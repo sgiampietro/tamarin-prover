@@ -371,17 +371,16 @@ solvePremise rules p faPrem
   | isProtoDHFact faPrem =  solveDHIndProto rules p faPrem
   | isProtoMixedFact faPrem = trace (show ("solvingMixedPremise", faPrem)) $ solveDHMixedPremise rules p faPrem
   | isKDFact faPrem = do
-      iLearn    <- freshLVar "vl" LSortNode
-      mLearn    <- varTerm <$> freshLVar "t" LSortMsg
-      let concLearn = kdFact mLearn
-          premLearn = outFact mLearn
-          -- !! Make sure that you construct the correct rule!
-          ruLearn = Rule (IntrInfo IRecvRule) [premLearn] [concLearn] [] []
-          cLearn = (iLearn, ConcIdx 0)
-          pLearn = (iLearn, PremIdx 0)
-      modM sNodes  (M.insert iLearn ruLearn)
       if not $ isOfDHSort (head $ factTerms faPrem)
         then do 
+          iLearn    <- freshLVar "vl" LSortNode
+          mLearn    <- varTerm <$> freshLVar "t" LSortMsg
+          let concLearn = kdFact mLearn
+              premLearn = outFact mLearn
+              ruLearn = Rule (IntrInfo IRecvRule) [premLearn] [concLearn] [] []
+              cLearn = (iLearn, ConcIdx 0)
+              pLearn = (iLearn, PremIdx 0)
+          modM sNodes  (M.insert iLearn ruLearn)
           insertChain cLearn p
           solvePremise rules pLearn premLearn
         else (do 
@@ -391,7 +390,7 @@ solvePremise rules p faPrem
           let ta2 = head $ factTerms faPrem
           case  neededexponents bset nbset ta2 of 
             [] -> do 
-                    insertDHdirectEdge ta2 faPrem pLearn rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+                    insertDHdirectEdge ta2 faPrem p rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
                     void substSystem
                     void normSystem
                     return "Using All Out Facts"
@@ -405,7 +404,7 @@ solvePremise rules p faPrem
               forM_ newNb (insertNotBasisElem)
               is<- replicateM (length newNb) $ freshLVar "vk" LSortNode
               forM_ (zip is newNb) (\(i,x)-> insertGoal (ActionG i (kdhFact x)) False)
-              insertDHdirectEdge ta2 faPrem pLearn rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+              insertDHdirectEdge ta2 faPrem p rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
               void substSystem
               void normSystem
               return "Using All Out Facts")
