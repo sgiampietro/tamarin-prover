@@ -75,7 +75,7 @@ import           Control.Monad.Reader
 import           Extension.Prelude
 import           Utils.Misc
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Control.Basics
 import           Control.DeepSeq
@@ -727,20 +727,20 @@ addDHProtoEqs hnd allevars t1zzs permt zzbool eqdhstore = do
         [substFresh] | substFresh == emptySubstVFresh ->
             return [(eqdhstore, Nothing)]
         substs -> do
-            --let rangesubst = concatMap varsRangeVFresh substs -- TODO: can we delete this and following 3 lines?
-            --    toset = rangesubst \\ (concatMap varsOfSubsts substs)
-            --    toapply = substFromList $ map (\x -> (x, fAppdhOne)) toset
-            --    newsubsts' = map (map (\(a,b)-> (a, (applyVTerm toapply b)))) $ map substToListVFresh substs
-            --    newsubsts = map (substFromListVFresh) newsubsts'
-            --esubsts <- liftM substFromListVFresh $ mapM addgenterms (allevars \\ concatMap domVFresh substs)
-            -- let newsubsts = map (substFromListVFresh) substs
-            substs' <- trace (show ("UNIFY[3]", substs, map (\sb -> freshToFreeAvoiding sb (_eqsSubst eqdhstore)) substs,"fatss", map (\sb -> freshToFreeAvoidingFast sb (_eqsSubst eqdhstore)) substs)) $ mapM generalize substs
-            --let esubsts' = freshToFreeAvoidingFast esubsts (_eqsSubst eqdhstore)
-            let eqStores' = map (\sb -> applyEqStore hnd (freshToFreeAvoidingFast sb (_eqsSubst eqdhstore)) eqdhstore) substs'--  map (\sb -> changeqstore ((\x-> compose esubsts' $ freshToFreeAvoiding x (_eqsSubst eqdhstore)) sb ) eqdhstore) substs'
+            let rangesubst = concatMap varsRangeVFresh substs -- TODO: can we delete this and following 3 lines?
+                toset = rangesubst \\ (concatMap varsOfSubsts substs)
+                toapply = substFromList $ map (\x -> (x, fAppdhOne)) toset
+                newsubsts' = map (map (\(a,b)-> (a, (applyVTerm toapply b)))) $ map substToListVFresh substs
+                newsubsts = map (substFromListVFresh) newsubsts'
+            esubsts <- liftM substFromListVFresh $ mapM addgenterms (allevars \\ concatMap domVFresh substs)
+            --let newsubsts = map (substFromListVFresh) substs
+            substs' <- mapM generalize newsubsts
+            let esubsts' = freshToFreeAvoidingFast esubsts (_eqsSubst eqdhstore)
+                eqStores' =  map (\sb -> changeqstore ((\x-> compose esubsts' $ freshToFreeAvoiding x (_eqsSubst eqdhstore)) sb ) eqdhstore) substs'
             return (map (\eqS -> (eqS, Nothing)) eqStores')
           where
-            --addsubsts sub eqst= applyEqStore hnd sub eqst
-            --changeqstore x eq = addsubsts x eq
+            addsubsts sub eqst= applyEqStore hnd sub eqst
+            changeqstore x eq = addsubsts x eq
             -- changeqstore (x:xs) eq = changeqstore xs (addsubsts x eq)
             permvars = nub $ concatMap varsVTerm permt
             --t1vars = nub $ concatMap varsVTerm t1
