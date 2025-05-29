@@ -42,7 +42,6 @@ module Theory.Tools.EquationStore (
   --, addDHEqs
   , addMixedEqs
   , addDHEqs2
-  , addDHEqs
   , addDHProtoEqs
 
   -- ** Case splitting
@@ -296,7 +295,7 @@ purifySubstitution subst =  if dom newsubst `intersect` varsRange newsubst /= []
 applyEqStore :: MaudeHandle -> LNSubst -> EqStore -> EqStore
 applyEqStore hnd asubst eqStore
     | dom asubst `intersect` varsRange asubst /= [] -- || trace (show ("applyEqStore", asubst, eqStore)) False
-    = case purifySubstitution asubst of
+    = case trace (show ("OG", asubst)) purifySubstitution asubst of
         Just asubst2 -> applyEqStore hnd asubst2 eqStore
         Nothing -> error $ "applyEqStore: dom and vrange not disjoint for `"++show asubst++"'"
     | otherwise
@@ -613,24 +612,7 @@ foreachDisj hnd f =
 -- DH multiplication functions
 ------------------------------------------------------------------------------
 
-
 {-
-addDHEqs :: MonadFresh m
-       => MaudeHandle -> LNTerm -> LNTerm -> EqStore -> m (EqStore, Maybe SplitId)
-addDHEqs hnd t1 indt eqdhstore =
-    case unifyLNDHTermFactored eqs `runReader` hnd of
-        (_, []) ->
-            (return (set eqsConj falseEqConstrConj eqdhstore, Nothing))
-        (subst, [substFresh]) | substFresh == emptySubstVFresh ->
-            trace (show ("thisisthesubst", subst)) $ (return (eqdhStore', Nothing))
-              where eqdhStore' =(applyEqStore hnd subst eqdhstore)
-        (subst, substs) -> do
-            let (eqStore', sid) = addDisj (applyEqStore hnd subst eqdhstore) (S.fromList substs)
-            (return (eqStore', Just sid))
-  where
-    eqs = apply (L.get eqsSubst eqdhstore) $ [Equal t1 indt] -}
-
-
 addDHEqs :: MonadFresh m
        => MaudeHandle -> [(LNTerm,LNTerm, LVar)] -> [(LNTerm,LNTerm, LVar)] -> Bool -> EqStore -> m (EqStore, Maybe SplitId)
 addDHEqs hnd t1zzs genpermt zzbool eqdhstore = do
@@ -652,38 +634,12 @@ addDHEqs hnd t1zzs genpermt zzbool eqdhstore = do
     addsubsts sub eqst= applyEqStore hnd sub eqst
     changeqstore [x] eq = addsubsts x eq
     changeqstore (x:xs) eq = changeqstore xs (addsubsts x eq)
-
-
-{-}
-addDHEqs :: MonadFresh m
-       => MaudeHandle -> [(LNTerm,LNTerm, LVar)] -> [LNTerm] -> Bool -> EqStore -> m (EqStore, Maybe SplitId)
-addDHEqs hnd t1zzs permt zzbool eqdhstore = do
-    let t1 = (map (\(a,_,_)->a) t1zzs)
-    case unifyLNDHProtoTermFactored (zipWith eqs permt t1) `runReader` hnd of
-        [] | zzbool ->  return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
-        [] | not zzbool -> trace (show ("GENERALIZING", permt, t1)) $ addDHEqs hnd (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) permt True eqdhstore
-        [substFresh] | substFresh == emptySubstVFresh ->
-            return (eqdhstore, Nothing)
-        substs -> do
-            let generalize sub = substFromListVFresh $ (filter (\(a,b)-> not $ elem a (map (\(_,_,a)->a) t1zzs))) (substToListVFresh sub) 
-                substs' = map generalize substs
-            let eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs' ) eqdhstore
-            return (eqStore', Nothing)
-  where
-    eqs :: LNTerm -> LNTerm -> Equal LNTerm
-    eqs x y = apply (L.get eqsSubst eqdhstore) $ Equal x y
-    addsubsts sub eqst= applyEqStore hnd sub eqst
-    changeqstore [x] eq = addsubsts x eq
-    changeqstore (x:xs) eq = changeqstore xs (addsubsts x eq)
 -}
-
-
-
 
 addDHEqs2 :: MonadFresh m
        => MaudeHandle -> Bool ->  [(LNTerm,LNTerm, LVar)] -> [LNTerm] -> EqStore -> m (EqStore, Maybe SplitId, [Subst Name LVar])
 addDHEqs2 hnd zzbool t1zzs permt eqdhstore =
-    case (unifyLNDHProtoTermFactored eqs `runReader` hnd) of
+    case trace (show ("isitDHEqs2", t1zzs, permt)) (unifyLNDHProtoTermFactored eqs `runReader` hnd) of
         [] | zzbool ->  return (set eqsConj falseEqConstrConj eqdhstore, Nothing, [])
         [] | not zzbool -> addDHEqs2 hnd True (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) permt eqdhstore
         [substFresh] | substFresh == emptySubstVFresh ->
@@ -751,7 +707,7 @@ newBPeqs eqs = if (all isJust maybeEqs) then Just $ concat (map fromJust maybeEq
                   where maybeEqs = map splitBPeqs eqs
 
 addDHProtoEqs :: MonadFresh m
-       => MaudeHandle -> [LVar] -> [(LNTerm,LNTerm, LVar)] -> [LNTerm] -> Bool -> EqStore -> m (EqStore, Maybe SplitId)
+       => MaudeHandle -> [LVar] -> [(LNTerm,LNTerm, LVar)] -> [LNTerm] -> Bool -> EqStore -> m [(EqStore, Maybe SplitId)]
 addDHProtoEqs hnd allevars t1zzs permt zzbool eqdhstore = do
     -- todo: here 
     let t1 = (map (\(a,_,_)->a) t1zzs)
@@ -766,25 +722,26 @@ addDHProtoEqs hnd allevars t1zzs permt zzbool eqdhstore = do
                         Just ts -> ts
 -- TODO: need to generalize only 1 of the G variables on both sides of equality, not both!
     case (if ((any (uncurry notUnifiableLits) (zip permt t1)) || isNothing splitBPeqs) then [] else unifyLNDHProtoTermFactored newlist `runReader` hnd) of
-        [] | zzbool ->  return (set eqsConj falseEqConstrConj eqdhstore, Nothing)
+        [] | zzbool ->  return [(set eqsConj falseEqConstrConj eqdhstore, Nothing)]
         [] | not zzbool ->  addDHProtoEqs hnd allevars (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) permt True eqdhstore
         [substFresh] | substFresh == emptySubstVFresh ->
-            return (eqdhstore, Nothing)
+            return [(eqdhstore, Nothing)]
         substs -> do
-            let rangesubst = concatMap varsRangeVFresh substs -- TODO: can we delete this and following 3 lines?
-                toset = rangesubst \\ (concatMap varsOfSubsts substs)
-                toapply = substFromList $ map (\x -> (x, fAppdhOne)) toset
-                newsubsts' = map (map (\(a,b)-> (a, (applyVTerm toapply b)))) $ map substToListVFresh substs
-                newsubsts = map (substFromListVFresh) newsubsts'
-            esubsts <- liftM substFromListVFresh $ mapM addgenterms (allevars \\ concatMap domVFresh substs)
-            substs' <- mapM generalize newsubsts
-            let esubsts' = freshToFreeAvoidingFast esubsts (_eqsSubst eqdhstore)
-                eqStore' = changeqstore (map (\x-> compose esubsts' $ freshToFreeAvoiding x (_eqsSubst eqdhstore)) substs' ) eqdhstore
-            return (eqStore', Nothing)
+            --let rangesubst = concatMap varsRangeVFresh substs -- TODO: can we delete this and following 3 lines?
+            --    toset = rangesubst \\ (concatMap varsOfSubsts substs)
+            --    toapply = substFromList $ map (\x -> (x, fAppdhOne)) toset
+            --    newsubsts' = map (map (\(a,b)-> (a, (applyVTerm toapply b)))) $ map substToListVFresh substs
+            --    newsubsts = map (substFromListVFresh) newsubsts'
+            --esubsts <- liftM substFromListVFresh $ mapM addgenterms (allevars \\ concatMap domVFresh substs)
+            -- let newsubsts = map (substFromListVFresh) substs
+            substs' <- trace (show ("UNIFY[3]", substs, map (\sb -> freshToFreeAvoiding sb (_eqsSubst eqdhstore)) substs,"fatss", map (\sb -> freshToFreeAvoidingFast sb (_eqsSubst eqdhstore)) substs)) $ mapM generalize substs
+            --let esubsts' = freshToFreeAvoidingFast esubsts (_eqsSubst eqdhstore)
+            let eqStores' = map (\sb -> applyEqStore hnd (freshToFreeAvoidingFast sb (_eqsSubst eqdhstore)) eqdhstore) substs'--  map (\sb -> changeqstore ((\x-> compose esubsts' $ freshToFreeAvoiding x (_eqsSubst eqdhstore)) sb ) eqdhstore) substs'
+            return (map (\eqS -> (eqS, Nothing)) eqStores')
           where
-            addsubsts sub eqst= applyEqStore hnd sub eqst
-            changeqstore [x] eq = addsubsts x eq
-            changeqstore (x:xs) eq = changeqstore xs (addsubsts x eq)
+            --addsubsts sub eqst= applyEqStore hnd sub eqst
+            --changeqstore x eq = addsubsts x eq
+            -- changeqstore (x:xs) eq = changeqstore xs (addsubsts x eq)
             permvars = nub $ concatMap varsVTerm permt
             --t1vars = nub $ concatMap varsVTerm t1
             allGterms t ssrt = all (\b -> sortOfLNTerm (varTerm b) == ssrt)  $ varsVTerm t 

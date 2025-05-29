@@ -19,6 +19,7 @@ module Term.Maude.Process (
   -- * Unification using Maude
   , unifyViaMaude
   , unifyViaMaudeDH
+  , unifyViaMaudeDHFr
 
   -- * Matching using Maude
   , matchViaMaude
@@ -164,7 +165,7 @@ callMaude hnd updateStatistics cmd = do
     -- Ensure that the command is fully evaluated and therefore does not depend
     -- on another call to Maude anymore. Otherwise, we could end up in a
     -- deadlock.
-    trace (show ("THISISBEINGSENT",cmd)) $ evaluate (rnf cmd)
+    evaluate (rnf cmd)
     -- If there was an exception, then we might be out of sync with the current
     -- persistent Maude process: restart the process.
     (`onException` restartMaude hnd) $ modifyMVar (mhProc hnd) $ \mp -> do
@@ -174,7 +175,7 @@ callMaude hnd updateStatistics cmd = do
         hFlush  inp
         mp' <- evaluate (updateStatistics mp)
         res <- getToDelim out
-        trace (show ("THISISBEINGSENTRECV", cmd, out, res)) $ return (mp', res)
+        return (mp', res)
 
 -- | Compute a result via Maude.
 computeViaMaude ::
@@ -188,10 +189,10 @@ computeViaMaude hnd updateStats toMaude fromMaude inp = do
     let (cmd, bindings) = runConversion $ toMaude inp
     reply <- callMaude hnd updateStats cmd
     case fromMaude bindings reply of
-        Right res -> trace ( show ("DEUBGGG:", BC.unpack reply , BC.unpack cmd)) (return res)
-        Left    e -> fail $ "\ncomputeViaMaude:\nParse error: `" ++ e ++"'"++
+        Right res -> (return res)
+        Left    e -> (fail $ "\ncomputeViaMaude:\nParse error: `" ++ e ++"'"++
                             "\nFor Maude Output: `" ++ BC.unpack reply ++"'"++
-                            "\nFor query: `" ++ BC.unpack cmd++"'"
+                            "\nFor query: `" ++ BC.unpack cmd++"'")
 
 ------------------------------------------------------------------------------
 -- Unification modulo AC
@@ -369,6 +370,28 @@ unifyCmdDH eqs =
     ppEq (Equal t1 t2) = ppMaude t1 <> " =? " <> ppMaude t2
     seqs = B.intercalate " /\\ " $ map ppEq eqs
 
+unifyCmdDHFr :: [Equal MTerm] -> ByteString
+unifyCmdDHFr []  = error "unifyCmd: cannot create cmd for empty list of equations."
+unifyCmdDHFr eqs =
+    --"variant unify [1] in DHsimp : " <> seqs <> " .\n"
+    -- "filtered variant unify in DHsimp : " <> seqs <> " .\n"
+    "unify [2] in DHsimp : " <> seqs <> " .\n"
+  where
+    ppEq (Equal t1 t2) = trace (show ("unify[1]", t1,t2)) (ppMaude t1 <> " =? " <> ppMaude t2)
+    seqs = B.intercalate " /\\ " $ map ppEq eqs
+
+unifyViaMaudeDHFr :: (IsConst c)
+    => MaudeHandle
+    -> (c -> LSort) -> [Equal (VTerm c LVar)] -> IO [SubstVFresh c LVar]
+unifyViaMaudeDHFr _   _      []  = return [emptySubstVFresh]
+unifyViaMaudeDHFr hnd sortOf eqs =
+    computeViaMaude hnd incUnifCount toMaude fromMaude eqs
+  where
+    msig = mhMaudeSig hnd
+    toMaude          = fmap unifyCmdDHFr . mapM (traverse (lTermToMTerm sortOf))
+    fromMaude bindings reply =
+        trace (show ("thisisREPLYE", reply)) $ map (msubstToLSubstVFresh bindings) <$> parseUnifyDHFrReply msig reply
+    incUnifCount mp  = mp { unifCount = 1 + unifCount mp }
 
 -- | @unifyViaMaude hnd eqs@ computes all AC unifiers of @eqs@ using the
 --   Maude process @hnd@.

@@ -1412,7 +1412,8 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms ta1 ta
     let genindterms = zipWith (\i z-> (i, runReader (norm' $ fAppdhExp (i, LIT (Var z)) ) hndNormal, z) ) xindterms zzs
     --  let genindterms = zip xindterms zzs
     eqstore <- getM sEqStore
-    (eqs2, maySplitId) <- addDHProtoEqs hnd allevars genindterms permutedlist False eqstore
+    eqList <- addDHProtoEqs hnd allevars genindterms permutedlist False eqstore
+    (eqs2, maySplitId) <- disjunctionOfList eqList
     se  <-  gets id
     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
     noContradictoryEqStore
