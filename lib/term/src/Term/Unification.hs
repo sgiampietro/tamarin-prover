@@ -16,8 +16,6 @@ module Term.Unification (
   , unifyLNTermFactored
 
   -- * Diffie-Hellman unification
-  , unifyLDHTermFactored
-  , unifyLNDHTermFactored
   , unifyLDHProtoTermFactored
   , unifyLNDHProtoTermFactored
 
@@ -105,6 +103,7 @@ import           System.IO.Unsafe (unsafePerformIO)
 import           Term.Term.FunctionSymbols
 import           Term.Rewriting.Definitions
 import           Term.Substitution
+import           Term.LTerm
 import qualified Term.Maude.Process as UM
 import           Term.Maude.Process
                    (MaudeHandle, WithMaude, startMaude, startMaudeDH, startMaudeCR, getMaudeStats, mhMaudeSig, mhFilePath)
@@ -137,28 +136,6 @@ unifyLNTermFactored :: [Equal LNTerm]
 unifyLNTermFactored = unifyLTermFactored sortOfName
 
 
-
-
-unifyLDHTermFactored :: (IsConst c)
-                   => (c -> LSort)
-                   -> [Equal (LTerm c)]
-                   -> WithMaude (LSubst c, [SubstVFresh c LVar])
-unifyLDHTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTermDHproblematic: "++ show eqs, "result = "++  show res]) res) $ do
-    solve h -- $ execRWST unif sortOf M.empty
-  where
-    -- unif = sequence [ unifyRaw t p | (Equal t p) <- eqs ]
-    -- solve _ Nothing         = (emptySubst, [])
-    --solve _ (Just (m, []))  = (substFromMap m, [emptySubstVFresh])
-    solve h = -- (Just (m, leqs)) =
-        (emptySubst, unsafePerformIO (UM.unifyViaMaudeDH h sortOf 
-                                      eqs))  -- why is first argument always emptySubst?
-      --where subst = substFromMap m
-
-unifyLNDHTermFactored :: [Equal LNTerm]
-                    -> WithMaude (LNSubst, [SubstVFresh Name LVar])
-unifyLNDHTermFactored = unifyLDHTermFactored sortOfName             
-
-
 unifyLDHProtoTermFactored :: (IsConst c)
                    => (c -> LSort)
                    -> [Equal (LTerm c)]
@@ -169,9 +146,21 @@ unifyLDHProtoTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ 
     solve h = unsafePerformIO (UM.unifyViaMaudeDH h sortOf 
                                       eqs)  
 
+unifyLDHFrTermFactored :: (IsConst c)
+                   => (c -> LSort)
+                   -> [Equal (LTerm c)]
+                   -> WithMaude [SubstVFresh c LVar]
+unifyLDHFrTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTermDHproblemeaticproto: "++ show eqs, "result = "++  show res]) res) $ do
+    solve h 
+  where
+    solve h = unsafePerformIO (UM.unifyViaMaudeDHFr h sortOf 
+                                      eqs)  
+
 unifyLNDHProtoTermFactored :: [Equal LNTerm]
                     -> WithMaude [SubstVFresh Name LVar]
-unifyLNDHProtoTermFactored eq = unifyLDHProtoTermFactored sortOfName  eq            
+unifyLNDHProtoTermFactored eq = if (any allFrVars eq) 
+                                  then unifyLDHFrTermFactored sortOfName eq
+                                  else unifyLDHProtoTermFactored sortOfName eq
 
 -- | @unifyLNTerm eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLTerm :: (IsConst c)

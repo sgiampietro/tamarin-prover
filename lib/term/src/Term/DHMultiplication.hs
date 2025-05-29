@@ -78,7 +78,8 @@ import           Term.LTerm
 --import           Term.Term.Raw
 --import           Term.Maude.Signature
 --import           Term.Narrowing.Variants.Compute
-import           Term.Rewriting.Norm
+import             Term.Rewriting.Norm (norm')
+-- import             Term.Rewriting.Definitions
 import Term.Maude.Process
 --import           Term.SubtermRule
 --import           Term.Subsumption
@@ -255,6 +256,7 @@ varTermsOf' t@(LIT (Var l))
   | otherwise = []
 varTermsOf' t@(LIT _) = []
 varTermsOf' t@(FAPP f ts) = concatMap varTermsOf' ts
+
 
 isDHLit :: LNTerm -> Bool
 isDHLit t@(viewTerm -> Lit (Var _)) = isOfDHSort t

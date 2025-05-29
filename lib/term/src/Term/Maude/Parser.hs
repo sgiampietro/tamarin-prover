@@ -20,6 +20,7 @@ module Term.Maude.Parser (
   , parseVariantsReply
   , parseReduceReply
   , parseUnifyDHReply
+  , parseUnifyDHFrReply
   ) where
 
 import Term.LTerm
@@ -401,19 +402,19 @@ parseVariantsReply msig reply = flip parseOnly reply $ do
                      <*> (string " --> " *> parseTerm msig <* endOfLine)
 
 -- for the maude command "variant-unify [1]"
-{-
-parseUnifyDHReply :: MaudeSig -> ByteString -> Either String [MSubst]
-parseUnifyDHReply msig reply = flip parseOnly reply $ -- trace (show ("TRYINGTHIS", reply)) $ 
-     choice [ endOfLine *> string "No unifiers." <* endOfLine <* string "rewrites: "
-              <* takeWhile1 isDigit <* endOfLine *> pure []      <* endOfInput
-           , endOfLine *> many1 (parseUnifier) ]
+
+parseUnifyDHFrReply :: MaudeSig -> ByteString -> Either String [MSubst]
+parseUnifyDHFrReply msig reply = flip parseOnly reply $
+     choice [ string "No unifier." <* endOfLine*> pure [] <* endOfInput
+           , endOfLine *> many1 (parseUnifier)]
               where
                     parseUnifier = string "Unifier " *> takeWhile1 isDigit *> endOfLine *>
-                                    string "rewrites: " *> takeWhile1 isDigit *> endOfLine *>
-                                    manyTill parseEntry endOfInput
+                                    manyTill parseEntry (choice [endOfLine, endOfInput])
+                    --parseUnifier2 = string "Unifier " *> takeWhile1 isDigit *> endOfLine *>
+                    --                manyTill parseEntry endOfInput
                     parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
-                                    <*> (string " --> " *> parseTerm msig <* endOfLine)
--}
+                                    <*> (string " --> " *> parseTerm msig <* endOfLine) 
+
 
 --for the maude command "unify [1]"
 parseUnifyDHReply :: MaudeSig -> ByteString -> Either String [MSubst]

@@ -64,6 +64,7 @@ module Term.LTerm (
   , isPubConst
   --, isBoxTerm
   --, isBoxETerm
+  , allFrVars
   , isvarGVar
   , isvarEVar
   , isOfDHSort
@@ -520,6 +521,16 @@ isOfDHSort _ = False
 getMsgVar :: LNTerm -> Maybe [LVar]
 getMsgVar (viewTerm -> Lit (Var v)) | (lvarSort v == LSortMsg) = Just [v]
 getMsgVar _                                                    = Nothing
+
+allFrVarsAux :: LNTerm -> Bool
+allFrVarsAux a = case viewTerm2 a of
+    FdhTimes t1 t2 -> (all (\v -> lvarSort v == LSortFrNZE ) $ varsVTerm t1) && (all (\v -> lvarSort v == LSortFrNZE ) $ varsVTerm t2)
+    FdhTimesE t1 t2 -> (all (\v -> lvarSort v == LSortFrNZE ) $ varsVTerm t1) && (all (\v -> lvarSort v == LSortFrNZE ) $ varsVTerm t2)
+    FdhExp t1 t2 -> allFrVarsAux t2
+    _ -> False
+
+allFrVars :: Equal LNTerm -> Bool
+allFrVars (Equal a b) = allFrVarsAux a && allFrVarsAux b
 
 
 -- Utility functions for constraint solving
