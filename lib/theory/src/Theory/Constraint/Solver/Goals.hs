@@ -26,7 +26,7 @@ module Theory.Constraint.Solver.Goals (
   , isDHLit
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Prelude                                 hiding (id, (.))
 
@@ -527,7 +527,8 @@ solveChain rules (c, p) = do
                 caseName (viewTerm -> Lit l)       = showLitName l 
             void substSystem
             void normSystem
-            contradictoryIf (illegalCoerce pRule mPrem)
+            eqsr <- getM sEqStore
+            trace (show ("doIgethere", faPrem, (illegalCoerce pRule mPrem), eqsIsFalse eqsr)) $ contradictoryIf (illegalCoerce pRule mPrem)
             return (caseName mPrem)  ) 
       | otherwise =    (do
                 insertEdges [(c, faConc, faPrem, p)]  
