@@ -134,7 +134,7 @@ importBinding :: (MonadBind k v m, MonadFresh m, Ord k)
 importBinding mkR k n = do
     rOpt <- lookupBinding k
     case rOpt of
-      Nothing -> do v <- mkR n <$> freshIdent n
+      Nothing -> do v <- mkR n <$> (freshIdent n )
                     modify $ M.insert k v 
                     return v
       Just v -> return v

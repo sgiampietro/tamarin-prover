@@ -102,6 +102,7 @@ module Term.LTerm (
   , eqModuloFreshnessNoAC
   , avoid
   , evalFreshAvoiding
+  , evalFreshAvoiding2
   , evalFreshTAvoiding
   , renameAvoiding
   , renameAvoidingIgnoring
@@ -524,8 +525,8 @@ getMsgVar _                                                    = Nothing
 
 allFrVarsAux :: LNTerm -> Bool
 allFrVarsAux a = case viewTerm2 a of
-    FdhTimes t1 t2 -> (all (\v -> lvarSort v == LSortFrNZE ) $ varsVTerm t1) && (all (\v -> lvarSort v == LSortFrNZE ) $ varsVTerm t2)
-    FdhTimesE t1 t2 -> (all (\v -> lvarSort v == LSortFrNZE ) $ varsVTerm t1) && (all (\v -> lvarSort v == LSortFrNZE ) $ varsVTerm t2)
+    FdhTimes t1 t2 -> (all (\v -> lvarSort v == LSortFrNZE ) $ varsVTerm t1) || (all (\v -> lvarSort v == LSortFrNZE ) $ varsVTerm t2)
+    FdhTimesE t1 t2 -> (all (\v -> lvarSort v == LSortFrNZE ) $ varsVTerm t1) || (all (\v -> lvarSort v == LSortFrNZE ) $ varsVTerm t2)
     FdhExp t1 t2 -> allFrVarsAux t2
     _ -> False
 
@@ -834,10 +835,23 @@ boundsVarIdx = getMinMax . foldFrees (minMaxSingleton . lvarIdx)
 avoid :: HasFrees t => t -> FreshState
 avoid = maybe 0 (succ . snd) . boundsVarIdx
 
+avoid2 :: (HasFrees t1, HasFrees t2) => t1 -> t2 -> FreshState
+avoid2 s1 s2 =  maybe 0 (succ . snd) newbound
+    where b1 = boundsVarIdx s1
+          b2 = boundsVarIdx s2
+          newbound = case b1 of 
+                        Nothing -> b2
+                        Just (a,b) -> case b2 of
+                            Nothing -> Just (a,b)
+                            Just (c,d) -> Just (min a c, max b d)
+
 -- | @m `evalFreshAvoiding` t@ evaluates the monadic action @m@ with a
 -- fresh-variable supply that avoids generating variables occurring in @t@.
 evalFreshAvoiding :: HasFrees t => Fresh a -> t -> a
 evalFreshAvoiding m a = evalFresh m (avoid a)
+
+evalFreshAvoiding2 :: (HasFrees t1, HasFrees t2) => Fresh a -> t1 -> t2 -> a
+evalFreshAvoiding2 m a b = evalFresh m (avoid2 a b)
 
 -- | @m `evalFreshTAvoiding` t@ evaluates the monadic action @m@ in the
 -- underlying monad with a fresh-variable supply that avoids generating

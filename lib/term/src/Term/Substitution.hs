@@ -16,6 +16,7 @@ module Term.Substitution (
   , freshToFree
   , freshToFreeAvoiding
   , freshToFreeAvoidingFast
+  , freshToFreeAvoidingSmart
 
   , freeToFreshRaw
 
@@ -29,7 +30,11 @@ import Term.LTerm
 import Term.Substitution.SubstVFree
 import Term.Substitution.SubstVFresh
 
+import Data.List (intersect)
+
 import Extension.Prelude
+
+import Debug.Trace 
 
 import Control.Monad.Bind
 -- import Control.Basics
@@ -71,6 +76,12 @@ freshToFree subst = (`evalBindT` noBindings) $ do
 --   to reuse variable names from the domain of the substitution if possible.
 freshToFreeAvoiding :: (HasFrees t, IsConst c) => SubstVFresh c LVar -> t -> Subst c LVar
 freshToFreeAvoiding s t = freshToFree s `evalFreshAvoiding` t
+
+freshToFreeAvoidingSmart :: (HasFrees t, IsConst c) => SubstVFresh c LVar -> t -> Subst c LVar
+freshToFreeAvoidingSmart s t = if dom asubst `intersect` varsRange asubst /= []
+                                  then trace (show ("domVFresh", domVFresh s, s)) $  evalFreshAvoiding2 (freshToFree s) t (domVFresh s)
+                                  else trace (show ("hereinstead", s)) asubst
+                                where asubst = freshToFreeAvoiding s t
 
 -- | @freshToFreeAvoidingFast s t@ converts all fresh variables in the range of
 --   @s@ to free variables avoiding free variables in @t@. This function does

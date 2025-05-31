@@ -109,7 +109,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -1291,11 +1291,11 @@ solveIndicatorProto2 basis t1 t2 = do
 
 solveIndicatorProto :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
 solveIndicatorProto basis t1 t2 = do
-  hnd  <- getMaudeHandle
+  hnd  <- trace (show ("Indicatorproto", t1,t2)) getMaudeHandle
   bb <- disjunctionOfList $ (solveIndicatorGaussProto hnd basis t1 t2 )
   case bb of
    Just substlist ->  do
-        eqStore <-  getM sEqStore
+        eqStore <- trace (show ("obainedsubst", substlist)) getM sEqStore
         hndCR <- getMaudeHandleCR
         bset <- getM sNotBasis
         (subst', subst12) <- disjunctionOfList substlist
@@ -1316,7 +1316,7 @@ solveIndicatorProto basis t1 t2 = do
                             (FApp (NoEq pairSym) [x, y]) ->(x,y)
                             _ -> error $ "something went wrong" ++ show t
             (sta1,sta2) =  unpair normedpair
-        contradictoryIf (not (sta1 == sta2))       
+        trace (show ("afternorming", sta1,sta2)) $ contradictoryIf (not (sta1 == sta2))       
         void normSystem
         return "Matched"
    Nothing -> do
@@ -1414,12 +1414,12 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms ta1 ta
     eqstore <- getM sEqStore
     eqList <- addDHProtoEqs hnd allevars genindterms permutedlist False eqstore
     (eqs2, maySplitId) <- disjunctionOfList eqList
-    se  <-  gets id
+    se  <-  trace (show ("show", ta1,ta2)) $ gets id
     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
-    noContradictoryEqStore
+    trace (show ("here", ta1,ta2)) $ noContradictoryEqStore
     -- setM sEqStore eqs2 
-    subst <- getM sSubst
-    let substlist =  M.fromList $ substToList subst
+    subst <- trace (show ("itscontradictory", ta1,ta2)) $ getM sSubst
+    let substlist = M.fromList $ substToList subst
         newvars = concatMap (\e -> filter (\v->sortOfLNTerm (varTerm v) == LSortE) $ varsVTerm $ substlist M.! e) allevars
         varta1 = filter (\x -> not (isvarEVar (LIT (Var x)) || isvarGVar (LIT (Var x)))) $ varsVTerm ta1
         varta2 = filter (\x -> not (isvarEVar (LIT (Var x)) || isvarGVar (LIT (Var x)))) $ varsVTerm ta2
@@ -1438,7 +1438,7 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms ta1 ta
         case varTermsOf sta2 of
             [] -> case varTermsOf (sta1) of
                     [] -> do
-                            if sta1 == sta2
+                            if trace (show ("here", sta1,sta2)) $ sta1 == sta2
                               then do
                                             void substSystem
                                             void normSystem
@@ -1448,7 +1448,6 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms ta1 ta
                             let matrixvars = getVariablesOf [sta1, sta2]
                             freevars <- replicateM (length matrixvars) $ freshLVar "vy" LSortE
                             if length matrixvars >1 
-                              
                               then (solveIndicatorProto (map varTerm freevars) sta1 sta2
                                 `disjunction`
                                     solveIndicatorProto2 (map varTerm freevars) sta1 sta2)
@@ -1723,7 +1722,7 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
                                     let nta2p = (runReader (norm' $ applyVTerm newsubst nta2) hndNormal) 
                                         allevars = filter (\x -> lvarSort x == LSortE) $ nub $ varsVTerm nta1 ++ varsVTerm nta2p
                                     solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms nta1 nta2p newpermlist -- $ map (rootIndKnown2 hndNormal bset $ S.fromList (filter isFrNZEVar $ S.toList nbset)) newpermlist
-                            return Changed
+                            trace (show ("returningfrom ProtoAux",ta1,ta2)) $ return Changed
             _ -> error "Error in prod function"
 
 solveTermDHEqs :: SplitStrategy -> ((LNTerm,LNTerm)->Reduction ChangeIndicator) -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
@@ -1797,7 +1796,7 @@ solveMixedFactEqs split (Equal fa1 fa2) bset nbset fun = do
     subst <- getM sEqStore
     let dhfacts1 = map (applyVTerm (_eqsSubst subst)) (factTerms fa1) -- filter isMixedTerm (factTerms fa1) 
         dhfacts2 = map (applyVTerm (_eqsSubst subst)) (factTerms fa2) -- filter isMixedTerm (factTerms fa2)
-    solveListDHEqs (solveMixedTermEqs split bset nbset fun) $ zip dhfacts1 dhfacts2
+    trace (show ("returningMixdFacts", fa1,fa2)) $ solveListDHEqs (solveMixedTermEqs split bset nbset fun) $ zip dhfacts1 dhfacts2
     return Changed
 
 -- t1 here is the result of factTerms fa2, and indt1 the indicator of one product term of t1. 
