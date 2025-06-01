@@ -34,7 +34,6 @@ import Data.List (intersect)
 
 import Extension.Prelude
 
-import Debug.Trace 
 
 import Control.Monad.Bind
 -- import Control.Basics
@@ -79,8 +78,8 @@ freshToFreeAvoiding s t = freshToFree s `evalFreshAvoiding` t
 
 freshToFreeAvoidingSmart :: (HasFrees t, IsConst c) => SubstVFresh c LVar -> t -> Subst c LVar
 freshToFreeAvoidingSmart s t = if dom asubst `intersect` varsRange asubst /= []
-                                  then trace (show ("domVFresh", domVFresh s, s)) $  evalFreshAvoiding2 (freshToFree s) t (domVFresh s)
-                                  else trace (show ("hereinstead", s)) asubst
+                                  then evalFreshAvoiding2 (freshToFree s) t (domVFresh s)
+                                  else asubst
                                 where asubst = freshToFreeAvoiding s t
 
 -- | @freshToFreeAvoidingFast s t@ converts all fresh variables in the range of
