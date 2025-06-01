@@ -709,8 +709,8 @@ addDHProtoEqs hnd allevars t1zzs permt zzbool eqdhstore = do
               newsubsts = map (substFromListVFresh) newsubsts'
           esubsts <- liftM substFromListVFresh $ mapM addgenterms (allevars \\ concatMap domVFresh substs)
             --let newsubsts = map (substFromListVFresh) substs
-          substs' <- trace (show ("addDHProtoEq somesol", substs)) $ mapM generalize newsubsts
-          let esubsts' = freshToFreeAvoidingSmart esubsts (_eqsSubst eqdhstore)
+          substs' <- trace (show ("addDHProtoEq somesol", substs, allevars)) $ mapM generalize newsubsts
+          let esubsts' = freshToFreeAvoiding esubsts (_eqsSubst eqdhstore)
               eqStores' =  map (\sb -> applyEqStore hnd ((\x-> compose esubsts' $ freshToFreeAvoidingSmart x (_eqsSubst eqdhstore)) sb ) eqdhstore) substs'
           return (map (\eqS -> (eqS, Nothing)) eqStores')
           where
@@ -740,6 +740,11 @@ addDHProtoEqs hnd allevars t1zzs permt zzbool eqdhstore = do
               _ -> return (c, cterm)
             generalize sub = liftM substFromListVFresh $ mapM generaltup $ filter (\(a,b)-> (not $ elem a (map (\(_,_,a)->a) t1zzs))) (substToListVFresh sub)
 
+{-substs -> do
+          substs' <- trace (show ("addDHProtoEq somesol", substs)) $ mapM generalize substs
+          let eqStores' =  map (\sb -> applyEqStore hnd (freshToFreeAvoidingSmart sb (_eqsSubst eqdhstore)) eqdhstore) substs'
+          return (map (\eqS -> (eqS, Nothing)) eqStores')
+          -}
 
 
 ------------------------------------------------------------------------------

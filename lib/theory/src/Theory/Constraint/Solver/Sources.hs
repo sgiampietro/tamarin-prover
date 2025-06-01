@@ -291,7 +291,7 @@ matchToGoal ctxt th0 goalTerm =
                 in Just $ snd $ refineSource ctxt refine (set cdGoal goalTerm th)
 
     (ActionG iTerm faTerm, ActionG iPat faPat) ->
-        case trace (show ("matchtoGoal", goalTerm, faTerm, faPat)) $ doMatch (faTerm `matchFact` faPat <> iTerm `matchLVar` iPat) of
+        case doMatch (faTerm `matchFact` faPat <> iTerm `matchLVar` iPat) of
             []      -> Nothing
             subst:_ -> Just $ snd $ refineSource ctxt
                                         (refineSubst subst) (set cdGoal goalTerm th)
