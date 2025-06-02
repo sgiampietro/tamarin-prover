@@ -208,7 +208,7 @@ ppTheory :: MaudeSig -> ByteString
 ppTheory msig = BC.unlines $
     [ "fmod MSG is"
     , "  protecting NAT ."
-    , "  sort Pub Fresh Msg Node TamNat  TOP ." -- DH G E NZE PubG FrNZE 
+    , "  sort Pub Fresh Msg Node TamNat TOP ." -- DH G E NZE PubG FrNZE 
     , "  subsort Pub < Msg ."
     , "  subsort Fresh < Msg ."
     , "  subsort TamNat < Msg ."
@@ -254,7 +254,7 @@ ppTheory msig = BC.unlines $
     ++
     (if enableDHMult msig
        then
-        [ "sort G E NZE BG FrNZE VarE VarG."
+        [ "  sort G E NZE BG FrNZE VarE VarG ."
         , "  subsort G < Msg ."
         , "  subsort E < Msg ."
         --, "  subsort G < DH ."
@@ -265,7 +265,6 @@ ppTheory msig = BC.unlines $
         , "  subsort BG < G ."
         , "  subsort VarG < G ."
         -- , "  subsort DH < TOP ."
-        , "  op dh : Nat -> DH ."
         , "  op g : Nat -> G ."
         , "  op e : Nat -> E ."
         , "  op nze : Nat -> NZE ."
@@ -286,53 +285,55 @@ ppTheory msig = BC.unlines $
         , theoryOpEq "dhExp : G E -> G"
         , theoryOpEq "dhOne : -> NZE"
         , theoryOpEq "dhMu : G -> NZE"
-        , theoryOpEq "dhMu2 : G G -> NZE"
+        -- , theoryOpEq "dhMu2 : G G -> NZE"
         -- for the theory of bilinear pairings: 
-        , theoryOpEq "dhBP : G G -> G "
-        , theoryOpEq "dhH : Msg -> NZE" -- TODO: double check if Msg is OK, or better to put a DH sort? 
+        -- , theoryOpEq "dhBP : G G -> G"
+        --, theoryOpEq "dhH : Msg -> NZE" -- TODO: double check if Msg is OK, or better to put a DH sort? 
+        -- , theoryOpEq "h : Msg -> Msg"
+        -- , theoryOpEq "pair : Msg Msg -> Msg"
         -- , theoryDH "dhBox : G -> G"
         -- , theoryDH "dhBoxE : E -> E"
-        , "vars A B : G . "
-        , "vars X Y Z : E ."
-        , "vars U V : E ."
-        , "eq tamXCdhMult(tamXCdhEg, A) = A ."
-        , "eq tamXCdhMult(A, tamXCdhGinv (A)) = tamXCdhEg ."
-        , "eq tamXCdhPlus(tamXCdhZero, X) = X ."
-        , "eq tamXCdhTimesE(X , tamXCdhOne) = X ."
-        , "eq tamXCdhTimesE(U, tamXCdhInv(U)) = tamXCdhOne ."
+        , "  vars A B : G . "
+        , "  vars X Y Z : E ."
+        , "  vars U V : E ."
+        , "  eq tamXCdhMult(tamXCdhEg, A) = A ."
+        , "  eq tamXCdhMult(A, tamXCdhGinv (A)) = tamXCdhEg ."
+        , "  eq tamXCdhPlus(tamXCdhZero, X) = X ."
+        , "  eq tamXCdhTimesE(X , tamXCdhOne) = X ."
+        , "  eq tamXCdhTimesE(U, tamXCdhInv(U)) = tamXCdhOne ."
         -- , "eq tamXCdhTimes(X , tamXCdhOne) = X ."
-        , "eq tamXCdhPlus(X , tamXCdhMinus(X)) = tamXCdhZero ."
-        , "eq tamXCdhTimesE(X, tamXCdhPlus(Y, Z)) = tamXCdhPlus(tamXCdhTimesE(X, Y), tamXCdhTimesE(X, Z)) ."
+        , "  eq tamXCdhPlus(X , tamXCdhMinus(X)) = tamXCdhZero ."
+        , "  eq tamXCdhTimesE(X, tamXCdhPlus(Y, Z)) = tamXCdhPlus(tamXCdhTimesE(X, Y), tamXCdhTimesE(X, Z)) ."
         -- , "eq tamXCdhTimes(X, tamXCdhPlus(Y, Z)) = tamXCdhPlus(tamXCdhTimes(X, Y), tamXCdhTimes(X, Z)) ."
         --, "eq tamXCdhTimesE(X, tamXCdhPlus(Y, Z)) = tamXCdhPlus(tamXCdhTimesE(X, Y), tamXCdhTimesE(X, Z)) ."
-        , "eq tamXCdhExp(tamXCdhExp(A, X), Y) = tamXCdhExp(A, tamXCdhTimesE(X, Y)) ."
-        , "eq tamXCdhExp(tamXCdhMult(A, B), X) = tamXCdhMult(tamXCdhExp(A, X), tamXCdhExp(B, X)) ."
-        , "eq tamXCdhExp(A, tamXCdhOne) = A ."
-        , "eq tamXCdhExp(tamXCdhEg, X) = tamXCdhEg ."
-        , "eq tamXCdhExp(A, tamXCdhPlus(X, Y)) = tamXCdhMult(tamXCdhExp(A, X), tamXCdhExp(A, Y)) ."
-        , "eq tamXCdhTimes(U, V) = tamXCdhTimesE(U, V) ."
-        , "eq tamXCdhInv(tamXCdhTimes(U,V)) = tamXCdhTimes(tamXCdhInv(U) , tamXCdhInv(V)) ." 
-        , "eq tamXCdhInv(tamXCdhOne) = tamXCdhOne ."
-        , "eq tamXCdhInv(tamXCdhMinus(U)) = tamXCdhMinus(tamXCdhInv(U)) ."
-        , "eq tamXCdhInv(tamXCdhInv(U)) = U ."
-        , "eq tamXCdhGinv(tamXCdhMult(A, B)) = tamXCdhMult(tamXCdhGinv(A), tamXCdhGinv(B)) ."
-        , "eq tamXCdhGinv(tamXCdhGinv(B)) = B . "
-        , "eq tamXCdhExp(tamXCdhGinv(A), X) = tamXCdhGinv(tamXCdhExp(A, X)) ."
-        , "eq tamXCdhExp(A, tamXCdhZero) = tamXCdhEg ."
-        , "eq tamXCdhExp(A, tamXCdhMinus(X) ) = tamXCdhGinv(tamXCdhExp(A, X)) ."
-        , "eq tamXCdhGinv (tamXCdhEg) = tamXCdhEg ."
-        , "eq tamXCdhMinus(tamXCdhZero) = tamXCdhZero ."
+        , "  eq tamXCdhExp(tamXCdhExp(A, X), Y) = tamXCdhExp(A, tamXCdhTimesE(X, Y)) ."
+        , "  eq tamXCdhExp(tamXCdhMult(A, B), X) = tamXCdhMult(tamXCdhExp(A, X), tamXCdhExp(B, X)) ."
+        , "  eq tamXCdhExp(A, tamXCdhOne) = A ."
+        , "  eq tamXCdhExp(tamXCdhEg, X) = tamXCdhEg ."
+        , "  eq tamXCdhExp(A, tamXCdhPlus(X, Y)) = tamXCdhMult(tamXCdhExp(A, X), tamXCdhExp(A, Y)) ."
+        , "  eq tamXCdhTimes(U, V) = tamXCdhTimesE(U, V) ."
+        , "  eq tamXCdhInv(tamXCdhTimes(U,V)) = tamXCdhTimes(tamXCdhInv(U) , tamXCdhInv(V)) ." 
+        , "  eq tamXCdhInv(tamXCdhOne) = tamXCdhOne ."
+        , "  eq tamXCdhInv(tamXCdhMinus(U)) = tamXCdhMinus(tamXCdhInv(U)) ."
+        , "  eq tamXCdhInv(tamXCdhInv(U)) = U ."
+        , "  eq tamXCdhGinv(tamXCdhMult(A, B)) = tamXCdhMult(tamXCdhGinv(A), tamXCdhGinv(B)) ."
+        , "  eq tamXCdhGinv(tamXCdhGinv(B)) = B . "
+        , "  eq tamXCdhExp(tamXCdhGinv(A), X) = tamXCdhGinv(tamXCdhExp(A, X)) ."
+        , "  eq tamXCdhExp(A, tamXCdhZero) = tamXCdhEg ."
+        , "  eq tamXCdhExp(A, tamXCdhMinus(X) ) = tamXCdhGinv(tamXCdhExp(A, X)) ."
+        , "  eq tamXCdhGinv (tamXCdhEg) = tamXCdhEg ."
+        , "  eq tamXCdhMinus(tamXCdhZero) = tamXCdhZero ."
         -- , "eq tamXCdhTimesE(tamXCdhMinus(tamXCdhOne), X, Y) = tamXCdhMinus(tamXCdhTimesE(X, Y)) ." 
-        , "eq tamXCdhMinus (tamXCdhPlus(X,Y)) = tamXCdhPlus((tamXCdhMinus(X)), (tamXCdhMinus(Y))) ."
-        , "eq tamXCdhMinus( tamXCdhMinus(X)) = X ."
-        , "eq tamXCdhTimesE(tamXCdhZero, X) = tamXCdhZero ."
-        , "eq tamXCdhTimesE((tamXCdhMinus(X)), Y) = tamXCdhMinus(tamXCdhTimesE(X, Y)) ." 
+        , "  eq tamXCdhMinus (tamXCdhPlus(X,Y)) = tamXCdhPlus((tamXCdhMinus(X)), (tamXCdhMinus(Y))) ."
+        , "  eq tamXCdhMinus( tamXCdhMinus(X)) = X ."
+        , "  eq tamXCdhTimesE(tamXCdhZero, X) = tamXCdhZero ."
+        , "  eq tamXCdhTimesE((tamXCdhMinus(X)), Y) = tamXCdhMinus(tamXCdhTimesE(X, Y)) ." 
         -- for bilinear paring operators: 
-        , "eq tamXCdhBP( tamXCdhExp(A, X), B) = tamXCdhExp(tamXCdhBP(A,B), X) ." -- by Commutativity, don't need to add equation for also b right?
-        , "eq tamXCdhBP(tamXCdhMult(tamXCdhExp(A, X), tamXCdhExp(A, Y)), B) = tamXCdhExp(tamXCdhBP(A,B), tamXCdhPlus(X,Y)) ."
-        , "eq tamXCdhBP(B,  tamXCdhExp(A, X)) = tamXCdhExp(tamXCdhBP(B,A), X) ." -- by Commutativity, don't need to add equation for also b right?
-        , "eq tamXCdhBP(B, tamXCdhMult(tamXCdhExp(A, X), tamXCdhExp(A, Y))) = tamXCdhExp(tamXCdhBP(B,A), tamXCdhPlus(X,Y)) ."
-        ]
+        -- , "  eq tamXCdhBP( tamXCdhExp(A, X), B) = tamXCdhExp(tamXCdhBP(A,B), X) ." -- by Commutativity, don't need to add equation for also b right?
+        --, "  eq tamXCdhBP(tamXCdhMult(tamXCdhExp(A, X), tamXCdhExp(A, Y)), B) = tamXCdhExp(tamXCdhBP(A,B), tamXCdhPlus(X,Y)) ."
+        --, "  eq tamXCdhBP(B,  tamXCdhExp(A, X)) = tamXCdhExp(tamXCdhBP(B,A), X) ." -- by Commutativity, don't need to add equation for also b right?
+        --, "  eq tamXCdhBP(B, tamXCdhMult(tamXCdhExp(A, X), tamXCdhExp(A, Y))) = tamXCdhExp(tamXCdhBP(B,A), tamXCdhPlus(X,Y)) ."
+        ] 
        else [])
     ++
     (if enableNat msig
@@ -442,7 +443,7 @@ parseSubstitution msig = do
 -- | @parseReduceReply l@ parses a single solution returned by Maude.
 parseReduceReply :: MaudeSig -> ByteString -> Either String MTerm
 parseReduceReply msig reply = trace (show ("reducingresult", reply)) (flip parseOnly reply $ do
-    string "result " *> choice [ string "TOP" *> pure LSortMsg, string "[TOP]" *> pure LSortMsg, string "[DH]" *> pure LSortDH, parseSort ] -- we ignore the sort
+    string "result " *> choice [ string "TOP" *> pure LSortMsg, string "[TOP]" *> pure LSortMsg, parseSort ] -- we ignore the sort
         *> string ": " *> parseTerm msig <* endOfLine <* endOfInput)
 
 -- | Parse an 'MSort'.
@@ -628,12 +629,14 @@ ppTheoryDHsimp = BC.unlines $
       , "endfm"] 
 
 
-ppTheoryComRing ::  ByteString
-ppTheoryComRing = BC.unlines $
+ppTheoryComRing :: MaudeSig -> ByteString
+ppTheoryComRing msig = BC.unlines $
       [ "fmod CR is "
       , "  protecting NAT ."
-      , "  sort Msg Fresh DH E NZE G BG FrNZE ."
+      , "  sort Msg Fresh DH E NZE G BG FrNZE Pub ."
       , "  subsort Fresh < Msg ."
+      , "  subsort DH < Msg ."
+      , "  subsort Pub < Msg ."
       , "  subsort E < DH ."
       , "  subsort NZE < DH ."
       , "  subsort G < DH ."
@@ -654,7 +657,10 @@ ppTheoryComRing = BC.unlines $
       , "  op tamXCdhMu : DH -> DH ."
       , "  op tamXCdhMinus : DH -> DH ."
       , "  op bg : Nat -> DH ."
-      , "  vars X Y Z : DH ."
+      , "  op p : Nat -> Msg ."]
+      ++ 
+      map theoryFunSym (S.toList $ stFunSyms msig)
+      ++ [",  vars X Y Z : DH ."
       , "  eq tamXCdhPlus(X, tamXCdhZero) = X ."
       , "  eq tamXCdhTimesE(X, tamXCdhOne) = X ."
       , "  eq tamXCdhTimesE(X, tamXCdhZero) = tamXCdhZero ."
@@ -667,6 +673,11 @@ ppTheoryComRing = BC.unlines $
       , "       if X =/= tamXCdhZero ."
       , "  eq tamXCdhTimes(X, Y) = tamXCdhTimesE(X, Y) ."
       , "endfm"] 
+    where
+      maybeEncode (Just (priv,cnstr)) = funSymEncodeAttr priv cnstr
+      maybeEncode Nothing             = ""
+      theoryOp attr fsort = "  op " <> funSymPrefix <> maybeEncode attr <> fsort <>" ."
+      theoryFunSym (s,(ar,priv,cnstr)) = theoryOp  (Just (priv,cnstr)) (replaceUnderscore s <> " : " <> (B.concat $ replicate ar "Msg ") <> " -> Msg")
 
 
 

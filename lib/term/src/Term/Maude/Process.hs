@@ -149,8 +149,7 @@ getToDelim ih =
   where
     go !acc = do
         bs <- BC.append acc <$> B.hGetSome ih 8096
-        trace (show (bs)) $ (
-            case BC.breakSubstring mDelim bs of
+        (case BC.breakSubstring mDelim bs of
                 (before, after) | after == mDelim -> return before
                 (_,      after) | after == ""     -> go bs
                 _  -> error $ "Too much maude output" ++ BC.unpack bs)
@@ -187,12 +186,13 @@ computeViaMaude ::
     -> IO b
 computeViaMaude hnd updateStats toMaude fromMaude inp = do
     let (cmd, bindings) = runConversion $ toMaude inp
+        msig = mhMaudeSig hnd
     reply <- callMaude hnd updateStats cmd
     case fromMaude bindings reply of
         Right res -> (return res)
-        Left    e -> (fail $ "\ncomputeViaMaude:\nParse error: `" ++ e ++"'"++
+        Left    e -> trace (show ("ppTheory msig", ppTheory msig, irreducibleFunSyms msig, funSyms msig, "reply", reply)) (fail $ "\ncomputeViaMaude:\nParse error: `" ++ e ++"'"++
                             "\nFor Maude Output: `" ++ BC.unpack reply ++"'"++
-                            "\nFor query: `" ++ BC.unpack cmd++"'")
+                            "\nFor query: `" ++ BC.unpack cmd ++"'")
 
 ------------------------------------------------------------------------------
 -- Unification modulo AC
@@ -302,7 +302,7 @@ normViaMaude hnd sortOf t =
     msig = mhMaudeSig hnd
     toMaude = fmap normCmd . (lTermToMTerm sortOf)
     fromMaude bindings reply =
-        (\mt -> (mTermToLNTerm "z" mt `evalBindT` bindings) `evalFresh` nothingUsed)
+        trace (show ("showNORM", reply)) (\mt -> (mTermToLNTerm "z" mt `evalBindT` bindings) `evalFresh` nothingUsed)
             <$> parseReduceReply msig reply
     incNormCount mp = mp { normCount = 1 + normCount mp }
 
@@ -377,7 +377,7 @@ unifyCmdDHFr eqs =
     -- "filtered variant unify in DHsimp : " <> seqs <> " .\n"
     "unify [2] in DHsimp : " <> seqs <> " .\n"
   where
-    ppEq (Equal t1 t2) = trace (show ("unify[1]", t1,t2)) (ppMaude t1 <> " =? " <> ppMaude t2)
+    ppEq (Equal t1 t2) = (ppMaude t1 <> " =? " <> ppMaude t2)
     seqs = B.intercalate " /\\ " $ map ppEq eqs
 
 unifyViaMaudeDHFr :: (IsConst c)
@@ -390,7 +390,7 @@ unifyViaMaudeDHFr hnd sortOf eqs =
     msig = mhMaudeSig hnd
     toMaude          = fmap unifyCmdDHFr . mapM (traverse (lTermToMTerm sortOf))
     fromMaude bindings reply =
-        trace (show ("thisisREPLYE", reply)) $ map (msubstToLSubstVFresh bindings) <$> parseUnifyDHFrReply msig reply
+        map (msubstToLSubstVFresh bindings) <$> parseUnifyDHFrReply msig reply
     incUnifCount mp  = mp { unifCount = 1 + unifCount mp }
 
 -- | @unifyViaMaude hnd eqs@ computes all AC unifiers of @eqs@ using the
@@ -435,25 +435,26 @@ normViaMaudeDH hnd sortOf t =
 
 
 -- | @startMaude@ starts a new instance of Maude and returns a Handle to it.
-startMaudeCR :: FilePath -> IO MaudeHandle
-startMaudeCR maudePath = do
-    mv <- newMVar =<< startMaudeProcessCR maudePath
+startMaudeCR :: FilePath -> MaudeSig -> IO MaudeHandle
+startMaudeCR maudePath msig = do
+    mv <- newMVar =<< startMaudeProcessCR maudePath msig
     -- Add a finalizer to the MVar that stops maude.
     _  <- mkWeakMVar mv $ withMVar mv $ \mp -> do
         terminateProcess (mProc mp) <* waitForProcess (mProc mp)
     -- return the maude handle
-    return (MaudeHandle maudePath dhMultMaudeSig mv)
+    return (MaudeHandle maudePath msig mv)
 
 -- | Start a Maude process.
 startMaudeProcessCR :: FilePath -- ^ Path to Maude
+                  -> MaudeSig
                   -> IO (MaudeProcess)
-startMaudeProcessCR maudePath = do
+startMaudeProcessCR maudePath msig = do
     (hin,hout,herr,hproc) <- runInteractiveCommand maudeCmd
     _ <- getToDelim hout
     -- set maude flags
     mapM_ (executeMaudeCommand hin hout) setupCmds
     -- input the maude theory
-    executeMaudeCommand hin hout ppTheoryComRing
+    executeMaudeCommand hin hout (ppTheoryComRing msig)
     return (MP hin hout herr hproc 0 0 0 0)
   where
     maudeCmd
