@@ -393,7 +393,7 @@ solvePremise rules p faPrem
                     forM_ js (\i-> insertLess i (fst p) Adversary)
                     insertDHdirectEdge ta2 faPrem p rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
                     void substSystem
-                    void normSystem
+                    trace (show ("CALLINGNORMNOW!")) void normSystem
                     return "Using_OutFacts"
             (les,js) -> do 
               forM_ js (\i-> insertLess i (fst p) Adversary)
@@ -411,7 +411,7 @@ solvePremise rules p faPrem
                   insertNotBasisElem x i)
               insertDHdirectEdge ta2 faPrem p rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
               void substSystem
-              void normSystem
+              trace (show ("CALLINGNORMNOW2!")) void normSystem
               return "Using_OutFacts")
   | isOut faPrem = do    
       nodes <- getM sNodes
@@ -518,7 +518,7 @@ solveChain rules (c, p) = do
       | isMixedFact faPrem =  (do 
             bset <- getM sBasis
             nbset <- getM sNotBasis
-            nodes <- trace (show ("insertDirectEdge1Goals", bset, nbset,faPrem)) $ getM sNodes
+            nodes <- trace (show ("insertDirectEdge1GoalsMixed", bset, nbset,faPrem)) $ getM sNodes
             insertDHMixedEdge False (c, faConc, faPrem, p) cRule (S.fromList $ basisOfRule cRule) (S.fromList $ notBasisOfRule cRule) (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
             let mPrem = case kFactView faConc of
                                 Just (DnK, m') -> m'
@@ -526,9 +526,9 @@ solveChain rules (c, p) = do
                 caseName (viewTerm -> FApp o _)    = showFunSymName o
                 caseName (viewTerm -> Lit l)       = showLitName l 
             void substSystem
-            void normSystem
+            trace (show ("CALLINGNORMNOW3")) void normSystem
             eqsr <- getM sEqStore
-            trace (show ("doIgethere", faPrem, (illegalCoerce pRule mPrem), eqsIsFalse eqsr)) $ contradictoryIf (illegalCoerce pRule mPrem)
+            contradictoryIf (illegalCoerce pRule mPrem)
             return (caseName mPrem)  ) 
       | otherwise =    (do
                 insertEdges [(c, faConc, faPrem, p)]  

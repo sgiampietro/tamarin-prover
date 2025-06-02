@@ -1074,7 +1074,8 @@ normGoalsCR hnd = do
 normSystemCR :: Reduction ChangeIndicator
 normSystemCR = do
     hnd <- getMaudeHandleCR
-    nodes <- getM sNodes
+    let msig = mhMaudeSig hnd
+    nodes <- trace (show ("CALLINGNORMCR", (S.toList $ stFunSyms msig))) $ getM sNodes
     setM sNodes $ M.map (\r -> runReader (normRuleCR r) hnd) nodes
     nodes' <- getM sNodes
     contradictoryIf $ any (cyclicSubstNode) (M.toList nodes')

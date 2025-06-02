@@ -128,7 +128,7 @@ toSignatureWithMaude :: FilePath            -- ^ Path to Maude executable.
 toSignatureWithMaude maudePath sig = do
     hnd <- startMaude maudePath (L.get sigMaudeInfo sig)
     hndDH <- startMaudeDH maudePath
-    hndCR <- startMaudeCR maudePath
+    hndCR <- startMaudeCR maudePath (L.get sigMaudeInfo sig)
     return $ sig { _sigMaudeInfo = hnd, _sigMaudeInfoDH = hndDH, _sigMaudeInfoCR = hndCR }
 
 {-
