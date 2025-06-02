@@ -259,7 +259,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                             mapM_ requiresKU [a, b] *> return ru
             -- Distinguish DH term cases!!
             (Fact KUFact _ [m]) | (isMixedFact fa) -> do
-                   ru  <- labelNodeId i (annotatePrems <$> rules) Nothing -- TODO:probably want to also check existing rules
+                   ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList (get rActs ru)
                    (void (solveFactEqs SplitNow [Equal fa act]))
                    void substSystem
