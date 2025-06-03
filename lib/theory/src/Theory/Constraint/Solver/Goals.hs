@@ -526,7 +526,7 @@ solveChain rules (c, p) = do
                 caseName (viewTerm -> FApp o _)    = showFunSymName o
                 caseName (viewTerm -> Lit l)       = showLitName l 
             void substSystem
-            trace (show ("CALLINGNORMNOW3")) void normSystem
+            void normSystem
             eqsr <- getM sEqStore
             contradictoryIf (illegalCoerce pRule mPrem)
             return (caseName mPrem)  ) 
