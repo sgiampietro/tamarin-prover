@@ -1175,6 +1175,12 @@ normalizeSubstList hnd [] = []
 normalizeSubstList hnd [(t,t2)] = [(t, runReader ( norm' t2) hnd)]
 normalizeSubstList hnd ((t,t2) : xs) = (t, runReader ( norm' t2) hnd):(normalizeSubstList hnd xs)
 
+normalizeSubstListCR :: MaudeHandle -> [(LVar, LNTerm)] -> [(LVar, LNTerm)]
+normalizeSubstListCR hnd [] = []
+normalizeSubstListCR hnd [(t,t2)] = [(t, normTermCR t2 hnd)]
+normalizeSubstListCR hnd ((t,t2) : xs) = (t, normTermCR t2 hnd):(normalizeSubstList hnd xs)
+
+
 
 multiplyterm :: LVar -> LNTerm -> LNTerm 
 multiplyterm wvar t@(LIT l) = if (sortOfLNTerm t == LSortVarE) then t else fAppdhTimesE(varTerm wvar, t)
@@ -1267,14 +1273,14 @@ solveIndicatorProto2 basis t1 t2 = do
         eqStore <-  getM sEqStore
         hndCR <- getMaudeHandleCR
         (subst', subst12) <- disjunctionOfList substlist
-        let normsubst = (normalizeSubstList hndCR subst') 
+        let normsubst = (normalizeSubstListCR hndCR subst') 
         contradictoryIf $ variableCheck t1 subst12 t2 normsubst
         let normsubst' = compose (substFromList subst12) (substFromList normsubst)
         setM sEqStore $ applyEqStore hnd (normsubst') eqStore
         neweqstore <- getM sEqStore
         let oldsubsts =  _eqsSubst neweqstore
             newsubst =  substFromList $ normalizeSubstList hnd (substToList oldsubsts)
-            newsubstCR = substFromList $ normalizeSubstList hnd $ normalizeSubstList hndCR (substToList oldsubsts) 
+            newsubstCR = substFromList $ normalizeSubstList hnd $ normalizeSubstListCR hndCR (substToList oldsubsts) 
         setM sEqStore ( neweqstore{_eqsSubst = newsubst} )
         void substSystem
         void normSystemCR
@@ -1300,7 +1306,7 @@ solveIndicatorProto basis t1 t2 = do
         hndCR <- getMaudeHandleCR
         bset <- getM sNotBasis
         (subst', subst12) <- disjunctionOfList substlist
-        let normsubst = (normalizeSubstList hndCR subst') 
+        let normsubst = (normalizeSubstListCR hndCR subst') 
         contradictoryIf $ variableCheck t1 subst12 t2 normsubst
         -- hndCR
         let normsubst' = compose (substFromList subst12) (substFromList normsubst)
@@ -1308,7 +1314,7 @@ solveIndicatorProto basis t1 t2 = do
         neweqstore <- getM sEqStore
         let oldsubsts =  _eqsSubst neweqstore
             newsubst =  substFromList $ normalizeSubstList hnd (substToList oldsubsts)
-            newsubstCR = substFromList $ normalizeSubstList hnd $ normalizeSubstList hndCR (substToList oldsubsts) 
+            newsubstCR = substFromList $ normalizeSubstList hnd $ normalizeSubstListCR hndCR (substToList oldsubsts) 
         setM sEqStore ( neweqstore{_eqsSubst = newsubst} )
         void substSystem
         void normSystemCR
@@ -1383,7 +1389,7 @@ solveIndicatorKFacts2 basis t1 t2 = do
         (subst') <- disjunctionOfList substlist
         let checksub = substFromList subst'
         contradictoryIf (dom checksub `intersect` varsRange checksub /= [])
-        let normsubst = (normalizeSubstList hndCR subst') 
+        let normsubst = (normalizeSubstListCR hndCR subst') 
         setM sEqStore $ applyEqStore hnd (substFromList normsubst) eqStore
         neweqstore <- getM sEqStore
         let oldsubsts =  _eqsSubst neweqstore
@@ -1420,10 +1426,10 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms ta1 ta
     noContradictoryEqStore
     -- setM sEqStore eqs2 
     subst <- getM sSubst
-    let substlist = trace (show ("emptyMap?", subst, allevars)) $ M.fromList $ substToList subst
+    let substlist = M.fromList $ substToList subst
         ints = M.keys substlist `intersect` allevars
         -- extra = allevars \\ ints
-        newvars = trace (show ("emptyMap?", ints)) $ concatMap (\e -> filter (\v->sortOfLNTerm (varTerm v) == LSortE) $ varsVTerm $ substlist M.! e) (ints)
+        newvars = concatMap (\e -> filter (\v->sortOfLNTerm (varTerm v) == LSortE) $ varsVTerm $ substlist M.! e) allevars--(ints)
         varta1 = filter (\x -> not (isvarEVar (LIT (Var x)) || isvarGVar (LIT (Var x)))) $ varsVTerm ta1
         varta2 = filter (\x -> not (isvarEVar (LIT (Var x)) || isvarGVar (LIT (Var x)))) $ varsVTerm ta2
         varsta1 = filter (\x -> not (isvarEVar (LIT (Var x)) || isvarGVar (LIT (Var x)))) $ varsVTerm (apply subst ta1)

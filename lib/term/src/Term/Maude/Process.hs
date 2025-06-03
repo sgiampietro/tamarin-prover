@@ -435,26 +435,25 @@ normViaMaudeDH hnd sortOf t =
 
 
 -- | @startMaude@ starts a new instance of Maude and returns a Handle to it.
-startMaudeCR :: FilePath -> MaudeSig -> IO MaudeHandle
-startMaudeCR maudePath msig = do
-    mv <- newMVar =<< startMaudeProcessCR maudePath msig
+startMaudeCR :: FilePath  -> IO MaudeHandle
+startMaudeCR maudePath  = do
+    mv <- newMVar =<< startMaudeProcessCR maudePath
     -- Add a finalizer to the MVar that stops maude.
     _  <- mkWeakMVar mv $ withMVar mv $ \mp -> do
         terminateProcess (mProc mp) <* waitForProcess (mProc mp)
     -- return the maude handle
-    return (MaudeHandle maudePath msig mv)
+    return (MaudeHandle maudePath dhMultMaudeSig mv)
 
 -- | Start a Maude process.
 startMaudeProcessCR :: FilePath -- ^ Path to Maude
-                  -> MaudeSig
                   -> IO (MaudeProcess)
-startMaudeProcessCR maudePath msig = do
+startMaudeProcessCR maudePath  = do
     (hin,hout,herr,hproc) <- runInteractiveCommand maudeCmd
     _ <- getToDelim hout
     -- set maude flags
     mapM_ (executeMaudeCommand hin hout) setupCmds
     -- input the maude theory
-    executeMaudeCommand hin hout (ppTheoryComRing msig)
+    executeMaudeCommand hin hout (ppTheoryComRing)
     return (MP hin hout herr hproc 0 0 0 0)
   where
     maudeCmd

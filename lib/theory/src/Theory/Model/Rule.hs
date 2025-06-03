@@ -200,7 +200,7 @@ import           Theory.Text.Pretty
 import           Theory.Sapic
 import           Theory.Constraint.Solver.Combination
 
--- import           Debug.Trace
+import           Debug.Trace.Ignore
 
 ------------------------------------------------------------------------------
 -- General Rule
@@ -757,7 +757,7 @@ normRule (Rule rn ps cs as nvs) = reader $ \hnd -> (Rule rn (normFacts ps hnd) (
     normTerms fs hnd' = map (\f -> runReader (norm' f) hnd') fs
 
 normTermCR :: LNTerm -> MaudeHandle -> LNTerm
-normTermCR t hnd = case viewTerm3 t of
+normTermCR t hnd = case trace (show ("CALLIGNORM ON", t, viewTerm3 t)) $ viewTerm3 t of
   MsgLit a -> t
   MsgFApp o ts -> FAPP o (map (\x -> normTermCR x hnd) ts)
   DH _ _ -> case sortOfLNTerm t of 

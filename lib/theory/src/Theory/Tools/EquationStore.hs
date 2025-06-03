@@ -711,7 +711,7 @@ addDHProtoEqs hnd allevars t1zzs permt zzbool eqdhstore = do
             --let newsubsts = map (substFromListVFresh) substs
           substs' <- trace (show ("addDHProtoEq somesol", substs, allevars)) $ mapM generalize newsubsts
           let esubsts' = freshToFreeAvoiding esubsts (_eqsSubst eqdhstore)
-              eqStores' =  map (\sb -> applyEqStore hnd ((\x-> compose esubsts' $ freshToFreeAvoidingSmart x (_eqsSubst eqdhstore)) sb ) eqdhstore) substs'
+              eqStores' =  map (\sb -> applyEqStore hnd ((compose esubsts' $ freshToFreeAvoidingSmart sb (_eqsSubst eqdhstore))) eqdhstore) substs'
           return (map (\eqS -> (eqS, Nothing)) eqStores')
           where
             permvars = nub $ concatMap varsVTerm permt

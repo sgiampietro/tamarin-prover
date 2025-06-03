@@ -333,7 +333,7 @@ ppTheory msig = BC.unlines $
         --, "  eq tamXCdhBP(tamXCdhMult(tamXCdhExp(A, X), tamXCdhExp(A, Y)), B) = tamXCdhExp(tamXCdhBP(A,B), tamXCdhPlus(X,Y)) ."
         --, "  eq tamXCdhBP(B,  tamXCdhExp(A, X)) = tamXCdhExp(tamXCdhBP(B,A), X) ." -- by Commutativity, don't need to add equation for also b right?
         --, "  eq tamXCdhBP(B, tamXCdhMult(tamXCdhExp(A, X), tamXCdhExp(A, Y))) = tamXCdhExp(tamXCdhBP(B,A), tamXCdhPlus(X,Y)) ."
-        ] 
+        ]
        else [])
     ++
     (if enableNat msig
@@ -629,9 +629,49 @@ ppTheoryDHsimp = BC.unlines $
       , "endfm"] 
 
 
-ppTheoryComRing :: MaudeSig -> ByteString
-ppTheoryComRing msig = BC.unlines $
+ppTheoryComRing ::  ByteString
+ppTheoryComRing = BC.unlines $
       [ "fmod CR is "
+      , "  protecting NAT ."
+      , "  sort Msg Fresh DH E NZE G BG FrNZE Pub ."
+      , "  subsort Fresh < Msg ."
+      , "  subsort Pub < Msg ."
+      , "  subsort DH < Msg . "
+      , "  subsort E < DH ."
+      , "  subsort NZE < DH ."
+      , "  subsort G < DH ."
+      , "  subsort FrNZE < DH ."
+      , "  subsort BG < DH ."
+      , "  op tamXCdhGinv : DH -> DH ."
+      , "  op tamXCdhMult : DH DH -> DH ."
+      , "  op tamXCdhZero : -> DH ."
+      , "  op tamXCdhInv : DH -> DH ."
+      , "  op tamXCdhEg : -> DH ."
+      , "  op tamXCdhPlus : DH DH -> DH [assoc comm] ."
+      , "  op tamXCdhTimesE : DH DH -> DH [assoc comm] ."
+      , "  op tamXCdhTimes : DH DH -> DH ."
+      , "  op tamXCdhExp : DH DH -> DH ."
+      , "  op tamXCdhBP : DH DH -> DH ."
+      , "  op tamXCdhH : Msg -> DH ."
+      , "  op tamXCdhOne : -> DH ."
+      , "  op tamXCdhMu : DH -> DH ."
+      , "  op tamXCdhMinus : DH -> DH ."
+      , "  op bg : Nat -> DH ."
+      , "  op p : Nat -> DH ."
+      , "  vars X Y Z : DH ."
+      , "  eq tamXCdhPlus(X, tamXCdhZero) = X ."
+      , "  eq tamXCdhTimesE(X, tamXCdhOne) = X ."
+      , "  eq tamXCdhTimesE(X, tamXCdhZero) = tamXCdhZero ."
+      , "  eq tamXCdhPlus(X, tamXCdhMinus(X)) = tamXCdhZero ."
+      , "  eq tamXCdhInv(tamXCdhTimesE(X,Y)) = tamXCdhTimesE(tamXCdhInv(X), tamXCdhInv(Y)) ."
+      , "  eq tamXCdhMinus(tamXCdhTimesE(X,Y)) = tamXCdhTimesE(tamXCdhMinus(tamXCdhOne),X, Y) ."
+      , "  eq tamXCdhTimesE(tamXCdhMinus(tamXCdhOne), tamXCdhMinus(tamXCdhOne)) = tamXCdhOne ."
+      , "  eq tamXCdhPlus(tamXCdhTimesE(X, Y), tamXCdhTimesE(X, Z)) = tamXCdhTimesE(X, tamXCdhPlus(Y, Z)) ."
+      , "  ceq tamXCdhTimesE(tamXCdhInv(X), X) = tamXCdhOne "
+      , "       if X =/= tamXCdhZero ."
+      , "  eq tamXCdhTimes(X, Y) = tamXCdhTimesE(X, Y) ."
+      , "endfm"] 
+{-}      [ "fmod CR is "
       , "  protecting NAT ."
       , "  sort Msg Fresh DH E NZE G BG FrNZE Pub ."
       , "  subsort Fresh < Msg ."
@@ -678,32 +718,5 @@ ppTheoryComRing msig = BC.unlines $
       maybeEncode Nothing             = ""
       theoryOp attr fsort = "  op " <> funSymPrefix <> maybeEncode attr <> fsort <>" ."
       theoryFunSym (s,(ar,priv,cnstr)) = theoryOp  (Just (priv,cnstr)) (replaceUnderscore s <> " : " <> (B.concat $ replicate ar "Msg ") <> " -> Msg")
-
-
-
-{-
-ppTheoryComRing ::  ByteString
-ppTheoryComRing = BC.unlines $
-      [ "fmod CR is"
-      , "  protecting NAT ."
-      , "  sort R E NZE G ."
-      , "  subsort E < R ."
-      , "  subsort NZE < R ."
-      , "  op crZero : -> R ."
-      , "  op crInv : R -> R ."
-      , "  op crTimes : R R -> R [assoc comm] ."
-      , "  op crOne : -> R ."
-      , "  op crMu : G -> R ."
-      , "  op crPlus : R R -> R [assoc comm] ."
-      , "  op bg : Nat -> R ."
-      , "  vars X Y Z : R ."
-      , "  eq crPlus(crZero, X) = X ."
-      , "  eq crTimes(X, crOne) = X ."
-      , "  ceq crTimes(crInv(X), X) = crOne "
-      , "      if X =/= crZero ."
-      , "  eq crPlus(crTimes(X, Y), crTimes(X, Z)) = crTimes(X, crPlus(Y, Z)) ."
-      , "  eq crPlus(X, crMinus(X)) = crZero ."
-      , "  eq crMinus(crPlus(X, Y)) = crPlus(crMinus(X), crMinus(Y)) ."
-      , "  eq crTimes(X, crZero) = crZero ."
-      , "endfm"] 
 -}
+
