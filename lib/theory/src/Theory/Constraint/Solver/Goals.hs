@@ -527,7 +527,6 @@ solveChain rules (c, p) = do
                 caseName (viewTerm -> Lit l)       = showLitName l 
             void substSystem
             void normSystem
-            eqsr <- getM sEqStore
             contradictoryIf (illegalCoerce pRule mPrem)
             return (caseName mPrem)  ) 
       | otherwise =    (do

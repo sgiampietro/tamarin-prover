@@ -78,6 +78,8 @@ module Theory.Constraint.System.Guarded (
   , skolemizeFact
   , matchAction
   , matchTerm
+  , normSKFact
+  , normSKTerm
   , applySkAction
   , applySkTerm
 
@@ -816,6 +818,20 @@ transformTuple hnd sortOf (a,b) =
                     (FApp (NoEq pairSym) [x, y]) -> (x,y)
                     _ -> error $ "something went wrong" ++ show t
 
+
+normSKFact :: SkFact -> WithMaude SkFact
+normSKFact t@(Fact a b c) =  reader $ \hnd -> (Fact a b (map (\t2 -> runReader (norm sortOfSkol t2) hnd) c))
+    -- solveMatchLTerm sortOfSkol (s `matchWith` t)
+  where
+    sortOfSkol (SkName  n) = sortOfName n
+    sortOfSkol (SkConst v) = lvarSort v
+
+normSKTerm :: SkTerm -> WithMaude SkTerm
+normSKTerm a =  reader $ \hnd -> (runReader (norm sortOfSkol a) hnd) 
+    -- solveMatchLTerm sortOfSkol (s `matchWith` t)
+  where
+    sortOfSkol (SkName  n) = sortOfName n
+    sortOfSkol (SkConst v) = lvarSort v
 
 matchAction :: (SkTerm, SkFact) ->  (SkTerm, SkFact) -> WithMaude [SkSubst]
 matchAction (i1, fa1) (i2, fa2) =
