@@ -49,8 +49,7 @@ norm sortOf t         = trace (show ("term before normalization", t, sortOfLTerm
 norm :: (IsConst c)
      => (c -> LSort) -> LTerm c -> WithMaude (LTerm c)
 norm _      t@(viewTerm -> Lit _) = return t
-norm sortOf t         = trace (show ("term before normalization", t, sortOfLTerm (sortOf) t)) normalized 
-                          where normalized = reader $ \hnd -> unsafePerformIO $ normViaMaude hnd sortOf t
+norm sortOf t         = reader $ \hnd -> unsafePerformIO $ normViaMaude hnd sortOf t
 
 
 -- | @norm' t@ normalizes the term @t@ using Maude.

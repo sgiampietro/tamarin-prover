@@ -109,7 +109,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -1036,6 +1036,7 @@ normSystem = do
 normalizeFact :: MaudeHandle -> LNFact -> LNFact
 normalizeFact hnd fa@(Fact f1 f2 faterms) = Fact f1 f2 (map (\t-> runReader (norm' t) hnd) faterms)
 
+
 normalizeGoal :: MaudeHandle -> Goal -> Goal
 normalizeGoal hnd goal = case goal of
         ActionG v fact -> ActionG v $ normalizeFact hnd fact
@@ -1178,7 +1179,7 @@ normalizeSubstList hnd ((t,t2) : xs) = (t, runReader ( norm' t2) hnd):(normalize
 normalizeSubstListCR :: MaudeHandle -> [(LVar, LNTerm)] -> [(LVar, LNTerm)]
 normalizeSubstListCR hnd [] = []
 normalizeSubstListCR hnd [(t,t2)] = [(t, normTermCR t2 hnd)]
-normalizeSubstListCR hnd ((t,t2) : xs) = (t, normTermCR t2 hnd):(normalizeSubstList hnd xs)
+normalizeSubstListCR hnd ((t,t2) : xs) = (t, normTermCR t2 hnd):(normalizeSubstListCR hnd xs)
 
 
 
@@ -1265,8 +1266,8 @@ solveIndicatorProto2 basis t1 t2 = do
       newt2 = runReader (norm' $ applyVTerm subst0 t2) hnd
   eqStore <- getM sEqStore
   setM sEqStore $ applyEqStore hnd subst0 eqStore
-  void substSystem
-  trace (show ("solvingGaussProto2", t1,t2,basis, "after subst,", newt1,newt2)) $ void normSystem
+  --void substSystem
+  --trace (show ("solvingGaussProto2", t1,t2,basis, "after subst,", newt1,newt2)) $ void normSystem
   bb <- disjunctionOfList $ (solveIndicatorGaussProto hnd basis newt1 newt2)
   case bb of
    Just substlist ->  do
@@ -1282,14 +1283,14 @@ solveIndicatorProto2 basis t1 t2 = do
             newsubst =  substFromList $ normalizeSubstList hnd (substToList oldsubsts)
             newsubstCR = substFromList $ normalizeSubstList hnd $ normalizeSubstListCR hndCR (substToList oldsubsts) 
         setM sEqStore ( neweqstore{_eqsSubst = newsubst} )
-        void substSystem
-        void normSystemCR
         let normedpair = (runReader (norm' $ fAppPair ((applyVTerm newsubstCR t1, applyVTerm newsubstCR t2))) hnd)
             unpair t = case viewTerm t of
                             (FApp (NoEq pairSym) [x, y]) ->(x,y)
                             _ -> error $ "something went wrong" ++ show t
             (sta1,sta2) =  unpair normedpair
         contradictoryIf (not (sta1 == sta2)) 
+        void substSystem
+        void normSystemCR
         void normSystem
         return "Matched"
    Nothing -> do
@@ -1316,14 +1317,14 @@ solveIndicatorProto basis t1 t2 = do
             newsubst =  substFromList $ normalizeSubstList hnd (substToList oldsubsts)
             newsubstCR = substFromList $ normalizeSubstList hnd $ normalizeSubstListCR hndCR (substToList oldsubsts) 
         setM sEqStore ( neweqstore{_eqsSubst = newsubst} )
-        void substSystem
-        void normSystemCR
         let normedpair = (runReader (norm' $ fAppPair ((applyVTerm newsubstCR t1, applyVTerm newsubstCR t2))) hnd)
             unpair t = case viewTerm t of
                             (FApp (NoEq pairSym) [x, y]) ->(x,y)
                             _ -> error $ "something went wrong" ++ show t
             (sta1,sta2) =  unpair normedpair
-        trace (show ("afternorming", sta1,sta2)) $ contradictoryIf (not (sta1 == sta2))       
+        trace (show ("afternorming", sta1,sta2)) $ contradictoryIf (not (sta1 == sta2))
+        void substSystem
+        void normSystemCR       
         void normSystem
         return "Matched"
    Nothing -> do
@@ -1346,14 +1347,12 @@ solveIndicatorKFacts basis t1 t2 = do
         (subst') <- disjunctionOfList substlist
         let checksub = substFromList subst'
         trace (show ("contr", subst',(dom checksub `intersect` varsRange checksub /= []))) $ contradictoryIf (dom checksub `intersect` varsRange checksub /= [])
-        let normsubst = trace (show ("tryingthis", subst')) (normalizeSubstList hndCR subst') 
+        let normsubst = trace (show ("tryingthis", subst')) (normalizeSubstListCR hndCR subst') 
         setM sEqStore $ applyEqStore hnd (substFromList normsubst) eqStore
         neweqstore <- getM sEqStore
         let oldsubsts =  _eqsSubst neweqstore
             newsubst =  substFromList $ normalizeSubstList hnd (substToList oldsubsts)
         setM sEqStore ( neweqstore{_eqsSubst = newsubst} )
-        void substSystem
-        void normSystemCR
         subst <- getM sSubst
         let normedpair = (runReader (norm' $ fAppPair ((applyVTerm subst t1, applyVTerm subst t2))) hnd)
             unpair t = case viewTerm t of
@@ -1361,6 +1360,8 @@ solveIndicatorKFacts basis t1 t2 = do
                             _ -> error $ "something went wrong" ++ show t
             (sta1,sta2) =  unpair normedpair
         trace (show ("solutionfound", sta1,sta2, "nb", nb, bb)) $ contradictoryIf (not (sta1 == sta2))                                 
+        void substSystem
+        void normSystemCR
         void normSystem
         return "Matched"
    Nothing -> do
@@ -1395,15 +1396,15 @@ solveIndicatorKFacts2 basis t1 t2 = do
         let oldsubsts =  _eqsSubst neweqstore
             newsubst =  substFromList $ normalizeSubstList hnd (substToList oldsubsts)
         setM sEqStore ( neweqstore{_eqsSubst = newsubst} )
-        void substSystem
-        void normSystemCR
         subst <- getM sSubst
         let normedpair = (runReader (norm' $ fAppPair ((applyVTerm subst t1, applyVTerm subst t2))) hnd)
             unpair t = case viewTerm t of
                             (FApp (NoEq pairSym) [x, y]) ->(x,y)
                             _ -> error $ "something went wrong" ++ show t
             (sta1,sta2) =  unpair normedpair
-        contradictoryIf (not (sta1 == sta2))                                 
+        contradictoryIf (not (sta1 == sta2))
+        void substSystem
+        void normSystemCR                                 
         void normSystem
         return "Matched"
    Nothing -> do
@@ -1415,7 +1416,8 @@ solveIndicatorKFacts2 basis t1 t2 = do
 solveDHProtoEqsAux :: SplitStrategy -> S.Set LNTerm  -> S.Set LNTerm -> MaudeHandle -> MaudeHandle -> [LVar] -> [LNTerm] -> LNTerm -> LNTerm -> [LNTerm] -> StateT System (FreshT (DisjT (Reader ProofContext))) ()
 solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms ta1 ta2 permutedlist= do
     -- permutedlist <- disjunctionOfList $ permutations outterms
-    zzs <- trace (show ("PROTOAUX!", ta1,ta2)) $ replicateM (length xindterms) $ freshLVar "zz" LSortE
+    fs <- getM sFormulas
+    zzs <- trace (show ("PROTOAUX!", ta1,ta2 ,fs)) $ replicateM (length xindterms) $ freshLVar "zz" LSortE
     let genindterms = zipWith (\i z-> (i, runReader (norm' $ fAppdhExp (i, LIT (Var z)) ) hndNormal, z) ) xindterms zzs
     --  let genindterms = zip xindterms zzs
     eqstore <- trace (show ("addEqs soon", genindterms, permutedlist, bset)) $ getM sEqStore
@@ -1425,11 +1427,11 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms ta1 ta
     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
     noContradictoryEqStore
     -- setM sEqStore eqs2 
-    subst <- getM sSubst
+    subst <- trace (show ("herewedon't norm substlist", eqs2)) $ getM sSubst
     let substlist = M.fromList $ substToList subst
         ints = M.keys substlist `intersect` allevars
         -- extra = allevars \\ ints
-        newvars = concatMap (\e -> filter (\v->sortOfLNTerm (varTerm v) == LSortE) $ varsVTerm $ substlist M.! e) allevars--(ints)
+        newvars = concatMap (\e -> filter (\v->sortOfLNTerm (varTerm v) == LSortE) $ varsVTerm $ substlist M.! e) ints
         varta1 = filter (\x -> not (isvarEVar (LIT (Var x)) || isvarGVar (LIT (Var x)))) $ varsVTerm ta1
         varta2 = filter (\x -> not (isvarEVar (LIT (Var x)) || isvarGVar (LIT (Var x)))) $ varsVTerm ta2
         varsta1 = filter (\x -> not (isvarEVar (LIT (Var x)) || isvarGVar (LIT (Var x)))) $ varsVTerm (apply subst ta1)
@@ -1453,7 +1455,7 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms ta1 ta
                                             void normSystem
                               else contradictoryIf True
                     _  -> do
-                            void substSystem
+                            -- void substSystem
                             let matrixvars = getVariablesOf [sta1, sta2]
                             freevars <- replicateM (length matrixvars) $ freshLVar "vy" LSortE
                             if length matrixvars >1 
@@ -1463,7 +1465,7 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms ta1 ta
                               else solveIndicatorProto (map varTerm freevars) sta1 sta2-- nb sta1 sta2
                             void normSystem
             _  -> do
-                    void substSystem
+                    --void substSystem
                     let matrixvars = getVariablesOf [sta1, sta2]                 
                     freevars <- replicateM (length matrixvars) $ freshLVar "vy" LSortE
                     if length matrixvars >1 
@@ -1490,7 +1492,7 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms ta1 ta
                                             void normSystem
                               else contradictoryIf True
                     _  -> do
-                            void substSystem
+                            --void substSystem
                             let matrixvars = getVariablesOf [sta1, sta2]                 
                             freevars <-  replicateM (length matrixvars) $ freshLVar "vy" LSortE
                             if length matrixvars >1 
@@ -1498,7 +1500,7 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms ta1 ta
                               else solveIndicatorProto (map varTerm freevars) sta1 sta2
                             void normSystem
             _  -> do
-                    void substSystem
+                    --void substSystem
                     let matrixvars = getVariablesOf [sta1, sta2]                   
                     freevars <- replicateM (length matrixvars) $ freshLVar "vy" LSortE
                     if length matrixvars >1 
@@ -1678,8 +1680,8 @@ markFirst (x:xs) = (x{lvarName = "ff1"}):xs
 protoCase :: SplitStrategy -> S.Set LNTerm -> S.Set LNTerm -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
 protoCase splitStrat bset nbset (ta1, ta2) = do
         subst <- getM sEqStore
-        nocancs <- getM sNoCanc
-        hndNormal <- trace (show ("startingProtoCase", ta1,ta2)) $ getMaudeHandle
+        fs <- getM sFormulas
+        hndNormal <- trace (show ("startingProtoCase", ta1,ta2, fs)) $ getMaudeHandle
         let ta11 = applyVTerm (_eqsSubst subst) ta1
             ta22 = applyVTerm (_eqsSubst subst) ta2
             -- todo! check here if nta1 and nta2 are already equal!
@@ -1712,7 +1714,7 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
                                 oldsubst <- trace (show ("specialcase", subst)) $ getM sSubst
                                 eqstore <- getM sEqStore
                                 setM sEqStore ( eqstore{_eqsSubst = (compose substEX oldsubst)} )
-                                void substSystem
+                                -- void substSystem
                                 solveIndicatorProto (map varTerm freevars) (applyVTerm substEX nta1) (applyVTerm substEX nta2)
                                 return Changed
                               else do
@@ -1741,8 +1743,8 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
                                             eqstore <- getM sEqStore
                                             setM sEqStore ( eqstore{_eqsSubst = substFromList $ normalizeSubstList hndNormal $ substToList (compose newsubst oldsubst)} )
                                             eqstore2 <- getM sEqStore
-                                            trace (show ("going into ProtoAux4", eqsIsFalse eqstore2)) $ void normSystem
-                                            trace (show ("going into ProtoAux",ta1,ta2)) $ void substSystem
+                                            --trace (show ("going into ProtoAux4", eqsIsFalse eqstore2, eqstore2)) $ void normSystem
+                                            --trace (show ("going into ProtoAux",ta1,ta2)) $ void substSystem
                                             let nta2p = (runReader (norm' $ applyVTerm newsubst nta2) hndNormal) 
                                                 allevars = filter (\x -> lvarSort x == LSortE) $ nub $ varsVTerm nta1 ++ varsVTerm nta2p
                                             solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms nta1 nta2p newpermlist -- $ map (rootIndKnown2 hndNormal bset $ S.fromList (filter isFrNZEVar $ S.toList nbset)) newpermlist
