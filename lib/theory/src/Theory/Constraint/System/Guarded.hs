@@ -80,6 +80,7 @@ module Theory.Constraint.System.Guarded (
   , matchTerm
   , normSKFact
   , normSKTerm
+  , normSK2Fact
   , applySkAction
   , applySkTerm
 
@@ -832,6 +833,16 @@ normSKTerm a =  reader $ \hnd -> (runReader (norm sortOfSkol a) hnd)
   where
     sortOfSkol (SkName  n) = sortOfName n
     sortOfSkol (SkConst v) = lvarSort v
+
+normSK2Fact :: MaudeHandle -> SkFact -> SkFact -> (SkFact, SkFact)
+normSK2Fact hnd t@(Fact a b c) t2@(Fact a2 b2 c2) =  (Fact a b (map fst zipednormed), Fact a2 b2 (map snd zipednormed))
+  where normedpair t1 t2= (runReader (normSKTerm $ fAppPair (t1, t2)) hnd)
+        unpair t = case viewTerm t of
+                            (FApp (NoEq pairSym) [x, y]) ->(x,y)
+                            _ -> error $ "something went wrong" ++ show t
+        pairnorm (t1,t2) =  unpair (normedpair t1 t2)
+        zipednormed = map pairnorm (zip c c2)
+
 
 matchAction :: (SkTerm, SkFact) ->  (SkTerm, SkFact) -> WithMaude [SkSubst]
 matchAction (i1, fa1) (i2, fa2) =

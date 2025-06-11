@@ -192,7 +192,7 @@ rootSetMu operator t@(FAPP (DHMult o) ts) = case ts of
     [ t1 ]                        -> S.singleton t
     []                            -> S.singleton t
     _         -> error $ "malformed term `"++show t++"'"
-rootSetMu operator t = error ("rootSet applied on non DH term'"++show t++"Done")
+rootSetMu operator t = error ("Mu applied on non DH term'"++show t++"Done")
 
 multRootMixed :: LNTerm ->  [LNTerm]
 multRootMixed a = case sortOfLNTerm a of
@@ -356,7 +356,7 @@ rootIndKnown b nb t@(viewTerm2 -> Lit2 (Con _)) = t -- (FAPP (DHMult dhEgSym) []
 rootIndKnown b nb t@(viewTerm2 -> DHZero) = (FAPP (DHMult dhOneSym) [])
 rootIndKnown b nb t@(viewTerm2 -> DHOne) = (FAPP (DHMult dhOneSym) [])
 rootIndKnown b nb t@(viewTerm2 -> DHEg) = (FAPP (DHMult dhEgSym) [])
-rootIndKnown b nb t = error ("rootSet applied on non DH"++show t++"term")
+rootIndKnown b nb t = error ("rootSetIndKnwon applied on non DH"++show t++"term")
 
 rootIndKnownMaude::  S.Set LNTerm -> S.Set LNTerm -> LNTerm -> WithMaude LNTerm
 rootIndKnownMaude b nb t = norm' (rootIndKnown b nb t)
@@ -381,7 +381,7 @@ rootIndKnown2 hnd b nb t@(viewTerm2 -> Lit2 (Con _)) = t
 rootIndKnown2 hnd b nb t@(viewTerm2 -> DHZero) = (FAPP (DHMult dhOneSym) [])
 rootIndKnown2 hnd b nb t@(viewTerm2 -> DHOne) = (FAPP (DHMult dhOneSym) [])
 rootIndKnown2 hnd b nb t@(viewTerm2 -> DHEg) = (FAPP (DHMult dhEgSym) [])
-rootIndKnown2 hnd b nb t = error ("rootSet applied on non DH"++show t++"term")
+rootIndKnown2 hnd b nb t = error ("rootdhInd2 applied on non DH"++show t++"term")
 
 
 rootIndUnknown :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> (LNTerm, [(LVar, VTerm Name LVar)])

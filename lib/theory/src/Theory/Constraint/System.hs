@@ -1122,19 +1122,18 @@ impliedFormulas hnd sys gf0 = res
     prepare ato           = Right (fmap (fmapTerm (fmap Free)) ato)
 
     sysActions = do (i, fa) <- allActions sys
-                    let fa2 = fa { factTerms = map (\t -> runReader (norm' t) hnd) $ factTerms fa} 
-                    return (skolemizeTerm (varTerm i), skolemizeFact fa2)
+                    --let fa2 = fa { factTerms = map (\t -> runReader (norm' t) hnd) $ factTerms fa} 
+                    return (skolemizeTerm (varTerm i), skolemizeFact fa)
 
     candidateSubsts subst []               = return $ subst
     candidateSubsts subst ((GAction a fa):as) = do
-        sysAct <- sysActions
-        let a2 = runReader (normSKTerm a) hnd
-            f2 = runReader (normSKFact fa) hnd
+        (sysActTerm,sysActFact) <- sysActions
+        let (fa2,sysActFact2) = normSK2Fact hnd fa sysActFact
         -- let areeq = trace (show ("CheckingActionviaNorm",sysAct, (applySkAction subst (a, fa)), areeq)) $ (`runReader` hnd) $ checkAction sysAct (applySkAction subst (a, fa))
         --if areeq 
         --  then candidateSubsts subst as
         --  else do
-        subst' <- (`runReader` hnd) $ matchAction sysAct (applySkAction subst (a2, f2))
+        subst' <- (`runReader` hnd) $ matchAction (sysActTerm, sysActFact2) (applySkAction subst (a, fa2))
         candidateSubsts (compose subst' subst) as
     candidateSubsts subst ((GEqE s' t'):as)   = do
         let s = applySkTerm subst s'
