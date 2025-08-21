@@ -1,0 +1,54 @@
+theory Joux_MITM
+begin
+
+
+/* ----------------- */
+/* Equational theory */
+/* ----------------- */
+
+/* Load the built-in symmetrical encryption theory */
+builtins: DH-multiplication
+
+/* -------------- */
+/* Protocol rules */
+/* -------------- */
+
+rule GenKey:  // share a key pair between two parties.
+   [ FrDH(Fx) ] 
+   --[  ]->
+   [ !SKey($A, Fx), !PubKey($A, dhExp(P'g', Fx)), Out(<$A,  dhExp(P'g', Fx)>) ]
+
+
+rule AgreeKey: 
+  let pkb = dhExp(P'g', Eb)
+      pkc = dhExp(P'g', Ec)
+  in
+  [!SKey($A, Fska), In(<$B, pkb>), In(<$C, pkc>) ]
+  --[ Agree($A,$B,$C, dhExp(dhBP(pkb,pkc),Fska) ), Neq(A,B), Neq(B,C), Neq(A,C) ]->
+  [KeyExchanged($A, $B,$C, dhExp(dhBP(pkb,pkc),Fska))]
+
+rule sendA:
+[KeyExchanged($A, $B,$C, Gkey), Fr(~m)]
+--[SentA($A, ~m)]->
+[Out(senc(~m, Gkey))]
+
+rule receiveB:
+[KeyExchanged($B, $A,$C, Gkey), In(senc(m,Gkey))]
+--[ReceivedB($B,$A,$C, m)]->
+[] 
+
+restriction noteq:
+"All a b #i. Neq(a,b)@i ==> not (a=b)"
+
+lemma executable:
+exists-trace
+"Ex A B C key #j1 #j2 #j3. Agree(A,B,C,key)@j1 &
+ Agree(B,A,C,key)@j2 & Agree(C,A,B,key)@j3"
+
+lemma authenticated: 
+"All A B C m #i. ReceivedB(A,B, C, m)@i ==> Ex #j. SentA($A,m) | Ex #j. SentA($C, m)"
+
+end
+
+
+

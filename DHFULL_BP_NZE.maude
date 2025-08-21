@@ -1,0 +1,66 @@
+(fmod DHBP is
+      sort Msg G E NZE BG FrNZE VarE VarG .
+      subsort G < Msg .
+      subsort E < Msg .
+      subsort VarE < E .
+      subsort VarG < G .
+      subsort NZE < E .
+      subsort FrNZE < NZE .
+      subsort BG < G .
+      op dhMult : G G -> G [assoc comm] .
+      op dhGinv : G -> G .
+      op dhZero : -> E .
+      op dhMinus : E -> E .
+      op dhInv : NZE -> NZE .
+      op dhEg : -> G .
+      op dhTimesE : E E -> E [assoc comm] .
+      op dhTimes : NZE NZE -> NZE [assoc comm] .
+      op dhPlus : E E -> E [assoc comm] .
+      op dhExp : G E -> G .
+      op dhOne : -> NZE .
+      op dhMu : G -> E .
+      op dhMu2 : G G -> NZE .
+      op dhBP : G G -> E .
+      op dhH : G -> NZE .
+      op dhH2 : G G -> NZE .
+      vars A B C : G .
+      vars X Y Z : E .
+      vars U V : NZE .
+      eq dhMult(dhEg, A) = A .
+      eq dhMult(A, dhGinv (A)) = dhEg .
+      eq dhPlus(dhZero, X) = X .
+      eq dhTimesE(X , dhOne) = X .
+      eq dhTimes(U , dhOne) = U .
+      eq dhPlus(X , dhMinus(X)) = dhZero .
+      eq dhTimesE(X, dhPlus(Y, Z)) = dhPlus(dhTimesE(X, Y), dhTimesE(X, Z)) .
+      eq dhExp(dhExp(A, X), Y) = dhExp(A, dhTimesE(X, Y)) .
+      eq dhExp(dhMult(A, B), X) = dhMult(dhExp(A, X), dhExp(B, X)) .
+      eq dhExp(A, dhOne) = A .
+      eq dhExp(dhEg, X) = dhEg .
+      eq dhExp(A, dhPlus(X, Y)) = dhMult(dhExp(A, X), dhExp(A, Y)) .
+      eq dhTimesE(U, V) = dhTimes(U, V) .
+      eq dhTimes(U, dhInv(U)) = dhOne .
+      eq dhInv(dhTimes(U,V)) = dhTimes(dhInv(U) , dhInv(V)) .
+      eq dhInv(dhOne) = dhOne .
+      eq dhInv(dhInv(U)) = U .
+      eq dhInv(dhMinus(U)) = dhMinus(dhInv(U)) .
+      eq dhGinv(dhEg) = dhEg .
+      eq dhGinv(dhMult(A, B)) = dhMult(dhGinv(A), dhGinv(B)) .
+      eq dhGinv(dhGinv(B)) = B .
+      eq dhExp(dhGinv(A), X) = dhGinv(dhExp(A, X)) .
+      eq dhExp(A, dhZero) = dhEg .
+      eq dhExp(A, dhMinus(X) ) = dhGinv(dhExp(A, X)) .
+      eq dhMinus(dhZero) = dhZero .
+      eq dhMinus(dhPlus(X,Y)) = dhPlus((dhMinus(X)), (dhMinus(Y))) .
+      eq dhMinus( dhMinus(X)) = X .
+      eq dhTimesE(dhZero, X) = dhZero .
+      eq dhTimesE((dhMinus(X)), Y) = dhMinus(dhTimesE(X, Y)) .
+      eq dhBP(dhExp(A, X), B) = dhTimesE(dhBP(A,B), X) .
+      eq dhBP(A, dhExp(B, X)) = dhTimesE(dhBP(A,B), X) .
+      eq dhBP(dhGinv(A), B) = dhMinus(dhBP(A,B)) .
+      eq dhBP(A, dhGinv(B)) = dhMinus(dhBP(A,B)) .
+      eq dhBP(A, dhEg) = dhZero .
+      eq dhBP(dhEg, B) = dhZero .
+      eq dhBP(dhMult(A,C), B) = dhPlus(dhBP(A,B), dhBP(C,B)) .
+      eq dhBP(B, dhMult(A,C)) = dhPlus(dhBP(B,A), dhBP(B,C)) .
+     endfm)

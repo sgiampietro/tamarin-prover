@@ -1,0 +1,47 @@
+theory BLS
+begin
+
+
+/* ----------------- */
+/* Equational theory */
+/* ----------------- */
+
+/* Load the built-in symmetrical encryption theory */
+builtins: DH-multiplication
+
+/* -------------- */
+/* Protocol rules */
+/* -------------- */
+
+rule GenKey:  // share a key pair between two parties.
+   [ FrDH(Fx) ] 
+   --[  ]->
+   [ !SKey($A, Fx), !PubKey($A, dhExp(P'g2', Fx)),
+     Out(dhExp(P'g2', Fx)) ]
+
+rule SignMessage:
+  [!SKey($I, Fski), Fr(~x)]
+  --[ Signed($I, ~x) ]->
+  [Out(<$I, ~x, dhExp(dhExp(P'g1', dhH(~x)), Fski)>)]
+
+rule VerifyMessage:
+  [!PubKey($I, dhExp(P'g2', Eki) ), In(<$I, mess, dhExp(P'g1',Esign)>)]
+  --[ Eq( dhBP(dhExp(P'g1',dhH(mess)), dhExp(P'g2', Eki)), dhBP(dhExp(P'g1', Esign), P'g2') ), Verified(mess, $I, dhExp(P'g1',Esign))]->
+  [ Done(mess, $I, dhExp(P'g1',Esign)) ]
+
+
+restriction equality: 
+"All x y #i. Eq(x,y)@i ==> x = y"
+
+
+lemma executable:
+exists-trace
+"Ex I Gs m #i #j. Verified(m, I, Gs)@i & Signed(I, m)@j"
+
+lemma unforgeable:
+"All I Gs m #i. Verified(m, I, Gs)@i ==> Ex #j. Signed(I, m)@j"
+
+end
+
+
+

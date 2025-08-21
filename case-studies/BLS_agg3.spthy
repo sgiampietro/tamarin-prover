@@ -1,0 +1,57 @@
+theory MQV
+begin
+
+
+/* ----------------- */
+/* Equational theory */
+/* ----------------- */
+
+/* Load the built-in symmetrical encryption theory */
+builtins: DH-multiplication
+
+/* -------------- */
+/* Protocol rules */
+/* -------------- */
+
+rule GenKey:  // share a key pair between two parties.
+   [ FrDH(Fx) ] 
+   --[  ]->
+   [ !SKey($A, Fx), !PubKey($A, dhExp(P'g', Fx)),
+     Out(dhExp(P'g', Fx)) ]
+
+rule SignMessage: //This is like an oracle!
+  let sgn = dhExp(dhExp(P'g',dhH(x)), Fski)
+  [!SKey($I, Fski), In(x)]
+  --[ Signed($I, x) ]->
+  [Out(<$I, x, sgn>)]
+
+rule Aggregate3:
+  [In(<$I1, x1, Gsgn1>), In(<$I2, x2, Gsgn2>), In(<$I3, x3, Gsgn3>) ]
+  --[AggregateSignature(<$I1, $I2, $I3>, <x1, x2,x3>, dhMult(Gsgn1, dhMult(Gsgn2,Gsgn3))]->
+  [ Out(<$I1, $I2, $I3>), Out(<x1, x2,x3>), Out(dhMult(Gsgn1, dhMult(Gsgn2,Gsgn3))) ]
+  // AggregateSignature(<$I1, $I2, $I3>, <x1, x2,x3>, dhMult(Gsgn1, dhMult(Gsgn2,Gsgn3)) ]
+
+rule VerifyAggSign:
+  [ In(<$I1, $I2, $I3>), In(<m1,m2,m3>), In(Gaggsign)
+  !PubKey($I2, Gpk1),!PubKey($I2, Gpk2),!PubKey($I3, Gpk3) ]
+  --[ Eq( dhMult( dhBP(dhExp(P'g',dhH(m1)), Gpk1), dhMult(dhBP(dhExp(P'g',dhH(m2)), Gpk2),dhBP(dhExp(P'g',dhH(m3)), Gpk3))) 
+        , dhBp(Gaggsign, 'g') ) ]->
+  [ Verified(<m1,m2,m3>, <$I1, $I2, $I3>, Gsign) ]
+
+
+lemma executable:
+exists-trace
+"Ex I1 I2 I3 Gs m1 m2 m3 #i #j1 #j2 #j3. Verified(<m1,m2,m3>, <I1,I2,I3>, Gs)@i &
+ Signed(I1, m1)@j1 & Signed(I2, m2)@j2 & Signed(I3,m3)@j3"
+
+
+// fix to encode EUF-CMA with a Tamarin lemma 
+// (in particular, need to allow to compromise parties!)
+lemma unforgeable:
+"All I1 I2 I3 Gs m1 m2 m3 #i . Verified(<m1,m2,m3>, <I1,I2,I3>, Gs)@i ==>
+ Ex #j1. Signed(I1, m1)@j1 | Ex #j2. Signed(I2, m2)@j2 | Ex #j3. Signed(I3,m3)@j3"
+
+end
+
+
+
