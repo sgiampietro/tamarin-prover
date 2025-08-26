@@ -1,0 +1,64 @@
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Narrowing/Variants/Check.hs
+: hash: b0e0a11dab2e7b3752888702bc2d19f9a4192b0f357cda0913514ff581494db1
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/.stack-work/dist/x86_64-osx/Cabal-3.6.3.0/build/autogen/cabal_macros.h
+: hash: a24afb077358714df8f734434cf75007e1d77f81d9277275f4fdad6d4e4f9dad
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Term/Raw.hs:
+  hash: ba31ea675dc5fc5c085c061b79fec92e93e0c8aa70896ca61a81688dc01f709c
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Builtin/Convenience.hs
+: hash: c62a22e256b7ed29612a89072cfe607189f5fbe30c4f97acae0b39d08ee4c301
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Rewriting/Definitions.hs
+: hash: 35da6f3610ebf506bffe64f87f08d497d87bb8adef9f50c036dd46def31abd7b
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Narrowing/Variants/Compute.hs
+: hash: e962646972fdfa3c77d13d8c3c8de3738b06a3007d6121809ad3b1fe8ce7b995
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Subsumption.hs:
+  hash: 407e52c73be4665bac5b268cf197d607ffeec86fc12383833dd79e6852ea39c4
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Unification.hs:
+  hash: a0c2faac153de5e7309d1d680032426aecddd8ea448adfe8cc4318e93c0b2172
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Narrowing/Variants.hs
+: hash: f1dc1b5feced780415e6a8a4d5612f2abd1c6fcd63d4623f148aa6c6f0128c66
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Maude/Process.hs:
+  hash: 16e46cae8a0033e701f11cf6e847ea68274081698fd96d752bcb3aa84ec04c55
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Maude/Types.hs:
+  hash: bb0e288587046f2c946591e31f1d39125a8a5744ddcfc49e8107820d76056ad0
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/SubtermRule.hs:
+  hash: 366e74fc6d69a660e01c57b2fff7c4416b5c9cd08370d0888fe8428b3044d099
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/tamarin-prover-term.cabal:
+  hash: 082c62bc86c1348357a254f1275ea78dc5905d6f984223c10f9b17f9def90472
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Builtin/Signature.hs
+: hash: fcf3840642899f31e9e9005cb9a9c01b17589895b24a808de3c015e8c68fde1a
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Macro.hs:
+  hash: a498ee032b1fe80f694c04b763748e859bac764fe2a21367b6c3e5f875e9ebea
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Substitution/SubstVFresh.hs
+: hash: 22641f382924b29cb6c895817d685f262d58d36687d2b6e652e0a0552805c060
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Substitution.hs:
+  hash: a21950603033cbc3c2141777b95d244223a3e6a0b162433f1d9cb04a8f1f9b8a
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Maude/Parser.hs:
+  hash: e937a5b255fc2ea4da54bb5d79adbb87a1243577f1ef6cba7987e5a72b178b3a
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Term.hs:
+  hash: 4356887ec71b6272f478ca786f1d7d5d10496be114e3fa0461632452562e76e4
+? /Users/sofiagiampietro/.stack/programs/x86_64-osx/ghc-9.2.8/lib/ghc-9.2.8/lib/x86_64-osx-ghc-9.2.8/rts-1.0.2/include/ghcversion.h
+: hash: 9fa7b57985804bb87ace2b7e702757d585d941ffb7ae2bd8c140e62bfaa97a80
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/DHMultiplication.hs
+: hash: 99493c3846b94d21e4e3e502c24929c645d93bb3f28f337795822641bc92def9
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Rewriting/Norm.hs:
+  hash: dd9d88dbf77314e13ea7a406644907f89cb1c916484968daf4c62be9dc3899fc
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Term/FunctionSymbols.hs
+: hash: 99b1caa0ddfb35d55a092239c6ef04a5479544b4be86be9cf2431243db81bcff
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Builtin/Rules.hs:
+  hash: c91defdec65bdeb1ad494da0cb8e59cedc8d3411ede9aec9061dd10fc7c7da89
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Maude/Signature.hs:
+  hash: 9cf8e35f176f58de4fe310864459b238caf8b5f3371b5f8baa7eeaa02f5772c0
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/UnitTests.hs:
+  hash: a87d0f2051f8c7382782d7dc52c9fdd620b580d942c9b5c542723411d7a65dd3
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Term/Classes.hs:
+  hash: eebb493eb3284ffbd1dbe7de104272f5b7031254113bb1ec226d916f1c442d14
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Substitution/SubstVFree.hs
+: hash: bc7accef741a645d33c3a8bd5a3ac53332f0cf73caf91ea84e8661342c205dd4
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Positions.hs:
+  hash: b5b41d6f5fa3b855b05e0c5927dcf16f2a81afea90fff107cf2af3cbc475ed87
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/LTerm.hs:
+  hash: 8b911c84be051d7eb949a2338f528e51f434429296442fd63291d60251c0cb41
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/Narrowing/Narrow.hs
+: hash: 3fe4bc9d30548b0c3044e3c0f938134c435310ae07e530bda65c464f66db7e04
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/term/src/Term/VTerm.hs:
+  hash: f113d1d971246d34ba091d334173d071aa3962acad45f1498d0eb6d80675f69a

@@ -1,0 +1,16 @@
+flags: {}
+packages:
+- '.'
+- lib/theory/
+- lib/term/
+- lib/utils/
+- lib/sapic/
+- lib/export/
+- lib/accountability/
+resolver: lts-20.26
+ghc-options:
+  "$everything": -Wall
+nix:
+  packages: [ zlib ]
+
+

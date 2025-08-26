@@ -1,0 +1,54 @@
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/Control/Monad/Disj/Class.hs
+: hash: c056f4a9cec4636127db4bda0660a60e6ddf7a5ddda974207624984f2c778178
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/tamarin-prover-utils.cabal:
+  hash: 83aa8a5cf29b4981023fb25c87f08a3e07b9d492ff3374de2baa95b0f0a2e426
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/Text/PrettyPrint/Class.hs
+: hash: b5a57fdd49aad3f3734a76f9ed700d9fa52fae1b191a8bfe84df42ec03122eba
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/Control/Monad/Fresh.hs:
+  hash: 919a5acdcc97034896095e4179acff1710783e8f50e9e3118c60d46d50c6b782
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/Extension/Prelude.hs:
+  hash: 8d2e8cfb5cba6377636eda798bf86c6262dd6a47da366ad51409aecb93714d24
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/Control/Basics.hs:
+  hash: db7592cc8107301fa6f42dd39c02a3c1c0dad7ce8b55d511c602de459aa47835
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/Control/Monad/Trans/FastFresh.hs
+: hash: c2163e7ea1275b300728e655c943bcda42b253a5af5bf2fb69cd310a6d2c559f
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/Text/PrettyPrint/Highlight.hs
+: hash: e5030e93287d2cde5ad86e4fe23b200ed7fc6bba4d64a0d41eb69a6abf9ecf79
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/Control/Monad/Trans/PreciseFresh.hs
+: hash: 3388088ca4c43441527e9dd72e12050492bacd292b1cc4236da3e431e7809ee6
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/Data/Color.hs:
+  hash: b66e33dc34828bf0dd4152be6362e57276c0ef4d2841ecd1aa81288d98874a71
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/Extension/Data/Monoid.hs
+: hash: c703705aa5afe0111ba5bfa7339dc0d62afe8ed7483f0b395189461dd9ed7d4f
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/Control/Monad/Trans/Disj.hs
+: hash: 395173f62f35401bec99c71e36f4e211d7af138351d62345d48e8d1474194220
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/Extension/Data/Label.hs
+: hash: a5f4179b4cc3fe86be42c6ef0fecf6958d474a191c73fbb147654daa7b0a3c51
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/Text/Dot.hs:
+  hash: 50628e9f6f7f09cc12da72188828d49d32fbb96787313ab51337c0f822fa9e4e
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/Control/Monad/Fresh/Class.hs
+: hash: 8311527ad63ac5bf0036e96d04e3d74f602ad94a70b283b40274699d9c866748
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/Text/Unicode.hs:
+  hash: 8de3db5756dc0502ec2a3a611b72c3e3e05273dbd07b877d103eb11dfe43570b
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/Extension/Data/ByteString.hs
+: hash: 0d5b46905ecac8c2023965a831ffe00f1444d34febd85b2d4a9d599584538bf8
+? /Users/sofiagiampietro/.stack/programs/x86_64-osx/ghc-9.2.8/lib/ghc-9.2.8/lib/x86_64-osx-ghc-9.2.8/rts-1.0.2/include/ghcversion.h
+: hash: 9fa7b57985804bb87ace2b7e702757d585d941ffb7ae2bd8c140e62bfaa97a80
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/Logic/Connectives.hs:
+  hash: 6bc27ccf92fead84e745007bc36c662a765d1d77a77d5a23835f1600fefb5720
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/.stack-work/dist/x86_64-osx/Cabal-3.6.3.0/build/autogen/cabal_macros.h
+: hash: 1731352471864ba8e190c9e1dedaa0b91ed285a64957fc723f2818fb8121127c
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/Data/DAG/Simple.hs:
+  hash: e4a9068ef59d5111045f1987cf7faefba94236aa8d342719abca54cb90025b16
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/Utils/Misc.hs:
+  hash: 2d7e61b1c60af9268dafdbe13af2353bb6dd0f781c9fde3e59e2cdd901aace08
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/Control/Monad/Disj.hs:
+  hash: 208bd7ad555e320dd41a7953d8b84d4f4c3ffaf96a0d85c734b6970adbe545ba
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/System/Timing.hs:
+  hash: 46974737fd77b1e0409d8b28cae7e8784e0abb6590bfd4ebf1044751d4d90881
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/Control/Monad/Bind.hs:
+  hash: fe47d22c6cfd703ed2e690254a7aaa96f8c7a816cd1337232d07035d38277cb0
+? /Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/Text/PrettyPrint/Html.hs
+: hash: e63acead304ba27e702be86a2f076f3739afebf037dea5fc1a8fd8edca0acaa8
+/Users/sofiagiampietro/Documents/tamarin-bilinear-pairings/bp-tamarin-source/tamarin-prover/lib/utils/src/Debug/Trace/Ignore.hs:
+  hash: 2975fa88ac7dfb910984c811e674cf681a97aa3d6fa194714feb4d2f70eeb258
