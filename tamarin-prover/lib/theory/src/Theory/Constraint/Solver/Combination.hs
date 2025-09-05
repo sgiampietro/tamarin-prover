@@ -210,7 +210,7 @@ allNBExponents3 nbasis allexp = (nbasis3 `intersect` allexp, allexp \\ nbasis3)
     where nbasis3 = nub (fAppdhOne:(fAppdhZero:nbasis))
 
 
--- polynomials, how should we represent them? maps? vectors?
+
 
 
 coeffTermsOf :: ( LNTerm) -> (LNTerm) -> LNTerm
