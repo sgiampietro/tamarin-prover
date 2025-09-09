@@ -459,8 +459,6 @@ solveIndicatorGaussProto hnd basis term target =
       -- (wzs, matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)       
       -- ([w1, z2], matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)
         pubg =  pubGTerm "g"
-        --basis' = filter (\i-> i/= fAppdhOne) basis
-        --sol = solveMatrix2 fAppdhZero (fAppdhOne:(basis'++map (\x->fAppdhMu (fAppdhExp (pubg, x))) basis')) matriz wzs
         sol = Just $ solveMatrix2 fAppdhZero (basis) matriz wzs
         getsol t1 t2 = case varTermsOf t1 of
             [] -> case varTermsOf t2 of

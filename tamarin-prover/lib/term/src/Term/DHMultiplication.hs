@@ -22,6 +22,7 @@ module Term.DHMultiplication (
   , isDHTerm
   , isExpTerm
   , isMuTerm
+  , isSameSymb
   --, isDHFact
   , isDHLit
   , isDHInvLit
@@ -233,26 +234,11 @@ bpTriples t@(viewTerm2 -> FdhMult t1 t2) = case viewTerm2 t1 of
                                                                       _ -> []
                                                 _ -> []
                                                 -}
-{-
-outerFunction :: LNTerm -> Maybe DHMultSym
-outerFunction t@(viewTerm2 -> FdhExp t1 t2) = case viewTerm2 t1 of 
-                                                FdhBP s1 s2 -> Just dhBPSym
-                                                _ -> Nothing
-outerFunction t@(viewTerm2 -> FdhMult t1 t2) = case viewTerm2 t1 of 
-                                                FdhBP s1 s2 -> Just dhBPSym
-                                                FdhExp t1 t2 -> case viewTerm2 t1 of 
-                                                                      FdhBP s1 s2 ->  Just dhBPSym
-                                                                      _ -> Nothing
-                                                _ -> Nothing
-outerFunction t@(FAPP (DHMult o) ts ) = case o of
-    dhMuSym    -> Just dhMuSym
-    dhMu2Sym    -> Just dhMu2Sym
-    dhBPSym -> Just dhBPSym
-    dhHSym -> Just dhHSym
-    dhH2Sym    -> Just dhH2Sym
-    _  -> Nothing
-outerFunction _ = Nothing
--}
+isSameSymb :: DHMultSym -> LNTerm -> Bool 
+isSameSymb symb t1 = case t1 of 
+  (FAPP (DHMult o) ts) | o == symb -> True
+  _ -> False
+
 
 containsBP :: LNTerm -> Bool
 containsBP = foldTerm (const False) ffapp
