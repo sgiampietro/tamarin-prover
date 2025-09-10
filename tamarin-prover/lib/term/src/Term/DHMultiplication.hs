@@ -239,7 +239,6 @@ isSameSymb symb t1 = case t1 of
   (FAPP (DHMult o) ts) | o == symb -> True
   _ -> False
 
-
 containsBP :: LNTerm -> Bool
 containsBP = foldTerm (const False) ffapp
   where ffapp funsym bls = case funsym of 
@@ -487,6 +486,9 @@ isMuTerm t = case viewTerm2 t of
       FdhExp _ t1 -> isMuTerm t1 
       FdhInv t1 -> isMuTerm t1
       FdhMinus t1 -> isMuTerm t1
+      FdhMu2 _ _ -> True
+      FdhH2 _ _ -> True
+      FdhH _ -> True
       _          -> False
 
 
