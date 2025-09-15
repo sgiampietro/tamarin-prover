@@ -35,6 +35,7 @@ module Term.DHMultiplication (
   , addsBP
   , getsBPbase
   , expBase
+  , listOfExponents
   -- , isMult
   -- , isVarEGTerm
   , compatibleLits
@@ -247,19 +248,7 @@ isRoot o (LIT l) = True
 isRoot o t@(viewTerm3 -> DH dht ts) = S.size (rootSet o t) == 1
 isRoot o _ = error "rootSet applied on non DH term'"
 
-{-
-bpTriples :: LNTerm -> [(LNTerm, LNTerm, LNTerm)]
-bpTriples t@(viewTerm2 -> FdhExp t1 t2) = case viewTerm2 t1 of 
-                                                FdhBP s1 s2 -> [(s1, s2, t2)]
-                                                _ -> []
-bpTriples t@(viewTerm2 -> FdhBP t1 t2) = [(t1, t2, fAppdhOne)]
-bpTriples t@(viewTerm2 -> FdhMult t1 t2) = case viewTerm2 t1 of 
-                                                FdhBP s1 s2 -> (s1, s2, t2) :  (bpTriples t2)
-                                                FdhExp t1 t2 -> case viewTerm2 t1 of 
-                                                                      FdhBP s1 s2 ->  [(s1,s2, t2)]
-                                                                      _ -> []
-                                                _ -> []
-                                                -}
+
 isSameSymb :: DHMultSym -> LNTerm -> Bool 
 isSameSymb symb t1 = case t1 of 
   (FAPP (DHMult o) ts) | o == symb -> True
@@ -307,6 +296,25 @@ addsBP g1 g2 = foldTerm (\a -> LIT a) ffapp
                                                   _ -> error "shouldn't get here"
                       | otherwise -> FAPP funsym fterms
             _ -> FAPP funsym fterms
+
+
+-- assuming the input is a ROOT term, this function return the list of (multiplied)
+-- exponent terms (i.e. LIT terms) that form the exponent
+listOfExponents :: LNTerm -> [LNTerm] 
+listOfExponents t@(LIT _) = [t]
+listOfExponents t = case viewTerm2 t of
+                      FdhExp t1 t2 -> listOfExponents t2
+                      FdhTimes t1 t2 -> listOfExponents t1 ++ listOfExponents t2
+                      FdhTimesE t1 t2 -> listOfExponents t1 ++ listOfExponents t2
+                      FdhMu _ -> [t]
+                      FdhMu2 _ _ -> [t]
+                      FdhH _ -> [t]
+                      FdhH2 _ _ -> [t]
+                      FdhInv t1 -> listOfExponents t1
+                      FdhMinus t1 -> listOfExponents t1
+                      _ -> [] 
+
+
 
 --------------------------------------------------------------
 --------------------------------------------------------------

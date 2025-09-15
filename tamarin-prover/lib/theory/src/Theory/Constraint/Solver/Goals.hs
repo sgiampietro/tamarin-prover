@@ -674,9 +674,17 @@ solveByOuterSym2 hndNormal gT (g1,g2) js bset nbset p rules xrooterms instrules 
               possiblegTtuple <- insertFreshNodeByBase gT rules instrules (length gtinds) Nothing
               let newgTterm = foldr (\a b -> if b == fAppdhEg then a else fAppdhMult (a,b)) fAppdhEg $ map snd gtinds
               insertDHEdges possiblegTtuple (map fst gtinds) newgTterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
-              possibletuple <- insertFreshNodeByBase g1 rules instrules (length notgtinds) Nothing -- TODO:adapt to consider also g2 options
-              let newnotgterm = foldr (\a b -> if b == fAppdhEg then a else fAppdhMult (a,b)) fAppdhEg $ map snd notgtinds
-              insertDHEdges possibletuple (map fst notgtinds) newnotgterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+              let gexps = map listOfExponents $ map fst notgtinds  
+                  subfunction explist = do
+                          (g1inds,g2inds) <- disjunctionOfList $ map (\a -> (a, explist \\ a)) $ subsequences explist
+                          possibleg1tuple <- insertFreshNodeByBase g1 rules instrules 1 Nothing
+                          possibleg2tuple <- insertFreshNodeByBase g2 rules instrules 1 Nothing
+                          let newg1term = foldr (\a b -> fAppdhExp (b, a)) g1 g1inds
+                              newg2term = foldr (\a b -> fAppdhExp (b, a)) g2 g2inds
+                          insertDHEdges possibleg1tuple ([newg1term]) newg1term p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+                          insertDHEdges possibleg2tuple ([newg2term]) newg2term p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+                          -- TODO! second newg1term and newg2 term should re-include the not indicator term!
+              forM_ gexps subfunction
               return "FindingIndicators" 
 
 --solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> NodePrem -> LNFact -> [RuleAC] -> [(NodeId,RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
