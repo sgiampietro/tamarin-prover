@@ -36,7 +36,7 @@ import qualified Data.DAG.Simple                         as D (reachableSet)
 import qualified Data.Map                                as M
 import qualified Data.Monoid                             as Mono
 import qualified Data.Set                                as S
-import           Data.List                               (nub, (\\))
+import           Data.List                               (nub, (\\), subsequences)
 
 import           Control.Basics
 import           Control.Category
@@ -652,29 +652,31 @@ solveByOuterSym hndNormal js bset nbset p rules xrooterms instrules = do
           forM_ (toaddnocanc) (insertNoCanc h )
           if null neededInds 
             then return "Indicators are public"
-            else do   
-              possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n Nothing
+            else do
+              possibletuple <- insertFreshNodeConcOutInst rules instrules n Nothing
               -- TODO: make case split here on different possible tuples according to the different indicator options
               insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
               return "FindingIndicators" 
 
 
-solveByOuterSym2 :: MaudeHandle -> [NodeId] -> S.Set LNTerm -> S.Set (LNTerm, b) -> (NodeId, PremIdx) -> [RuleAC] -> [LNTerm] -> [(NodeId, RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
-solveByOuterSym2 hndNormal js bset nbset p rules xrooterms instrules = do
+solveByOuterSym2 :: MaudeHandle -> LNTerm -> (LNTerm, LNTerm) -> [NodeId] -> S.Set LNTerm -> S.Set (LNTerm, b) -> (NodeId, PremIdx) -> [RuleAC] -> [LNTerm] -> [(NodeId, RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
+solveByOuterSym2 hndNormal gT (g1,g2) js bset nbset p rules xrooterms instrules = do
           let inds = map (\x -> (rootIndKnown2 hndNormal bset (S.map fst nbset) x,x)) $ xrooterms
-              neededInds = filter (\(a,b)-> not $ isPublic a) inds
-              newterm = foldr (\a b -> if b == fAppdhEg then a else fAppdhMult (a,b)) fAppdhEg $ map snd neededInds
-              n = length neededInds
+              neededInds = nub $ filter (\(a,b)-> not $ isPublic a) inds
               h = head xrooterms
               toaddnocanc = filter (\t -> not $ isNoCanc h t) (tail xrooterms)
           forM_ js (\i-> insertLess i (fst p) Adversary)
           forM_ (toaddnocanc) (insertNoCanc h )
           if null neededInds 
             then return "Indicators are public"
-            else do   
-              possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n Nothing
-              -- TODO: make case split here on different possible tuples according to the different indicator options
-              insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+            else do
+              (gtinds, notgtinds) <- disjunctionOfList $ map (\a -> (a, neededInds \\ a) ) $ subsequences neededInds   
+              possiblegTtuple <- insertFreshNodeByBase gT rules instrules (length gtinds) Nothing
+              let newgTterm = foldr (\a b -> if b == fAppdhEg then a else fAppdhMult (a,b)) fAppdhEg $ map snd gtinds
+              insertDHEdges possiblegTtuple (map fst gtinds) newgTterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+              possibletuple <- insertFreshNodeByBase g1 rules instrules (length notgtinds) Nothing -- TODO:adapt to consider also g2 options
+              let newnotgterm = foldr (\a b -> if b == fAppdhEg then a else fAppdhMult (a,b)) fAppdhEg $ map snd notgtinds
+              insertDHEdges possibletuple (map fst notgtinds) newnotgterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
               return "FindingIndicators" 
 
 --solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> NodePrem -> LNFact -> [RuleAC] -> [(NodeId,RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
@@ -695,12 +697,13 @@ solveDHIndaux bset nbset term p rules = do
       cterm = clterm nterm
       xrooterms = multRootMixed cterm
   case  neededexponentslist bset nbset xrooterms of
-      ([], js) | containsBP nterm -> do  
-                  solveByOuterSym hndNormal js bset nbset p rules xrooterms instrules
+      ([], js) | containsBP nterm ->  case getsBPbase nterm of
+                    Just (g1,g2) -> solveByOuterSym2 hndNormal (expBase nterm) (g1,g2) js bset nbset p (filter isProtocolRule rules) xrooterms instrules
+                    _ -> error "bp does not have a basis - malformed term"
       ([], js) | otherwise -> do            
           case viewTerm2 nterm of 
-              FdhMu t1 -> solveByOuterSym hndNormal js bset nbset p rules xrooterms instrules
-              _ -> solveByOuterSym hndNormal js bset nbset p rules xrooterms instrules
+              FdhMu t1 -> solveByOuterSym hndNormal js bset nbset p (filter isProtocolRule rules) xrooterms instrules
+              _ -> solveByOuterSym hndNormal js bset nbset p (filter isProtocolRule rules) xrooterms instrules
           -- todo: replace all below by one function call that is different according to the terms
           -- outer function.  
           {-let inds = map (\x -> (rootIndKnown2 hndNormal bset (S.map fst nbset) x,x)) $ xrooterms

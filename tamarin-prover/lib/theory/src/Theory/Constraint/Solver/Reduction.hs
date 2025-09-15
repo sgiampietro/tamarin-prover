@@ -45,6 +45,8 @@ module Theory.Constraint.Solver.Reduction (
   , insertFreshNodeConcInst
   , insertFreshNodeConcOutInst
   , insertFreshNodeConcOutInstMixed
+  , insertFreshNodeBySym
+  , insertFreshNodeByBase
   , insertFreshNodeConcMixed
 
   , insertGoal
@@ -321,7 +323,14 @@ insertFreshNodeBySym :: DHMultSym -> [RuleAC] -> [(NodeId,RuleACInst)] -> Int ->
 insertFreshNodeBySym symb rules instrules n Nothing = do
       -- irulist <- replicateM n $ traverseDHNodes rules
       irulist <- traverseDHNodes rules
-      let pairs = [(ru, (i,c), (f, headf), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isMixedFact f, isSameSymb symb (head $ factTerms f) , (rterm, headf) <- extractMixedRoot (head $ factTerms f)]
+      let pairs = [(ru, (i,c), (f, headf), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isMixedFact f, (rterm, headf) <- extractMixedRoot (head $ factTerms f), isSameSymb symb headf ]
+      disjunctionOfList (nub $ concatMap permutations (nub $ combinations n pairs))
+
+insertFreshNodeByBase :: LNTerm -> [RuleAC] -> [(NodeId,RuleACInst)] -> Int -> Maybe ((NodeId, RuleACInst, LNFact, ConcIdx), LNTerm) -> Reduction [(RuleACInst, NodeConc, (LNFact, LNTerm), LNTerm, Maybe RuleACConstrs,Bool)]
+insertFreshNodeByBase base rules instrules n Nothing = do
+      -- irulist <- replicateM n $ traverseDHNodes rules
+      irulist <- traverseDHNodes rules
+      let pairs = [(ru, (i,c), (f, headf), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isMixedFact f,  (rterm, headf) <- extractMixedRoot (head $ factTerms f), isOfBase base headf ]
       disjunctionOfList (nub $ concatMap permutations (nub $ combinations n pairs))
 
 insertFreshNodeConcOutInstMixed ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, LNFact)

@@ -54,29 +54,7 @@ import           Control.Monad.Reader
 import Data.Primitive (mutableByteArrayContents)
 
 
-expBase ::  LNTerm -> LNTerm
-expBase t@(LIT l) = if (isPubGVar t || isGConst t) then t else pubGTerm "g"
-expBase t@(FAPP (DHMult o) ts) = case ts of
-    [ t1, t2 ] | o == dhMultSym   -> expBase t1
-    [ t1, t2 ] | o == dhTimesSym   ->  pubGTerm "g" -- technically should not get here. 
-    [ t1, t2 ] | o == dhTimesESym   -> pubGTerm "g"
-    [ t1, t2 ] | o == dhExpSym   ->  t1
-    [ t1, t2 ] | o == dhPlusSym   -> pubGTerm "g"
-    [ t1, t2 ] | o == dhMu2Sym   -> pubGTerm "g"
-    [ t1, t2 ] | o == dhH2Sym   -> pubGTerm "g"
-    [ t1, t2 ] | o == dhBPSym -> t
-    [ t1 ]     | o == dhGinvSym    ->  expBase t1
-    [ t1 ]     | o == dhInvSym    -> pubGTerm "g"
-    [ t1 ]     | o == dhMinusSym    -> pubGTerm "g"
-    [ t1 ]     | o == dhMuSym    -> pubGTerm "g"
-    [ t1 ]     | o == dhHSym     -> pubGTerm "g"
-    --[ t1 ]     | o == dhBoxSym    -> gTerm2Exp t1
-    --[ t1 ]     | o == dhBoxESym    -> gTerm2Exp t1
-    []         | o == dhZeroSym    -> pubGTerm "g"
-    []         | o == dhEgSym    ->  t
-    []         | o == dhOneSym    -> pubGTerm "g"
-    _                               -> error $ "unexpected term form: `"++show t++"'"
-expBase t =  error $ "unexpected term form2: `"++show t++"'"
+
 
 
 gTerm2Exp ::  LNTerm -> LNTerm
