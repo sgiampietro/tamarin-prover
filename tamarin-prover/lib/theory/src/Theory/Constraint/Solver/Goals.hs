@@ -671,11 +671,11 @@ solveByOuterSym2 hndNormal gT (g1,g2) js bset nbset p rules xrooterms instrules 
             then return "Indicators are public"
             else do
               let newterm = foldr (\a b -> if b == fAppdhEg then a else fAppdhMult (a,b)) fAppdhEg $ map snd neededInds
-              (gtinds, notgtinds) <- disjunctionOfList $ map (\a -> (a, neededInds \\ a) ) $ subsequences neededInds   
+              (gtinds, notgtinds) <- disjunctionOfList $ map (\a -> (a, (map fst neededInds) \\ a) ) $ subsequences (map fst neededInds)   
               possiblegTtuple <- insertFreshNodeByBase gT rules instrules (length gtinds) Nothing
-              let gexps = map listOfExponents $ map fst notgtinds  
+              let gexps = map listOfExponents notgtinds  
                   gexpposs = map (\explist -> map (\a -> (a, explist \\ a)) $ subsequences explist) gexps
-                  g1g2options = subsequenceA gexpposs --should be a list of list of tuples. Each inner list should be of lenght #root terms and its tuples represent a split of g1-g2 terms    
+                  g1g2options = sequenceA gexpposs --should be a list of list of tuples. Each inner list should be of lenght #root terms and its tuples represent a split of g1-g2 terms    
               g1g2inds <- disjunctionOfList g1g2options 
               let g1inds = filter (not . null) $ map fst g1g2inds
                   g2inds = filter (not . null) $ map snd g1g2inds
