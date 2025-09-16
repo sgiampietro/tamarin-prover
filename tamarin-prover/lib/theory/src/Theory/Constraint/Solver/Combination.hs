@@ -199,6 +199,7 @@ coeffTermsOf t@(FAPP (DHMult o) ts) vart =     case ts of
     [ t1, t2 ] | o == dhPlusSym   -> error $ "term not in normal form?: `"++show t++"'"
     [ t1, t2 ] | o == dhTimesESym   -> simplifyraw $ fAppdhTimesE ( coeffTermsOf t1 vart, coeffTermsOf t2 vart)
     [ t1, t2 ] | o == dhTimesSym   -> simplifyraw $ fAppdhTimesE ( coeffTermsOf t1 vart, coeffTermsOf t2 vart)
+    [ t1, t2 ] | o == dhBPSym -> fAppdhOne
     [t1]       | o == dhMuSym  -> t
     [t1]       | o == dhInvSym  -> t
     [t1]       | o == dhHSym -> t
@@ -227,6 +228,7 @@ monomialsOf vars t =
     FdhMinus t1 -> monomialsOf vars t1
     FdhInv t1 | elem t vars -> [S.singleton t1]
     FdhInv t1 -> [S.empty]
+    FdhBP t1 t2 -> [S.empty]
 
 -- THIS FUNCTION ASSUMES THAT THE INPUT TERMS ARE IN NORMAL FORM, i.e. 
 -- EACH MONOMIAL (which we assume of type E) is of the form 
@@ -242,6 +244,7 @@ getkeyfromProd vars t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhTimesESym   -> (case t1 of
         (LIT l) -> if (elem t1 vars) then setSimplify $ S.union (S.singleton t1) (getkeyfromProd vars t2) else getkeyfromProd vars t2
         _       -> setSimplify $ S.union (getkeyfromProd vars t1) (getkeyfromProd vars t2))
+    [ t1, t2]  | o == dhBPSym -> S.singleton fAppdhOne
     [ t1 ]     | o == dhInvSym    -> if (elem t1 vars) then S.singleton t else S.singleton fAppdhOne
     [ t1 ]     | o == dhMinusSym    -> getkeyfromProd vars t1
     [ t1 ]     | o == dhMuSym    -> S.singleton fAppdhOne  
@@ -259,6 +262,7 @@ getcoefromProd vars t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhTimesESym   -> (case t1 of
         (LIT l) -> if (elem t1 vars) then getcoefromProd vars t2 else simplifyraw $ fAppdhTimesE (t1, getcoefromProd vars t2)
         _       -> simplifyraw $ fAppdhTimesE (getcoefromProd vars t1, getcoefromProd vars t2))
+    [ t1, t2]  | o == dhBPSym -> fAppdhOne
     [ t1 ]     | o == dhInvSym    -> if (elem t1 vars) then fAppdhOne else t -- check how to deal with inverse!
     [ t1 ]     | o == dhMinusSym    -> simplifyraw $ fAppdhMinus (getcoefromProd vars t1)
     [ t1 ]     | o == dhMuSym    -> fAppdhMu t1  --should never get here

@@ -26,7 +26,7 @@ module Theory.Constraint.Solver.Goals (
   , isDHLit
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Prelude                                 hiding (id, (.))
 
@@ -667,18 +667,18 @@ solveByOuterSym2 hndNormal gT (g1,g2) js bset nbset p rules xrooterms instrules 
               toaddnocanc = filter (\t -> not $ isNoCanc h t) (tail xrooterms)
           forM_ js (\i-> insertLess i (fst p) Adversary)
           forM_ (toaddnocanc) (insertNoCanc h )
-          if null neededInds 
+          if trace (show ("solveByOuterSym2", gT, g1, g2, neededInds)) $ null neededInds 
             then return "Indicators are public"
             else do
               let newterm = foldr (\a b -> if b == fAppdhEg then a else fAppdhMult (a,b)) fAppdhEg $ map snd neededInds
               (gtinds, notgtinds) <- disjunctionOfList $ map (\a -> (a, (map fst neededInds) \\ a) ) $ subsequences (map fst neededInds)   
-              possiblegTtuple <- insertFreshNodeByBase gT rules instrules (length gtinds) Nothing
+              possiblegTtuple <- trace (show ("gt-notgt", gtinds, notgtinds)) $ insertFreshNodeByBase gT rules instrules (length gtinds) Nothing
               let gexps = map listOfExponents notgtinds  
                   gexpposs = map (\explist -> map (\a -> (a, explist \\ a)) $ subsequences explist) gexps
                   g1g2options = sequenceA gexpposs --should be a list of list of tuples. Each inner list should be of lenght #root terms and its tuples represent a split of g1-g2 terms    
               g1g2inds <- disjunctionOfList g1g2options 
-              let g1inds = filter (not . null) $ map fst g1g2inds
-                  g2inds = filter (not . null) $ map snd g1g2inds
+              let g1inds = trace (show ("g1g2options", g1g2options)) $ filter (not . null) $ map fst g1g2inds
+                  g2inds = trace (show ("g1g2options!", g1inds)) $ filter (not . null) $ map snd g1g2inds
                   getind exps g = fAppdhExp (g, foldr (\a b -> if b == fAppdhOne then a else fAppdhTimesE (a,b)) fAppdhOne exps)      
               possibleg1tuple <- insertFreshNodeByBase g1 rules instrules (length g1inds) Nothing
               possibleg2tuple <- insertFreshNodeByBase g2 rules instrules (length g2inds) Nothing
@@ -693,7 +693,7 @@ solveDHIndaux bset nbset term p rules = do
   pRule <-   gets $ nodeRule (nodePremNode p)
   let instrules =  (filter (\i-> snd i /= pRule) $ M.assocs nodes)
   hndNormal <-  getMaudeHandle
-  let nterm = runReader (norm' term) hndNormal
+  let nterm = trace (show ("solveDHIndaux", term)) $ runReader (norm' term) hndNormal
       clterm t = case viewTerm2 t of --todo: need to refine this. 
                         FdhMu t1 -> if S.member t (S.map fst nbset) then t else clterm t1
                         FdhMinus t1 -> clterm t1
@@ -703,7 +703,7 @@ solveDHIndaux bset nbset term p rules = do
       cterm = clterm nterm
       xrooterms = multRootMixed cterm
   case  neededexponentslist bset nbset xrooterms of
-      ([], js) | containsBP nterm ->  case getsBPbase nterm of
+      ([], js) | containsBP nterm ->  case trace (show ("callingBP", nterm)) $ getsBPbase nterm of
                     Just (g1,g2) -> solveByOuterSym2 hndNormal (expBase nterm) (g1,g2) js bset nbset p (filter isProtocolRule rules) xrooterms instrules
                     _ -> error "bp does not have a basis - malformed term"
       ([], js) | otherwise -> do            
