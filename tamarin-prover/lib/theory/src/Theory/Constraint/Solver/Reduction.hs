@@ -777,6 +777,49 @@ insertMuAction fun x@(LIT l) i j | sortOfLNTerm x == LSortFrNZE =  do
                     fun x i
                     insertNotBasisElem x-}
 
+insertDHEdgesBP :: (LNTerm, LNTerm, LNTerm) -> [(RuleACInst, NodeConc, (LNFact,LNTerm), LNTerm, Maybe RuleACConstrs, Bool)] ->
+    [(RuleACInst, NodeConc, (LNFact,LNTerm), LNTerm, Maybe RuleACConstrs, Bool)] ->
+    [(RuleACInst, NodeConc, (LNFact,LNTerm), LNTerm, Maybe RuleACConstrs, Bool)] -> [LNTerm]
+    -> [LNTerm] -> [LNTerm] -> LNTerm -> NodePrem -> 
+    (LNTerm -> NodeId -> Reduction String) -> Reduction ()
+insertDHEdgesBP (gT, g1, g2) gTlist g1list g2list indts indsg1 indsg2 premTerm p fun = do
+    let rootpairs tuplist is = zip (map (\(a,b,(c,t),d,e,f)-> (t,d)) tuplist) is
+        cllist tuplist = nubBy (\(a,b,c,d,e,f) (a2,b2,c2,d2,e2,f2) -> b == b2) tuplist
+        allrootpairs = (rootpairs gTlist indts ++ rootpairs g1list indsg1 ++ rootpairs g2list indsg2 )
+        temppairs = map (\((a,b),c)-> a ) allrootpairs
+    void substSystem
+    nodes <- getM sNodes
+    edges <- getM sEdges
+    contradictoryIf $ doubleFresh nodes
+    bset <- getM sBasis
+    nbset <- getM sNotBasis
+    case neededexponentslist bset nbset temppairs of 
+        ([],js) -> do
+            forM_ js (\i-> insertLess i (fst p) Adversary)
+            (faPremsubst, listterms) <-  solveIndFactDH SplitNow allrootpairs premTerm
+            -- TODO add back BPS and multiply g1 and g2 terms here! before calling solveIndicator
+            solveIndicator faPremsubst listterms
+            forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
+            forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
+        (les,js) -> do
+            let fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) les
+                otheres = les \\ fres
+            forM_ js (\i-> insertLess i (fst p) Adversary)
+            ifs <- replicateM (length fres) $ freshLVar "vk" LSortNode
+            forM_ (zip ifs fres) (\(i,x) -> insertMuAction fun x i (fst p))
+            (newb,newNb) <- disjunctionOfList $ solveNeededList2 otheres
+            forM_ newb (insertBasisElem)
+            is<- replicateM (length newNb) $ freshLVar "vk" LSortNode
+            forM_ (zip is newNb) (\(i,x)-> do 
+                insertGoal (ActionG i (kdhFact x)) False
+                insertNotBasisElem x i
+                insertLess i (fst p) Adversary)
+            (faPremsubst, listterms) <- solveIndFactDH SplitNow rootpairs premTerm
+            solveIndicator faPremsubst listterms
+            forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
+            forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
+
+
 insertDHEdges :: [(RuleACInst, NodeConc, (LNFact,LNTerm), LNTerm, Maybe RuleACConstrs, Bool)] -> [LNTerm] -> LNTerm -> NodePrem -> 
     (LNTerm -> NodeId -> Reduction String) -> Reduction ()
 insertDHEdges tuplelist indts premTerm p fun = do

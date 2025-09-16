@@ -286,13 +286,14 @@ getsBPbase t = go t
           _ -> Nothing
 
 -- the following function re-introduces bp(g1,g2) in the exponent of 
--- each root term. Assumes we know that the entire term is a BP term 
+-- each root term, and sets the correct base gt
+--  Assumes we know that the entire term is a ROOT BP term 
 -- and that it is in normal form!
-addsBP :: LNTerm -> LNTerm -> LNTerm -> LNTerm
-addsBP g1 g2 = foldTerm (\a -> LIT a) ffapp
+addsBP :: LNTerm -> LNTerm -> LNTerm -> LNTerm -> LNTerm
+addsBP gT g1 g2 = foldTerm (\a -> LIT a) ffapp
   where ffapp funsym fterms = case funsym of 
             DHMult bs | bs == dhExpSym -> case fterms of 
-                                                  (x:y:zs) -> FAPP funsym (x:(fAppdhTimesE (fAppdhBP (g1,g2), y)):zs)
+                                                  (x:y:zs) -> FAPP funsym (gT:(fAppdhTimesE (fAppdhBP (g1,g2), y)):zs)
                                                   _ -> error "shouldn't get here"
                       | otherwise -> FAPP funsym fterms
             _ -> FAPP funsym fterms

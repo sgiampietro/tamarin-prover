@@ -670,21 +670,19 @@ solveByOuterSym2 hndNormal gT (g1,g2) js bset nbset p rules xrooterms instrules 
           if null neededInds 
             then return "Indicators are public"
             else do
+              let newterm = foldr (\a b -> if b == fAppdhEg then a else fAppdhMult (a,b)) fAppdhEg $ map snd neededInds
               (gtinds, notgtinds) <- disjunctionOfList $ map (\a -> (a, neededInds \\ a) ) $ subsequences neededInds   
               possiblegTtuple <- insertFreshNodeByBase gT rules instrules (length gtinds) Nothing
-              let newgTterm = foldr (\a b -> if b == fAppdhEg then a else fAppdhMult (a,b)) fAppdhEg $ map snd gtinds
-              insertDHEdges possiblegTtuple (map fst gtinds) newgTterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
               let gexps = map listOfExponents $ map fst notgtinds  
-                  subfunction explist = do
-                          (g1inds,g2inds) <- disjunctionOfList $ map (\a -> (a, explist \\ a)) $ subsequences explist
-                          possibleg1tuple <- insertFreshNodeByBase g1 rules instrules 1 Nothing
-                          possibleg2tuple <- insertFreshNodeByBase g2 rules instrules 1 Nothing
-                          let newg1term = foldr (\a b -> fAppdhExp (b, a)) g1 g1inds
-                              newg2term = foldr (\a b -> fAppdhExp (b, a)) g2 g2inds
-                          insertDHEdges possibleg1tuple ([newg1term]) newg1term p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
-                          insertDHEdges possibleg2tuple ([newg2term]) newg2term p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
-                          -- TODO! second newg1term and newg2 term should re-include the not indicator term!
-              forM_ gexps subfunction
+                  gexpposs = map (\explist -> map (\a -> (a, explist \\ a)) $ subsequences explist) gexps
+                  g1g2options = subsequenceA gexpposs --should be a list of list of tuples. Each inner list should be of lenght #root terms and its tuples represent a split of g1-g2 terms    
+              g1g2inds <- disjunctionOfList g1g2options 
+              let g1inds = filter (not . null) $ map fst g1g2inds
+                  g2inds = filter (not . null) $ map snd g1g2inds
+                  getind exps g = fAppdhExp (g, foldr (\a b -> if b == fAppdhOne then a else fAppdhTimesE (a,b)) fAppdhOne exps)      
+              possibleg1tuple <- insertFreshNodeByBase g1 rules instrules (length g1inds) Nothing
+              possibleg2tuple <- insertFreshNodeByBase g2 rules instrules (length g2inds) Nothing
+              insertDHEdgesBP (gT, g1, g2) (possiblegTtuple) possibleg1tuple possibleg2tuple gtinds (map (\a -> getind a g1) g1inds) (map (\a ->getind a g2) g2inds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
               return "FindingIndicators" 
 
 --solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> NodePrem -> LNFact -> [RuleAC] -> [(NodeId,RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
