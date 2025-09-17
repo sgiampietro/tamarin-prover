@@ -679,10 +679,12 @@ solveByOuterSym2 hndNormal gT (g1,g2) js bset nbset p rules xrooterms instrules 
               g1g2inds <- disjunctionOfList g1g2options 
               let g1inds = trace (show ("g1g2options", g1g2options)) $ filter (not . null) $ map fst g1g2inds
                   g2inds = trace (show ("g1g2options!", g1inds)) $ filter (not . null) $ map snd g1g2inds
+                  prodlist = foldr (\a b -> if b == fAppdhOne then a else fAppdhTimesE (a,b)) fAppdhOne 
+                  listterms = map (\(exps1, exps2) -> fAppdhExp (gT , fAppdhTimesE( fAppdhBP (g1,g2), fAppdhTimesE (prodlist exps1, prodlist exps2) )) ) g1g2inds
                   getind exps g = fAppdhExp (g, foldr (\a b -> if b == fAppdhOne then a else fAppdhTimesE (a,b)) fAppdhOne exps)      
               possibleg1tuple <- insertFreshNodeByBase g1 rules instrules (length g1inds) Nothing
               possibleg2tuple <- insertFreshNodeByBase g2 rules instrules (length g2inds) Nothing
-              insertDHEdgesBP (gT, g1, g2) (possiblegTtuple) possibleg1tuple possibleg2tuple gtinds (map (\a -> getind a g1) g1inds) (map (\a ->getind a g2) g2inds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+              insertDHEdgesBP (gT, g1, g2) (possiblegTtuple) possibleg1tuple possibleg2tuple gtinds (map (\a -> getind a g1) g1inds) (map (\a ->getind a g2) g2inds) listterms newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
               return "FindingIndicators" 
 
 --solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> NodePrem -> LNFact -> [RuleAC] -> [(NodeId,RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
