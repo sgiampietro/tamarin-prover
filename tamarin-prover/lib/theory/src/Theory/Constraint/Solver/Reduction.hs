@@ -65,6 +65,7 @@ module Theory.Constraint.Solver.Reduction (
   , insertDHEdge
   , insertDHEdges
   , insertDHEdgesBP
+  , solveBPedge
   , insertDHMixedEdge
   , insertDHdirectEdge
   -- , solveNeeded
@@ -777,6 +778,27 @@ insertMuAction fun x@(LIT l) i j | sortOfLNTerm x == LSortFrNZE =  do
                     insertLess i j Adversary
                     fun x i
                     insertNotBasisElem x-}
+
+--solveBPedge :: LNTerm -> (LNTerm, LNTerm) -> [(LNTerm, LNTerm)] -> NodePrem -> [RuleAC] -> [(NodeId, RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
+solveBPedge :: LNTerm -> (Term (Lit Name LVar), Term (Lit Name LVar)) -> [(LNTerm, Term (Lit Name LVar))] -> NodePrem -> [RuleAC] -> [(NodeId, RuleACInst)] -> (LNTerm -> NodeId -> Reduction String) -> StateT System (FreshT (DisjT (Reader ProofContext))) String
+solveBPedge gT (g1,g2) neededInds p rules instrules fun = do
+              let newterm = foldr (\a b -> if b == fAppdhEg then a else fAppdhMult (a,b)) fAppdhEg $ map snd neededInds
+              (gtinds, notgtinds) <- disjunctionOfList $ map (\a -> (a, (map fst neededInds) \\ a) ) $ subsequences (map fst neededInds)   
+              possiblegTtuple <- trace (show ("gt-notgt", gtinds, notgtinds)) $ insertFreshNodeByBase gT rules instrules (length gtinds) Nothing
+              let gexps = map listOfExponents notgtinds  
+                  gexpposs = map (\explist -> map (\a -> (a, explist \\ a)) $ subsequences explist) gexps
+                  g1g2options = sequenceA gexpposs --should be a list of list of tuples. Each inner list should be of lenght #root terms and its tuples represent a split of g1-g2 terms    
+              g1g2inds <- disjunctionOfList g1g2options 
+              let g1inds = trace (show ("g1g2options", g1g2options)) $ filter (not . null) $ map fst g1g2inds
+                  g2inds = trace (show ("g1g2options!", g1inds)) $ filter (not . null) $ map snd g1g2inds
+                  prodlist = foldr (\a b -> if b == fAppdhOne then a else fAppdhTimesE (a,b)) fAppdhOne 
+                  listterms = map (\(exps1, exps2) -> fAppdhExp (gT , fAppdhTimesE( fAppdhBP (g1,g2), fAppdhTimesE (prodlist exps1, prodlist exps2) )) ) g1g2inds
+                  getind exps g = fAppdhExp (g, foldr (\a b -> if b == fAppdhOne then a else fAppdhTimesE (a,b)) fAppdhOne exps)      
+              possibleg1tuple <- insertFreshNodeByBase g1 rules instrules (length g1inds) Nothing
+              possibleg2tuple <- insertFreshNodeByBase g2 rules instrules (length g2inds) Nothing
+              insertDHEdgesBP (gT, g1, g2) (possiblegTtuple) possibleg1tuple possibleg2tuple gtinds (map (\a -> getind a g1) g1inds) (map (\a ->getind a g2) g2inds) listterms newterm p fun--(\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+              return "FindingIndicators" 
+
 
 insertDHEdgesBP :: (LNTerm, LNTerm, LNTerm) -> [(RuleACInst, NodeConc, (LNFact,LNTerm), LNTerm, Maybe RuleACConstrs, Bool)] ->
     [(RuleACInst, NodeConc, (LNFact,LNTerm), LNTerm, Maybe RuleACConstrs, Bool)] ->
@@ -1577,20 +1599,29 @@ solveTermDHEqsChain splitStrat mayB rules instrules fun p faPrem (j,ruj, fa1, c)
     case neededexponents currB currNB nta2 of
         ([],js) -> do
             let xrooterms = (multRootList nta2)
-                indlist = map (\x -> rootIndKnown2 hndNormal bset nbset x) xrooterms
+                indlist = map (\x -> (rootIndKnown2 hndNormal bset nbset x,x)) xrooterms
         --indlist = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' ta2) hndNormal)
-                neededInds = filter (not . isPublic) indlist
+                neededInds = filter (\(a,b) -> not $ isPublic a) indlist
                 n = length neededInds
                 h = head xrooterms
                 toaddnocanc = filter (\t -> not $ isNoCanc h t) (tail xrooterms)
             forM_ js (\i-> insertLess i (fst p) Adversary)
             forM_ (toaddnocanc) (\t->insertNoCanc h t)
             if null neededInds
-                then insertDHEdge ((j,c), fa1, faPrem, p) bset nbset -- TODO: fix this
+                then do 
+                    insertDHEdge ((j,c), fa1, faPrem, p) bset nbset -- TODO: fix this
+                    return Changed
                 else do
-                    possibletuple <- insertFreshNodeConcOutInst rules instrules n Nothing -- (Just ((j,ruj, fa1, c), nta1))
-                    insertDHEdges possibletuple neededInds ta2 p fun
-            return Changed
+                    if containsBP nta2 
+                      then case trace (show ("callingBPChain", nta2)) $ getsBPbase nta2 of
+                            Just (g1,g2) -> do 
+                                solveBPedge (expBase nta2) (g1,g2) neededInds p rules instrules fun
+                                return Changed
+                            _ -> error "bp does not have a basis - malformed term"
+                      else do
+                        possibletuple <- insertFreshNodeConcOutInst rules instrules n Nothing -- (Just ((j,ruj, fa1, c), nta1))
+                        insertDHEdges possibletuple (map fst neededInds) ta2 p fun
+                        return Changed
         (es, js) -> do
                 let fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) es
                     otheres = es \\ fres
@@ -1627,8 +1658,8 @@ solveTermDHEqsChain2 splitStrat mayB rules instrules fun p faPrem ta2 = do
     case neededexponents currB currNB nta2 of
         ([],js) -> do
             let xrooterms = (multRootList nta2)
-                indlist = map (\x -> rootIndKnown2 hndNormal bset nbset x) xrooterms
-                neededInds = filter (not . isPublic) indlist
+                indlist = map (\x -> (rootIndKnown2 hndNormal bset nbset x,x)) xrooterms
+                neededInds = filter (\(a,b) -> not $ isPublic a) indlist
                 n = length neededInds
                 h = head xrooterms
                 toaddnocanc = filter (\t -> not $ isNoCanc h t) (tail xrooterms)
@@ -1637,9 +1668,15 @@ solveTermDHEqsChain2 splitStrat mayB rules instrules fun p faPrem ta2 = do
             if null neededInds
                 then return "All Indicators public"--insertDHEdge ((j,c), fa1, faPrem, p) bset nbset -- TODO: fix this
                 else do
-                    possibletuple <- insertFreshNodeConcOutInst rules instrules n Nothing -- (Just ((j,ruj, fa1, c), nta1))
-                    insertDHEdges possibletuple neededInds ta2 p fun
-                    return "All Out Facts Used"
+                    if containsBP nta2 
+                      then case trace (show ("callingBPChain", nta2)) $ getsBPbase nta2 of
+                            Just (g1,g2) -> do 
+                                solveBPedge (expBase nta2) (g1,g2) neededInds p rules instrules fun
+                            _ -> error "bp does not have a basis - malformed term"
+                      else do
+                        possibletuple <- insertFreshNodeConcOutInst rules instrules n Nothing -- (Just ((j,ruj, fa1, c), nta1))
+                        insertDHEdges possibletuple (map fst neededInds) ta2 p fun
+                        return "All Out Facts Used"
         (es,js) -> do
                 let fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) es
                     otheres = es \\ fres
