@@ -261,7 +261,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
             (Fact KUFact _ [m]) | (isMixedFact fa) -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList (get rActs ru)
-                   (void (solveFactEqs SplitNow [Equal fa act]))
+                   trace (show ("solving KU", fa)) (void (solveFactEqs SplitNow [Equal fa act]))
                    void substSystem
                    return ru
             _ | (isKdhFact fa)                     -> do
@@ -296,7 +296,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
             _ | (isDHFact fa)                       -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing 
                    act <- disjunctionOfList (filter isDHFact $ get rActs ru)
-                   (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
+                   trace (show ("solving this??", fa,ru)) (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
                    void substSystem
                    --void normSystem
                    return ru 

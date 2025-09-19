@@ -1368,7 +1368,7 @@ solveIndicatorProto :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
 solveIndicatorProto basis t1 t2 = do
   hnd  <- getMaudeHandle
   bb <- disjunctionOfList $ (solveIndicatorGaussProto hnd basis t1 t2 )
-  case bb of
+  case trace (show ("indicatorProto", t1, t2)) bb of
    Just substlist ->  do
         eqStore <- getM sEqStore
         hndCR <- getMaudeHandleCR
@@ -1491,7 +1491,7 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms ta1 ta
     (eqs2, maySplitId) <- disjunctionOfList eqList
     se  <-  gets id
     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
-    noContradictoryEqStore
+    trace (show ("DHProtoeqsaux", ta1, ta1)) noContradictoryEqStore
     -- setM sEqStore eqs2 
     subst <- getM sSubst
     let substlist = M.fromList $ substToList subst
@@ -1732,7 +1732,7 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
         subst <- getM sEqStore
         fs <- getM sFormulas
         hndNormal <- getMaudeHandle
-        let ta1bp = if containsBP ta1 then removesBP ta1 else ta1
+        let ta1bp = trace (show ("protoCase", ta1, ta2, removesBP ta1, removesBP ta2 )) $ if containsBP ta1 then removesBP ta1 else ta1
             ta2bp = if containsBP ta2 then removesBP ta2 else ta2
             ta11 = applyVTerm (_eqsSubst subst) ta1bp
             ta22 = applyVTerm (_eqsSubst subst) ta2bp
@@ -1755,7 +1755,7 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
                                 toaddnocanc = filter (\t -> not $ isNoCanc h t) (tail xrooterms)
                             forM_ (toaddnocanc) (\t->insertNoCanc h t)   
                             hnd <- getMaudeHandleDH
-                            if n == 0
+                            if trace (show ("which case,",n)) $ n == 0
                               then do
                                 let allevars = filter (\x -> lvarSort x == LSortE) $ nub $ varsVTerm nta1 ++ varsVTerm nta2
                                 vks <- replicateM (length allevars) $ freshLVar "yk" LSortVarE
@@ -1773,7 +1773,7 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
                                     eterms = map etermOf nublist
                                     appearances = map (\x -> length $ filter (==x) permutedlist) nublist
                                     zipped = zip nublist $ zip appearances eterms
-                                if any (\(a,(b,c))-> b>1 && null c) zipped
+                                if trace (show ("zipped",zipped, permutedlist, nta2) )$ (all null eterms) || (any (\(a,(b,c))-> b>1 && null c) zipped)
                                     then do
                                         contradictoryIf True
                                         return Changed
@@ -1790,9 +1790,9 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
                                                 newsubst = substFromList $ zip (map (fromJust . snd) evars) ffsums
                                                 newpermlist = replacesubsts permutedlist (M.fromList permsubsts)
                                             oldsubst <- getM sSubst
-                                            eqstore <- getM sEqStore
+                                            eqstore <- trace (show ("newsubst", newsubst)) $  getM sEqStore
                                             setM sEqStore ( eqstore{_eqsSubst = substFromList $ normalizeSubstList hndNormal $ substToList (compose newsubst oldsubst)} )
-                                            eqstore2 <- getM sEqStore
+                                            --eqstore2 <- getM sEqStore
                                             let nta2p = (runReader (norm' $ applyVTerm newsubst nta2) hndNormal) 
                                                 allevars = filter (\x -> lvarSort x == LSortE) $ nub $ varsVTerm nta1 ++ varsVTerm nta2p
                                             solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms nta1 nta2p newpermlist -- $ map (rootIndKnown2 hndNormal bset $ S.fromList (filter isFrNZEVar $ S.toList nbset)) newpermlist
@@ -1836,7 +1836,7 @@ solveTermDHEqs splitStrat fun (ta1, ta2)
         -}
         | otherwise = case (isPubExp ta1, isPubExp ta2) of
                 (Just (pg1,e1), Just (pg2,e2)) -> do
-                    if pg1 == pg2
+                    if trace (show ("cases", ta1,ta2)) $ pg1 == pg2
                      then do
                         if containsBP ta2
                           then do 
@@ -1854,7 +1854,7 @@ solveTermDHEqs splitStrat fun (ta1, ta2)
                             solveTermEqs splitStrat [(Equal pg1 pg2)]
                             solveTermDHEqs splitStrat fun (e1, e2)
 
-                _ -> fun (ta1,ta2)
+                _ -> trace (show ("solveTermDHEqs", ta1,ta2)) $ fun (ta1,ta2)
 
 
 
