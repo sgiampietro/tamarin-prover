@@ -405,7 +405,7 @@ parseVariantsReply msig reply = flip parseOnly reply $ do
                      <*> (string " --> " *> parseTerm msig <* endOfLine)
 
 
--- for the maude command "unify [2]"
+-- for the maude command "unify [n]"
 parseUnifyDHFrReply :: MaudeSig -> ByteString -> Either String [MSubst]
 parseUnifyDHFrReply msig reply = flip parseOnly reply $
      choice [ string "No unifier." <* endOfLine*> pure [] <* endOfInput
@@ -419,17 +419,18 @@ parseUnifyDHFrReply msig reply = flip parseOnly reply $
                                     <*> (string " --> " *> parseTerm msig <* endOfLine) 
 
 
-
---for the maude command "unify [1]"
+-- for the maude command "filtered variant unify"
 parseUnifyDHReply :: MaudeSig -> ByteString -> Either String [MSubst]
-parseUnifyDHReply msig reply = flip parseOnly reply $
-     choice [ string "No unifier." <* endOfLine*> pure [] <* endOfInput
-           , endOfLine *> many1 (parseUnifier) ]
+parseUnifyDHReply msig reply = flip parseOnly reply $ trace (show ("TRYINGTHIS", reply)) $ 
+     choice [ endOfLine *> string "No unifiers." <* endOfLine <* string "rewrites: "
+              <* takeWhile1 isDigit <* endOfLine *> pure []      <* endOfInput
+           , string "rewrites: " *> takeWhile1 isDigit *> endOfLine *>
+           endOfLine *> many1 (parseUnifier) <* "No more unifiers." <* endOfLine ]
               where
                     parseUnifier = string "Unifier " *> takeWhile1 isDigit *> endOfLine *>
-                                    manyTill parseEntry endOfInput
+                                    manyTill parseEntry endOfLine
                     parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
-                                    <*> (string " --> " *> parseTerm msig <* endOfLine) 
+                                    <*> (string " --> " *> parseTerm msig <* endOfLine)
 
 
 

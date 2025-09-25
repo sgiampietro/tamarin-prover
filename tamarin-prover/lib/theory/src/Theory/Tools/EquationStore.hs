@@ -75,7 +75,7 @@ import           Control.Monad.Reader
 import           Extension.Prelude
 import           Utils.Misc
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Control.Basics
 import           Control.DeepSeq
@@ -628,6 +628,10 @@ addDHEqs2 hnd zzbool t1zzs permt eqdhstore =
             return $ (eqStore', Nothing, (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) newsubsts ) )
   where
     t1 = (map (\(a,_,_)->a) t1zzs)
+        --muvariablest1 = (concatMap varInMu t1)
+        --muvariablesindt = (concatMap varInMu permt)
+        --ist1var x = elem x $ concatMap varsVTerm t1
+        --isindtvar x = elem x $ concatMap varsVTerm permt
     t1indt = zipWith Equal permt t1
     eqs = apply (L.get eqsSubst eqdhstore) $ t1indt
     addsubsts sub eqst= applyEqStore hnd sub eqst

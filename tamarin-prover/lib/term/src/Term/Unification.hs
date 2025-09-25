@@ -96,6 +96,7 @@ import           Control.Monad.Except
 import           Control.Monad.State
 import qualified Data.Map as M
 import           Data.Map (Map)
+import           Data.List (nub)
 
 import           System.IO.Unsafe (unsafePerformIO)
 
@@ -108,7 +109,7 @@ import qualified Term.Maude.Process as UM
 import           Term.Maude.Process
                    (MaudeHandle, WithMaude, startMaude, startMaudeDH, startMaudeCR, getMaudeStats, mhMaudeSig, mhFilePath)
 import           Term.Maude.Signature
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 -- Unification modulo AC
 ----------------------------------------------------------------------
@@ -147,20 +148,32 @@ unifyLDHProtoTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ 
                                       eqs)  
 
 unifyLDHFrTermFactored :: (IsConst c)
-                   => (c -> LSort)
+                   => Int -> (c -> LSort)
                    -> [Equal (LTerm c)]
                    -> WithMaude [SubstVFresh c LVar]
-unifyLDHFrTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTermDHproblemeaticproto: "++ show eqs, "result = "++  show res]) res) $ do
+unifyLDHFrTermFactored n sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTermDHproblemeaticproto: "++ show n ++ show eqs, "result = "++  show res]) res) $ do
     solve h 
   where
-    solve h = unsafePerformIO (UM.unifyViaMaudeDHFr h sortOf 
+    solve h = unsafePerformIO (UM.unifyViaMaudeDHFr h n sortOf 
                                       eqs)  
+    
+
+allDistinctFrVars :: SubstVFresh Name LVar -> Bool
+allDistinctFrVars subst = length (nub $ map fst tupsubst) == length (nub $ map snd tupsubst)
+    where tupsubst = filter (\(a,b)-> sortOfLNTerm (LIT (Var a)) == LSortFrNZE ) $ substToListVFresh subst
+
 
 unifyLNDHProtoTermFactored :: [Equal LNTerm]
                     -> WithMaude [SubstVFresh Name LVar]
-unifyLNDHProtoTermFactored eq = if (any allFrVars eq) 
-                                  then unifyLDHFrTermFactored sortOfName eq
-                                  else unifyLDHProtoTermFactored sortOfName eq
+unifyLNDHProtoTermFactored eq = do 
+      substs <- unifyLDHFrTermFactored n sortOfName eq
+      if (length substs < n) || (any allDistinctFrVars substs)  
+        then unifyLDHFrTermFactored n sortOfName eq
+        else unifyLDHProtoTermFactored sortOfName eq
+    where 
+      m = length $ nub $ filter (\l -> lvarSort l == LSortFrNZE) (concatMap (\(Equal a b)-> varsVTerm a ++ varsVTerm b) eq)
+      n = if m == 0 then 1 else m
+
 
 -- | @unifyLNTerm eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLTerm :: (IsConst c)
