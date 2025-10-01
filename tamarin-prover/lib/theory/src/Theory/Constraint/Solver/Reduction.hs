@@ -72,6 +72,7 @@ module Theory.Constraint.Solver.Reduction (
   -- , solveNeededList
   , solveNeededList2
   --, setNotReachable
+  , checkUniversalTerms
 
   -- ** Goal management
   , markGoalAsSolved
@@ -122,7 +123,7 @@ import Data.Maybe (fromJust, isJust)
 import qualified Data.Map.Strict                         as M'
 import qualified Data.Set                                as S
 import qualified Data.ByteString.Char8                   as BC
-import           Data.List                               (mapAccumL, delete , subsequences, length , nub, nubBy, permutations, intersect, (\\))
+import           Data.List                               (mapAccumL, delete , subsequences, length , nub, nubBy, permutations, intersect, (\\), tails)
 import Data.List.Split (splitPlaces)
 import           Safe
 
@@ -311,7 +312,7 @@ insertFreshNodeConcOutInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Int -> Maybe
 insertFreshNodeConcOutInst rules instrules n Nothing = do
       -- irulist <- replicateM n $ traverseDHNodes rules
       irulist <- traverseDHNodes rules
-      let pairs = [(ru, (i,c), (f, headf), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isMixedFact f, not $ isMuTerm (head $ factTerms f), (rterm, headf) <- extractMixedRoot (head $ factTerms f)]
+      let pairs = trace (show ("FINALLIST", length irulist)) $ [(ru, (i,c), (f, headf), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isMixedFact f, not $ isMuTerm (head $ factTerms f), (rterm, headf) <- extractMixedRoot (head $ factTerms f)]
       disjunctionOfList (nub $ concatMap permutations (nub $ combinations n pairs))
 insertFreshNodeConcOutInst rules instrules n (Just ((j,ruj,faConc,cj), ta)) = do
       -- irulist <- replicateM n $ traverseDHNodes rules
@@ -779,6 +780,25 @@ insertMuAction fun x@(LIT l) i j | sortOfLNTerm x == LSortFrNZE =  do
                     fun x i
                     insertNotBasisElem x-}
 
+checkUniversalTerms :: [LNTerm] -> [LNTerm] -> StateT System (FreshT (DisjT (Reader ProofContext))) ()
+checkUniversalTerms tuplelist indts = do
+    let rootpairs = zip (tuplelist) indts
+    void substSystem
+    nodes <- getM sNodes
+    contradictoryIf $ doubleFresh nodes
+    hndNormal <- getMaudeHandle
+    let queries = map (\(rt, ind)-> createEqs rt ind) rootpairs
+        xindterms = map (\(Equal rt ind) -> ind) queries
+        prterms = map (\(Equal rt ind) -> rt) queries
+    zzs <- replicateM (length xindterms) $ freshLVar "zz" LSortE
+    let genindterms = zipWith (genTerm hndNormal) xindterms zzs
+    se  <- gets id
+    hnd <- getMaudeHandleDH
+    (eqs2, maySplitId,subst1) <- addDHEqs2 hnd False genindterms prterms =<< getM sEqStore 
+    contradictoryIf $ null subst1
+    contradictoryIf $ eqsIsFalse eqs2
+
+
 --solveBPedge :: LNTerm -> (LNTerm, LNTerm) -> [(LNTerm, LNTerm)] -> NodePrem -> [RuleAC] -> [(NodeId, RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
 solveBPedge :: LNTerm -> (Term (Lit Name LVar), Term (Lit Name LVar)) -> [(LNTerm, Term (Lit Name LVar))] -> NodePrem -> [RuleAC] -> [(NodeId, RuleACInst)] -> (LNTerm -> NodeId -> Reduction String) -> StateT System (FreshT (DisjT (Reader ProofContext))) String
 solveBPedge gT (g1,g2) neededInds p rules instrules fun = do
@@ -844,6 +864,9 @@ insertDHEdgesBP (gT, g1, g2) gTlist g1list g2list indts indsg1 indsg2 listterms 
             trace (show ("solveIndicatorcall",faPremsubst, listterms2)) $ solveIndicator faPremsubst listterms2
             forM_ (map (\(_,b,_,_, _, _)->b) allcllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
             forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) allcllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
+
+
+
 
 
 insertDHEdges :: [(RuleACInst, NodeConc, (LNFact,LNTerm), LNTerm, Maybe RuleACConstrs, Bool)] -> [LNTerm] -> LNTerm -> NodePrem -> 
@@ -1603,10 +1626,13 @@ solveTermDHEqsChain splitStrat mayB rules instrules fun p faPrem (j,ruj, fa1, c)
         --indlist = map (\x -> runReader (rootIndKnownMaude bset nbset x) hndNormal) (multRootList $ runReader (norm' ta2) hndNormal)
                 neededInds = filter (\(a,b) -> not $ isPublic a) indlist
                 n = length neededInds
-                h = head xrooterms
-                toaddnocanc = filter (\t -> not $ isNoCanc h t) (tail xrooterms)
+                nInds = map fst neededInds
+                pairs = [(x, y) | (x:ys) <- tails nInds, y <- ys]
+                toaddnocanc = filter (\(a,b) -> not $ isNoCanc a b) pairs
+                isnocanc = filter (\(a,b) -> isNoCanc a b) pairs
+                universal = filter (\x-> isUniversal nInds isnocanc x) nInds
+                m = length universal 
             forM_ js (\i-> insertLess i (fst p) Adversary)
-            forM_ (toaddnocanc) (\t->insertNoCanc h t)
             if null neededInds
                 then do 
                     insertDHEdge ((j,c), fa1, faPrem, p) bset nbset -- TODO: fix this
@@ -1616,12 +1642,22 @@ solveTermDHEqsChain splitStrat mayB rules instrules fun p faPrem (j,ruj, fa1, c)
                       then case trace (show ("callingBPChain", nta2)) $ getsBPbase nta2 of
                             Just (g1,g2) -> do 
                                 solveBPedge (expBase nta2) (g1,g2) neededInds p rules instrules fun
+                                forM_ (toaddnocanc) (\(a,b) -> insertNoCanc a b)
                                 return Changed
                             _ -> error "bp does not have a basis - malformed term"
                       else do
-                        possibletuple <- insertFreshNodeConcOutInst rules instrules n Nothing -- (Just ((j,ruj, fa1, c), nta1))
-                        insertDHEdges possibletuple (map fst neededInds) ta2 p fun
-                        return Changed
+                            if universal == nInds  || null universal
+                                then do
+                                    possibletuple <- insertFreshNodeConcOutInst rules instrules n Nothing -- (Just ((j,ruj, fa1, c), nta1))
+                                    insertDHEdges possibletuple (map fst neededInds) ta2 p fun
+                                    return Changed
+                                else do
+                                    possibletuple1 <- insertFreshNodeConcOutInst rules instrules m Nothing
+                                    checkUniversalTerms (map (\(a,b,(c,t),d,e,f)-> d) possibletuple1) universal 
+                                    forM_ (toaddnocanc) (\(a,b) -> insertNoCanc a b)
+                                    possibletuple <- insertFreshNodeConcOutInst rules instrules n Nothing -- (Just ((j,ruj, fa1, c), nta1))
+                                    insertDHEdges possibletuple nInds ta2 p fun
+                                    return Changed
         (es, js) -> do
                 let fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) es
                     otheres = es \\ fres
@@ -1657,14 +1693,17 @@ solveTermDHEqsChain2 splitStrat mayB rules instrules fun p faPrem ta2 = do
     let nta2 = runReader (norm' ((applyVTerm substs ta2))) hndNormal
     case neededexponents currB currNB nta2 of
         ([],js) -> do
-            let xrooterms = (multRootList nta2)
+            let xrooterms = trace (show ("chain2", nta2)) (multRootList nta2)
                 indlist = map (\x -> (rootIndKnown2 hndNormal bset nbset x,x)) xrooterms
                 neededInds = filter (\(a,b) -> not $ isPublic a) indlist
                 n = length neededInds
-                h = head xrooterms
-                toaddnocanc = filter (\t -> not $ isNoCanc h t) (tail xrooterms)
+                nInds = map fst neededInds
+                pairs = [(x, y) | (x:ys) <- tails nInds, y <- ys]
+                toaddnocanc = filter (\(a,b) -> not $ isNoCanc a b) pairs
+                isnocanc = filter (\(a,b) -> isNoCanc a b) pairs
+                universal = filter (\x-> isUniversal nInds isnocanc x) nInds
+                m = length universal 
             forM_ js (\i-> insertLess i (fst p) Adversary)
-            forM_ (toaddnocanc) (\t->insertNoCanc h t)
             if null neededInds
                 then return "All Indicators public"--insertDHEdge ((j,c), fa1, faPrem, p) bset nbset -- TODO: fix this
                 else do
@@ -1673,10 +1712,19 @@ solveTermDHEqsChain2 splitStrat mayB rules instrules fun p faPrem ta2 = do
                             Just (g1,g2) -> do 
                                 solveBPedge (expBase nta2) (g1,g2) neededInds p rules instrules fun
                             _ -> error "bp does not have a basis - malformed term"
-                      else do
-                        possibletuple <- insertFreshNodeConcOutInst rules instrules n Nothing -- (Just ((j,ruj, fa1, c), nta1))
-                        insertDHEdges possibletuple (map fst neededInds) ta2 p fun
-                        return "All Out Facts Used"
+                      else 
+                        if universal == nInds  || null universal
+                            then do
+                                possibletuple <- insertFreshNodeConcOutInst rules instrules n Nothing
+                                insertDHEdges possibletuple nInds ta2 p fun
+                                return "All Out Facts Used"
+                            else do
+                                possibletuple1 <- insertFreshNodeConcOutInst rules instrules m Nothing
+                                checkUniversalTerms (map (\(a,b,(c,t),d,e,f)-> d) possibletuple1) universal 
+                                forM_ (toaddnocanc) (\(a,b) -> insertNoCanc a b)
+                                possibletuple <- insertFreshNodeConcOutInst rules instrules n Nothing
+                                insertDHEdges possibletuple nInds ta2 p fun
+                                return "All Out Facts Used"
         (es,js) -> do
                 let fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) es
                     otheres = es \\ fres

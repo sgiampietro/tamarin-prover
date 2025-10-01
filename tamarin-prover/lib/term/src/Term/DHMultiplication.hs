@@ -53,6 +53,7 @@ module Term.DHMultiplication (
   --, unbox
   , isNoCanc
   , notUnifiableLits
+  , isUniversal
 
   --, rootIndicator
   --, indicator
@@ -530,3 +531,10 @@ isMuTerm t = case viewTerm2 t of
       _          -> False
 
 
+hasPair :: Eq a => (a,a) -> [(a,a)] -> Bool
+hasPair (x,y) pairs = (x,y) `elem` pairs || (y,x) `elem` pairs
+
+isUniversal :: Eq a => [a] -> [(a,a)] -> a -> Bool
+isUniversal xs pairs x =
+    let others = filter (/= x) xs
+    in all (\y -> hasPair (x,y) pairs) others

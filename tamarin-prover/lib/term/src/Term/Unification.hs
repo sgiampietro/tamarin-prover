@@ -110,7 +110,7 @@ import qualified Term.Maude.Process as UM
 import           Term.Maude.Process
                    (MaudeHandle, WithMaude, startMaude, startMaudeDH, startMaudeCR, getMaudeStats, mhMaudeSig, mhFilePath)
 import           Term.Maude.Signature
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 
 -- Unification modulo AC
 ----------------------------------------------------------------------
