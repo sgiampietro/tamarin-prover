@@ -136,22 +136,21 @@ applyVarSubst vs tv = (case (Map.lookup tv vs) of
 determineSort :: Term (Lit Name LVar) -> LSort
 determineSort t@(FAPP (DHMult o) ts ) = case o of
     dhMultSym   -> LSortG
-    dhTimesSym   -> LSortE
     dhTimesESym   -> LSortE
     dhExpSym   -> LSortG
     dhPlusSym   -> LSortE
     dhGinvSym    -> LSortG
     dhInvSym    -> LSortG
     dhMinusSym    -> LSortE
-    dhMuSym    -> LSortNZE
-    dhMu2Sym    -> LSortNZE
+    dhMuSym    -> LSortE
+    dhMu2Sym    -> LSortE
     --[ t1 ]     | o == dhBoxSym    -> Box (t1)
     --[ t1 ]     | o == dhBoxESym    -> BoxE (t1)
     dhZeroSym    -> LSortE
     dhEgSym    -> LSortG
     dhOneSym    -> LSortE
     dhBPSym -> LSortG
-    dhHSym -> LSortNZE
+    dhHSym -> LSortE
 
 clean :: MonadFresh m => Term (Lit Name LVar) -> m (Term (Lit Name LVar), [(LVar,VTerm Name LVar)])
 clean t@(viewTerm3 -> MsgLit l) = return (LIT l, [])
@@ -167,7 +166,6 @@ expBase ::  LNTerm -> LNTerm
 expBase t@(LIT l) = if (isPubGVar t || isGConst t) then t else pubGTerm "g"
 expBase t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhMultSym   -> expBase t1
-    [ t1, t2 ] | o == dhTimesSym   ->  pubGTerm "g" -- technically should not get here. 
     [ t1, t2 ] | o == dhTimesESym   -> pubGTerm "g"
     [ t1, t2 ] | o == dhExpSym   ->  t1
     [ t1, t2 ] | o == dhPlusSym   -> pubGTerm "g"
@@ -306,7 +304,6 @@ listOfExponents :: LNTerm -> [LNTerm]
 listOfExponents t@(LIT _) = [t]
 listOfExponents t = case viewTerm2 t of
                       FdhExp t1 t2 -> listOfExponents t2
-                      FdhTimes t1 t2 -> listOfExponents t1 ++ listOfExponents t2
                       FdhTimesE t1 t2 -> listOfExponents t1 ++ listOfExponents t2
                       FdhMu _ -> [t]
                       FdhMu2 _ _ -> [t]
@@ -442,7 +439,6 @@ indIsOne b nb t = False
 rootIndKnown :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> LNTerm
 rootIndKnown b nb t@(viewTerm2 -> FdhExp t1 t2) = (FAPP (DHMult dhExpSym) [ rootIndKnown b nb t1, rootIndKnown b nb t2])
 rootIndKnown b nb t@(viewTerm2 -> FdhGinv dht) = rootIndKnown b nb dht--(FAPP (DHMult dhGinvSym) [rootIndKnown b nb dht])
-rootIndKnown b nb t@(viewTerm2 -> FdhTimes t1 t2) = (FAPP (DHMult dhTimesSym) [rootIndKnown b nb t1, rootIndKnown b nb t2] )
 rootIndKnown b nb t@(viewTerm2 -> FdhTimesE t1 t2) =  (FAPP (DHMult dhTimesESym) [rootIndKnown b nb t1, rootIndKnown b nb t2])
 rootIndKnown b nb t@(viewTerm2 -> FdhMu t1) = if indIsOne b nb t1 then (FAPP (DHMult dhOneSym) []) else t --  rootIndKnown b nb t1 -- TODO FIX: you should also consider the possibility of finding rootIndKnown of t1. -- (FAPP (DHMult dhZeroSym) [])
 rootIndKnown b nb t@(viewTerm2 -> FdhMu2 t1 t2) = if indIsOne b nb t1 then (if indIsOne b nb t2 then (FAPP (DHMult dhOneSym) []) else (FAPP (DHMult dhMuSym) [t2])) else (if indIsOne b nb t2 then (FAPP (DHMult dhMuSym) [t1]) else t) --  rootIndKnown b nb t1 -- TODO FIX: you should also consider the possibility of finding rootIndKnown of t1. -- (FAPP (DHMult dhZeroSym) [])
@@ -471,7 +467,6 @@ rootIndKnownMaude b nb t = norm' (rootIndKnown b nb t)
 rootIndKnown2 :: MaudeHandle -> S.Set LNTerm -> S.Set LNTerm -> LNTerm -> LNTerm
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhExp t1 t2) = runReader (norm' (FAPP (DHMult dhExpSym) [ rootIndKnown2 hnd b nb t1, rootIndKnown2 hnd b nb t2])) hnd
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhGinv dht) = rootIndKnown2 hnd b nb dht--(FAPP (DHMult dhGinvSym) [rootIndKnown b nb dht])
-rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhTimes t1 t2) = runReader (norm' (FAPP (DHMult dhTimesSym) [rootIndKnown2 hnd b nb t1, rootIndKnown2 hnd b nb t2] )) hnd
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhTimesE t1 t2) =  runReader (norm' (FAPP (DHMult dhTimesESym) [rootIndKnown2 hnd b nb t1, rootIndKnown2 hnd b nb t2])) hnd
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhMu t1) 
   | S.member t nb = FAPP (DHMult dhOneSym) []

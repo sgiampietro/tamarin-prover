@@ -69,15 +69,6 @@ simplify mterm = simplifyraw mterm --runReader (norm' mterm) hnd
 simplifyraw :: LNTerm -> LNTerm
 simplifyraw t= case viewTerm2 t of 
   Lit2 l -> t
-  FdhTimes t1 t2 -> (case (viewTerm2 t1, viewTerm2 t2) of
-    (DHOne, DHOne)  -> fAppdhOne
-    (DHOne, _ )     -> simplifyraw t2
-    (_    , DHOne)  -> simplifyraw t1
-    (DHZero, _ )    -> fAppdhZero
-    (_    , DHZero) -> fAppdhZero
-    (FdhInv t3, _) ->  if (t2 == t3) then fAppdhOne else t
-    (_, FdhInv t3) ->  if (t1 == t3) then fAppdhOne else t
-    (_    , _ )     -> t )
   FdhTimesE t1 t2 -> (case (viewTerm2 t1, viewTerm2 t2) of
     (DHOne, DHOne) -> fAppdhOne
     (DHOne, _ )    -> simplifyraw t2

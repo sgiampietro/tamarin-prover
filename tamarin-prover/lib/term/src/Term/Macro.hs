@@ -25,7 +25,6 @@ dhMultBuiltins =  [
   , dhMinusSymString
   , dhInvSymString
   , dhEgSymString 
-  , dhTimesSymString
   , dhTimesESymString -- e1*e2 for E (not necessarily NZE) elements
   , dhPlusSymString -- e1+e2
   , dhExpSymString

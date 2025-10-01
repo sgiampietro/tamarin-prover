@@ -1276,15 +1276,14 @@ normalizeSubstListCR hnd ((t,t2) : xs) = (t, normTermCR t2 hnd):(normalizeSubstL
 multiplyterm :: LVar -> LNTerm -> LNTerm 
 multiplyterm wvar t@(LIT l) = if (sortOfLNTerm t == LSortVarE) then t else fAppdhTimesE(varTerm wvar, t)
 multiplyterm wvar t@(FAPP (DHMult o) ts) = case ts of
-    [ t1, t2 ] | o == dhTimesSym   -> if null (varTermsOf t) then fAppdhTimes (varTerm wvar,t) else t
-    [ t1, t2 ] | o == dhTimesESym   -> if null (varTermsOf t) then fAppdhTimes (varTerm wvar,t) else t
+    [ t1, t2 ] | o == dhTimesESym   -> if null (varTermsOf t) then fAppdhTimesE (varTerm wvar,t) else t
     [t1 ,t2]   | o == dhPlusSym -> fAppdhPlus (multiplyterm wvar t1, multiplyterm wvar t2)
     [t1 ,t2]   | o == dhMultSym -> fAppdhMult (multiplyterm wvar t1, multiplyterm wvar t2)
     [ t1, t2 ] | o == dhExpSym   -> multiplyterm wvar t2
-    [ t1 ]     | o == dhInvSym    -> fAppdhTimes (varTerm wvar, t) 
+    [ t1 ]     | o == dhInvSym    -> fAppdhTimesE (varTerm wvar, t) 
     [ t1 ]     | o == dhGinvSym    -> multiplyterm wvar t1
-    [ t1 ]     | o == dhMinusSym    -> fAppdhTimes (varTerm wvar, t)
-    [ t1 ]     | o == dhMuSym    -> fAppdhTimes (varTerm wvar, t)  --TODO: not sure what to do here? t1 is actually a G term??
+    [ t1 ]     | o == dhMinusSym    -> fAppdhTimesE (varTerm wvar, t)
+    [ t1 ]     | o == dhMuSym    -> fAppdhTimesE (varTerm wvar, t)  --TODO: not sure what to do here? t1 is actually a G term??
     []         | o == dhZeroSym    -> t
     []         | o == dhOneSym    -> t
     _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
@@ -1292,16 +1291,13 @@ multiplyterm wvar t@(FAPP (DHMult o) ts) = case ts of
 
 monomials :: LNTerm -> [LNTerm]
 monomials t@(viewTerm2 -> FdhPlus t1 t2) = (monomials t1) ++ (monomials t2)
-monomials t@(viewTerm2 -> FdhTimes t1 t2) = [t]
 monomials t@(viewTerm2 -> FdhTimesE t1 t2) = [t]
 monomials t@(viewTerm2 -> FdhMinus t2) = monomials t2
 monomials t = [t]
 
 secretmonomials :: [LNTerm] -> LNTerm -> LNTerm -> [LNTerm]
 secretmonomials bb indt t@(viewTerm2 -> FdhPlus t1 t2) = (secretmonomials bb indt t1) ++ (secretmonomials bb indt t2)
-secretmonomials bb indt t@(viewTerm2 -> FdhTimes t1 t2) = if null newsecrets then [] else [foldr (\a b -> if b == fAppdhOne then a else fAppdhTimes (a,b)) fAppdhOne newsecrets]
-        where newsecrets = map (\v -> varTerm v) ( ((nub $ varsVTerm t) \\ (nub $ varsVTerm indt)) `intersect` (concatMap varsVTerm bb))
-secretmonomials bb indt t@(viewTerm2 -> FdhTimesE t1 t2) = if null newsecrets then [] else [foldr (\a b -> if b == fAppdhOne then a else fAppdhTimes (a,b)) fAppdhOne newsecrets]
+secretmonomials bb indt t@(viewTerm2 -> FdhTimesE t1 t2) = if null newsecrets then [] else [foldr (\a b -> if b == fAppdhOne then a else fAppdhTimesE (a,b)) fAppdhOne newsecrets]
         where newsecrets = map (\v -> varTerm v) ( ((nub $ varsVTerm t) \\ (nub $ varsVTerm indt)) `intersect` (concatMap varsVTerm bb))
 secretmonomials bb indt t@(viewTerm2 -> FdhMinus t2) = secretmonomials bb indt t2
 secretmonomials _ _ _ = []
