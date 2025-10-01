@@ -1705,7 +1705,7 @@ solveTermDHEqsChain2 splitStrat mayB rules instrules fun p faPrem ta2 = do
                 m = length universal 
             forM_ js (\i-> insertLess i (fst p) Adversary)
             if null neededInds
-                then return "All Indicators public"--insertDHEdge ((j,c), fa1, faPrem, p) bset nbset -- TODO: fix this
+                then return "All Indicators public"
                 else do
                     if containsBP nta2 
                       then case trace (show ("callingBPChain", nta2)) $ getsBPbase nta2 of
