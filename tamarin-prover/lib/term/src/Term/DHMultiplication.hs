@@ -499,8 +499,9 @@ rootIndUnknown n nb t = ( LIT (Var newv), [(newv, t)])
 
 isNoCanc :: LNTerm -> LNTerm -> Bool
 isNoCanc x y 
-      | all (\x -> sortOfLNTerm x == LSortFrNZE ) (evars1++evars2) = True 
-      | all (\x -> elem x $ varInMu y) (varsVTerm x) = True
+      | all (\v -> sortOfLNTerm v == LSortFrNZE ) (evars1++evars2) = True 
+      | all (\v -> elem v $ varInMu y) (filter (\v -> sortOfLNTerm (LIT (Var v)) == LSortE)  $ varsVTerm x) = True
+      | all (\v -> elem v $ varInMu x) (filter (\v -> sortOfLNTerm (LIT (Var v)) == LSortE)  $ varsVTerm y) = True
       | otherwise = False
     where evars1 = eTermsOf x
           evars2 = eTermsOf y
