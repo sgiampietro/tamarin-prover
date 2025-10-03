@@ -258,6 +258,12 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                             modM sNodes (M.insert i ru)
                             mapM_ requiresKU [a, b] *> return ru
             -- Distinguish DH term cases!!
+            (Fact KUFact _ [m]) | (sortOfLNTerm m == LSortFrNZE) -> do
+                   nodes <- getM sNodes
+                   (a,b,(c,d)) <- insertFreshNodeConcKI rules (M.assocs nodes)
+                   trace (show ("solving FRKU")) $ solveTermEqs SplitNow ([Equal m d])
+                   void substSystem
+                   return a
             (Fact KUFact _ [m]) | (isMixedFact fa) -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList (get rActs ru)
