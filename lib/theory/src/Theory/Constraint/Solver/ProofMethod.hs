@@ -290,10 +290,10 @@ execProofMethod ctxt method sys =
                $ reduc
       where
         reduc  = runReduction solver ctxt sys (avoid sys)
-        ths    = L.get pcSources ctxt
-        solver = do name <- solveGoal goal--maybe (trace (show "should get here") $ solveGoal goal)
-                            -- (fmap $ concat . intersperse "_")
-                                  --(trace (show "and also here") $ solveWithSource ctxt ths goal) -- remove this for goals that are DH terms. 
+        ths    = L.get pcSources ctxt 
+        solver = do name <- solveGoal goal--solveGoal goal)
+                            -- (fmap $ concat . intersperse "_") --TODO: NEED TO FIX THIS FOR PARTIAL COMPUTATIONS FOR NORMAL TAMARIN
+                                  --(solveWithSource ctxt ths goal) -- remove this for goals that are DH terms. 
                     simplifySystem
                     return name
 

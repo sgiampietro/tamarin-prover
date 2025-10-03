@@ -211,10 +211,9 @@ viewTerm2 t@(FAPP (NoEq o) ts) = case ts of
     _                           -> FAppNoEq o ts
   where
     -- special symbols
-    ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym , dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym, dhTimesSym, dhPlusSym, dhMuSym]
+    ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym , dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym, dhPlusSym, dhMuSym]
 viewTerm2 t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhMultSym   -> FdhMult  t1 t2
-    [ t1, t2 ] | o == dhTimesSym   -> FdhTimes  t1 t2
     [ t1, t2 ] | o == dhTimesESym   -> FdhTimesE  t1 t2
     [ t1, t2 ] | o == dhExpSym   -> FdhExp  t1 t2
     [ t1, t2 ] | o == dhPlusSym   -> FdhPlus  t1 t2
@@ -233,7 +232,7 @@ viewTerm2 t@(FAPP (DHMult o) ts) = case ts of
     _          | o `elem` ssyms -> error $ "viewTerm2: malformed term `"++show t++"'"
   where
     -- special symbols
-    ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym , dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym, dhTimesSym, dhPlusSym, dhMuSym, dhMu2Sym, dhBPSym, dhHSym]
+    ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym , dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym, dhPlusSym, dhMuSym, dhMu2Sym, dhBPSym, dhHSym]
 
 
 -- | View on terms that distinguishes between diffie-hellman and non diffie-hellman terms.
@@ -272,10 +271,9 @@ viewTerm3 t@(FAPP (NoEq o) ts) = case ts of
     _                           -> MsgFApp (NoEq o) ts
   where
     -- special symbols
-    ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym , dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym, dhTimesSym, dhPlusSym, dhMuSym]
+    ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym , dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym, dhPlusSym, dhMuSym]
 viewTerm3 t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhMultSym   -> DH (DHMult o) ts
-    [ t1, t2 ] | o == dhTimesSym   -> DH (DHMult  o) ts
     [ t1, t2 ] | o == dhTimesESym   -> DH (DHMult o) ts
     [ t1, t2 ] | o == dhExpSym   -> DH (DHMult o) ts
     [ t1, t2 ] | o == dhPlusSym   -> DH (DHMult o) ts
@@ -295,7 +293,7 @@ viewTerm3 t@(FAPP (DHMult o) ts) = case ts of
     _                           -> MsgFApp (DHMult o) ts
   where
     -- special symbols
-    ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym , dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym, dhTimesSym, dhPlusSym, dhMuSym, dhMu2Sym, dhBPSym, dhHSym]
+    ssyms = [ expSym, pairSym, diffSym, invSym, oneSym, pmultSym, dhNeutralSym , dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym, dhPlusSym, dhMuSym, dhMu2Sym, dhBPSym, dhHSym]
 
 
 

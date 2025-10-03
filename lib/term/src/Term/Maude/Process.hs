@@ -302,7 +302,7 @@ normViaMaude hnd sortOf t =
     msig = mhMaudeSig hnd
     toMaude = fmap normCmd . (lTermToMTerm sortOf)
     fromMaude bindings reply =
-        trace (show ("showNORM", reply)) (\mt -> (mTermToLNTerm "z" mt `evalBindT` bindings) `evalFresh` nothingUsed)
+        (\mt -> (mTermToLNTerm "z" mt `evalBindT` bindings) `evalFresh` nothingUsed)
             <$> parseReduceReply msig reply
     incNormCount mp = mp { normCount = 1 + normCount mp }
 
@@ -363,32 +363,32 @@ startMaudeProcessDH maudePath = do
 unifyCmdDH :: [Equal MTerm] -> ByteString
 unifyCmdDH []  = error "unifyCmd: cannot create cmd for empty list of equations."
 unifyCmdDH eqs =
-    --"variant unify [1] in DHsimp : " <> seqs <> " .\n"
+    "filtered variant unify in DHsimp : " <> seqs <> " .\n"
     -- "filtered variant unify in DHsimp : " <> seqs <> " .\n"
-    "unify [1] in DHsimp : " <> seqs <> " .\n"
+    -- "unify [1] in DHsimp : " <> seqs <> " .\n"
   where
     ppEq (Equal t1 t2) = ppMaude t1 <> " =? " <> ppMaude t2
     seqs = B.intercalate " /\\ " $ map ppEq eqs
 
-unifyCmdDHFr :: [Equal MTerm] -> ByteString
-unifyCmdDHFr []  = error "unifyCmd: cannot create cmd for empty list of equations."
-unifyCmdDHFr eqs =
+unifyCmdDHFr :: Int -> [Equal MTerm] -> ByteString
+unifyCmdDHFr _ []  = error "unifyCmd: cannot create cmd for empty list of equations."
+unifyCmdDHFr n eqs = -- "unify [1] in DHsimp : " <> seqs <> " .\n"
     --"variant unify [1] in DHsimp : " <> seqs <> " .\n"
     -- "filtered variant unify in DHsimp : " <> seqs <> " .\n"
-    "unify [2] in DHsimp : " <> seqs <> " .\n"
+    (BC.pack $ "unify ["++ show n ++"] in DHsimp : ") <> seqs <> " .\n"
   where
     ppEq (Equal t1 t2) = (ppMaude t1 <> " =? " <> ppMaude t2)
     seqs = B.intercalate " /\\ " $ map ppEq eqs
 
 unifyViaMaudeDHFr :: (IsConst c)
-    => MaudeHandle
+    => MaudeHandle -> Int
     -> (c -> LSort) -> [Equal (VTerm c LVar)] -> IO [SubstVFresh c LVar]
-unifyViaMaudeDHFr _   _      []  = return [emptySubstVFresh]
-unifyViaMaudeDHFr hnd sortOf eqs =
+unifyViaMaudeDHFr _  _  _      []  = return [emptySubstVFresh]
+unifyViaMaudeDHFr hnd n sortOf eqs =
     computeViaMaude hnd incUnifCount toMaude fromMaude eqs
   where
     msig = mhMaudeSig hnd
-    toMaude          = fmap unifyCmdDHFr . mapM (traverse (lTermToMTerm sortOf))
+    toMaude          = fmap (unifyCmdDHFr n) . mapM (traverse (lTermToMTerm sortOf))
     fromMaude bindings reply =
         map (msubstToLSubstVFresh bindings) <$> parseUnifyDHFrReply msig reply
     incUnifCount mp  = mp { unifCount = 1 + unifCount mp }

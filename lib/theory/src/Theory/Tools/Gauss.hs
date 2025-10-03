@@ -150,7 +150,7 @@ pivotCheck zero (r:rs) counter vars@(v:vs)
     | rs == [] = ((r:rs), vars)
     | counter == 0 = ((r:rs), vars)
     | (head r /= zero) = ((r:rs), vars)
-    | otherwise = trace (show "swappedrow!!!!") (fst $ pivotCheck zero (rs ++ [r]) (counter-1) (vs ++ [v]), vs ++ [v])
+    | otherwise = (fst $ pivotCheck zero (rs ++ [r]) (counter-1) (vs ++ [v]), vs ++ [v])
 
 
 removeZeroRows :: LNTerm -> Matrix LNTerm -> [LNTerm] -> (Matrix LNTerm, [LNTerm], [LNTerm])
@@ -254,7 +254,7 @@ solveMatrix2 :: LNTerm -> [LNTerm] -> Matrix LNTerm -> [LNTerm] -> (Maybe [(Vect
 solveMatrix2 zero basis matrix variables 
   | inconsistentMatrix zero cleanmatrix = Nothing
   | null cleanmatrix = Nothing
-  | otherwise = trace (show ("EXTRAVARS", ncol, nrows,ncol - nrows, extravars)) $ 
+  | otherwise = 
   Just (map (\evars -> (traceBack2 zero cleanmatrix (map fst evars) (map snd evars) , variablesP, subszero, evars)) options)  --Just (traceBack zero cleanmatrix) 
     where 
       (redmatrix, variables2) = gaussReduction zero matrix variables
@@ -265,17 +265,17 @@ solveMatrix2 zero basis matrix variables
       zerovars = map getVar subszero
       extravars = map fromJust $ ((map getVar variables) \\ (map getVar variablesP))\\zerovars
       -- extravars' = filter (\i-> lvarName i /= "yk") extravars
-      m = trace (show "waiting") length extravars --'
+      m = length extravars --'
       extravarssubst = take m basis-- filter (\z-> not $ all (fAppdhZero == ) z) $ combineNlists m [fAppdhOne, fAppdhZero]
-      options = trace (show ("extravarsubst", extravarssubst, extravarssubst)) $ [zip extravars extravarssubst] -- (combineNlists m extravarssubst)
+      options =  [zip extravars extravarssubst] -- (combineNlists m extravarssubst)
 
 
 
 -- should return a Maybe [(Vector LNTerm, [LNTerm], [LNTerm])] (list of nulspace basis vectors)
 solveMatrix :: LNTerm -> Matrix LNTerm -> [LNTerm] -> (Maybe (Vector LNTerm), [LNTerm], [LNTerm])
 solveMatrix zero matrix variables 
-  | inconsistentMatrix zero cleanmatrix = trace (show ("inconsistent", cleanmatrix)) (Nothing, variables, [])
-  | otherwise = trace (show ("consistent", cleanmatrix)) (Just (traceBack zero cleanmatrix) , variablesP, subst) --Just (traceBack zero cleanmatrix) 
+  | inconsistentMatrix zero cleanmatrix = (Nothing, variables, [])
+  | otherwise = (Just (traceBack zero cleanmatrix) , variablesP, subst) --Just (traceBack zero cleanmatrix) 
     where 
       (redmatrix, variables2) = gaussReduction zero matrix variables
       (cleanmatrix, variablesP, subst) = removeZeroRows zero redmatrix variables2

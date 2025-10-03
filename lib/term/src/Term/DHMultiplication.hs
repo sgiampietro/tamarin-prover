@@ -45,7 +45,7 @@ module Term.DHMultiplication (
   --, unbox
   , isNoCanc
   , notUnifiableLits
-
+  , isUniversal
   --, rootIndicator
   --, indicator
    --, clean2
@@ -126,7 +126,6 @@ applyVarSubst vs tv = (case (Map.lookup tv vs) of
 determineSort :: Term (Lit Name LVar) -> LSort
 determineSort t@(FAPP (DHMult o) ts ) = case o of
     dhMultSym   -> LSortG
-    dhTimesSym   -> LSortE
     dhTimesESym   -> LSortE
     dhExpSym   -> LSortG
     dhPlusSym   -> LSortE
@@ -205,8 +204,8 @@ multRootMixed a = case sortOfLNTerm a of
 
 extractMixedRoot :: LNTerm -> [(LNTerm, LNTerm)]
 extractMixedRoot t = case viewTerm2 t of
-                        (FPair x y) -> trace (show ("extractmiced root", t)) (map (\rx -> (rx,x) ) $ multRootMixed x) ++ extractMixedRoot y-- (map (\ry -> (ry,y) ) $ multRootMixed y)  
-                        _ -> if isDHTerm t then  trace (show ("extractmiced root2", t)) $ trace (show ("extractmiced root", t))  map (\rt -> (rt, t)) $ multRootList t else trace (show ("extractmiced root3", t)) []
+                        (FPair x y) -> (map (\rx -> (rx,x) ) $ multRootMixed x) ++ extractMixedRoot y-- (map (\ry -> (ry,y) ) $ multRootMixed y)  
+                        _ -> if isDHTerm t then  map (\rt -> (rt, t)) $ multRootList t else []
  
 isRoot :: (Show a, Ord a ) => DHMultSym -> Term a -> Bool
 isRoot o (LIT l) = True
@@ -307,7 +306,7 @@ neededexponents b nb t
   | null es = ([], map snd (filter (\(y,_) -> y `elem` et) (S.toList nb)))
   | otherwise = (S.toList es, map snd (filter (\(y,_) -> y `elem` et) (S.toList nb)))
       where et = eTermsOf t
-            es = trace (show ("thishose", b, nb, eTermsOf t)) $ S.fromList et `S.difference` (b `S.union` (S.map fst nb))
+            es = S.fromList et `S.difference` (b `S.union` (S.map fst nb))
 
 neededexponentslist:: S.Set LNTerm -> S.Set (LNTerm,NodeId) -> [LNTerm] -> ([LNTerm], [NodeId])
 neededexponentslist b nb terms = myNub es
@@ -335,7 +334,6 @@ indIsOne b nb t = False
 rootIndKnown :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> LNTerm
 rootIndKnown b nb t@(viewTerm2 -> FdhExp t1 t2) = (FAPP (DHMult dhExpSym) [ rootIndKnown b nb t1, rootIndKnown b nb t2])
 rootIndKnown b nb t@(viewTerm2 -> FdhGinv dht) = rootIndKnown b nb dht--(FAPP (DHMult dhGinvSym) [rootIndKnown b nb dht])
-rootIndKnown b nb t@(viewTerm2 -> FdhTimes t1 t2) = (FAPP (DHMult dhTimesSym) [rootIndKnown b nb t1, rootIndKnown b nb t2] )
 rootIndKnown b nb t@(viewTerm2 -> FdhTimesE t1 t2) =  (FAPP (DHMult dhTimesESym) [rootIndKnown b nb t1, rootIndKnown b nb t2])
 rootIndKnown b nb t@(viewTerm2 -> FdhMu t1) = if indIsOne b nb t1 then (FAPP (DHMult dhOneSym) []) else t --  rootIndKnown b nb t1 -- TODO FIX: you should also consider the possibility of finding rootIndKnown of t1. -- (FAPP (DHMult dhZeroSym) [])
 rootIndKnown b nb t@(viewTerm2 -> FdhMu2 t1 t2) = if indIsOne b nb t1 then (if indIsOne b nb t2 then (FAPP (DHMult dhOneSym) []) else (FAPP (DHMult dhMuSym) [t2])) else (if indIsOne b nb t2 then (FAPP (DHMult dhMuSym) [t1]) else t) --  rootIndKnown b nb t1 -- TODO FIX: you should also consider the possibility of finding rootIndKnown of t1. -- (FAPP (DHMult dhZeroSym) [])
@@ -364,7 +362,6 @@ rootIndKnownMaude b nb t = norm' (rootIndKnown b nb t)
 rootIndKnown2 :: MaudeHandle -> S.Set LNTerm -> S.Set LNTerm -> LNTerm -> LNTerm
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhExp t1 t2) = runReader (norm' (FAPP (DHMult dhExpSym) [ rootIndKnown2 hnd b nb t1, rootIndKnown2 hnd b nb t2])) hnd
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhGinv dht) = rootIndKnown2 hnd b nb dht--(FAPP (DHMult dhGinvSym) [rootIndKnown b nb dht])
-rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhTimes t1 t2) = runReader (norm' (FAPP (DHMult dhTimesSym) [rootIndKnown2 hnd b nb t1, rootIndKnown2 hnd b nb t2] )) hnd
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhTimesE t1 t2) =  runReader (norm' (FAPP (DHMult dhTimesESym) [rootIndKnown2 hnd b nb t1, rootIndKnown2 hnd b nb t2])) hnd
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhMu t1) 
   | S.member t nb = FAPP (DHMult dhOneSym) []
@@ -392,23 +389,12 @@ rootIndUnknown n nb t = ( LIT (Var newv), [(newv, t)])
 
 isNoCanc :: LNTerm -> LNTerm -> Bool
 isNoCanc x y 
-      | all (\x -> sortOfLNTerm x == LSortFrNZE ) (evars1++evars2) = True 
-      | all (\x -> elem x $ varInMu y) (varsVTerm x) = True
+      | all (\v -> sortOfLNTerm v == LSortFrNZE ) (evars1++evars2) = True 
+      | all (\v -> elem v $ varInMu y) (filter (\v -> sortOfLNTerm (LIT (Var v)) == LSortE)  $ varsVTerm x) = True
+      | all (\v -> elem v $ varInMu x) (filter (\v -> sortOfLNTerm (LIT (Var v)) == LSortE)  $ varsVTerm y) = True
       | otherwise = False
     where evars1 = eTermsOf x
           evars2 = eTermsOf y
-
-{-
-isNoCanc :: LNTerm -> LNTerm -> Bool
-isNoCanc t1 t2 | isFrNZEVar t1 = True
-               | isFrNZEVar t2 = True
-               | otherwise = case viewTerm2 t2 of
-                  DHOne -> True
-                  FdhExp t3 t4 | isFrNZEVar t4 -> True
-                  _     -> (case viewTerm2 t1 of --TODO: fix this case. 
-                            DHOne -> True
-                            FdhExp t3 t4 | isFrNZEVar t4 -> True
-                            _ -> False) -}
 
 isDHTerm :: LNTerm -> Bool
 isDHTerm t = case viewTerm3 t of
@@ -432,3 +418,10 @@ isMuTerm t = case viewTerm2 t of
       _          -> False
 
 
+hasPair :: Eq a => (a,a) -> [(a,a)] -> Bool
+hasPair (x,y) pairs = (x,y) `elem` pairs || (y,x) `elem` pairs
+
+isUniversal :: Eq a => [a] -> [(a,a)] -> a -> Bool
+isUniversal xs pairs x =
+    let others = filter (/= x) xs
+    in all (\y -> hasPair (x,y) pairs) others

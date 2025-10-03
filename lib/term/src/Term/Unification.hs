@@ -96,6 +96,8 @@ import           Control.Monad.Except
 import           Control.Monad.State
 import qualified Data.Map as M
 import           Data.Map (Map)
+import           Data.List (nub, sort, sortOn, groupBy)
+import qualified Data.Set as Set
 
 import           System.IO.Unsafe (unsafePerformIO)
 
@@ -147,20 +149,62 @@ unifyLDHProtoTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ 
                                       eqs)  
 
 unifyLDHFrTermFactored :: (IsConst c)
-                   => (c -> LSort)
+                   => Int -> (c -> LSort)
                    -> [Equal (LTerm c)]
                    -> WithMaude [SubstVFresh c LVar]
-unifyLDHFrTermFactored sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTermDHproblemeaticproto: "++ show eqs, "result = "++  show res]) res) $ do
+unifyLDHFrTermFactored n sortOf eqs = reader $ \h -> (\res -> trace (unlines $ ["unifyLTermDHproblemeaticproto: "++ show n ++ show eqs, "result = "++  show res]) res) $ do
     solve h 
   where
-    solve h = unsafePerformIO (UM.unifyViaMaudeDHFr h sortOf 
+    solve h = unsafePerformIO (UM.unifyViaMaudeDHFr h n sortOf 
                                       eqs)  
+    
+
+countDifferent :: [[(LVar, LNTerm)]] -> Int
+countDifferent subs =
+  let normalize s =
+        let sorted = sortOn snd s
+            grouped = map (map fst) (groupBy (\(_,t1) (_,t2) -> t1 == t2) sorted)
+        in sort (map sort grouped)
+      partitions = map normalize subs
+  in Set.size (Set.fromList partitions)
+
+allFrVarsOptions :: [SubstVFresh Name LVar] -> Bool 
+allFrVarsOptions subst = n < length frsubst
+    where frs ss= filter (\(a,b)-> sortOfLNTerm (LIT (Var a)) == LSortFrNZE ) $ substToListVFresh ss
+          frsubst = map frs subst
+          n = countDifferent frsubst
+
+allDistinctFrVars :: SubstVFresh Name LVar -> Bool
+allDistinctFrVars subst = length (nub $ map fst tupsubst) == length (nub $ map snd tupsubst)
+    where tupsubst = filter (\(a,b)-> sortOfLNTerm (LIT (Var a)) == LSortFrNZE ) $ substToListVFresh subst
+
+
+pruneSimilar :: [[(LVar, LNTerm)]] -> [[(LVar, LNTerm)]]
+pruneSimilar = go Set.empty []
+  where
+    go _ reps [] = reps
+    go seen reps (s:ss) =
+      let filtered = filter (\(a,b) -> sortOfLNTerm (LIT (Var a)) == LSortFrNZE) s
+          sig = 
+            let sorted = sortOn snd filtered
+                grouped = map (map fst) (groupBy (\(_,t1) (_,t2) -> t1 == t2) sorted)
+            in sort (map sort grouped)
+      in if sig `Set.member` seen
+           then go seen reps ss
+           else go (Set.insert sig seen) (reps ++ [s]) ss
 
 unifyLNDHProtoTermFactored :: [Equal LNTerm]
                     -> WithMaude [SubstVFresh Name LVar]
-unifyLNDHProtoTermFactored eq = if (any allFrVars eq) 
-                                  then unifyLDHFrTermFactored sortOfName eq
-                                  else unifyLDHProtoTermFactored sortOfName eq
+unifyLNDHProtoTermFactored eq = do 
+      substs <- unifyLDHFrTermFactored n sortOfName eq
+      if (length substs < n) || (any allDistinctFrVars substs) || (allFrVarsOptions substs)
+        then return $ map substFromListVFresh ( pruneSimilar $ map substToListVFresh substs )
+        else unifyLDHProtoTermFactored sortOfName eq
+    where 
+      -- length $ nub $ filter (\l -> lvarSort l == LSortFrNZE) (concatMap (\(Equal a b)-> varsVTerm a) eq)
+      m = length $ nub $ filter (\l -> lvarSort l == LSortFrNZE) (concatMap (\(Equal a b)-> varsVTerm a ++ varsVTerm b) eq)
+      n = if m == 0 then 1 else m+m
+
 
 -- | @unifyLNTerm eqs@ returns a complete set of unifiers for @eqs@ modulo AC.
 unifyLTerm :: (IsConst c)
@@ -292,11 +336,10 @@ unifyRaw l0 r0 =  (do
     sortOf <- ask
     l <- gets ((`applyVTerm` l0) . substFromMap)
     r <- gets ((`applyVTerm` r0) . substFromMap)
-    guard (trace (show ("unifyRaw", mappings, viewTerm l ,viewTerm r)) True)
     case (viewTerm l, viewTerm r) of
        (Lit (Var vl), Lit (Var vr)) 
          | vl == vr  -> return ()
-         | otherwise -> trace (show ("SORTS ARE",l,r, lvarSort vl, lvarSort vr)) (case (lvarSort vl, lvarSort vr) of
+         | otherwise -> (case (lvarSort vl, lvarSort vr) of
              (sl, sr) | sl == sr                 -> if vl < vr then (elim vr l)
                                                     else (elim vl r) 
              _        | sortGeqLTerm sortOf vl r -> (elim vl r)
@@ -333,7 +376,7 @@ unifyRaw l0 r0 =  (do
        _                      -> mzero )-- no unifier
   where
     elim v t
-      | v `occurs` t = trace (show ("impossible", v, t)) mzero -- no unifier
+      | v `occurs` t = mzero -- no unifier
       | otherwise    = do
           sortOf <- ask
           guard  (sortGeqLTerm sortOf v t)
@@ -357,7 +400,6 @@ matchRaw :: IsConst c
          -> ExceptT MatchFailure (State (Map LVar (VTerm c LVar))) ()
 matchRaw sortOf t p = do
     mappings <- get
-    guard (trace (show (mappings,t,p)) True)
     case (viewTerm t, viewTerm p) of
       (_, Lit (Var vp)) ->
           case M.lookup vp mappings of

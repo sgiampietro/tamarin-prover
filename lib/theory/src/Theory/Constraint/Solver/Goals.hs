@@ -36,7 +36,7 @@ import qualified Data.DAG.Simple                         as D (reachableSet)
 import qualified Data.Map                                as M
 import qualified Data.Monoid                             as Mono
 import qualified Data.Set                                as S
-import           Data.List                               (nub, (\\))
+import           Data.List                               (nub, (\\), tails)
 
 import           Control.Basics
 import           Control.Category
@@ -258,6 +258,12 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                             modM sNodes (M.insert i ru)
                             mapM_ requiresKU [a, b] *> return ru
             -- Distinguish DH term cases!!
+            (Fact KUFact _ [m]) | (sortOfLNTerm m == LSortFrNZE) -> do
+                   nodes <- getM sNodes
+                   (a,b,(c,d)) <- insertFreshNodeConcKI rules (M.assocs nodes)
+                   solveTermEqs SplitNow ([Equal m d])
+                   void substSystem
+                   return a
             (Fact KUFact _ [m]) | (isMixedFact fa) -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList (get rActs ru)
@@ -306,7 +312,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                    act <- disjunctionOfList possacts  -- (filter isMixedFact $ get rActs ru)
                    let bset = (S.fromList $ basisOfRule ru)
                        nbset = (S.fromList $ notBasisOfRule ru) 
-                   trace (show ("solving this", fa,ru)) (void (solveMixedFactEqs SplitNow (Equal fa act) bset nbset (protoCase SplitNow bset nbset)))
+                   (void (solveMixedFactEqs SplitNow (Equal fa act) bset nbset (protoCase SplitNow bset nbset)))
                    void substSystem
                    --void normSystem
                    return ru
@@ -366,10 +372,10 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
              -> LNFact         -- ^ Fact required at this premise.
              -> Reduction String -- ^ Case name to use.
 solvePremise rules p faPrem
-  | isKdhFact faPrem && isDHFact faPrem = trace (show ("solvingkdf", faPrem)) (solveDHInd rules p faPrem)
+  | isKdhFact faPrem && isDHFact faPrem = (solveDHInd rules p faPrem)
   | isKdhFact faPrem && isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
   | isProtoDHFact faPrem =  solveDHIndProto rules p faPrem
-  | isProtoMixedFact faPrem = trace (show ("solvingMixedPremise", faPrem)) $ solveDHMixedPremise rules p faPrem
+  | isProtoMixedFact faPrem = solveDHMixedPremise rules p faPrem
   | isKDFact faPrem = do
       if not $ isOfDHSort (head $ factTerms faPrem)
         then do 
@@ -386,14 +392,14 @@ solvePremise rules p faPrem
         else (do 
           bset <- getM sBasis
           nbset <- getM sNotBasis
-          nodes <- trace (show ("insertDirectEdge1Goals", bset, nbset,faPrem)) $ getM sNodes
+          nodes <- getM sNodes
           let ta2 = head $ factTerms faPrem
           case  neededexponents bset nbset ta2 of 
             ([],js) -> do 
                     forM_ js (\i-> insertLess i (fst p) Adversary)
                     insertDHdirectEdge ta2 faPrem p rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
                     void substSystem
-                    trace (show ("CALLINGNORMNOW!")) void normSystem
+                    void normSystem
                     return "Using_OutFacts"
             (les,js) -> do 
               forM_ js (\i-> insertLess i (fst p) Adversary)
@@ -411,7 +417,7 @@ solvePremise rules p faPrem
                   insertNotBasisElem x i)
               insertDHdirectEdge ta2 faPrem p rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
               void substSystem
-              trace (show ("CALLINGNORMNOW2!")) void normSystem
+              void normSystem
               return "Using_OutFacts")
   | isOut faPrem = do    
       nodes <- getM sNodes
@@ -420,7 +426,7 @@ solvePremise rules p faPrem
       return $ showRuleCaseName ru  
   | isKIFact faPrem && isDHFact faPrem = do -- should match indicators with indicators (avoiding mu). In paper transform the mu rule also with any 1 way function.
       nodes <- getM sNodes
-      (ru, c, (faConc, t)) <- trace (show ("insertingpremise", faPrem)) $ insertFreshNodeConcKI rules (M.assocs nodes) -- (filter isIntruderRule rules) (M.assocs nodes)
+      (ru, c, (faConc, t)) <- insertFreshNodeConcKI rules (M.assocs nodes) -- (filter isIntruderRule rules) (M.assocs nodes)
       insertOutKIEdge (c, faConc, t, faPrem, p)
       return $ showRuleCaseName ru
   | isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
@@ -446,9 +452,7 @@ solveChain rules (c, p) = do
         pRule <- gets $ nodeRule (nodePremNode p)
         faPrem <- gets $ nodePremFact p
         contradictoryIf (forbiddenEdge cRule pRule)
-        --insertEdges [(c, faConc, faPrem, p)]
         insertDirectEdge faPrem faConc cRule pRule rules2
-        --trace (show ("solvededge", faPrem)) $ return ("directedge")
      `disjunction`
      -- extend it with one step
      case kFactView faConc of
@@ -461,8 +465,6 @@ solveChain rules (c, p) = do
                 -- NOTE: We rely on the check that the chain is open here.
                 ru <- disjunctionOfList rus
                 modM sNodes (M.insert i ru)
-                -- FIXME: Do we have to add the PremiseG here so it
-                -- marked as solved?
                 let v = PremIdx 0
                 faPrem <- gets $ nodePremFact (i,v)
                 extendAndMark i ru v faPrem faConc
@@ -518,7 +520,7 @@ solveChain rules (c, p) = do
       | isMixedFact faPrem =  (do 
             bset <- getM sBasis
             nbset <- getM sNotBasis
-            nodes <- trace (show ("insertDirectEdge1GoalsMixed", bset, nbset,faPrem)) $ getM sNodes
+            nodes <- getM sNodes
             insertDHMixedEdge False (c, faConc, faPrem, p) cRule (S.fromList $ basisOfRule cRule) (S.fromList $ notBasisOfRule cRule) (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
             let mPrem = case kFactView faConc of
                                 Just (DnK, m') -> m'
@@ -587,8 +589,6 @@ solveDHInd ::  [RuleAC]        -- ^ All rules that have an Out fact as conclusio
 solveDHInd rules p faPrem =  do
         bset <- getM sBasis
         nbset <-  getM sNotBasis
-        --nodes <-trace (show ("solveDHIND", faPrem, bset, nbset)) $  getM sNodes
-        --pRule <- gets $ nodeRule (nodePremNode p)
         case factTerms faPrem of 
           -- [x] -> solveDHIndaux bset nbset x p faPrem (filter isProtocolRule rules) (M.assocs nodes)
           [x] | S.member x bset  -> do 
@@ -663,16 +663,28 @@ solveDHIndaux bset nbset term p rules = do
               neededInds = filter (\(a,b)-> not $ isPublic a) inds
               newterm = foldr (\a b -> if b == fAppdhEg then a else fAppdhMult (a,b)) fAppdhEg $ map snd neededInds
               n = length neededInds
-              h = head xrooterms
-              toaddnocanc = filter (\t -> not $ isNoCanc h t) (tail xrooterms)
+              nInds = map fst neededInds
+              pairs = [(x, y) | (x:ys) <- tails nInds, y <- ys]
+              toaddnocanc = filter (\(a,b) -> not $ isNoCanc a b) pairs
+              isnocanc = filter (\(a,b) -> isNoCanc a b) pairs
+              universal = filter (\x-> isUniversal nInds isnocanc x) nInds
+              m = length universal 
           forM_ js (\i-> insertLess i (fst p) Adversary)
-          forM_ (toaddnocanc) (insertNoCanc h )
           if null neededInds 
-            then trace (show ("amhere", term)) $ return "Indicators are public"
-            else do   
-              possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n Nothing
-              trace (show ("adding edge", bset, nbset, map (\(_,_,x,_,_,_)-> x) possibletuple, term, "xrooterms",xrooterms)) $ insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
-              return "FindingIndicators" 
+            then return "Indicators are public"
+            else 
+              if universal == nInds || null universal
+                then do   
+                  possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n Nothing
+                  insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+                  return "FindingIndicators" 
+                else do
+                  possibletuple1 <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules m Nothing
+                  checkUniversalTerms (map (\(a,b,(c,t),d,e,f)-> d) possibletuple1) universal
+                  forM_ (toaddnocanc) (\(a,b) -> insertNoCanc a b)
+                  possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n Nothing
+                  insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+                  return "FindingIndicators" 
       (les, js) -> do
           let fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) les
               otheres = les \\ fres
@@ -681,13 +693,12 @@ solveDHIndaux bset nbset term p rules = do
           forM_ (zip ifs fres) (\(i,x) -> insertMuAction x i (fst p))
           (newb,newNb) <- disjunctionOfList $ solveNeededList2 otheres
           forM_ newb (insertBasisElem)
-          -- trace (show ("solving kdh", term, es, newb,newNb, "old", bset,nbset)) $ forM_ newNb (insertNotBasisElem)
-          is<- replicateM (length newNb) $ freshLVar "vk" LSortNode
+          is <- replicateM (length newNb) $ freshLVar "vk" LSortNode
           forM_ (zip is newNb) (\(i,x)-> do 
                 insertGoal (ActionG i (kdhFact x)) False
                 insertNotBasisElem x i
                 insertLess i (fst p) Adversary)
-          trace (show ("here2", newNb)) substSystem
+          substSystem
           bset2 <- getM sBasis
           nbset2 <- getM sNotBasis
           substs <- getM sSubst

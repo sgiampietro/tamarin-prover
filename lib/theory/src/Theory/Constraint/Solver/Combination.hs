@@ -58,7 +58,6 @@ expBase ::  LNTerm -> LNTerm
 expBase t@(LIT l) = if (isPubGVar t || isGConst t) then t else pubGTerm "g"
 expBase t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhMultSym   -> expBase t1
-    [ t1, t2 ] | o == dhTimesSym   -> pubGTerm "g"
     [ t1, t2 ] | o == dhTimesESym   -> pubGTerm "g"
     [ t1, t2 ] | o == dhExpSym   ->  t1
     [ t1, t2 ] | o == dhPlusSym   -> pubGTerm "g"
@@ -81,7 +80,6 @@ gTerm2Exp ::  LNTerm -> LNTerm
 gTerm2Exp t@(LIT l) = if (isGVar t || isPubGVar t || isGConst t) then (fAppdhOne) else t
 gTerm2Exp t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhMultSym   -> simplifyraw $ (FAPP (DHMult dhPlusSym) [gTerm2Exp t1, gTerm2Exp t2])
-    [ t1, t2 ] | o == dhTimesSym   -> t
     [ t1, t2 ] | o == dhTimesESym   -> t
     [ t1, t2 ] | o == dhExpSym   ->  simplifyraw $ (FAPP (DHMult dhTimesESym) [gTerm2Exp t1, gTerm2Exp t2])
     [ t1, t2 ] | o == dhPlusSym   -> t
@@ -103,7 +101,6 @@ getMuTerms :: LNTerm -> [LNTerm]
 getMuTerms t@(LIT l) = []
 getMuTerms t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhMultSym   -> nub $ (getMuTerms t1)++(getMuTerms t2)
-    [ t1, t2 ] | o == dhTimesSym   -> nub $ (getMuTerms t1)++(getMuTerms t2)
     [ t1, t2 ] | o == dhTimesESym   -> nub $ (getMuTerms t1)++(getMuTerms t2)
     [ t1, t2 ] | o == dhExpSym   ->  nub $ (getMuTerms t1)++(getMuTerms t2)
     [ t1, t2 ] | o == dhPlusSym   -> nub $ (getMuTerms t1)++(getMuTerms t2)
@@ -124,7 +121,6 @@ replaceMuTerms :: LNTerm -> Map.Map LNTerm LVar -> LNTerm
 replaceMuTerms t@(LIT l) mapp = t
 replaceMuTerms t@(FAPP (DHMult o) ts) mapp = case ts of
     [ t1, t2 ] | o == dhMultSym   -> FAPP (DHMult dhMultSym) [replaceMuTerms t1 mapp, replaceMuTerms t2 mapp]
-    [ t1, t2 ] | o == dhTimesSym   -> FAPP (DHMult dhTimesSym) [replaceMuTerms t1 mapp, replaceMuTerms t2 mapp]
     [ t1, t2 ] | o == dhTimesESym   -> FAPP (DHMult dhTimesESym) [replaceMuTerms t1 mapp, replaceMuTerms t2 mapp]
     [ t1, t2 ] | o == dhExpSym   ->  FAPP (DHMult dhExpSym) [replaceMuTerms t1 mapp, replaceMuTerms t2 mapp]
     [ t1, t2 ] | o == dhPlusSym   -> FAPP (DHMult dhPlusSym) [replaceMuTerms t1 mapp, replaceMuTerms t2 mapp]
@@ -173,7 +169,6 @@ coeffTermsOf t@(LIT l) vart
 coeffTermsOf t@(FAPP (DHMult o) ts) vart =     case ts of
     [ t1, t2 ] | o == dhPlusSym   -> error $ "term not in normal form?: `"++show t++"'"
     [ t1, t2 ] | o == dhTimesESym   -> simplifyraw $ fAppdhTimesE ( coeffTermsOf t1 vart, coeffTermsOf t2 vart)
-    [ t1, t2 ] | o == dhTimesSym   -> simplifyraw $ fAppdhTimesE ( coeffTermsOf t1 vart, coeffTermsOf t2 vart)
     [t1]       | o == dhMuSym  -> t
     [t1]       | o == dhInvSym  -> t
     [t1]       | o == dhHSym -> t
@@ -211,9 +206,6 @@ monomialsOf vars t =
 getkeyfromProd :: [LNTerm] -> LNTerm -> S.Set LNTerm
 getkeyfromProd vars t@(LIT l) = if (elem t vars) then (S.singleton t) else (S.singleton fAppdhOne)
 getkeyfromProd vars t@(FAPP (DHMult o) ts) = case ts of
-    [ t1, t2 ] | o == dhTimesSym   -> (case t1 of
-        (LIT l) -> if (elem t1 vars) then setSimplify $ S.union (S.singleton t1) (getkeyfromProd vars t2) else getkeyfromProd vars t2
-        _       -> setSimplify $ S.union (getkeyfromProd vars t1) (getkeyfromProd vars t2))
     [ t1, t2 ] | o == dhTimesESym   -> (case t1 of
         (LIT l) -> if (elem t1 vars) then setSimplify $ S.union (S.singleton t1) (getkeyfromProd vars t2) else getkeyfromProd vars t2
         _       -> setSimplify $ S.union (getkeyfromProd vars t1) (getkeyfromProd vars t2))
@@ -228,9 +220,6 @@ getkeyfromProd vars t@(FAPP (DHMult o) ts) = case ts of
 getcoefromProd :: [LNTerm] -> LNTerm -> LNTerm
 getcoefromProd vars t@(LIT l) = if (elem t vars) then fAppdhOne else t
 getcoefromProd vars t@(FAPP (DHMult o) ts) = case ts of
-    [ t1, t2 ] | o == dhTimesSym   -> (case t1 of
-        (LIT l) -> if (elem t1 vars) then getcoefromProd vars t2 else simplifyraw $ fAppdhTimesE ( t1, getcoefromProd vars t2)
-        _       -> simplifyraw $ fAppdhTimesE (getcoefromProd vars t1, getcoefromProd vars t2))
     [ t1, t2 ] | o == dhTimesESym   -> (case t1 of
         (LIT l) -> if (elem t1 vars) then getcoefromProd vars t2 else simplifyraw $ fAppdhTimesE (t1, getcoefromProd vars t2)
         _       -> simplifyraw $ fAppdhTimesE (getcoefromProd vars t1, getcoefromProd vars t2))
@@ -250,7 +239,6 @@ addToMap :: Map.Map (S.Set LNTerm) LNTerm -> [LNTerm] -> LNTerm  -> Map.Map (S.S
 addToMap currmap vars t@(LIT l) = if (elem t vars) then (Map.insertWithKey combineMaps (S.singleton t) fAppdhOne currmap) else (Map.insertWithKey combineMaps (S.singleton fAppdhOne) t currmap)
 addToMap currmap vars t@(FAPP (DHMult o) ts) = case ts of
     -- [ t1, t2 ] | o == dhMultSym   -> this shouldn't happen. only root terms. 
-    [ t1, t2 ] | o == dhTimesSym   -> Map.insertWithKey combineMaps (getkeyfromProd vars t) (getcoefromProd vars t) currmap
     [ t1, t2 ] | o == dhTimesESym   -> Map.insertWithKey combineMaps (getkeyfromProd vars t) (getcoefromProd vars t) currmap
     -- [ t1, t2 ] | o == dhExpSym   -> this shouldn't happen. only root terms. 
     [ t1, t2 ] | o == dhPlusSym   -> addToMap (addToMap currmap vars t1) vars t2
@@ -297,7 +285,6 @@ stripVars var t@(LIT l) = if (t == var) then fAppdhOne else fAppdhZero
 stripVars var t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhPlusSym   -> simplifyraw $ fAppdhPlus (stripVars var t1, stripVars var t2)
     [ t1, t2 ] | o == dhTimesESym   -> if (elem var (varTermsOf t)) then (coeffTermsOf t var) else fAppdhZero
-    [ t1, t2 ] | o == dhTimesSym   -> if (elem var (varTermsOf t)) then (coeffTermsOf t var) else fAppdhZero
     [ t1 ]     | o == dhMinusSym   -> simplifyraw $ fAppdhMinus (stripVars var t1)
     [ t1 ]     | o == dhMuSym      -> if (elem var (varTermsOf t)) then error ("variables inside mu term" ++ show t) else t
     [t1]       | o == dhInvSym -> if (elem var (varTermsOf t1)) then fAppdhInv (coeffTermsOf t var) else fAppdhZero
@@ -310,7 +297,6 @@ constCoeff t@(LIT l) = if (isvarGVar t || isvarEVar t) then fAppdhZero else t
 constCoeff t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhPlusSym   -> simplifyraw $ fAppdhPlus (constCoeff t1, constCoeff t2)
     [ t1, t2 ] | o == dhTimesESym   -> if (null $ varTermsOf t ) then t else fAppdhZero
-    [ t1, t2 ] | o == dhTimesSym   -> if (null $ varTermsOf t) then t else fAppdhZero
     [ t1 ]     | o == dhMinusSym   -> simplifyraw $ fAppdhMinus (constCoeff t1)
     [ t1 ]     | o == dhMuSym      -> if (null $ varTermsOf t) then t else fAppdhZero
     [t1]       | o == dhInvSym -> if (null (varTermsOf t1)) then t else fAppdhZero

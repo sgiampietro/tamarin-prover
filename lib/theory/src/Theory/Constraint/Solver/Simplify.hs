@@ -91,7 +91,7 @@ simplifySystem = do
           -- changes as 'substSystem' is idempotent.
           void substSystem
           sg <- gets plainOpenGoals
-          trace (show ("stillhere", sg)) $ void normSystem
+          void normSystem
           -- Perform one simplification pass.
           isdiff <- getM sDiffSystem
           -- In the diff case, we cannot enfore N4-N6.
@@ -133,16 +133,16 @@ simplifySystem = do
 
               traceIfLooping $ go (n + 1) (map snd changes)
             else do
-              (c1,c2,c3) <- trace (show ("start")) enforceNodeUniqueness
-              c4 <- trace (show ("c1,c2,c3", c1,c2,c3)) enforceEdgeUniqueness
-              c5 <- trace (show ("c4", c4)) solveUniqueActions
-              c6 <- trace (show ("c45", c5)) reduceFormulas
-              c7 <- trace (show ("c6", c6)) evalFormulaAtoms
-              c8 <- trace (show ("c7", c7)) insertImpliedFormulas
-              c9 <- trace (show ("c8", c8)) freshOrdering
-              c10 <- trace (show ("c9", c9)) simpSubterms
-              c11 <- trace (show ("c10", c10))  simpInjectiveFactEqMon
-              c12 <- trace (show ("c11", c11)) removeRedundantGoals
+              (c1,c2,c3) <- enforceNodeUniqueness
+              c4 <- enforceEdgeUniqueness
+              c5 <- solveUniqueActions
+              c6 <- reduceFormulas
+              c7 <- evalFormulaAtoms
+              c8 <- insertImpliedFormulas
+              c9 <- freshOrdering
+              c10 <- simpSubterms
+              c11 <- simpInjectiveFactEqMon
+              c12 <- removeRedundantGoals
 
               -- Report on looping behaviour if necessary
               let changes = filter ((Changed ==) . snd) $
@@ -185,7 +185,7 @@ removeRedundantGoals = do
         --goalstoRemove3 = kdhActions \\ singleGoals
     forM_ (goalsToRemove++goalsToRemove2) (modM sGoals . M.delete)
     newOpenGoals <- gets plainOpenGoals
-    return $ trace (show ("xx", newOpenGoals)) (if (length goalsToRemove) > 0 then Changed else Unchanged)
+    return (if (length goalsToRemove) > 0 then Changed else Unchanged)
 
 
 
@@ -281,7 +281,7 @@ enforceEdgeUniqueness = do
     se <- gets id
     let fedges =  S.toList (get sEdges se)
         nodess = M.toList (get sNodes se)
-        edges = trace (show ("nodes",nodess, "unfiltered", fedges)) (filter (\e -> isnotOutP se e && isnotOutC se e) fedges)
+        edges = (filter (\e -> isnotOutP se e && isnotOutC se e) fedges)
     (<>) <$> mergeNodes eSrc eTgt edges
          <*> mergeNodes eTgt eSrc (filter (proveLinearConc se . eSrc) edges)
   where
@@ -310,7 +310,7 @@ enforceEdgeUniqueness = do
       | null eqs  = return Unchanged
       | otherwise = do 
             -- all indices of merged premises and conclusions must be equal
-            trace (show ("edges", not $ and [snd l == snd r | Equal l r <- eqs], eqs, "filtered", edges)) $ contradictoryIf (not $ and [snd l == snd r | Equal l r <- eqs])
+            contradictoryIf (not $ and [snd l == snd r | Equal l r <- eqs])
             -- nodes must be equal
             solveNodeIdEqs $ map (fmap fst) eqs
       where
@@ -339,7 +339,7 @@ solveUniqueActions = do
            && null [ () | t <- ts, FUnion _ <- return (viewTerm2 t) ]
 
         trySolve (i, fa)
-          | isUnique fa && (not $ isDHFact fa) && (not $ isMixedFact fa)= trace (show ("SOLVINGFROMHERE", fa)) (solveGoal (ActionG i fa) >> return Changed)
+          | isUnique fa && (not $ isDHFact fa) && (not $ isMixedFact fa)= (solveGoal (ActionG i fa) >> return Changed)
           | otherwise   = return Unchanged
 
     mconcat <$> mapM trySolve actionAtoms

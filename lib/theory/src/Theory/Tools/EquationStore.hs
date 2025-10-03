@@ -264,7 +264,7 @@ addMixedEqs hnd eqs0 dhsubstvars eqStore =
         (_, []) ->
             (return (set eqsConj falseEqConstrConj eqStore, Nothing, []))
         (subst, [substFresh]) | substFresh == emptySubstVFresh ->
-            trace (show ("thisone", subst)) (return (eqStore', Nothing, map (\(a,b) -> (LIT (Var a), b)) substdh))
+            (return (eqStore', Nothing, map (\(a,b) -> (LIT (Var a), b)) substdh))
               where eqStore' = if (subst' ==  emptySubst) then eqStore else (applyEqStore hnd subst' eqStore)
                     subst' = substFromList (map (\(a,b) -> (a,applyVTerm compsubst b)) $ filter (\(a,b) -> not $ elem a dhvars) $ substToList subst)
                     substdh = ( filter (\(a,b) -> elem a dhvars) $ substToList subst)
@@ -272,7 +272,7 @@ addMixedEqs hnd eqs0 dhsubstvars eqStore =
             let (eqStore', sid) = addDisj (applyEqStore hnd subst' eqStore)
                                           (S.fromList substs)
                 subst' = substFromList ( map (\(a,b) -> (a,applyVTerm compsubst b)) $ filter (\(a,b) -> not $ elem a dhvars) $ substToList subst)
-                substdh = trace (show ("thisone2", subst)) ( filter (\(a,b) -> elem a dhvars) $ substToList subst)
+                substdh = ( filter (\(a,b) -> elem a dhvars) $ substToList subst)
             return (eqStore', Just sid, map (\(a,b) -> (LIT (Var a), b)) substdh)
             -- TODO: check if we need to filter out elements in dhvars also in the addDisj
             )
@@ -284,8 +284,8 @@ addMixedEqs hnd eqs0 dhsubstvars eqStore =
 
 purifySubstitution :: LNSubst -> Maybe LNSubst
 purifySubstitution subst =  if dom newsubst `intersect` varsRange newsubst /= []
-                              then trace (show ("CURCIAL!", newsubst,dom newsubst, varsRange newsubst)) $ Nothing
-                              else trace (show ("CURCIAL2!", newsubst,dom newsubst, varsRange newsubst)) $ Just newsubst
+                              then Nothing
+                              else Just newsubst
                              where  newsubst1 = substFromList $ map (\(x,y)->(x, applyVTerm subst y)) (substToList subst)
                                     newsubst = substFromList $ map (\(x,y)->(x, applyVTerm newsubst1 y)) (substToList newsubst1)
                                    -- purify tuples = foldr compose emptySubst (map (\x->substFromList [x]) tuples) 
@@ -294,8 +294,8 @@ purifySubstitution subst =  if dom newsubst `intersect` varsRange newsubst /= []
 --   normal form again by using unification.
 applyEqStore :: MaudeHandle -> LNSubst -> EqStore -> EqStore
 applyEqStore hnd asubst eqStore
-    | dom asubst `intersect` varsRange asubst /= [] -- || trace (show ("applyEqStore", asubst, eqStore)) False
-    = case trace (show ("OG", asubst)) purifySubstitution asubst of
+    | dom asubst `intersect` varsRange asubst /= [] 
+    = case purifySubstitution asubst of
         Just asubst2 -> applyEqStore hnd asubst2 eqStore
         Nothing -> error $ "applyEqStore: dom and vrange not disjoint for `"++show asubst++"'"
     | otherwise
@@ -618,12 +618,12 @@ addDHEqs2 :: MonadFresh m
        => MaudeHandle -> Bool ->  [(LNTerm,LNTerm, LVar)] -> [LNTerm] -> EqStore -> m (EqStore, Maybe SplitId, [Subst Name LVar])
 addDHEqs2 hnd zzbool t1zzs permt eqdhstore =
     case (unifyLNDHProtoTermFactored eqs `runReader` hnd) of
-        [] | zzbool -> trace (show ("addDHEq2", "NOSOL")) $ return (set eqsConj falseEqConstrConj eqdhstore, Nothing, [])
+        [] | zzbool -> return (set eqsConj falseEqConstrConj eqdhstore, Nothing, [])
         [] | not zzbool -> addDHEqs2 hnd True (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) permt eqdhstore
         [substFresh] | substFresh == emptySubstVFresh ->
-            trace (show ("addDHEq2", "emptysol")) $ return (eqdhstore, Nothing,[])
+            return (eqdhstore, Nothing,[])
         substs -> do
-            newsubsts <- trace (show ("addDHEqs2 somesol", substs)) $ mapM generalize substs 
+            newsubsts <- mapM generalize substs 
             let eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) newsubsts ) eqdhstore
             return $ (eqStore', Nothing, (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) newsubsts ) )
   where
@@ -645,15 +645,11 @@ addDHEqs2 hnd zzbool t1zzs permt eqdhstore =
                   return (c, fAppdhPlus (cterm, varTerm w1))
         a | a == LSortE && lvarName c == "ff" -> do
                   return (c,cterm)
-                  --v1 <- freshLVar "zk" LSortVarE
-                  --return $ trace (show ("show", v1)) (c, fAppdhTimesE (cterm, varTerm v1))
         a | a == LSortE  -> do
                   w1 <- freshLVar "yk" LSortVarE
-                  --v1 <- freshLVar "zk" LSortVarE
                   return (c, fAppdhPlus (cterm, varTerm w1))
         a | a == LSortG -> do
                   w1 <- freshLVar "wk" LSortVarG
-                  --v1 <- freshLVar "vk" LSortVarE
                   return (c, fAppdhMult (cterm, varTerm w1))
         _ -> return (c, cterm)
     generalize sub = liftM substFromListVFresh $ mapM generaltup $ filter (\(a,b)-> (not $ elem a (map (\(_,_,a)->a) t1zzs))) (substToListVFresh sub)
@@ -697,10 +693,10 @@ addDHProtoEqs hnd allevars t1zzs permt zzbool eqdhstore = do
                         Just ts -> ts
 -- TODO: need to generalize only 1 of the G variables on both sides of equality, not both!
     case (if ((any (uncurry notUnifiableLits) (zip permt t1)) || isNothing splitBPeqs) then [] else unifyLNDHProtoTermFactored newlist `runReader` hnd) of
-        [] | zzbool ->  trace (show ("addDHProtoEqsno sol")) $ return [(set eqsConj falseEqConstrConj eqdhstore, Nothing)]
+        [] | zzbool ->  return [(set eqsConj falseEqConstrConj eqdhstore, Nothing)]
         [] | not zzbool ->  addDHProtoEqs hnd allevars (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) permt True eqdhstore
         [substFresh] | substFresh == emptySubstVFresh ->
-            trace (show ("addDHProtoEq eptysol")) $ return [(eqdhstore, Nothing)]
+            return [(eqdhstore, Nothing)]
         substs -> do
           let rangesubst = concatMap varsRangeVFresh substs -- TODO: can we delete this and following 3 lines?
               toset = rangesubst \\ (concatMap varsOfSubsts substs)
@@ -709,7 +705,7 @@ addDHProtoEqs hnd allevars t1zzs permt zzbool eqdhstore = do
               newsubsts = map (substFromListVFresh) newsubsts'
           esubsts <- liftM substFromListVFresh $ mapM addgenterms (allevars \\ concatMap domVFresh substs)
             --let newsubsts = map (substFromListVFresh) substs
-          substs' <- trace (show ("addDHProtoEq somesol", substs, allevars)) $ mapM generalize newsubsts
+          substs' <- mapM generalize newsubsts
           let esubsts' = freshToFreeAvoiding esubsts (_eqsSubst eqdhstore)
               eqStores' =  map (\sb -> applyEqStore hnd ((compose esubsts' $ freshToFreeAvoidingSmart sb (_eqsSubst eqdhstore))) eqdhstore) substs'
           return (map (\eqS -> (eqS, Nothing)) eqStores')
@@ -723,28 +719,18 @@ addDHProtoEqs hnd allevars t1zzs permt zzbool eqdhstore = do
             generaltup (c, cterm) = case (sortOfLNTerm (varTerm c)) of
               a | a == LSortE && lvarName c == "ff1" -> do
                   w1 <- freshLVar "yk" LSortVarE
-                  --v1 <- freshLVar "zk" LSortVarE
                   return (c, fAppdhPlus (cterm, varTerm w1))
               a | a == LSortE && lvarName c == "ff" -> do
                   return (c,cterm)
-                  --v1 <- freshLVar "zk" LSortVarE
-                  --return $ trace (show ("show", v1)) (c, fAppdhTimesE (cterm, varTerm v1))
               a | a == LSortE  && (not $ allGterms cterm LSortE)  -> do
                   w1 <- freshLVar "yk" LSortVarE
-                  --v1 <- freshLVar "zk" LSortVarE
                   return (c, fAppdhPlus (cterm, varTerm w1))
               a | a == LSortG  && (not $ allGterms cterm LSortG)  -> do
                   w1 <- freshLVar "wk" LSortVarG
-                  --v1 <- freshLVar "vk" LSortVarE
                   return (c, fAppdhMult (cterm, varTerm w1))
               _ -> return (c, cterm)
             generalize sub = liftM substFromListVFresh $ mapM generaltup $ filter (\(a,b)-> (not $ elem a (map (\(_,_,a)->a) t1zzs))) (substToListVFresh sub)
 
-{-substs -> do
-          substs' <- trace (show ("addDHProtoEq somesol", substs)) $ mapM generalize substs
-          let eqStores' =  map (\sb -> applyEqStore hnd (freshToFreeAvoidingSmart sb (_eqsSubst eqdhstore)) eqdhstore) substs'
-          return (map (\eqS -> (eqS, Nothing)) eqStores')
-          -}
 
 
 ------------------------------------------------------------------------------
