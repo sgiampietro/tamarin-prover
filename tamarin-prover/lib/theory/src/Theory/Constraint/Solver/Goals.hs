@@ -631,19 +631,6 @@ insertMuAction x@(LIT l) i j | sortOfLNTerm x == LSortFrNZE = do
               insertLess i j Adversary
               solvePremise rules (i, PremIdx 0) (kIFact x)
               insertNotBasisElem x i
-          {-nodes <- getM sNodes
-          rulesAll <- askM pcRules
-          let rules = filter (\ru -> all isDHFact (get rConcs ru)) (get crProtocol rulesAll ++ get crConstruct rulesAll)
-          let rus = M.elems nodes
-              outconcs = concatMap (\ru -> filter isDHFact $ get rConcs ru) rus
-          if (elem (outFact x) outconcs || elem (outFact $ fAppdhInv x) outconcs)
-            then insertNotBasisElem x
-            else do 
-                  insertBasisElem x
-                  `disjunction` do
-                    insertLess i j Adversary
-                    solvePremise rules (i, PremIdx 0) (kIFact x)
-                    insertNotBasisElem x-}
 
 
 solveByOuterSym ::  MaudeHandle -> [NodeId] -> S.Set LNTerm -> S.Set (LNTerm, b) -> (NodeId, PremIdx) -> [RuleAC] -> [LNTerm] -> [(NodeId, RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String

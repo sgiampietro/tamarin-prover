@@ -150,6 +150,8 @@ import           Utils.Misc
 import           Term.DHMultiplication
 import           Term.Rewriting.Norm (norm')
 import Safe (scanl1Note)
+import Data.Aeson (ToJSON(toJSON))
+import Data.Text.Foreign (takeWord16)
 
 
 ------------------------------------------------------------------------------
@@ -1776,7 +1778,8 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
         subst <- getM sEqStore
         fs <- getM sFormulas
         hndNormal <- getMaudeHandle
-        let ta1bp = trace (show ("protoCase", ta1, ta2, removesBP ta1, removesBP ta2 )) $ if containsBP ta1 then removesBP ta1 else ta1
+        contradictoryIf $ not (sameOuterFunction ta1 ta2)
+        let ta1bp = if containsBP ta1 then removesBP ta1 else ta1
             ta2bp = if containsBP ta2 then removesBP ta2 else ta2
             ta11 = applyVTerm (_eqsSubst subst) ta1bp
             ta22 = applyVTerm (_eqsSubst subst) ta2bp
@@ -1845,7 +1848,7 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
 
 solveTermDHEqs :: SplitStrategy -> ((LNTerm,LNTerm)->Reduction ChangeIndicator) -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
 solveTermDHEqs splitStrat fun (ta1, ta2)
-        | ta1 == ta2 = return Unchanged
+        | trace (show ("solveTermDHEqs", ta1, ta2)) $ ta1 == ta2 = return Unchanged
         | ta1 == fAppdhZero && ta2 == fAppdhOne = do contradictoryIf True
                                                      return Changed
         | ta1 == fAppdhOne && ta2 == fAppdhZero = do contradictoryIf True
@@ -1866,19 +1869,7 @@ solveTermDHEqs splitStrat fun (ta1, ta2)
         | (isDHLit ta2 && (not $ compatibleLits ta2 ta1)) = do
             contradictoryIf True 
             return Changed 
-        {- TODO: ADD DISTICTION FOR OUTER FUNCTION TERMS!
-        | outerFunction ta2 == dhBPSym = do
-            contradictoryIf (outerFunction ta1 != dhBPSym)
-            protocase zip (bpTriles ta1) (bpTriples ta2)
-        -}
-        {- TODO: add check for BP terms: 
-            if containsBP ta1 do
-                contradictoryIf (not $ containsBP ta2)
-                fun ta1 ta2
-                would like to call on (removeBP ta1) (removeBP ta2), but this would then require addingBP back in the eqstore (might be a mess)
-                so probably need to take care of this in the protocase function itself!
-        -}
-        | otherwise = case (isPubExp ta1, isPubExp ta2) of
+        | otherwise = case trace (show ("otherwisePRoto, ", ta1, ta2, isPubExp ta1, isPubExp ta2)) $ (isPubExp ta1, isPubExp ta2) of
                 (Just (pg1,e1), Just (pg2,e2)) -> do
                     if trace (show ("cases", ta1,ta2)) $ pg1 == pg2
                      then do
@@ -1898,8 +1889,16 @@ solveTermDHEqs splitStrat fun (ta1, ta2)
                             solveTermEqs splitStrat [(Equal pg1 pg2)]
                             solveTermDHEqs splitStrat fun (e1, e2)
 
-                _ -> trace (show ("solveTermDHEqs", ta1,ta2)) $ fun (ta1,ta2)
-
+                _ ->  do 
+                    contradictoryIf $ not $ sameOuterFunction ta1 ta2 
+                    let ta1' = removeOuterFunction ta1
+                        ta2' = removeOuterFunction ta2
+                    case (ta1', ta2') of
+                        (Just [x], Just [y]) -> solveTermDHEqs splitStrat fun (x,y)
+                        (Just (x:y:zs), Just (x2:y2:zs2)) -> do
+                                                solveTermDHEqs splitStrat fun (x, x2)
+                                                solveTermDHEqs splitStrat fun (y, y2)
+                        _ -> fun (ta1, ta2)
 
 
 -- | Add a list of equalities in substitution form to the equation store

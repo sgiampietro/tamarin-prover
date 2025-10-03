@@ -127,7 +127,7 @@ var :: String -> Int -> LVar
 var s i =  LVar s LSortE $ fromIntegral i
 
 gTerm2Exp' ::  LNTerm -> String -> (LNTerm, [(LVar,LNTerm)])
-gTerm2Exp' t p = (gTerm2Exp newterm, map swap mapping)
+gTerm2Exp' t p = trace (show ("MUTERMCALLS", newterm, mapping, muterms)) (gTerm2Exp newterm, map swap mapping)
                   where muterms = nub $ getMuTerms t
                         mapping = (zip muterms $ map (var p ) [1 .. length muterms])
                         newterm = replaceMuTerms t (Map.fromList mapping)
@@ -385,7 +385,7 @@ solveIndicatorGaussProto hnd basis term target =
         (gt2, termsubst2) = gTerm2Exp' target "qwzk2"
         ebase = expBase target
         options = optionList ebase (basis) (gt1,termsubst1) (gt2,termsubst2)
-        (wzs, matriz) = createMatrixProto (allExponentsOf [term] target) (gt1) (gt2)
+        (wzs, matriz) = trace (show ("gothereGaussProto", gt1, gt2, term, target)) $ createMatrixProto (allExponentsOf [term] target) (gt1) (gt2)
       -- (wzs, matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)       
       -- ([w1, z2], matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)
         pubg =  pubGTerm "g"

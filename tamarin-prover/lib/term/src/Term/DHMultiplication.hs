@@ -54,7 +54,8 @@ module Term.DHMultiplication (
   , isNoCanc
   , notUnifiableLits
   , isUniversal
-
+  , sameOuterFunction
+  , removeOuterFunction
   --, rootIndicator
   --, indicator
    --, clean2
@@ -472,7 +473,15 @@ rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhMu t1)
   | S.member t nb = FAPP (DHMult dhOneSym) []
   | otherwise = t
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhBP t1 t2) = (FAPP (DHMult dhOneSym) [])
-rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhH t1) = t
+rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhH t1)
+  | S.member t nb = FAPP (DHMult dhOneSym) []
+  | otherwise = t
+rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhH2 t1 t2)
+  | S.member t nb = FAPP (DHMult dhOneSym) []
+  | otherwise = t  
+rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhMu2 t1 t2)
+  | S.member t nb = FAPP (DHMult dhOneSym) []
+  | otherwise = t
 --rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhMu t1) = if isMult t1 then t else (if (isPublic $ rootIndKnown2 hnd b nb t1) then trace (show ("pubind", t, t1, rootIndKnown2 hnd b nb t1)) (FAPP (DHMult dhOneSym) []) else trace (show ("privind", t, t1, rootIndKnown2 hnd b nb t1)) t) --  rootIndKnown b nb t1 -- TODO FIX: you should also consider the possibility of finding rootIndKnown of t1. -- (FAPP (DHMult dhZeroSym) [])
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhMinus t1) = rootIndKnown2 hnd b nb t1
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhInv t1) = FAPP (DHMult dhInvSym) [rootIndKnown2 hnd b nb t1]
@@ -534,3 +543,29 @@ isUniversal :: Eq a => [a] -> [(a,a)] -> a -> Bool
 isUniversal xs pairs x =
     let others = filter (/= x) xs
     in all (\y -> hasPair (x,y) pairs) others
+
+outerFunction :: LNTerm -> Maybe DHMultSym
+outerFunction t =  case viewTerm2 t of
+      FdhMu _  -> Just dhMuSym
+      FdhMu2 _ _ -> Just dhMu2Sym
+      FdhH2 _ _ -> Just dhH2Sym
+      FdhH _ -> Just dhHSym
+      _     -> Nothing
+
+
+sameOuterFunction :: LNTerm -> LNTerm -> Bool 
+sameOuterFunction t1 t2 = case (outerFunction t1, outerFunction t2) of
+  (Just a, Just b) -> a == b
+  (Nothing, Just _) -> False
+  (Just _, Nothing) -> False
+  _ -> True
+
+removeOuterFunction :: LNTerm -> Maybe [LNTerm] 
+removeOuterFunction t = case viewTerm2 t of
+      FdhMu t1  -> Just [t1]
+      FdhMu2 t1 t2 -> Just [t1, t2]
+      FdhH2 t1 t2 -> Just [t1, t2]
+      FdhH t1 -> Just [t1] 
+      _     -> Nothing
+
+
