@@ -114,7 +114,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -1389,7 +1389,7 @@ solveIndicatorProto :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
 solveIndicatorProto basis t1 t2 = do
   hnd  <- getMaudeHandle
   bb <- disjunctionOfList $ (solveIndicatorGaussProto hnd basis t1 t2 )
-  case trace (show ("indicatorProto", t1, t2)) bb of
+  case trace (show ("indicatorProto", t1, t2, bb)) bb of
    Just substlist ->  do
         eqStore <- getM sEqStore
         hndCR <- getMaudeHandleCR

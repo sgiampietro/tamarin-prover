@@ -30,6 +30,7 @@ module Term.DHMultiplication (
   , getInvLit
   , isPubExp
   , isPublic
+  , containsMuH
   , containsBP
   , removesBP
   , addsBP
@@ -178,8 +179,6 @@ expBase t@(FAPP (DHMult o) ts) = case ts of
     [ t1 ]     | o == dhMinusSym    -> pubGTerm "g"
     [ t1 ]     | o == dhMuSym    -> pubGTerm "g"
     [ t1 ]     | o == dhHSym     -> pubGTerm "g"
-    --[ t1 ]     | o == dhBoxSym    -> gTerm2Exp t1
-    --[ t1 ]     | o == dhBoxESym    -> gTerm2Exp t1
     []         | o == dhZeroSym    -> pubGTerm "g"
     []         | o == dhEgSym    ->  t
     []         | o == dhOneSym    -> pubGTerm "g"
@@ -261,6 +260,16 @@ containsBP :: LNTerm -> Bool
 containsBP = foldTerm (const False) ffapp
   where ffapp funsym bls = case funsym of 
             (DHMult (bs, _)) | bs == dhBPSymString -> True
+                             | otherwise -> or bls
+            _ -> or bls
+
+containsMuH :: LNTerm -> Bool
+containsMuH = foldTerm (const False) ffapp
+  where ffapp funsym bls = case funsym of 
+            (DHMult (bs, _)) | bs == dhMuSymString -> True
+                             | bs == dhMu2SymString -> True
+                             | bs == dhHSymString -> True
+                             | bs == dhH2SymString -> True
                              | otherwise -> or bls
             _ -> or bls
 
