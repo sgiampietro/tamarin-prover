@@ -1,0 +1,37 @@
+theory BLS
+begin
+
+
+/* ----------------- */
+/* Equational theory */
+/* ----------------- */
+
+/* Load the built-in symmetrical encryption theory */
+builtins: DH-multiplication
+
+/* -------------- */
+/* Protocol rules */
+/* -------------- */
+
+
+rule Generate:
+  [FrDH(Fx), FrDH(Fy)]
+  --[ Created(Fx, Fy) ]->
+  [Out(<dhExp(P'g1',Fx), dhExp(P'g2', Fy)>) ]
+
+rule Generate2:
+  [ In( dhExp(P'g', dhBP(dhExp(P'g1',Exx), dhExp(P'g2', Eyy)))) ]
+  --[ Received(Exx, Eyy) ]->
+  [ ]
+
+
+
+lemma executable:
+exists-trace
+"Ex Ey Em #i #j. Created(Em, Ey)@i & Received(Em,Ey)@j"
+
+
+end
+
+
+

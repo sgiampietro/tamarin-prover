@@ -1,0 +1,1082 @@
+theory MQV_tag begin
+
+// Function signature and definition of the equational theory E
+
+builtins: DH-multiplication
+functions: fst/1, pair/2, sdec/2, senc/2, snd/1
+equations:
+    fst(<x.1, x.2>) = x.1,
+    sdec(senc(x.1, x.2), x.2) = x.1,
+    snd(<x.1, x.2>) = x.2
+
+
+
+
+
+
+
+
+
+rule (modulo E) GenKey:
+   [ FrDH( Fx ) ]
+  -->
+   [
+   !SKey( PA, Fx ), !PubKey( PA, dhExp(P'g', Fx) ),
+   Out( dhExp(P'g', Fx) )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) GenKeyCompromised:
+   [ Kdh( Ey ) ]
+  --[ Compromised( PA ) ]->
+   [ !PubKey( PA, dhExp(P'g', Ey) ), Out( dhExp(P'g', Ey) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) InitiatorRole:
+   [ !SKey( PI, Fski ), !PubKey( PR, dhExp(P'g', Eskr) ), FrDH( Fei )
+   ]
+  --[ Neq( PI, PR ) ]->
+   [
+   Out( dhExp(P'g', Fei) ),
+   Initiated( PI, PR, Fski, Fei, dhExp(P'g', Eskr) )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) ReceiverRole:
+   [
+   !SKey( PR, Fskr ), !PubKey( PI, dhExp(P'g', Eski) ),
+   In( dhExp(P'g', Efei) ), FrDH( Fer ), Fr( m )
+   ]
+  --[
+  Neq( PI, PR ), Neq( Eski, Fskr ), Neq( Efei, Fer ),
+  RunningR( PR, PI,
+            dhMu(dhExp(dhMult(dhExp(P'g', Efei),
+                              dhExp(dhExp(P'g', Eski), dhMu2(PR, dhExp(P'g', Efei)))),
+                       dhPlus(Fer, dhTimesE(Fskr, dhMu2(PI, dhExp(P'g', Fer))))))
+  )
+  ]->
+   [
+   Out( dhExp(P'g', Fer) ),
+   Out( senc(<m, 'R'>,
+             dhMu(dhExp(dhMult(dhExp(P'g', Efei),
+                               dhExp(dhExp(P'g', Eski), dhMu2(PR, dhExp(P'g', Efei)))),
+                        dhPlus(Fer, dhTimesE(Fskr, dhMu2(PI, dhExp(P'g', Fer)))))))
+   ),
+   ReceiverSend( PR, PI,
+                 dhMu(dhExp(dhMult(dhExp(P'g', Efei),
+                                   dhExp(dhExp(P'g', Eski), dhMu2(PR, dhExp(P'g', Efei)))),
+                            dhPlus(Fer, dhTimesE(Fskr, dhMu2(PI, dhExp(P'g', Fer)))))),
+                 m
+   )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) InitiatorRole2:
+   [
+   In( dhExp(P'g', Efer) ),
+   Initiated( PI, PR, Fski, Fei, dhExp(P'g', Eskr) ), Fr( m ),
+   In( senc(<m2, 'R'>,
+            dhMu(dhExp(dhMult(dhExp(P'g', Efer),
+                              dhExp(dhExp(P'g', Eskr), dhMu2(PI, dhExp(P'g', Efer)))),
+                       dhPlus(Fei, dhTimesE(Fski, dhMu2(PR, dhExp(P'g', Fei)))))))
+   )
+   ]
+  --[
+  Neq( Efer, Fei ), Neq( Fski, Eskr ),
+  AgreeKeyI( PI, PR,
+             dhMu(dhExp(dhMult(dhExp(P'g', Efer),
+                               dhExp(dhExp(P'g', Eskr), dhMu2(PI, dhExp(P'g', Efer)))),
+                        dhPlus(Fei, dhTimesE(Fski, dhMu2(PR, dhExp(P'g', Fei))))))
+  ),
+  RunningI( PI, PR,
+            dhMu(dhExp(dhMult(dhExp(P'g', Efer),
+                              dhExp(dhExp(P'g', Eskr), dhMu2(PI, dhExp(P'g', Efer)))),
+                       dhPlus(Fei, dhTimesE(Fski, dhMu2(PR, dhExp(P'g', Fei))))))
+  )
+  ]->
+   [
+   Out( senc(<m, 'I'>,
+             dhMu(dhExp(dhMult(dhExp(P'g', Efer),
+                               dhExp(dhExp(P'g', Eskr), dhMu2(PI, dhExp(P'g', Efer)))),
+                        dhPlus(Fei, dhTimesE(Fski, dhMu2(PR, dhExp(P'g', Fei)))))))
+   )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) ReceiverRole2:
+   [ In( senc(<m2, 'I'>, EkH) ), ReceiverSend( PR, PI, EkH, m ) ]
+  --[ Neq( m, m2 ), AgreeKeyR( PR, PI, EkH ) ]->
+   [ ]
+
+  /* has exactly the trivial AC variant */
+
+restriction inequality:
+  "∀ x y #i. (Neq( x, y ) @ #i) ⇒ (¬(x = y))"
+  // safety formula
+
+lemma executable:
+  exists-trace
+  "∃ I R Ek #i #j.
+    ((AgreeKeyI( I, R, Ek ) @ #i) ∧ (AgreeKeyR( R, I, Ek ) @ #j)) ∧
+    (¬(∃ #k.1 C. Compromised( C ) @ #k.1))"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ I R Ek #i #j.
+  (AgreeKeyI( I, R, Ek ) @ #i) ∧ (AgreeKeyR( R, I, Ek ) @ #j)
+ ∧
+  ∀ #k.1 C. (Compromised( C ) @ #k.1) ⇒ ⊥"
+*/
+simplify
+solve( AgreeKeyI( I, R, Ek ) @ #i )
+  case InitiatorRole2
+  solve( Initiated( PI, PR, Fski, Fei, dhExp(P'g', Eskr) ) ▶₁ #i )
+    case InitiatorRole
+    solve( !SKey( PI, Fski ) ▶₀ #vr )
+      case GenKey
+      solve( !PubKey( PR, dhExp(P'g', Eskr) ) ▶₁ #vr )
+        case GenKeyCompromised
+        by contradiction /* from formulas */
+      next
+        case GenKey_case_1
+        by contradiction /* from formulas */
+      next
+        case GenKey_case_2
+        solve( AgreeKeyR( PR, PI,
+                          dhMu(dhMult(dhExp(P'g', dhTimesE(Efer, Fei)),
+                                      dhMult(dhExp(P'g',
+                                                   dhTimesE(Efer,
+                                                            dhTimesE(Fski,
+                                                                     dhMu2(PR, dhExp(P'g', Fei))))),
+                                             dhMult(dhExp(P'g',
+                                                          dhTimesE(Fei,
+                                                                   dhTimesE(Fx,
+                                                                            dhMu2(PI,
+                                                                                  dhExp(P'g',
+                                                                                        Efer))))),
+                                                    dhExp(P'g',
+                                                          dhTimesE(Fski,
+                                                                   dhTimesE(Fx,
+                                                                            dhTimesE(dhMu2(PR,
+                                                                                           dhExp(P'g',
+                                                                                                 Fei)),
+                                                                                     dhMu2(PI,
+                                                                                           dhExp(P'g',
+                                                                                                 Efer))))))))))
+               ) @ #j )
+          case ReceiverRole2
+          solve( ReceiverSend( PR, PI,
+                               dhMu(dhMult(dhExp(P'g', dhTimesE(Efer, Fei)),
+                                           dhMult(dhExp(P'g',
+                                                        dhTimesE(Efer,
+                                                                 dhTimesE(Fski,
+                                                                          dhMu2(PR,
+                                                                                dhExp(P'g',
+                                                                                      Fei))))),
+                                                  dhMult(dhExp(P'g',
+                                                               dhTimesE(Fei,
+                                                                        dhTimesE(Fx,
+                                                                                 dhMu2(PI,
+                                                                                       dhExp(P'g',
+                                                                                             Efer))))),
+                                                         dhExp(P'g',
+                                                               dhTimesE(Fski,
+                                                                        dhTimesE(Fx,
+                                                                                 dhTimesE(dhMu2(PR,
+                                                                                                dhExp(P'g',
+                                                                                                      Fei)),
+                                                                                          dhMu2(PI,
+                                                                                                dhExp(P'g',
+                                                                                                      Efer)))))))))),
+                               m
+                 ) ▶₁ #j )
+            case ReceiverRole_case_1
+            by sorry
+          next
+            case ReceiverRole_case_2
+            solve( !SKey( PR, Fx ) ▶₀ #vr.3 )
+              case GenKey_case_1
+              by contradiction /* from formulas */
+            next
+              case GenKey_case_2
+              solve( !PubKey( PI, dhExp(P'g', Fski) ) ▶₁ #vr.3 )
+                case GenKeyCompromised
+                by contradiction /* from formulas */
+              next
+                case GenKey_case_1
+                solve( !KU( senc(<m2, 'R'>,
+                                 dhMu(dhMult(dhExp(P'g', dhTimesE(Fer, Fei)),
+                                             dhMult(dhExp(P'g',
+                                                          dhTimesE(Fer,
+                                                                   dhTimesE(Fski,
+                                                                            dhMu2(PR,
+                                                                                  dhExp(P'g',
+                                                                                        Fei))))),
+                                                    dhMult(dhExp(P'g',
+                                                                 dhTimesE(Fei,
+                                                                          dhTimesE(Fx,
+                                                                                   dhMu2(PI,
+                                                                                         dhExp(P'g',
+                                                                                               Fer))))),
+                                                           dhExp(P'g',
+                                                                 dhTimesE(Fski,
+                                                                          dhTimesE(Fx,
+                                                                                   dhTimesE(dhMu2(PR,
+                                                                                                  dhExp(P'g',
+                                                                                                        Fei)),
+                                                                                            dhMu2(PI,
+                                                                                                  dhExp(P'g',
+                                                                                                        Fer)))))))))))
+                       ) @ #vk.1 )
+                  case c_senc
+                  by sorry
+                next
+                  case coerce
+                  solve( !KD( senc(<m2, 'R'>,
+                                   dhMu(dhMult(dhExp(P'g', dhTimesE(Fer, Fei)),
+                                               dhMult(dhExp(P'g',
+                                                            dhTimesE(Fer,
+                                                                     dhTimesE(Fski,
+                                                                              dhMu2(PR,
+                                                                                    dhExp(P'g',
+                                                                                          Fei))))),
+                                                      dhMult(dhExp(P'g',
+                                                                   dhTimesE(Fei,
+                                                                            dhTimesE(Fx,
+                                                                                     dhMu2(PI,
+                                                                                           dhExp(P'g',
+                                                                                                 Fer))))),
+                                                             dhExp(P'g',
+                                                                   dhTimesE(Fski,
+                                                                            dhTimesE(Fx,
+                                                                                     dhTimesE(dhMu2(PR,
+                                                                                                    dhExp(P'g',
+                                                                                                          Fei)),
+                                                                                              dhMu2(PI,
+                                                                                                    dhExp(P'g',
+                                                                                                          Fer)))))))))))
+                         ) ▶₀ #vk )
+                    case GenKeyCompromised
+                    by contradiction /* from formulas */
+                  next
+                    case GenKey_case_1
+                    by contradiction /* impossible chain */
+                  next
+                    case GenKey_case_2
+                    by contradiction /* impossible chain */
+                  next
+                    case GenKey_case_3
+                    by contradiction /* impossible chain */
+                  next
+                    case InitiatorRole2_case_1
+                    by contradiction /* cyclic */
+                  next
+                    case InitiatorRole2_case_2
+                    by sorry
+                  next
+                    case InitiatorRole_case_1
+                    by contradiction /* impossible chain */
+                  next
+                    case InitiatorRole_case_2
+                    by contradiction /* impossible chain */
+                  next
+                    case ReceiverRole_case_1
+                    by contradiction /* impossible chain */
+                  next
+                    case ReceiverRole_case_2
+                    solve( (#vl, 0) ~~> (#vk, 0) )
+                      case d_0_sdec
+                      by contradiction /* impossible chain */
+                    next
+                      case senc
+                      solve( !KU( senc(<m2, 'I'>,
+                                       dhMu(dhMult(dhExp(P'g', dhTimesE(Fer, Fei)),
+                                                   dhMult(dhExp(P'g',
+                                                                dhTimesE(Fer,
+                                                                         dhTimesE(Fski,
+                                                                                  dhMu2(PR,
+                                                                                        dhExp(P'g',
+                                                                                              Fei))))),
+                                                          dhMult(dhExp(P'g',
+                                                                       dhTimesE(Fei,
+                                                                                dhTimesE(Fx,
+                                                                                         dhMu2(PI,
+                                                                                               dhExp(P'g',
+                                                                                                     Fer))))),
+                                                                 dhExp(P'g',
+                                                                       dhTimesE(Fski,
+                                                                                dhTimesE(Fx,
+                                                                                         dhTimesE(dhMu2(PR,
+                                                                                                        dhExp(P'g',
+                                                                                                              Fei)),
+                                                                                                  dhMu2(PI,
+                                                                                                        dhExp(P'g',
+                                                                                                              Fer)))))))))))
+                             ) @ #vk.2 )
+                        case c_senc
+                        by sorry
+                      next
+                        case coerce
+                        solve( !KD( senc(<m2, 'I'>,
+                                         dhMu(dhMult(dhExp(P'g', dhTimesE(Fer, Fei)),
+                                                     dhMult(dhExp(P'g',
+                                                                  dhTimesE(Fer,
+                                                                           dhTimesE(Fski,
+                                                                                    dhMu2(PR,
+                                                                                          dhExp(P'g',
+                                                                                                Fei))))),
+                                                            dhMult(dhExp(P'g',
+                                                                         dhTimesE(Fei,
+                                                                                  dhTimesE(Fx,
+                                                                                           dhMu2(PI,
+                                                                                                 dhExp(P'g',
+                                                                                                       Fer))))),
+                                                                   dhExp(P'g',
+                                                                         dhTimesE(Fski,
+                                                                                  dhTimesE(Fx,
+                                                                                           dhTimesE(dhMu2(PR,
+                                                                                                          dhExp(P'g',
+                                                                                                                Fei)),
+                                                                                                    dhMu2(PI,
+                                                                                                          dhExp(P'g',
+                                                                                                                Fer)))))))))))
+                               ) ▶₀ #vk.1 )
+                          case GenKeyCompromised
+                          by contradiction /* from formulas */
+                        next
+                          case GenKey_case_1
+                          by contradiction /* impossible chain */
+                        next
+                          case GenKey_case_2
+                          by contradiction /* impossible chain */
+                        next
+                          case GenKey_case_3
+                          by contradiction /* impossible chain */
+                        next
+                          case InitiatorRole2_case_1
+                          solve( (#vl.1, 0) ~~> (#vk.1, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          next
+                            case senc
+                            solve( !KU( dhExp(P'g', Fer) ) @ #vk.2 )
+                              case coerce
+                              solve( !KD( dhExp(P'g', Fer) ) ▶₀ #vk.2 )
+                                case Using_OutFacts_case_1
+                                solve( !KU( dhExp(P'g', Fei) ) @ #vk.3 )
+                                  case coerce
+                                  solve( !KD( dhExp(P'g', Fei) ) ▶₀ #vk.3 )
+                                    case Using_OutFacts_case_1
+                                    SOLVED // trace found
+                                  next
+                                    case Using_OutFacts_case_2
+                                    SOLVED // trace found
+                                  qed
+                                qed
+                              next
+                                case Using_OutFacts_case_2
+                                by sorry
+                              qed
+                            qed
+                          qed
+                        next
+                          case InitiatorRole2_case_2
+                          by sorry
+                        next
+                          case InitiatorRole_case_1
+                          by contradiction /* impossible chain */
+                        next
+                          case InitiatorRole_case_2
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_1
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_2
+                          by sorry
+                        next
+                          case ReceiverRole_case_3
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_4
+                          by sorry
+                        next
+                          case pubGConstr_case_1
+                          by contradiction /* forbidden KD-fact */
+                        next
+                          case pubGConstr_case_2
+                          by contradiction /* forbidden KD-fact */
+                        qed
+                      qed
+                    qed
+                  next
+                    case ReceiverRole_case_3
+                    by contradiction /* impossible chain */
+                  next
+                    case ReceiverRole_case_4
+                    by sorry
+                  next
+                    case pubGConstr_case_1
+                    by contradiction /* forbidden KD-fact */
+                  next
+                    case pubGConstr_case_2
+                    by contradiction /* forbidden KD-fact */
+                  qed
+                qed
+              next
+                case GenKey_case_2
+                by contradiction /* from formulas */
+              qed
+            qed
+          qed
+        qed
+      qed
+    qed
+  qed
+qed
+
+lemma secrecyI:
+  all-traces
+  "∀ I R Ek #i.
+    (((AgreeKeyI( I, R, Ek ) @ #i) ∧
+      (¬(∃ #k.1. Compromised( I ) @ #k.1))) ∧
+     (¬(∃ #k.1. Compromised( R ) @ #k.1))) ⇒
+    (¬(∃ #i.1. K( Ek ) @ #i.1))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ I R Ek #i.
+  (AgreeKeyI( I, R, Ek ) @ #i)
+ ∧
+  (∀ #k.1. (Compromised( I ) @ #k.1) ⇒ ⊥) ∧
+  (∀ #k.1. (Compromised( R ) @ #k.1) ⇒ ⊥) ∧
+  (∃ #i.1. (K( Ek ) @ #i.1))"
+*/
+simplify
+solve( AgreeKeyI( I, R, Ek ) @ #i )
+  case InitiatorRole2
+  solve( Initiated( PI, PR, Fski, Fei, dhExp(P'g', Eskr) ) ▶₁ #i )
+    case InitiatorRole
+    solve( !SKey( PI, Fski ) ▶₀ #vr )
+      case GenKey
+      solve( !PubKey( PR, dhExp(P'g', Eskr) ) ▶₁ #vr )
+        case GenKeyCompromised
+        by contradiction /* from formulas */
+      next
+        case GenKey_case_1
+        by contradiction /* from formulas */
+      next
+        case GenKey_case_2
+        solve( K( dhMu(dhMult(dhExp(P'g', dhTimesE(Efer, Fei)),
+                              dhMult(dhExp(P'g',
+                                           dhTimesE(Efer,
+                                                    dhTimesE(Fski, dhMu2(PR, dhExp(P'g', Fei))))),
+                                     dhMult(dhExp(P'g',
+                                                  dhTimesE(Fei,
+                                                           dhTimesE(Fx,
+                                                                    dhMu2(PI, dhExp(P'g', Efer))))),
+                                            dhExp(P'g',
+                                                  dhTimesE(Fski,
+                                                           dhTimesE(Fx,
+                                                                    dhTimesE(dhMu2(PR,
+                                                                                   dhExp(P'g',
+                                                                                         Fei)),
+                                                                             dhMu2(PI,
+                                                                                   dhExp(P'g',
+                                                                                         Efer))))))))))
+               ) @ #i.1 )
+          case isend
+          by solve( Kdh( dhMu(dhMult(dhExp(P'g', dhTimesE(Efer, Fei)),
+                                     dhMult(dhExp(P'g',
+                                                  dhTimesE(Efer,
+                                                           dhTimesE(Fski,
+                                                                    dhMu2(PR, dhExp(P'g', Fei))))),
+                                            dhMult(dhExp(P'g',
+                                                         dhTimesE(Fei,
+                                                                  dhTimesE(Fx,
+                                                                           dhMu2(PI,
+                                                                                 dhExp(P'g',
+                                                                                       Efer))))),
+                                                   dhExp(P'g',
+                                                         dhTimesE(Fski,
+                                                                  dhTimesE(Fx,
+                                                                           dhTimesE(dhMu2(PR,
+                                                                                          dhExp(P'g',
+                                                                                                Fei)),
+                                                                                    dhMu2(PI,
+                                                                                          dhExp(P'g',
+                                                                                                Efer))))))))))
+                    ) ▶₀ #i.1 )
+        qed
+      qed
+    qed
+  qed
+qed
+
+lemma agreementI:
+  all-traces
+  "∀ I R Ek #i.
+    (((AgreeKeyI( I, R, Ek ) @ #i) ∧
+      (¬(∃ #k.1. Compromised( I ) @ #k.1))) ∧
+     (¬(∃ #k.1. Compromised( R ) @ #k.1))) ⇒
+    (∃ #j. RunningR( R, I, Ek ) @ #j)"
+/*
+guarded formula characterizing all counter-examples:
+"∃ I R Ek #i.
+  (AgreeKeyI( I, R, Ek ) @ #i)
+ ∧
+  (∀ #k.1. (Compromised( I ) @ #k.1) ⇒ ⊥) ∧
+  (∀ #k.1. (Compromised( R ) @ #k.1) ⇒ ⊥) ∧
+  (∀ #j. (RunningR( R, I, Ek ) @ #j) ⇒ ⊥)"
+*/
+simplify
+solve( AgreeKeyI( I, R, Ek ) @ #i )
+  case InitiatorRole2
+  solve( Initiated( PI, PR, Fski, Fei, dhExp(P'g', Eskr) ) ▶₁ #i )
+    case InitiatorRole
+    solve( !SKey( PI, Fski ) ▶₀ #vr )
+      case GenKey
+      solve( !PubKey( PR, dhExp(P'g', Eskr) ) ▶₁ #vr )
+        case GenKeyCompromised
+        by contradiction /* from formulas */
+      next
+        case GenKey_case_1
+        by contradiction /* from formulas */
+      next
+        case GenKey_case_2
+        solve( !KU( senc(<m2, 'R'>,
+                         dhMu(dhMult(dhExp(P'g', dhTimesE(Efer, Fei)),
+                                     dhMult(dhExp(P'g',
+                                                  dhTimesE(Efer,
+                                                           dhTimesE(Fski,
+                                                                    dhMu2(PR, dhExp(P'g', Fei))))),
+                                            dhMult(dhExp(P'g',
+                                                         dhTimesE(Fei,
+                                                                  dhTimesE(Fx,
+                                                                           dhMu2(PI,
+                                                                                 dhExp(P'g',
+                                                                                       Efer))))),
+                                                   dhExp(P'g',
+                                                         dhTimesE(Fski,
+                                                                  dhTimesE(Fx,
+                                                                           dhTimesE(dhMu2(PR,
+                                                                                          dhExp(P'g',
+                                                                                                Fei)),
+                                                                                    dhMu2(PI,
+                                                                                          dhExp(P'g',
+                                                                                                Efer)))))))))))
+               ) @ #vk.1 )
+          case c_senc
+          solve( !KU( dhMu(dhMult(dhExp(P'g', dhTimesE(Efer, Fei)),
+                                  dhMult(dhExp(P'g',
+                                               dhTimesE(Efer,
+                                                        dhTimesE(Fski,
+                                                                 dhMu2(PR, dhExp(P'g', Fei))))),
+                                         dhMult(dhExp(P'g',
+                                                      dhTimesE(Fei,
+                                                               dhTimesE(Fx,
+                                                                        dhMu2(PI,
+                                                                              dhExp(P'g', Efer))))),
+                                                dhExp(P'g',
+                                                      dhTimesE(Fski,
+                                                               dhTimesE(Fx,
+                                                                        dhTimesE(dhMu2(PR,
+                                                                                       dhExp(P'g',
+                                                                                             Fei)),
+                                                                                 dhMu2(PI,
+                                                                                       dhExp(P'g',
+                                                                                             Efer))))))))))
+                 ) @ #vk.3 )
+            case coerce
+            solve( !KD( dhMu(dhMult(dhExp(P'g', dhTimesE(Efer, Fei)),
+                                    dhMult(dhExp(P'g',
+                                                 dhTimesE(Efer,
+                                                          dhTimesE(Fski,
+                                                                   dhMu2(PR, dhExp(P'g', Fei))))),
+                                           dhMult(dhExp(P'g',
+                                                        dhTimesE(Fei,
+                                                                 dhTimesE(Fx,
+                                                                          dhMu2(PI,
+                                                                                dhExp(P'g',
+                                                                                      Efer))))),
+                                                  dhExp(P'g',
+                                                        dhTimesE(Fski,
+                                                                 dhTimesE(Fx,
+                                                                          dhTimesE(dhMu2(PR,
+                                                                                         dhExp(P'g',
+                                                                                               Fei)),
+                                                                                   dhMu2(PI,
+                                                                                         dhExp(P'g',
+                                                                                               Efer))))))))))
+                   ) ▶₀ #vk.1 )
+              case Using_OutFacts
+              by solve( Kdh( dhMu(dhMult(dhExp(P'g', dhTimesE(Efer, Fei)),
+                                         dhMult(dhExp(P'g',
+                                                      dhTimesE(Efer,
+                                                               dhTimesE(Fski,
+                                                                        dhMu2(PR,
+                                                                              dhExp(P'g', Fei))))),
+                                                dhMult(dhExp(P'g',
+                                                             dhTimesE(Fei,
+                                                                      dhTimesE(Fx,
+                                                                               dhMu2(PI,
+                                                                                     dhExp(P'g',
+                                                                                           Efer))))),
+                                                       dhExp(P'g',
+                                                             dhTimesE(Fski,
+                                                                      dhTimesE(Fx,
+                                                                               dhTimesE(dhMu2(PR,
+                                                                                              dhExp(P'g',
+                                                                                                    Fei)),
+                                                                                        dhMu2(PI,
+                                                                                              dhExp(P'g',
+                                                                                                    Efer))))))))))
+                        ) @ #vk.2 )
+            qed
+          qed
+        next
+          case coerce
+          solve( !KD( senc(<m2, 'R'>,
+                           dhMu(dhMult(dhExp(P'g', dhTimesE(Efer, Fei)),
+                                       dhMult(dhExp(P'g',
+                                                    dhTimesE(Efer,
+                                                             dhTimesE(Fski,
+                                                                      dhMu2(PR,
+                                                                            dhExp(P'g', Fei))))),
+                                              dhMult(dhExp(P'g',
+                                                           dhTimesE(Fei,
+                                                                    dhTimesE(Fx,
+                                                                             dhMu2(PI,
+                                                                                   dhExp(P'g',
+                                                                                         Efer))))),
+                                                     dhExp(P'g',
+                                                           dhTimesE(Fski,
+                                                                    dhTimesE(Fx,
+                                                                             dhTimesE(dhMu2(PR,
+                                                                                            dhExp(P'g',
+                                                                                                  Fei)),
+                                                                                      dhMu2(PI,
+                                                                                            dhExp(P'g',
+                                                                                                  Efer)))))))))))
+                 ) ▶₀ #vk )
+            case GenKeyCompromised
+            by solve( (#vl, 0) ~~> (#vk, 0) )
+          next
+            case GenKey_case_1
+            by contradiction /* impossible chain */
+          next
+            case GenKey_case_2
+            by contradiction /* impossible chain */
+          next
+            case GenKey_case_3
+            by contradiction /* impossible chain */
+          next
+            case InitiatorRole2_case_1
+            by contradiction /* cyclic */
+          next
+            case InitiatorRole2_case_2
+            solve( (#vl, 0) ~~> (#vk, 0) )
+              case d_0_sdec
+              by contradiction /* impossible chain */
+            qed
+          next
+            case InitiatorRole_case_1
+            by contradiction /* impossible chain */
+          next
+            case InitiatorRole_case_2
+            by contradiction /* impossible chain */
+          next
+            case ReceiverRole_case_1
+            by contradiction /* impossible chain */
+          next
+            case ReceiverRole_case_2
+            solve( (#vl, 0) ~~> (#vk, 0) )
+              case d_0_sdec
+              by contradiction /* impossible chain */
+            next
+              case senc_case_1
+              by contradiction /* from formulas */
+            next
+              case senc_case_2
+              by contradiction /* from formulas */
+            next
+              case senc_case_3
+              by contradiction /* from formulas */
+            qed
+          next
+            case pubGConstr_case_1
+            by contradiction /* forbidden KD-fact */
+          next
+            case pubGConstr_case_2
+            by contradiction /* forbidden KD-fact */
+          qed
+        qed
+      qed
+    qed
+  qed
+qed
+
+lemma secrecyR:
+  all-traces
+  "∀ R I Ek #i.
+    (((AgreeKeyR( R, I, Ek ) @ #i) ∧
+      (¬(∃ #k.1. Compromised( I ) @ #k.1))) ∧
+     (¬(∃ #k.1. Compromised( R ) @ #k.1))) ⇒
+    (¬(∃ #i.1. K( Ek ) @ #i.1))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ R I Ek #i.
+  (AgreeKeyR( R, I, Ek ) @ #i)
+ ∧
+  (∀ #k.1. (Compromised( I ) @ #k.1) ⇒ ⊥) ∧
+  (∀ #k.1. (Compromised( R ) @ #k.1) ⇒ ⊥) ∧
+  (∃ #i.1. (K( Ek ) @ #i.1))"
+*/
+simplify
+solve( AgreeKeyR( R, I, Ek ) @ #i )
+  case ReceiverRole2
+  solve( ReceiverSend( PR, PI, Ek, m ) ▶₁ #i )
+    case ReceiverRole
+    solve( !SKey( PR, Fskr ) ▶₀ #vr )
+      case GenKey
+      solve( !PubKey( PI, dhExp(P'g', Eski) ) ▶₁ #vr )
+        case GenKeyCompromised
+        by contradiction /* from formulas */
+      next
+        case GenKey_case_1
+        by contradiction /* from formulas */
+      next
+        case GenKey_case_2
+        solve( K( dhMu(dhMult(dhExp(P'g', dhTimesE(Efei, Fer)),
+                              dhMult(dhExp(P'g',
+                                           dhTimesE(Efei,
+                                                    dhTimesE(Fskr, dhMu2(PI, dhExp(P'g', Fer))))),
+                                     dhMult(dhExp(P'g',
+                                                  dhTimesE(Fer,
+                                                           dhTimesE(Fx,
+                                                                    dhMu2(PR, dhExp(P'g', Efei))))),
+                                            dhExp(P'g',
+                                                  dhTimesE(Fskr,
+                                                           dhTimesE(Fx,
+                                                                    dhTimesE(dhMu2(PI,
+                                                                                   dhExp(P'g',
+                                                                                         Fer)),
+                                                                             dhMu2(PR,
+                                                                                   dhExp(P'g',
+                                                                                         Efei))))))))))
+               ) @ #i.1 )
+          case isend
+          by solve( Kdh( dhMu(dhMult(dhExp(P'g', dhTimesE(Efei, Fer)),
+                                     dhMult(dhExp(P'g',
+                                                  dhTimesE(Efei,
+                                                           dhTimesE(Fskr,
+                                                                    dhMu2(PI, dhExp(P'g', Fer))))),
+                                            dhMult(dhExp(P'g',
+                                                         dhTimesE(Fer,
+                                                                  dhTimesE(Fx,
+                                                                           dhMu2(PR,
+                                                                                 dhExp(P'g',
+                                                                                       Efei))))),
+                                                   dhExp(P'g',
+                                                         dhTimesE(Fskr,
+                                                                  dhTimesE(Fx,
+                                                                           dhTimesE(dhMu2(PI,
+                                                                                          dhExp(P'g',
+                                                                                                Fer)),
+                                                                                    dhMu2(PR,
+                                                                                          dhExp(P'g',
+                                                                                                Efei))))))))))
+                    ) ▶₀ #i.1 )
+        qed
+      qed
+    qed
+  qed
+qed
+
+lemma agreementR:
+  all-traces
+  "∀ R I Ek #i.
+    (((AgreeKeyR( R, I, Ek ) @ #i) ∧
+      (¬(∃ #k.1. Compromised( I ) @ #k.1))) ∧
+     (¬(∃ #k.1. Compromised( R ) @ #k.1))) ⇒
+    (∃ #j. RunningI( I, R, Ek ) @ #j)"
+/*
+guarded formula characterizing all counter-examples:
+"∃ R I Ek #i.
+  (AgreeKeyR( R, I, Ek ) @ #i)
+ ∧
+  (∀ #k.1. (Compromised( I ) @ #k.1) ⇒ ⊥) ∧
+  (∀ #k.1. (Compromised( R ) @ #k.1) ⇒ ⊥) ∧
+  (∀ #j. (RunningI( I, R, Ek ) @ #j) ⇒ ⊥)"
+*/
+simplify
+solve( AgreeKeyR( R, I, Ek ) @ #i )
+  case ReceiverRole2
+  solve( ReceiverSend( PR, PI, Ek, m ) ▶₁ #i )
+    case ReceiverRole
+    solve( !SKey( PR, Fskr ) ▶₀ #vr )
+      case GenKey
+      solve( !PubKey( PI, dhExp(P'g', Eski) ) ▶₁ #vr )
+        case GenKeyCompromised
+        by contradiction /* from formulas */
+      next
+        case GenKey_case_1
+        by contradiction /* from formulas */
+      next
+        case GenKey_case_2
+        solve( !KU( senc(<m2, 'I'>,
+                         dhMu(dhMult(dhExp(P'g', dhTimesE(Efei, Fer)),
+                                     dhMult(dhExp(P'g',
+                                                  dhTimesE(Efei,
+                                                           dhTimesE(Fskr,
+                                                                    dhMu2(PI, dhExp(P'g', Fer))))),
+                                            dhMult(dhExp(P'g',
+                                                         dhTimesE(Fer,
+                                                                  dhTimesE(Fx,
+                                                                           dhMu2(PR,
+                                                                                 dhExp(P'g',
+                                                                                       Efei))))),
+                                                   dhExp(P'g',
+                                                         dhTimesE(Fskr,
+                                                                  dhTimesE(Fx,
+                                                                           dhTimesE(dhMu2(PI,
+                                                                                          dhExp(P'g',
+                                                                                                Fer)),
+                                                                                    dhMu2(PR,
+                                                                                          dhExp(P'g',
+                                                                                                Efei)))))))))))
+               ) @ #vk )
+          case c_senc
+          solve( !KU( dhMu(dhMult(dhExp(P'g', dhTimesE(Efei, Fer)),
+                                  dhMult(dhExp(P'g',
+                                               dhTimesE(Efei,
+                                                        dhTimesE(Fskr,
+                                                                 dhMu2(PI, dhExp(P'g', Fer))))),
+                                         dhMult(dhExp(P'g',
+                                                      dhTimesE(Fer,
+                                                               dhTimesE(Fx,
+                                                                        dhMu2(PR,
+                                                                              dhExp(P'g', Efei))))),
+                                                dhExp(P'g',
+                                                      dhTimesE(Fskr,
+                                                               dhTimesE(Fx,
+                                                                        dhTimesE(dhMu2(PI,
+                                                                                       dhExp(P'g',
+                                                                                             Fer)),
+                                                                                 dhMu2(PR,
+                                                                                       dhExp(P'g',
+                                                                                             Efei))))))))))
+                 ) @ #vk.3 )
+            case coerce
+            solve( !KD( dhMu(dhMult(dhExp(P'g', dhTimesE(Efei, Fer)),
+                                    dhMult(dhExp(P'g',
+                                                 dhTimesE(Efei,
+                                                          dhTimesE(Fskr,
+                                                                   dhMu2(PI, dhExp(P'g', Fer))))),
+                                           dhMult(dhExp(P'g',
+                                                        dhTimesE(Fer,
+                                                                 dhTimesE(Fx,
+                                                                          dhMu2(PR,
+                                                                                dhExp(P'g',
+                                                                                      Efei))))),
+                                                  dhExp(P'g',
+                                                        dhTimesE(Fskr,
+                                                                 dhTimesE(Fx,
+                                                                          dhTimesE(dhMu2(PI,
+                                                                                         dhExp(P'g',
+                                                                                               Fer)),
+                                                                                   dhMu2(PR,
+                                                                                         dhExp(P'g',
+                                                                                               Efei))))))))))
+                   ) ▶₀ #vk.1 )
+              case Using_OutFacts
+              by solve( Kdh( dhMu(dhMult(dhExp(P'g', dhTimesE(Efei, Fer)),
+                                         dhMult(dhExp(P'g',
+                                                      dhTimesE(Efei,
+                                                               dhTimesE(Fskr,
+                                                                        dhMu2(PI,
+                                                                              dhExp(P'g', Fer))))),
+                                                dhMult(dhExp(P'g',
+                                                             dhTimesE(Fer,
+                                                                      dhTimesE(Fx,
+                                                                               dhMu2(PR,
+                                                                                     dhExp(P'g',
+                                                                                           Efei))))),
+                                                       dhExp(P'g',
+                                                             dhTimesE(Fskr,
+                                                                      dhTimesE(Fx,
+                                                                               dhTimesE(dhMu2(PI,
+                                                                                              dhExp(P'g',
+                                                                                                    Fer)),
+                                                                                        dhMu2(PR,
+                                                                                              dhExp(P'g',
+                                                                                                    Efei))))))))))
+                        ) @ #vk.2 )
+            qed
+          qed
+        next
+          case coerce
+          solve( !KD( senc(<m2, 'I'>,
+                           dhMu(dhMult(dhExp(P'g', dhTimesE(Efei, Fer)),
+                                       dhMult(dhExp(P'g',
+                                                    dhTimesE(Efei,
+                                                             dhTimesE(Fskr,
+                                                                      dhMu2(PI,
+                                                                            dhExp(P'g', Fer))))),
+                                              dhMult(dhExp(P'g',
+                                                           dhTimesE(Fer,
+                                                                    dhTimesE(Fx,
+                                                                             dhMu2(PR,
+                                                                                   dhExp(P'g',
+                                                                                         Efei))))),
+                                                     dhExp(P'g',
+                                                           dhTimesE(Fskr,
+                                                                    dhTimesE(Fx,
+                                                                             dhTimesE(dhMu2(PI,
+                                                                                            dhExp(P'g',
+                                                                                                  Fer)),
+                                                                                      dhMu2(PR,
+                                                                                            dhExp(P'g',
+                                                                                                  Efei)))))))))))
+                 ) ▶₀ #vk )
+            case GenKeyCompromised
+            by solve( (#vl, 0) ~~> (#vk, 0) )
+          next
+            case GenKey_case_1
+            by contradiction /* impossible chain */
+          next
+            case GenKey_case_2
+            by contradiction /* impossible chain */
+          next
+            case GenKey_case_3
+            by contradiction /* impossible chain */
+          next
+            case InitiatorRole
+            by contradiction /* impossible chain */
+          next
+            case InitiatorRole2
+            solve( (#vl, 0) ~~> (#vk, 0) )
+              case d_0_sdec
+              by contradiction /* impossible chain */
+            next
+              case senc_case_1
+              by contradiction /* from formulas */
+            next
+              case senc_case_2
+              by contradiction /* from formulas */
+            next
+              case senc_case_3
+              by contradiction /* from formulas */
+            next
+              case senc_case_4
+              by solve( Initiated( PR, PI, Fski, Fei, dhExp(P'g', Fx)
+                        ) ▶₁ #vr.3 )
+            next
+              case senc_case_5
+              by contradiction /* from formulas */
+            next
+              case senc_case_6
+              by contradiction /* from formulas */
+            qed
+          next
+            case ReceiverRole_case_1
+            by contradiction /* impossible chain */
+          next
+            case ReceiverRole_case_2
+            solve( (#vl, 0) ~~> (#vk, 0) )
+              case d_0_sdec
+              by contradiction /* impossible chain */
+            qed
+          next
+            case ReceiverRole_case_3
+            by contradiction /* impossible chain */
+          next
+            case ReceiverRole_case_4
+            solve( (#vl, 0) ~~> (#vk, 0) )
+              case d_0_sdec
+              by contradiction /* impossible chain */
+            qed
+          next
+            case pubGConstr_case_1
+            by contradiction /* forbidden KD-fact */
+          next
+            case pubGConstr_case_2
+            by contradiction /* forbidden KD-fact */
+          qed
+        qed
+      qed
+    qed
+  qed
+qed
+
+
+
+
+
+
+
+
+
+
+
+/*
+WARNING: the following wellformedness checks failed!
+
+Unbound variables
+=================
+
+  rule `GenKey' has unbound variables: 
+    PA
+  
+  rule `GenKeyCompromised' has unbound variables: 
+    PA
+
+Quantifier sorts
+================
+
+  lemma `executable' uses quantifiers with wrong sort: ("k",LSortE)
+  
+  lemma `secrecyI' uses quantifiers with wrong sort: ("k",LSortE)
+  
+  lemma `agreementI' uses quantifiers with wrong sort: ("k",LSortE)
+  
+  lemma `secrecyR' uses quantifiers with wrong sort: ("k",LSortE)
+  
+  lemma `agreementR' uses quantifiers with wrong sort: ("k",LSortE)
+
+Message Derivation Checks
+=========================
+
+  The variables of the follwing rule(s) are not derivable from their premises, you may be performing unintended pattern matching.
+
+Rule GenKey: 
+Failed to derive Variable(s): PA, Fx
+
+Rule GenKeyCompromised: 
+Failed to derive Variable(s): Ey, PA
+
+Rule InitiatorRole: 
+Failed to derive Variable(s): Eskr, PI, PR, Fei, Fski
+
+Rule ReceiverRole: 
+Failed to derive Variable(s): m, Efei, Eski, PI, PR, Fer, Fskr
+
+Rule InitiatorRole2: 
+Failed to derive Variable(s): m, m2, Efer, Eskr, PI, PR, Fei, Fski
+
+Rule ReceiverRole2: 
+Failed to derive Variable(s): m, m2, EkH, PI, PR
+*/
+
+/*
+Generated from:
+Tamarin version 1.9.0
+Maude version 3.3.1
+Git revision: 0b90ec93ddb21918616f1bfe197b035c5fa0fe54 (with uncommited changes), branch: main
+Compiled at: 2025-09-10 13:48:36.668703 UTC
+*/
+
+end

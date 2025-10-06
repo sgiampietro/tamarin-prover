@@ -20,14 +20,14 @@ rule GenKey:  // share a key pair between two parties.
      Out(dhExp(P'g2', Fx)) ]
 
 rule SignMessage:
-  [!SKey($I, Fski), Fr(~x)]
-  --[ Signed($I, ~x) ]->
-  [Out(<$I, ~x, dhExp(dhExp(P'g1', dhH(~x)), Fski)>)]
+  [!SKey($I, Fski), FrDH(Fx)]
+  --[ Signed($I, Fx) ]->
+  [Out(<$I, Fx, dhExp(dhExp(P'g1', dhH(Fx)), Fski)>)]
 
 rule VerifyMessage:
-  [!PubKey($I, dhExp(P'g2', Eki) ), In(<$I, mess, dhExp(P'g1',Esign)>)]
-  --[ Eq( dhBP(dhExp(P'g1',dhH(mess)), dhExp(P'g2', Eki)), dhBP(dhExp(P'g1', Esign), P'g2') ), Verified(mess, $I, dhExp(P'g1',Esign))]->
-  [ Done(mess, $I, dhExp(P'g1',Esign)) ]
+  [!PubKey($I, dhExp(P'g2', Eki) ), In(<$I, Emess, dhExp(P'g1',Esign)>)]
+  --[ Eq( dhBP(dhExp(P'g1',dhH(Emess)), dhExp(P'g2', Eki)), dhBP(dhExp(P'g1', Esign), P'g2') ), Verified(Emess, $I, dhExp(P'g1',Esign))]->
+  [ Done(Emess, $I, dhExp(P'g1',Esign)) ]
 
 
 restriction equality: 
@@ -36,10 +36,10 @@ restriction equality:
 
 lemma executable:
 exists-trace
-"Ex I Gs m #i #j. Verified(m, I, Gs)@i & Signed(I, m)@j"
+"Ex I Gs Em #i #j. Verified(Em, I, Gs)@i & Signed(I, Em)@j"
 
 lemma unforgeable:
-"All I Gs m #i. Verified(m, I, Gs)@i ==> Ex #j. Signed(I, m)@j"
+"All I Gs Em #i. Verified(Em, I, Gs)@i ==> Ex #j. Signed(I, Em)@j"
 
 end
 
