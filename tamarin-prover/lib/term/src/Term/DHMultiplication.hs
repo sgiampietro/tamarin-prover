@@ -57,6 +57,7 @@ module Term.DHMultiplication (
   , isUniversal
   , sameOuterFunction
   , removeOuterFunction
+  , compatibleSort
   --, rootIndicator
   --, indicator
    --, clean2
@@ -101,7 +102,7 @@ import Term.Maude.Process
 --import Data.Bool (Bool)
 --import Theory.Model (getFactTerms)
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 import Text.PrettyPrint.Class (Document(text))
 import GHC.IO.Exception (blockedIndefinitelyOnSTM)
 --import Theory (Fact(factTerms))
@@ -237,8 +238,8 @@ multRootMixed a = case sortOfLNTerm a of
 
 extractMixedRoot :: LNTerm -> [(LNTerm, LNTerm)]
 extractMixedRoot t = case viewTerm2 t of
-                        (FPair x y) -> trace (show ("extractmiced root", t)) (map (\rx -> (rx,x) ) $ multRootMixed x) ++ extractMixedRoot y-- (map (\ry -> (ry,y) ) $ multRootMixed y)  
-                        _ -> if isDHTerm t then  trace (show ("extractmiced root2", t)) $ trace (show ("extractmiced root", t))  map (\rt -> (rt, t)) $ multRootList t else trace (show ("extractmiced root3", t)) []
+                        (FPair x y) -> (map (\rx -> (rx,x) ) $ multRootMixed x) ++ extractMixedRoot y-- (map (\ry -> (ry,y) ) $ multRootMixed y)  
+                        _ -> if isDHTerm t then  map (\rt -> (rt, t)) $ multRootList t else trace (show ("extractmiced root3", t)) []
  
 isRoot :: (Show a, Ord a ) => DHMultSym -> Term a -> Bool
 isRoot o (LIT l) = True
@@ -418,7 +419,7 @@ notUnifiableLits ta1 ta2
  
 neededexponents:: S.Set LNTerm -> S.Set (LNTerm, NodeId) -> LNTerm -> ([LNTerm], [NodeId])
 neededexponents b nb t
-  | null es = ([], map snd (filter (\(y,_) -> y `elem` et) (S.toList nb)))
+  | trace (show ("tryingneeded", b, nb, es, et)) $ null es = ([], map snd (filter (\(y,_) -> y `elem` et) (S.toList nb)))
   | otherwise = (S.toList es, map snd (filter (\(y,_) -> y `elem` et) (S.toList nb)))
       where et = eTermsOf t
             es = trace (show ("thishose", b, nb, eTermsOf t)) $ S.fromList et `S.difference` (b `S.union` (S.map fst nb))
@@ -578,3 +579,9 @@ removeOuterFunction t = case viewTerm2 t of
       _     -> Nothing
 
 
+compatibleSort :: LSort -> LNTerm -> Bool
+compatibleSort LSortG t = sortOfLNTerm t == LSortG || sortOfLNTerm t == LSortPubG
+compatibleSort LSortPubG t = sortOfLNTerm t == LSortG || sortOfLNTerm t == LSortPubG
+compatibleSort LSortE t = sortOfLNTerm t == LSortE || sortOfLNTerm t == LSortFrNZE || sortOfLNTerm t == LSortNZE
+compatibleSort LSortNZE t = sortOfLNTerm t == LSortE || sortOfLNTerm t == LSortFrNZE || sortOfLNTerm t == LSortNZE
+compatibleSort LSortFrNZE t = sortOfLNTerm t == LSortE || sortOfLNTerm t == LSortFrNZE || sortOfLNTerm t == LSortNZE

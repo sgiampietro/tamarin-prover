@@ -23,7 +23,7 @@ import qualified Data.Map     as Map
 
 import GHC.Real
 import Term.LTerm -- (LNTerm)
-import Debug.Trace.Ignore
+import Debug.Trace -- .Ignore
 --import Term.Builtin.Convenience (x0)
 
 import Data.List (subsequences, (\\))
@@ -197,12 +197,12 @@ innerProduct :: LNTerm -> Vector LNTerm -> Vector LNTerm -> LNTerm
 innerProduct zero [] [] = zero
 innerProduct zero [y] [x] = (simplifyraw $ y*x)
 innerProduct zero (y:ys) (x:xs) = simplifyraw $ (simplifyraw $ y*x)+(innerProduct zero ys xs)
-innerProduct zero t s = error ("unexpected format" ++ show t ++ "and" ++ show s)
+innerProduct zero t s =  error ("unexpected format" ++ show t ++ "and" ++ show s)
 
 -- Use back substitution to calculate the solutions
 traceBack2' :: LNTerm -> Int -> Matrix LNTerm -> Vector LNTerm -> Vector LNTerm
 traceBack2' zero n [] extravars = []
-traceBack2' zero n (r:rows) extravars =  (var : (traceBack2' zero n rs extravars))
+traceBack2' zero n (r:rows) extravars = trace (show ("back2'", n,r,"*", rows)) (var : (traceBack2' zero n rs extravars))
     where
         var2 = if length (drop 1 r) == 1 then fAppdhZero else (innerProduct zero extravars (map (simplifyraw . negate ) (take n (drop 1 r)))) -- negate
         var = simplifyraw $ (simplifyraw $ (head r) + var2)/(last r)
@@ -252,13 +252,12 @@ solveMatrix2 zero basis matrix variables
       (cleanmatrix, variablesP, subszero) =  removeZeroRows zero redmatrix variables2
       ncol = length (head cleanmatrix) - 1
       nrows = length cleanmatrix
-      n = ncol - nrows
       zerovars = map getVar subszero
       extravars = map fromJust $ ((map getVar variables) \\ (map getVar variablesP))\\zerovars
       -- extravars' = filter (\i-> lvarName i /= "yk") extravars
       m = trace (show "waiting") length extravars --'
       extravarssubst = take m basis-- filter (\z-> not $ all (fAppdhZero == ) z) $ combineNlists m [fAppdhOne, fAppdhZero]
-      options = trace (show ("extravarsubst", extravarssubst, extravarssubst)) $ [zip extravars extravarssubst] -- (combineNlists m extravarssubst)
+      options = trace (show ("extravarsubst", extravarssubst)) $ [zip extravars extravarssubst] -- (combineNlists m extravarssubst)
 
 
 

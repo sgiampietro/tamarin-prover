@@ -26,7 +26,7 @@ module Theory.Constraint.Solver.Goals (
   , isDHLit
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Prelude                                 hiding (id, (.))
 
@@ -261,13 +261,13 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
             (Fact KUFact _ [m]) | (sortOfLNTerm m == LSortFrNZE) -> do
                    nodes <- getM sNodes
                    (a,b,(c,d)) <- insertFreshNodeConcKI rules (M.assocs nodes)
-                   trace (show ("solving FRKU")) $ solveTermEqs SplitNow ([Equal m d])
+                   solveTermEqs SplitNow ([Equal m d])
                    void substSystem
                    return a
             (Fact KUFact _ [m]) | (isMixedFact fa) -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList (get rActs ru)
-                   trace (show ("solving KU", fa)) (void (solveFactEqs SplitNow [Equal fa act]))
+                   (void (solveFactEqs SplitNow [Equal fa act]))
                    void substSystem
                    return ru
             _ | (isKdhFact fa)                     -> do
@@ -302,7 +302,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
             _ | (isDHFact fa)                       -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing 
                    act <- disjunctionOfList (filter isDHFact $ get rActs ru)
-                   trace (show ("solving this??", fa,ru)) (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
+                   (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
                    void substSystem
                    --void normSystem
                    return ru 
@@ -312,7 +312,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                    act <- disjunctionOfList possacts  -- (filter isMixedFact $ get rActs ru)
                    let bset = (S.fromList $ basisOfRule ru)
                        nbset = (S.fromList $ notBasisOfRule ru) 
-                   trace (show ("solving this", fa,ru)) (void (solveMixedFactEqs SplitNow (Equal fa act) bset nbset (protoCase SplitNow bset nbset)))
+                   (void (solveMixedFactEqs SplitNow (Equal fa act) bset nbset (protoCase SplitNow bset nbset)))
                    void substSystem
                    --void normSystem
                    return ru
@@ -372,10 +372,10 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
              -> LNFact         -- ^ Fact required at this premise.
              -> Reduction String -- ^ Case name to use.
 solvePremise rules p faPrem
-  | isKdhFact faPrem && isDHFact faPrem = trace (show ("solvingkdf", faPrem)) (solveDHInd rules p faPrem)
+  | trace (show ("sikvubgPREMISE", faPrem, isProtoDHFact faPrem, isProtoMixedFact faPrem)) $ isKdhFact faPrem && isDHFact faPrem = (solveDHInd rules p faPrem)
   | isKdhFact faPrem && isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
   | isProtoDHFact faPrem =  solveDHIndProto rules p faPrem
-  | isProtoMixedFact faPrem = trace (show ("solvingMixedPremise", faPrem)) $ solveDHMixedPremise rules p faPrem
+  | isProtoMixedFact faPrem = solveDHMixedPremise rules p faPrem
   | isKDFact faPrem = do
       if not $ isOfDHSort (head $ factTerms faPrem)
         then do 
@@ -399,7 +399,7 @@ solvePremise rules p faPrem
                     forM_ js (\i-> insertLess i (fst p) Adversary)
                     insertDHdirectEdge ta2 faPrem p rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
                     void substSystem
-                    trace (show ("CALLINGNORMNOW!")) void normSystem
+                    void normSystem
                     return "Using_OutFacts"
             (les,js) -> do 
               forM_ js (\i-> insertLess i (fst p) Adversary)
@@ -417,17 +417,17 @@ solvePremise rules p faPrem
                   insertNotBasisElem x i)
               insertDHdirectEdge ta2 faPrem p rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
               void substSystem
-              trace (show ("CALLINGNORMNOW2!")) void normSystem
+              void normSystem
               return "Using_OutFacts")
   | isOut faPrem = do    
       nodes <- getM sNodes
       (ru, c, faConc) <- insertFreshNodeConcOutInstMixed rules (M.assocs nodes)
       insertEdges [(c, faConc, faPrem, p)] 
       return $ showRuleCaseName ru  
-  | isKIFact faPrem && isDHFact faPrem = do -- should match indicators with indicators (avoiding mu). In paper transform the mu rule also with any 1 way function.
-      nodes <- getM sNodes
-      (ru, c, (faConc, t)) <- trace (show ("insertingpremise", faPrem)) $ insertFreshNodeConcKI rules (M.assocs nodes) -- (filter isIntruderRule rules) (M.assocs nodes)
-      insertOutKIEdge (c, faConc, t, faPrem, p)
+  | trace (show ("solvingPREMISE", faPrem)) $ isKIFact faPrem && isDHFact faPrem = do -- should match indicators with indicators (avoiding mu). In paper transform the mu rule also with any 1 way function.
+      nodes <- trace (show ("isdhfact", faPrem)) $ getM sNodes
+      (ru, c, (faConc, t)) <- insertFreshNodeConcKI rules (M.assocs nodes)-- (filter isIntruderRule rules) (M.assocs nodes)
+      trace (show ("here", faPrem)) $ insertOutKIEdge (c, faConc, t, faPrem, p)
       return $ showRuleCaseName ru
   | isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
   | otherwise = do
@@ -437,7 +437,13 @@ solvePremise rules p faPrem
 
 solveDHEq :: LNTerm -> LNTerm -> Reduction String
 solveDHEq t1 t2 = do
-  _ <- protoCase SplitNow S.empty S.empty (t1, t2)
+  hnd <- getMaudeHandle
+  let normedpair = (runReader (norm' $ fAppPair (t1, t2)) hnd)
+      unpair t = case viewTerm t of
+                        (FApp (NoEq pairSym) [x, y]) ->(x,y)
+                        _ -> error $ "something went wrong" ++ show t
+      (sta1,sta2) =  unpair normedpair
+  _ <- protoCase SplitNow S.empty S.empty (sta1, sta2)
   return "solveeq"
 
 -- | CR-rule *DG2_chain*: solve a chain constraint.
@@ -624,7 +630,7 @@ solveDHIndauxMixed terms p faPrem rules instrules = do
 
 insertMuAction :: Term (Lit Name LVar) -> (NodeId) -> NodeId -> Reduction ()
 insertMuAction x@(LIT l) i j | sortOfLNTerm x == LSortFrNZE = do 
-          insertBasisElem x
+          trace (show ("insertMuAction", l)) $ insertBasisElem x
           `disjunction` do
               rulesAll <- askM pcRules
               let rules = filter (\ru -> all isDHFact (get rConcs ru)) (get crProtocol rulesAll ++ get crConstruct rulesAll)
@@ -651,14 +657,14 @@ solveByOuterSym hndNormal js bset nbset p rules xrooterms instrules = do
             else do
               if universal == nInds || null universal
                 then do   
-                  possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n Nothing
+                  possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n (sortOfLNTerm $ head xrooterms) Nothing
                   insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
                   return "FindingIndicators" 
                 else do
-                  possibletuple1 <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules m Nothing
+                  possibletuple1 <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules m (sortOfLNTerm $ head xrooterms) Nothing
                   checkUniversalTerms (map (\(a,b,(c,t),d,e,f)-> d) possibletuple1) universal
                   forM_ (toaddnocanc) (\(a,b) -> insertNoCanc a b)
-                  possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n Nothing
+                  possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n (sortOfLNTerm $ head xrooterms) Nothing
                   insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
                   return "FindingIndicators" 
 
@@ -671,7 +677,7 @@ solveByOuterSym2 hndNormal gT (g1,g2) js bset nbset p rules xrooterms instrules 
               toaddnocanc = filter (\(a,b) -> not $ isNoCanc a b) pairs
           forM_ js (\i-> insertLess i (fst p) Adversary)
           forM_ (toaddnocanc) (\(a,b) -> insertNoCanc a b)
-          if trace (show ("solveByOuterSym2", gT, g1, g2, neededInds)) $ null neededInds 
+          if null neededInds 
             then return "Indicators are public"
             else do
               solveBPedge gT (g1,g2) neededInds p rules instrules (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x))
@@ -684,7 +690,7 @@ solveDHIndaux bset nbset term p rules = do
   pRule <-   gets $ nodeRule (nodePremNode p)
   let instrules =  (filter (\i-> snd i /= pRule) $ M.assocs nodes)
   hndNormal <-  getMaudeHandle
-  let nterm = trace (show ("solveDHIndaux", term)) $ runReader (norm' term) hndNormal
+  let nterm = runReader (norm' term) hndNormal
       clterm t = case viewTerm2 t of --todo: need to refine this. 
                         FdhMu t1 -> if S.member t (S.map fst nbset) then t else clterm t1
                         FdhMinus t1 -> clterm t1
@@ -694,7 +700,7 @@ solveDHIndaux bset nbset term p rules = do
       cterm = clterm nterm
       xrooterms = multRootMixed cterm
   case  neededexponentslist bset nbset xrooterms of
-      ([], js) | containsBP nterm ->  case trace (show ("callingBP", nterm)) $ getsBPbase nterm of
+      ([], js) | containsBP nterm ->  case getsBPbase nterm of
                     Just (g1,g2) -> solveByOuterSym2 hndNormal (expBase nterm) (g1,g2) js bset nbset p (filter isProtocolRule rules) xrooterms instrules
                     _ -> error "bp does not have a basis - malformed term"
       ([], js) | otherwise -> do            

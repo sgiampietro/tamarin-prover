@@ -48,7 +48,7 @@ import Term.Rewriting.Norm
 import Term.Substitution
 
 -- import Theory.Constraint.System.Constraints
-import Debug.Trace.Ignore
+import Debug.Trace -- .Ignore
 import Control.Monad.Disj (disjunctionOfList)
 import           Control.Monad.Reader
 import Data.Primitive (mutableByteArrayContents)
@@ -142,8 +142,9 @@ allNBExponents :: [LNTerm] -> [LNTerm] -> ([LNTerm], [LNTerm])
 allNBExponents nbasis allexp = (nbasis `intersect` allexp, allexp \\ nbasis)
 
 allNBExponents3 :: [LNTerm] -> [LNTerm] -> ([LNTerm], [LNTerm])
-allNBExponents3 nbasis allexp = (nbasis3 `intersect` allexp, allexp \\ nbasis3)
+allNBExponents3 nbasis allexp = (nbasis3 `intersect` allexp1, allexp1 \\ nbasis3)
     where nbasis3 = nub (fAppdhOne:(fAppdhZero:nbasis))
+          allexp1 = nub allexp
 
 
 
@@ -266,7 +267,7 @@ getVariablesOf tis = map (\v -> LIT (Var v)) (es ++ ys ++ zs)
                               zs = filter (\v-> lvarName v /= "yk" && lvarName v /= "ek") start
 
 getVariablesOfK :: [LNTerm] -> [LNTerm]
-getVariablesOfK tis = map (\v -> LIT (Var v)) (es ++ ys ++ zs)
+getVariablesOfK tis = map (\v -> LIT (Var v)) (nub $ es ++ ys ++ zs)
                         where start = S.toList (S.unions $ map (S.fromList . varTermsOf') tis)
                               es = filter (\v-> lvarName v == "yk") start
                               ys = filter (\v-> lvarName v == "wy") start
@@ -480,7 +481,7 @@ solveIndicatorGauss3 hnd nb basis term target =
         gt2 = gTerm2Exp target 
         ebase = expBase target
         (wzs, matriz) = createMatrix3 nb (gt1) (gt2)
-        sol = solveMatrix2 fAppdhZero (basis) matriz wzs
+        sol = trace (show ("Gauss2", matriz, wzs, "*", basis)) $ solveMatrix2 fAppdhZero (basis) matriz wzs
         retrieve s = case s of
           (Nothing) -> Nothing
           (Just sols) -> Just (map (\s-> (oneSolution3 ebase wzs s)) sols)
