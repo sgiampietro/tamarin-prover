@@ -102,7 +102,7 @@ import Term.Maude.Process
 --import Data.Bool (Bool)
 --import Theory.Model (getFactTerms)
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 import Text.PrettyPrint.Class (Document(text))
 import GHC.IO.Exception (blockedIndefinitelyOnSTM)
 --import Theory (Fact(factTerms))

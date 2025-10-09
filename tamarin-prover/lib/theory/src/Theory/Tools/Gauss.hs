@@ -23,7 +23,7 @@ import qualified Data.Map     as Map
 
 import GHC.Real
 import Term.LTerm -- (LNTerm)
-import Debug.Trace -- .Ignore
+import Debug.Trace.Ignore
 --import Term.Builtin.Convenience (x0)
 
 import Data.List (subsequences, (\\))
@@ -204,7 +204,7 @@ traceBack2' :: LNTerm -> Int -> Matrix LNTerm -> Vector LNTerm -> Vector LNTerm
 traceBack2' zero n [] extravars = []
 traceBack2' zero n (r:rows) extravars = trace (show ("back2'", n,r,"*", rows)) (var : (traceBack2' zero n rs extravars))
     where
-        var2 = if length (drop 1 r) == 1 then fAppdhZero else (innerProduct zero extravars (map (simplifyraw . negate ) (take n (drop 1 r)))) -- negate
+        var2 = if length (drop 1 r) < n then fAppdhZero else (innerProduct zero extravars (map (simplifyraw . negate ) (take n (drop 1 r)))) -- negate
         var = simplifyraw $ (simplifyraw $ (head r) + var2)/(last r)
         rs = map substituteVariable rows
         substituteVariable (x:(y:ys)) = ((simplifyraw $ x +(simplifyraw $ negate (simplifyraw $ var*y) ) ):ys) 

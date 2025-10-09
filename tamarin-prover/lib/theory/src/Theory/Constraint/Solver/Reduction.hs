@@ -114,7 +114,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -1974,7 +1974,7 @@ solveIndFactDH split listtups faPrem = do
     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
     trace (show ("solution", eqs2)) noContradictoryEqStore
     subst <- getM sEqStore
-    return (applyVTerm (_eqsSubst subst) faPrem, map (\((a,b),c)-> applyVTerm (_eqsSubst subst) a ) listtups)
+    return (applyVTerm (_eqsSubst subst) faPrem, nub $ map (\((a,b),c)-> applyVTerm (_eqsSubst subst) a ) listtups)
 
 solveIndFactDHBP :: SplitStrategy -> [((LNTerm, LNTerm), LNTerm)] -> LNTerm -> [LNTerm] -> Reduction (LNTerm, [LNTerm])
 solveIndFactDHBP split listtups faPrem listterms = do
@@ -1990,7 +1990,7 @@ solveIndFactDHBP split listtups faPrem listterms = do
     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
     noContradictoryEqStore
     subst <- getM sEqStore
-    return (applyVTerm (_eqsSubst subst) faPrem, map (applyVTerm (_eqsSubst subst)) listterms)
+    return (applyVTerm (_eqsSubst subst) faPrem, nub $ map (applyVTerm (_eqsSubst subst)) listterms)
 
 
 
