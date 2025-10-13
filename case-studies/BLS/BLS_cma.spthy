@@ -1,0 +1,50 @@
+theory MQV
+begin
+
+
+/* ----------------- */
+/* Equational theory */
+/* ----------------- */
+
+/* Load the built-in symmetrical encryption theory */
+builtins: DH-multiplication
+
+/* -------------- */
+/* Protocol rules */
+/* -------------- */
+
+rule GenKey:  // share a key pair between two parties.
+   [ FrDH(Fx) ] 
+   --[ OnlyOnce() ]->
+   [ !SKey(Fx), !PubKey(dhExp(P'g2', Fx)),
+     Out(dhExp(P'g2', Fx)) ]
+
+rule SignMessage:
+  [!SKey(Fski),  In(Em)]
+  --[ Oracle(Em) ]->
+  [Out(dhExp(dhExp(P'g1', dhH(Em)), Fski))]
+
+rule VerifyMessage:
+  [!PubKey(dhExp(P'g2', Eki) ), In(<Emess, dhExp(P'g1',Esign)>)]
+  --[ Eq( dhBP(dhExp(P'g1',dhH(Emess)), dhExp(P'g2', Eki)), dhBP(dhExp(P'g1', Esign), P'g2') ), Verified(Emess, dhExp(P'g1',Esign))]->
+  [ Done(Emess, dhExp(P'g1',Esign)) ]
+
+
+restriction equality: 
+"All x y #i. Eq(x,y)@i ==> x = y"
+
+restriction onlyonce:
+"All #i #j. OnlyOnce()@i & OnlyOnce()@j ==> #i = #j"
+
+lemma executable:
+exists-trace
+"Ex Gs Em #i #j. Verified(Em, Gs)@i & Oracle(Em)@j"
+
+lemma unforgeable:
+"All Gs Em #i. Verified(Em, Gs)@i ==> (Ex #j. Oracle(Em)@j)"
+
+
+end
+
+
+
