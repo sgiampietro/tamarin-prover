@@ -26,7 +26,7 @@ module Theory.Constraint.Solver.Goals (
   , isDHLit
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Prelude                                 hiding (id, (.))
 
@@ -394,7 +394,7 @@ solvePremise rules p faPrem
           nbset <- getM sNotBasis
           nodes <- trace (show ("insertDirectEdge1Goals", bset, nbset,faPrem)) $ getM sNodes
           let ta2 = head $ factTerms faPrem
-          case  neededexponents bset nbset ta2 of 
+          case trace (show ("doubleFesh","**",doubleFresh nodes)) $  neededexponents bset nbset ta2 of 
             ([],js) -> do 
                     forM_ js (\i-> insertLess i (fst p) Adversary)
                     insertDHdirectEdge ta2 faPrem p rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
@@ -415,7 +415,8 @@ solvePremise rules p faPrem
                   insertGoal (ActionG i (kdhFact x)) False
                   insertLess i (fst p) Adversary
                   insertNotBasisElem x i)
-              insertDHdirectEdge ta2 faPrem p rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+              nodes2 <- getM sNodes
+              trace (show ("doubleFesh","**",doubleFresh nodes2)) $ insertDHdirectEdge ta2 faPrem p rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
               void substSystem
               void normSystem
               return "Using_OutFacts")

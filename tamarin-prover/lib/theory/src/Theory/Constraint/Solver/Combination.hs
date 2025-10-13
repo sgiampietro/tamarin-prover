@@ -18,7 +18,7 @@ module Theory.Constraint.Solver.Combination
     createMatrix,
     solveIndicatorGauss,
     solveIndicatorGaussProto,
-    solveIndicatorGauss3,
+    -- solveIndicatorGauss3,
     parseToMap,
     gTerm2Exp,
     gTerm2Exp',
@@ -48,7 +48,7 @@ import Term.Rewriting.Norm
 import Term.Substitution
 
 -- import Theory.Constraint.System.Constraints
-import Debug.Trace.Ignore
+import Debug.Trace -- .Ignore
 import Control.Monad.Disj (disjunctionOfList)
 import           Control.Monad.Reader
 import Data.Primitive (mutableByteArrayContents)
@@ -398,13 +398,15 @@ optionList ebase basis (gt1,mut1) (gt2,mut2)
                    results = filter (\(_,_,_,b) -> b) $ map foldmu replacements
 
 
-solveIndicatorGaussProto :: MaudeHandle -> [LNTerm] -> LNTerm -> LNTerm -> [ Maybe [([(LVar, LNTerm)],[(LVar, LNTerm)]) ] ]
-solveIndicatorGaussProto hnd basis term target =
+solveIndicatorGaussProto :: Maybe [LNTerm] -> MaudeHandle -> [LNTerm] -> LNTerm -> LNTerm -> [ Maybe [([(LVar, LNTerm)],[(LVar, LNTerm)]) ] ]
+solveIndicatorGaussProto protoOrNot hnd basis term target =
     let (gt1, termsubst1) = gTerm2Exp' term "qwzk1"
         (gt2, termsubst2) = gTerm2Exp' target "qwzk2"
         ebase = expBase target
         options = optionList ebase (basis) (gt1,termsubst1) (gt2,termsubst2)
-        (wzs, matriz) =  createMatrixProto (allExponentsOf [term] target) (gt1) (gt2)
+        (wzs, matriz) = case protoOrNot of 
+          Nothing -> createMatrixProto (allExponentsOf [term] target) (gt1) (gt2) 
+          Just nbs -> createMatrix3 nbs term target gt1 gt2
       -- (wzs, matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)       
       -- ([w1, z2], matriz) = createMatrixProto (nb) (gTerm2Exp term) (gTerm2Exp target)
         pubg =  pubGTerm "g"
@@ -423,13 +425,23 @@ solveIndicatorGaussProto hnd basis term target =
                   _  -> Just $ solveMatrix2 fAppdhZero (basis) mat2 wz2
             _ -> Just $ solveMatrix2 fAppdhZero (basis) mat2 wz2
            where  
-                  (wz2, mat2) = createMatrixProto [] (runReader (norm' t1) hnd) (runReader (norm' t2) hnd)
+                  (wz2, mat2) = case protoOrNot of 
+                      Nothing -> createMatrixProto [] (runReader (norm' t1) hnd) (runReader (norm' t2) hnd)
+                      Just nbs -> createMatrix3 nbs t1 t2 t1 t2
         retrieve s substss = case s of
           Nothing -> Just [(substss, [])]
           Just (Nothing) -> Nothing
-          Just (Just sols) -> Just (map (\s-> (oneSolution ebase wzs s, substss)) sols)
-    in
-    (retrieve sol (termsubst1++termsubst2)):(map ((\(s,t) -> retrieve s (substToList t)) . (\(t1,t2,sub) -> (getsol t1 t2, sub))) options )
+          Just (Just sols) -> trace (show ("solretrieve", sols, "sub", substss)) $ Just (map (\s-> (oneSolution ebase wzs s, substss)) sols)
+        retrieve2 s substss = case s of
+          Nothing -> Just [(substss, [])]
+          Just (Nothing) -> Nothing
+          Just (Just sols) -> case sol of 
+            Nothing -> Just (map (\s-> (oneSolution ebase wzs s, substss)) sols)
+            Just (Nothing) -> Nothing
+            Just (Just sols2) -> trace (show ("onesolutions", oneSolution ebase wzs (head sols2))) $ Just (map (\s-> (oneSolution ebase wzs (head sols2) ++ oneSolution ebase wzs s, substss)) sols)
+    in case protoOrNot of 
+      Nothing -> (retrieve sol (termsubst1++termsubst2)):(map ((\(s,t) -> retrieve s (substToList t)) . (\(t1,t2,sub) -> (getsol t1 t2, sub))) options )
+      Just _ -> (map ((\(s,t) -> retrieve2 s (substToList t)) . (\(t1,t2,sub) -> (getsol t1 t2, sub))) options )
 
 
 createMatrix :: [LNTerm] -> [LNTerm] -> LNTerm -> Matrix LNTerm
@@ -447,9 +459,9 @@ solveIndicatorGauss :: [LNTerm] -> [LNTerm] -> LNTerm -> Maybe [LNTerm]
 solveIndicatorGauss nb terms target = (\(a,b,c) -> a) $ solveMatrix fAppdhZero (createMatrix (nb) (map gTerm2Exp terms) (gTerm2Exp target)) []
 
 
-createMatrix3 :: [LNTerm] -> LNTerm -> LNTerm -> ([LNTerm], Matrix LNTerm)
-createMatrix3 nb term target =
-    let (nbexp, vars) =   allNBExponents3 nb (allExponentsOf [term] target) --
+createMatrix3 :: [LNTerm] -> LNTerm -> LNTerm -> LNTerm -> LNTerm -> ([LNTerm], Matrix LNTerm)
+createMatrix3 nb t1 t2 term target =
+    let (nbexp, vars) =   allNBExponents3 nb (allExponentsOf [t1] t2) --
         matrixvars = getVariablesOfK [term, target]
         (coeffVars, (constOfTerm, constTarget)) = splitVars matrixvars term target
         --(coeffVarsTarget, constTarget) = splitVars matrixvars target trace (show ("coeffVars",coeffVars,"**",const)) $ 
@@ -474,15 +486,16 @@ oneSolution3 ebase wzs a@(ts, newwzs, subszero, subextra) =  (if (all (isJust) w
                                         _ -> t
                           zipfun a b = (fromJust a, getsubst (fromJust a) b)
                           zerovars = map getVar subszero
-
+{-}
 solveIndicatorGauss3 :: MaudeHandle -> [LNTerm] -> [LNTerm] -> LNTerm -> LNTerm -> Maybe [[(LVar, LNTerm)] ] 
 solveIndicatorGauss3 hnd nb basis term target =
     let gt1 = gTerm2Exp term 
         gt2 = gTerm2Exp target 
         ebase = expBase target
-        (wzs, matriz) = createMatrix3 nb (gt1) (gt2)
+        (wzs, matriz) = createMatrix3 nb gt1 gt2 (gt1) (gt2)
         sol = trace (show ("Gauss2", matriz, wzs, "*", basis)) $ solveMatrix2 fAppdhZero (basis) matriz wzs
         retrieve s = case s of
           (Nothing) -> Nothing
           (Just sols) -> Just (map (\s-> (oneSolution3 ebase wzs s)) sols)
     in retrieve sol
+-}

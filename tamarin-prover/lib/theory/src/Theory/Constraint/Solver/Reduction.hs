@@ -78,6 +78,8 @@ module Theory.Constraint.Solver.Reduction (
   , markGoalAsSolved
   , removeSolvedSplitGoals
 
+  , doubleFresh
+
   -- ** Substitution application
   , substSystem
   , substNodes
@@ -114,7 +116,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -874,18 +876,18 @@ insertDHEdgesBP (gT, g1, g2) gTlist g1list g2list indts indsg1 indsg2 listterms 
 insertDHEdges :: [(RuleACInst, NodeConc, (LNFact,LNTerm), LNTerm, Maybe RuleACConstrs, Bool)] -> [LNTerm] -> LNTerm -> NodePrem -> 
     (LNTerm -> NodeId -> Reduction String) -> Reduction ()
 insertDHEdges tuplelist indts premTerm p fun = do
-    let rootpairs = zip (map (\(a,b,(c,t),d,e,f)-> (t,d)) tuplelist) indts
+    hnd <- getMaudeHandle
+    let rootpairs = zip (map (\(a,b,(c,t),d,e,f)-> (runReader (norm' t) hnd, runReader (norm' d) hnd)) tuplelist) indts
         cllist = nubBy (\(a,b,c,d,e,f) (a2,b2,c2,d2,e2,f2) -> b == b2) tuplelist
         temppairs = map (\((a,b),c)-> a ) rootpairs
     --return ()
     --(faPremsubst, listterms) <- foldM (\faP c -> solveIndFactDH SplitNow c faP) (premTerm,[]) rootpairs
-    void substSystem
     nodes <- getM sNodes
-    edges <- getM sEdges
+    trace (show ("here rootpairs", rootpairs, premTerm, doubleFresh nodes)) $ void substSystem
     contradictoryIf $ doubleFresh nodes
     bset <- getM sBasis
     nbset <- getM sNotBasis
-    case neededexponentslist bset nbset temppairs of 
+    case trace (show "gothere") $ neededexponentslist bset nbset temppairs of 
         ([],js) -> do
             forM_ js (\i-> insertLess i (fst p) Adversary)
             (faPremsubst, listterms) <-  solveIndFactDH SplitNow rootpairs premTerm
@@ -1290,6 +1292,21 @@ multiplyterm wvar t@(FAPP (DHMult o) ts) = case ts of
     []         | o == dhOneSym    -> t
     _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
 
+multaddterms :: LVar -> LNTerm -> Bool
+multaddterms wvar t@(LIT l) = if (sortOfLNTerm t == LSortVarE) then False else True
+multaddterms wvar t@(FAPP (DHMult o) ts) = case ts of
+    [ t1, t2 ] | o == dhTimesESym   -> if null (varTermsOf t) then True else False
+    [t1 ,t2]   | o == dhPlusSym -> multaddterms wvar t1 || multaddterms wvar t2
+    [t1 ,t2]   | o == dhMultSym -> multaddterms wvar t1 && multaddterms wvar t2
+    [ t1, t2 ] | o == dhExpSym   -> multaddterms wvar t2
+    [ t1 ]     | o == dhInvSym    ->  multaddterms wvar t1
+    [ t1 ]     | o == dhGinvSym    ->  multaddterms wvar t1
+    [ t1 ]     | o == dhMinusSym    -> multaddterms wvar t1
+    [ t1 ]     | o == dhMuSym    -> True  --TODO: not sure what to do here? t1 is actually a G term??
+    []         | o == dhZeroSym    -> False
+    []         | o == dhOneSym    -> False
+    _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
+
 
 monomials :: LNTerm -> [LNTerm]
 monomials t@(viewTerm2 -> FdhPlus t1 t2) = (monomials t1) ++ (monomials t2)
@@ -1317,8 +1334,8 @@ solveIndicator t22 terms2  = do
   wvars <- replicateM (length terms) $ freshLVar "wy" LSortVarE
   is <- replicateM (length terms + 1) $ freshLVar "iw" LSortNode
   wvarextra <- freshLVar "ww" LSortVarE
-  forM_ (zip (map varTerm (wvars ++ [wvarextra])) (is)) (\(t,i)-> insertAction i (kLogFact t) ) -- kdhFact 
   let genterms = zipWith multiplyterm wvars terms
+      toadd1 = map fst $ filter (snd) (zipWith (\a b-> (a, multaddterms a b)) wvars terms)
       extraterms = zipWith (\a b -> fAppdhTimesE (a, varTerm b)) secretmonoms zvars 
       extraterm = runReader (norm' $ foldr (\a b -> if b == fAppdhZero then a else fAppdhPlus (a,b)) fAppdhZero extraterms) hndNormal 
       advterm = runReader (norm' $ foldr (\a b -> fAppdhPlus (a,b)) (varTerm wvarextra) genterms) hndNormal 
@@ -1326,6 +1343,7 @@ solveIndicator t22 terms2  = do
       nt2 = runReader (norm' t2) hndNormal
       matrixvars = getVariablesOfK [nt2,advterm2]   
       kterm = if sortOfLNTerm (head terms2) == LSortG then fAppdhExp(pubGTerm "g", extraterm) else extraterm
+  forM_ (zip (map varTerm (toadd1 ++ [wvarextra])) (is)) (\(t,i)-> insertAction i (kLogFact t) ) -- kdhFact 
   forM_ (if null newsecretvars then [] else [kterm]) (\t -> insertAction js (kdhFact t)) --kdhFact     
   freevars <- replicateM (length matrixvars) $ freshLVar "vy" LSortE
   if length matrixvars >1 
@@ -1356,7 +1374,7 @@ solveIndicatorProto2 basis t1 t2 = do
   setM sEqStore $ applyEqStore hnd subst0 eqStore
   void substSystem
   void normSystem
-  bb <- disjunctionOfList $ (solveIndicatorGaussProto hnd basis newt1 newt2)
+  bb <- disjunctionOfList $ (solveIndicatorGaussProto Nothing hnd basis newt1 newt2)
   case bb of
    Just substlist ->  do
         eqStore <-  getM sEqStore
@@ -1388,7 +1406,7 @@ solveIndicatorProto2 basis t1 t2 = do
 solveIndicatorProto :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
 solveIndicatorProto basis t1 t2 = do
   hnd  <- getMaudeHandle
-  bb <- disjunctionOfList $ (solveIndicatorGaussProto hnd basis t1 t2 )
+  bb <- disjunctionOfList $ (solveIndicatorGaussProto Nothing hnd basis t1 t2 )
   case bb of
    Just substlist ->  do
         eqStore <- getM sEqStore
@@ -1397,7 +1415,6 @@ solveIndicatorProto basis t1 t2 = do
         (subst', subst12) <- disjunctionOfList substlist
         let normsubst = (normalizeSubstListCR hndCR subst') 
         contradictoryIf $ variableCheck t1 subst12 t2 normsubst
-        -- hndCR
         let normsubst' = compose (substFromList subst12) (substFromList normsubst)
         setM sEqStore $ applyEqStore hnd (normsubst') eqStore
         neweqstore <- getM sEqStore
@@ -1424,11 +1441,35 @@ solveIndicatorProto basis t1 t2 = do
 solveIndicatorKFacts :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
 solveIndicatorKFacts basis t1 t2 = do
   hnd  <- getMaudeHandle
-  nb2 <- getM sNotBasis
-  bb <-getM sBasis
-  let nb = S.map fst nb2
-      bb = (solveIndicatorGauss3 hnd (S.toList nb) basis t2 t1 )
+  nb <- getM sNotBasis
+  bb <- disjunctionOfList $ (solveIndicatorGaussProto (Just $ map fst $ S.toList nb) hnd basis t1 t2 )
+  --let nb = S.map fst nb2
+  --    bb = (solveIndicatorGauss3 hnd (S.toList nb) basis t2 t1 )
   case bb of
+   Just substlist ->  do
+        eqStore <-  getM sEqStore
+        hndCR <- getMaudeHandleCR
+        (subst', subst12) <- disjunctionOfList substlist
+        let normsubst = (normalizeSubstListCR hndCR subst') 
+        trace (show ("amhere", substlist, "**", basis)) $ contradictoryIf $ variableCheck t1 subst12 t2 normsubst
+        let normsubst' = compose (substFromList subst12) (substFromList normsubst)
+        setM sEqStore $ applyEqStore hnd (normsubst') eqStore
+        neweqstore <- getM sEqStore
+        let oldsubsts =  _eqsSubst neweqstore
+            newsubst =  substFromList $ normalizeSubstList hnd (substToList oldsubsts)
+            newsubstCR = substFromList $ normalizeSubstList hnd $ normalizeSubstListCR hndCR (substToList oldsubsts) 
+        setM sEqStore ( neweqstore{_eqsSubst = newsubstCR} )
+        void substSystem
+        --void normSystemCR
+        let normedpair = (runReader (norm' $ fAppPair ((applyVTerm newsubstCR t1, applyVTerm newsubstCR t2))) hnd)
+            unpair t = case viewTerm t of
+                            (FApp (NoEq pairSym) [x, y]) ->(x,y)
+                            _ -> error $ "something went wrong" ++ show t
+            (sta1,sta2) =  unpair normedpair
+        contradictoryIf (not (sta1 == sta2)) 
+        void normSystem
+        return "Matched"    
+  {-case bb of
    Just substlist ->  do
         eqStore <-  getM sEqStore
         hndCR <- getMaudeHandleCR
@@ -1454,15 +1495,14 @@ solveIndicatorKFacts basis t1 t2 = do
         return "Matched"
    Nothing -> do
           contradictoryIf True
-          return "CONTRADICTION"
+          return "CONTRADICTION"-}
 
 
 solveIndicatorKFacts2 :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
 solveIndicatorKFacts2 basis t1 t2 = do
   hnd  <- getMaudeHandle
-  nb2 <- getM sNotBasis
-  let nb = S.map fst nb2
-      matrixvars =  getVariablesOfK [t1, t2]
+  nb <- getM sNotBasis
+  let matrixvars =  getVariablesOfK [t1, t2]
       subst0 = substFromList [(fromJust $ getVar (head matrixvars), fAppdhZero)]
       newt1 = runReader (norm' $ applyVTerm subst0 t1) hnd
       newt2 = runReader (norm' $ applyVTerm subst0 t2) hnd
@@ -1470,34 +1510,31 @@ solveIndicatorKFacts2 basis t1 t2 = do
   setM sEqStore $ applyEqStore hnd subst0 eqStore
   void substSystem
   void normSystem
-  let bb = (solveIndicatorGauss3 hnd (S.toList nb) basis t2 t1 )
+  bb <- disjunctionOfList $ (solveIndicatorGaussProto (Just $ map fst $ S.toList nb)  hnd basis newt1 newt2 )
   case bb of
    Just substlist ->  do
         eqStore <-  getM sEqStore
         hndCR <- getMaudeHandleCR
-        (subst') <- disjunctionOfList substlist
-        let checksub = substFromList subst'
-        contradictoryIf (dom checksub `intersect` varsRange checksub /= [])
+        (subst', subst12) <- disjunctionOfList substlist
         let normsubst = (normalizeSubstListCR hndCR subst') 
-        setM sEqStore $ applyEqStore hnd (substFromList normsubst) eqStore
+        contradictoryIf $ variableCheck t1 subst12 t2 normsubst
+        let normsubst' = compose (substFromList subst12) (substFromList normsubst)
+        setM sEqStore $ applyEqStore hnd (normsubst') eqStore
         neweqstore <- getM sEqStore
         let oldsubsts =  _eqsSubst neweqstore
             newsubst =  substFromList $ normalizeSubstList hnd (substToList oldsubsts)
-        setM sEqStore ( neweqstore{_eqsSubst = newsubst} )
+            newsubstCR = substFromList $ normalizeSubstList hnd $ normalizeSubstListCR hndCR (substToList oldsubsts) 
+        setM sEqStore ( neweqstore{_eqsSubst = newsubstCR} )
         void substSystem
-        void normSystemCR        
-        subst <- getM sSubst
-        let normedpair = (runReader (norm' $ fAppPair ((applyVTerm subst t1, applyVTerm subst t2))) hnd)
+        --void normSystemCR
+        let normedpair = (runReader (norm' $ fAppPair ((applyVTerm newsubstCR t1, applyVTerm newsubstCR t2))) hnd)
             unpair t = case viewTerm t of
                             (FApp (NoEq pairSym) [x, y]) ->(x,y)
                             _ -> error $ "something went wrong" ++ show t
             (sta1,sta2) =  unpair normedpair
-        contradictoryIf (not (sta1 == sta2))                         
+        contradictoryIf (not (sta1 == sta2)) 
         void normSystem
         return "Matched"
-   Nothing -> do
-          contradictoryIf True
-          return "CONTRADICTION"
 
 
 
@@ -1714,7 +1751,8 @@ solveTermDHEqsChain2 splitStrat mayB rules instrules fun p faPrem ta2 = do
                         if universal == nInds  || null universal
                             then do
                                 possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm nta2) Nothing
-                                trace (show ("nowthisoption", (map (\(a,b,(c,t),d,e,f)-> showRuleCaseName a) possibletuple))) $ insertDHEdges possibletuple nInds ta2 p fun
+                                nodes <- getM sNodes
+                                trace (show ((sortOfLNTerm nta2),"**",doubleFresh nodes, "nowthisoption",n, (map (\(a,b,(c,t),d,e,f)-> showRuleCaseName a) possibletuple))) $ insertDHEdges possibletuple nInds ta2 p fun
                                 return "All Out Facts Used"
                             else do
                                 possibletuple1 <- insertFreshNodeConcOutInst rules instrules m (sortOfLNTerm nta2) Nothing
