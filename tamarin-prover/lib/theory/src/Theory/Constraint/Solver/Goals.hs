@@ -300,6 +300,14 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                                 solvePremise rules pLearn premLearn
                                 return ruLearn 
             _ | (isDHFact fa)                       -> do
+                  nodes <- getM sNodes
+                  let instrules = M.assocs nodes
+                  (i,ru) <- disjunctionOfList instrules
+                  act <- disjunctionOfList (filter isDHFact $ get rActs ru)
+                  trace (show ("TRYNG", act))(void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
+                  void substSystem
+                  return ru
+                  `disjunction` do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing 
                    act <- disjunctionOfList (filter isDHFact $ get rActs ru)
                    (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
@@ -314,8 +322,18 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                        nbset = (S.fromList $ notBasisOfRule ru) 
                    (void (solveMixedFactEqs SplitNow (Equal fa act) bset nbset (protoCase SplitNow bset nbset)))
                    void substSystem
-                   --void normSystem
                    return ru
+                     `disjunction` do
+                      nodes <- getM sNodes
+                      let instrules = M.assocs nodes
+                      (i,ru) <- disjunctionOfList instrules
+                      let possacts = if isKLogFact fa && sortOfLNTerm (head $ factTerms fa) == LSortMsg then get rActs ru else (filter isMixedFact $ get rActs ru)
+                      act <- disjunctionOfList possacts  -- (filter isMixedFact $ get rActs ru)
+                      let bset = (S.fromList $ basisOfRule ru)
+                          nbset = (S.fromList $ notBasisOfRule ru) 
+                      (void (solveMixedFactEqs SplitNow (Equal fa act) bset nbset (protoCase SplitNow bset nbset)))
+                      void substSystem
+                      return ru
             _                                        -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList $ get rActs ru
