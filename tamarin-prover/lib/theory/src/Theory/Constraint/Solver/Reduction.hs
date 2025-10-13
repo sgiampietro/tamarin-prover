@@ -890,10 +890,10 @@ insertDHEdges tuplelist indts premTerm p fun = do
     case trace (show "gothere") $ neededexponentslist bset nbset temppairs of 
         ([],js) -> do
             forM_ js (\i-> insertLess i (fst p) Adversary)
-            (faPremsubst, listterms) <-  solveIndFactDH SplitNow rootpairs premTerm
-            trace (show ("fraPremsubst", bset, nbset, "*", temppairs, "*", faPremsubst, "*", listterms)) $ solveIndicator faPremsubst listterms
             forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
             forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
+            (faPremsubst, listterms) <-  solveIndFactDH SplitNow rootpairs premTerm
+            trace (show ("fraPremsubst", bset, nbset, "*", temppairs, "*", faPremsubst, "*", listterms)) $ void $ solveIndicator faPremsubst listterms
         (les,js) -> do
             let fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) les
                 otheres = les \\ fres
@@ -907,10 +907,10 @@ insertDHEdges tuplelist indts premTerm p fun = do
                 insertGoal (ActionG i (kdhFact x)) False
                 insertNotBasisElem x i
                 insertLess i (fst p) Adversary)
-            (faPremsubst, listterms) <- solveIndFactDH SplitNow rootpairs premTerm
-            trace (show ("fraPremsubst2", bset, nbset, "*", rootpairs, "*", temppairs, "*", faPremsubst, "*", listterms)) $ solveIndicator faPremsubst listterms
             forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
             forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
+            (faPremsubst, listterms) <- solveIndFactDH SplitNow rootpairs premTerm
+            trace (show ("fraPremsubst2", bset, nbset, "*", rootpairs, "*", temppairs, "*", faPremsubst, "*", listterms)) $ void $ solveIndicator faPremsubst listterms
 
 
 insertDHMixedEdge :: Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> RuleACInst
@@ -1346,8 +1346,9 @@ solveIndicator t22 terms2  = do
   forM_ (zip (map varTerm (toadd1 ++ [wvarextra])) (is)) (\(t,i)-> insertAction i (kLogFact t) ) -- kdhFact 
   forM_ (if null newsecretvars then [] else [kterm]) (\t -> insertAction js (kdhFact t)) --kdhFact     
   freevars <- replicateM (length matrixvars) $ freshLVar "vy" LSortE
+  nodes <- getM sNodes
   if length matrixvars >1 
-    then trace (show ("nt12", nt2, "*", advterm2)) $ solveIndicatorKFacts (map varTerm freevars) nt2 advterm2 `disjunction` (solveIndicatorKFacts2 (map varTerm freevars) nt2 advterm2)
+    then trace (show ("nt12", nt2, "*", advterm2, "*", doubleFresh nodes)) $ solveIndicatorKFacts (map varTerm freevars) nt2 advterm2 `disjunction` (solveIndicatorKFacts2 (map varTerm freevars) nt2 advterm2)
     else trace (show ("nt1", nt2, "*", advterm2)) $solveIndicatorKFacts (map varTerm freevars) nt2 advterm2
 
 
@@ -1362,6 +1363,14 @@ variableCheck t1 subst12 t2 normsubst =  elem True (concatMap (\v -> map (checkv
           value v mumap = fromJust (M.lookup v mumap)
           getvars v = filter (\x -> isvarGVar (LIT (Var x)) || isvarEVar (LIT (Var x))) $ varsVTerm (value v mumap)
           checkvar v varv = elem v $ varsVTerm (value varv substmap)
+
+loopCheck :: [(LVar, LNTerm)] -> Bool 
+loopCheck subst= trace (show ("mumap", allvars, "*", substvars, "*", problematicvars) ) $ not $ null problematicvars 
+    where mumap = M.fromList subst
+          allvars = M.keys mumap
+          substvars = varsRange $ substFromList subst
+          problematicvars = filter (`elem` allvars) substvars
+          
 
 solveIndicatorProto2 :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
 solveIndicatorProto2 basis t1 t2 = do
@@ -1381,6 +1390,7 @@ solveIndicatorProto2 basis t1 t2 = do
         hndCR <- getMaudeHandleCR
         (subst', subst12) <- disjunctionOfList substlist
         let normsubst = (normalizeSubstListCR hndCR subst') 
+        contradictoryIf $ loopCheck subst'
         contradictoryIf $ variableCheck t1 subst12 t2 normsubst
         let normsubst' = compose (substFromList subst12) (substFromList normsubst)
         setM sEqStore $ applyEqStore hnd (normsubst') eqStore
@@ -1414,7 +1424,7 @@ solveIndicatorProto basis t1 t2 = do
         bset <- getM sNotBasis
         (subst', subst12) <- disjunctionOfList substlist
         let normsubst = (normalizeSubstListCR hndCR subst') 
-        contradictoryIf $ variableCheck t1 subst12 t2 normsubst
+        contradictoryIf $ loopCheck subst'
         let normsubst' = compose (substFromList subst12) (substFromList normsubst)
         setM sEqStore $ applyEqStore hnd (normsubst') eqStore
         neweqstore <- getM sEqStore
@@ -1450,6 +1460,7 @@ solveIndicatorKFacts basis t1 t2 = do
         eqStore <-  getM sEqStore
         hndCR <- getMaudeHandleCR
         (subst', subst12) <- disjunctionOfList substlist
+        contradictoryIf $ loopCheck subst'
         let normsubst = (normalizeSubstListCR hndCR subst') 
         trace (show ("amhere", substlist, "**", basis)) $ contradictoryIf $ variableCheck t1 subst12 t2 normsubst
         let normsubst' = compose (substFromList subst12) (substFromList normsubst)
@@ -1468,7 +1479,10 @@ solveIndicatorKFacts basis t1 t2 = do
             (sta1,sta2) =  unpair normedpair
         contradictoryIf (not (sta1 == sta2)) 
         void normSystem
-        return "Matched"    
+        return "Matched"  
+   Nothing -> do
+          contradictoryIf True
+          return "CONTRADICTION"  
   {-case bb of
    Just substlist ->  do
         eqStore <-  getM sEqStore
@@ -1517,6 +1531,7 @@ solveIndicatorKFacts2 basis t1 t2 = do
         hndCR <- getMaudeHandleCR
         (subst', subst12) <- disjunctionOfList substlist
         let normsubst = (normalizeSubstListCR hndCR subst') 
+        contradictoryIf $ loopCheck subst'
         contradictoryIf $ variableCheck t1 subst12 t2 normsubst
         let normsubst' = compose (substFromList subst12) (substFromList normsubst)
         setM sEqStore $ applyEqStore hnd (normsubst') eqStore
@@ -1535,7 +1550,9 @@ solveIndicatorKFacts2 basis t1 t2 = do
         contradictoryIf (not (sta1 == sta2)) 
         void normSystem
         return "Matched"
-
+   Nothing -> do
+          contradictoryIf True
+          return "CONTRADICTION"  
 
 
 solveDHProtoEqsAux :: SplitStrategy -> S.Set LNTerm  -> S.Set LNTerm -> MaudeHandle -> MaudeHandle -> [LVar] -> [LNTerm] -> LNTerm -> LNTerm -> [LNTerm] -> StateT System (FreshT (DisjT (Reader ProofContext))) ()
@@ -1552,6 +1569,7 @@ solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms ta1 ta
     noContradictoryEqStore
     -- setM sEqStore eqs2 
     subst <- getM sSubst
+    void substSystem
     let substlist = M.fromList $ substToList subst
         ints = M.keys substlist `intersect` allevars
         -- extra = allevars \\ ints
@@ -2010,8 +2028,11 @@ solveIndFactDH split listtups faPrem = do
     hnd <- trace (show ("queries", queries)) getMaudeHandleDH
     (eqs2, maySplitId,subst1) <- addDHEqs2 hnd False genindterms prterms =<< getM sEqStore 
     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
-    trace (show ("solution", eqs2)) noContradictoryEqStore
+    trace (show ("solution", eqs2, "@@@", listtups)) noContradictoryEqStore
     subst <- getM sEqStore
+    void substSystem
+    nodes <- getM sNodes
+    trace (show ("nodesnow", nodes,doubleFresh nodes)) $ contradictoryIf $ doubleFresh nodes
     return (applyVTerm (_eqsSubst subst) faPrem, nub $ map (\((a,b),c)-> applyVTerm (_eqsSubst subst) a ) listtups)
 
 solveIndFactDHBP :: SplitStrategy -> [((LNTerm, LNTerm), LNTerm)] -> LNTerm -> [LNTerm] -> Reduction (LNTerm, [LNTerm])

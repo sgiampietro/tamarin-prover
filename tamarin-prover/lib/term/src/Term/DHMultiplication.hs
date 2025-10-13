@@ -37,6 +37,7 @@ module Term.DHMultiplication (
   , getsBPbase
   , expBase
   , listOfExponents
+  , isInvertible
   -- , isMult
   -- , isVarEGTerm
   , compatibleLits
@@ -553,6 +554,14 @@ isUniversal :: Eq a => [a] -> [(a,a)] -> a -> Bool
 isUniversal xs pairs x =
     let others = filter (/= x) xs
     in all (\y -> hasPair (x,y) pairs) others
+
+isInvertible :: LNTerm -> Maybe LNTerm 
+isInvertible t = case viewTerm2 t of
+      FdhMu t1  -> Just t1
+      FdhH t1 -> Just t1
+      FdhGinv t1 -> Just t1
+      FdhMinus t1 -> Just t1
+      _     -> Nothing
 
 outerFunction :: LNTerm -> Maybe DHMultSym
 outerFunction t =  case viewTerm2 t of

@@ -280,8 +280,8 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                                             void substSystem
                                             return ru 
                     [y] | otherwise ->        do
-                           case viewTerm2 y of
-                            FdhMu t1  -> do
+                           case isInvertible y of
+                            Just t1  -> do
                                 let premLearn = kdhFact t1
                                     concLearn = inFact t1
                                     ruLearn = Rule (IntrInfo ISendRule) [premLearn] [concLearn] [] []
