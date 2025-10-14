@@ -23,7 +23,7 @@ import qualified Data.Map     as Map
 
 import GHC.Real
 import Term.LTerm -- (LNTerm)
-import Debug.Trace.Ignore
+import Debug.Trace -- .Ignore
 --import Term.Builtin.Convenience (x0)
 
 import Data.List (subsequences, (\\))
@@ -146,11 +146,11 @@ allzerosCheck zero m
 
 -- Check and swap row if pivot element is zero
 pivotCheck :: LNTerm -> Matrix LNTerm -> Int -> [LNTerm] -> (Matrix LNTerm, [LNTerm])
-pivotCheck zero (r:rs) counter vars@(v:vs)
+pivotCheck zero (r:rs) counter vars
     | rs == [] = ((r:rs), vars)
     | counter == 0 = ((r:rs), vars)
     | (head r /= zero) = ((r:rs), vars)
-    | otherwise = (fst $ pivotCheck zero (rs ++ [r]) (counter-1) (vs ++ [v]), vs ++ [v])
+    | otherwise = (fst $ pivotCheck zero (rs ++ [r]) (counter-1) vars, vars)
 
 
 removeZeroRows :: LNTerm -> Matrix LNTerm -> [LNTerm] -> (Matrix LNTerm, [LNTerm], [LNTerm])
