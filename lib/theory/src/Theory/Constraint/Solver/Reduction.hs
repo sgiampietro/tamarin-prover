@@ -265,7 +265,7 @@ insertFreshNodeConcInst rules instrules = do
 insertFreshNodeConcKI ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, (LNFact, LNTerm))
 insertFreshNodeConcKI rules instrules = do
       -- irulist <- replicateM n $ traverseDHNodes rules
-      irulist <- traverseDHNodes rules
+      irulist <- traverseDHNodes 1 rules
       let pairs = [(ru, (i,c), (f, rterm), mc) | (i, ru, mc) <- irulist, (c,f) <- enumConcs ru, (factTag f == OutFact), isMixedFact f, rterm <- map fst $ extractMixedRoot ((head $ factTerms f)), sortOfLNTerm rterm == LSortE || sortOfLNTerm rterm == LSortFrNZE  ]
       (ru,(i,c),f, mc) <- disjunctionOfList pairs
       exploitNodeId i ru mc 
@@ -293,27 +293,27 @@ insertFreshNodeConcMixed rules instrules = do
 combinations :: Int -> [a] -> [[a]]
 combinations k ns = filter ((k==).length) $ subsequences ns
 
-traverseDHNodes :: [RuleAC] -> Reduction [(NodeId, RuleACInst, Maybe RuleACConstrs)]
-traverseDHNodes rules = do
+traverseDHNodes :: Int -> [RuleAC] -> Reduction [(NodeId, RuleACInst, Maybe RuleACConstrs)]
+traverseDHNodes n rules = do
     let m = length rules
-    ilist <- replicateM m $ freshLVar "vr" LSortNode
-    tuplist <- mapM importRule rules
-    return $ zipWith (\i (ru,mrconstrs) -> (i,ru, mrconstrs)) ilist tuplist
+    ilist <- replicateM (n*m) $ freshLVar "vr" LSortNode
+    tuplist <- replicateM n (mapM importRule rules)
+    return $ zipWith (\i (ru,mrconstrs) -> (i,ru, mrconstrs)) ilist (concat tuplist)
   where
     -- | Import a rule with all its variables renamed to fresh variables.
     importRule ru = someRuleACInst ru `evalBindT` noBindings
 
 
 
-insertFreshNodeConcOutInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Int -> Maybe ((NodeId, RuleACInst, LNFact, ConcIdx), LNTerm) -> Reduction [(RuleACInst, NodeConc, (LNFact, LNTerm), LNTerm, Maybe RuleACConstrs,Bool)]
-insertFreshNodeConcOutInst rules instrules n Nothing = do
-      irulist <- traverseDHNodes rules
-      let pairs = [(ru, (i,c), (f, headf), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isMixedFact f, not $ isMuTerm (head $ factTerms f), (rterm, headf) <- extractMixedRoot (head $ factTerms f)]
+insertFreshNodeConcOutInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Int -> LSort -> Maybe ((NodeId, RuleACInst, LNFact, ConcIdx), LNTerm) -> Reduction [(RuleACInst, NodeConc, (LNFact, LNTerm), LNTerm, Maybe RuleACConstrs,Bool)]
+insertFreshNodeConcOutInst rules instrules n lso Nothing = do
+      irulist <- traverseDHNodes n rules
+      let pairs = [(ru, (i,c), (f, headf), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isMixedFact f, not $ isMuTerm (head $ factTerms f), (rterm, headf) <- extractMixedRoot (head $ factTerms f), compatibleSort lso rterm]
       disjunctionOfList (nub $ concatMap permutations (nub $ combinations n pairs))
-insertFreshNodeConcOutInst rules instrules n (Just ((j,ruj,faConc,cj), ta)) = do
-      irulist <- traverseDHNodes rules
-      let pairs = [(ru, (i,c), (f, headf), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isMixedFact f, not $ isMuTerm (head $ factTerms f), (rterm, headf) <- extractMixedRoot (head $ factTerms f)]
-          pairs2 =  [(ruj, (j,cj), (faConc, ta), rterm , Nothing,False) | rterm <- multRootList ta ]
+insertFreshNodeConcOutInst rules instrules n lso (Just ((j,ruj,faConc,cj), ta)) = do
+      irulist <- traverseDHNodes n rules
+      let pairs = [(ru, (i,c), (f, headf), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isMixedFact f, not $ isMuTerm (head $ factTerms f), (rterm, headf) <- extractMixedRoot (head $ factTerms f), compatibleSort lso rterm]
+          pairs2 =  [(ruj, (j,cj), (faConc, ta), rterm , Nothing,False) | rterm <- multRootList ta, compatibleSort lso rterm ]
           finallist = nub $ (concatMap permutations (filter ( any (\(a,(i,b),c,d,e,f) -> i==j && a ==ruj)) (combinations n $ pairs++pairs2)) )
       disjunctionOfList finallist
 
@@ -807,10 +807,10 @@ insertDHEdges tuplelist indts premTerm p fun = do
                 insertGoal (ActionG i (kdhFact x)) False
                 insertNotBasisElem x i
                 insertLess i (fst p) Adversary)
-            (faPremsubst, listterms) <- solveIndFactDH SplitNow rootpairs premTerm
-            solveIndicator faPremsubst listterms
             forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
             forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
+            (faPremsubst, listterms) <- solveIndFactDH SplitNow rootpairs premTerm
+            void $ solveIndicator faPremsubst listterms
 
 
 insertDHMixedEdge :: Bool -> (NodeConc, LNFact, LNFact, NodePrem) -> RuleACInst
@@ -1193,6 +1193,21 @@ multiplyterm wvar t@(FAPP (DHMult o) ts) = case ts of
     []         | o == dhOneSym    -> t
     _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
 
+multaddterms :: LVar -> LNTerm -> Bool
+multaddterms wvar t@(LIT l) = if (sortOfLNTerm t == LSortVarE) then False else True
+multaddterms wvar t@(FAPP (DHMult o) ts) = case ts of
+    [ t1, t2 ] | o == dhTimesESym   -> if null (varTermsOf t) then True else False
+    [t1 ,t2]   | o == dhPlusSym -> multaddterms wvar t1 || multaddterms wvar t2
+    [t1 ,t2]   | o == dhMultSym -> multaddterms wvar t1 && multaddterms wvar t2
+    [ t1, t2 ] | o == dhExpSym   -> multaddterms wvar t2
+    [ t1 ]     | o == dhInvSym    ->  multaddterms wvar t1
+    [ t1 ]     | o == dhGinvSym    ->  multaddterms wvar t1
+    [ t1 ]     | o == dhMinusSym    -> multaddterms wvar t1
+    [ t1 ]     | o == dhMuSym    -> True  --TODO: not sure what to do here? t1 is actually a G term??
+    []         | o == dhZeroSym    -> False
+    []         | o == dhOneSym    -> False
+    _                               -> error $ "this shouldn't have happened, unexpected term form: `"++show t++"'"
+
 
 monomials :: LNTerm -> [LNTerm]
 monomials t@(viewTerm2 -> FdhPlus t1 t2) = (monomials t1) ++ (monomials t2)
@@ -1223,8 +1238,8 @@ solveIndicator t22 terms2  = do
   wvars <- replicateM (length terms) $ freshLVar "wy" LSortVarE
   is <- replicateM (length terms + 1) $ freshLVar "iw" LSortNode
   wvarextra <- freshLVar "ww" LSortVarE
-  forM_ (zip (map varTerm (wvars ++ [wvarextra])) (is)) (\(t,i)-> insertAction i (kLogFact t) ) -- kdhFact 
   let genterms = zipWith multiplyterm wvars terms
+      toadd1 = map fst $ filter (snd) (zipWith (\a b-> (a, multaddterms a b)) wvars terms)
       extraterms = zipWith (\a b -> fAppdhTimesE (a, varTerm b)) secretmonoms zvars 
       extraterm = runReader (norm' $ foldr (\a b -> if b == fAppdhZero then a else fAppdhPlus (a,b)) fAppdhZero extraterms) hndNormal 
       advterm = runReader (norm' $ foldr (\a b -> fAppdhPlus (a,b)) (varTerm wvarextra) genterms) hndNormal 
@@ -1232,6 +1247,7 @@ solveIndicator t22 terms2  = do
       nt2 = runReader (norm' t2) hndNormal
       matrixvars = getVariablesOfK [nt2,advterm2]   
       kterm = if sortOfLNTerm (head terms2) == LSortG then fAppdhExp(pubGTerm "g", extraterm) else extraterm
+  forM_ (zip (map varTerm (toadd1 ++ [wvarextra])) (is)) (\(t,i)-> insertAction i (kLogFact t) ) 
   forM_ (if null newsecretvars then [] else [kterm]) (\t -> insertAction js (kdhFact t)) --kdhFact     
   freevars <- replicateM (length matrixvars) $ freshLVar "vy" LSortE
   if length matrixvars >1 
@@ -1563,13 +1579,13 @@ solveTermDHEqsChain splitStrat mayB rules instrules fun p faPrem (j,ruj, fa1, c)
                 else 
                     if universal == neededInds  || null universal
                       then do
-                        possibletuple <- insertFreshNodeConcOutInst rules instrules n Nothing
+                        possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm nta2) Nothing
                         insertDHEdges possibletuple neededInds ta2 p fun
                       else do
-                        possibletuple1 <- insertFreshNodeConcOutInst rules instrules m Nothing
+                        possibletuple1 <- insertFreshNodeConcOutInst rules instrules m (sortOfLNTerm nta2) Nothing
                         checkUniversalTerms (map (\(a,b,(c,t),d,e,f)-> d) possibletuple1) universal 
                         forM_ (toaddnocanc) (\(a,b) -> insertNoCanc a b)
-                        possibletuple <- insertFreshNodeConcOutInst rules instrules n Nothing -- (Just ((j,ruj, fa1, c), nta1))
+                        possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm nta2) Nothing -- (Just ((j,ruj, fa1, c), nta1))
                         insertDHEdges possibletuple neededInds ta2 p fun
             return Changed
         (es, js) -> do
@@ -1623,14 +1639,14 @@ solveTermDHEqsChain2 splitStrat mayB rules instrules fun p faPrem ta2 = do
                 else 
                     if universal == neededInds  || null universal
                       then do
-                        possibletuple <- insertFreshNodeConcOutInst rules instrules n Nothing
+                        possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm nta2) Nothing
                         insertDHEdges possibletuple neededInds ta2 p fun
                         return "All Out Facts Used"
                       else do
-                        possibletuple1 <- insertFreshNodeConcOutInst rules instrules m Nothing
+                        possibletuple1 <- insertFreshNodeConcOutInst rules instrules m (sortOfLNTerm nta2) Nothing
                         checkUniversalTerms (map (\(a,b,(c,t),d,e,f)-> d) possibletuple1) universal 
                         forM_ (toaddnocanc) (\(a,b) -> insertNoCanc a b)
-                        possibletuple <- insertFreshNodeConcOutInst rules instrules n Nothing
+                        possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm nta2) Nothing
                         insertDHEdges possibletuple neededInds ta2 p fun
                         return "All Out Facts Used"
         (es,js) -> do

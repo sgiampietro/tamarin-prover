@@ -314,8 +314,18 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                        nbset = (S.fromList $ notBasisOfRule ru) 
                    (void (solveMixedFactEqs SplitNow (Equal fa act) bset nbset (protoCase SplitNow bset nbset)))
                    void substSystem
-                   --void normSystem
                    return ru
+                     `disjunction` do
+                      nodes <- getM sNodes
+                      let instrules = M.assocs nodes
+                      (i,ru) <- disjunctionOfList instrules
+                      let possacts = if isKLogFact fa && sortOfLNTerm (head $ factTerms fa) == LSortMsg then get rActs ru else (filter isMixedFact $ get rActs ru)
+                      act <- disjunctionOfList possacts  -- (filter isMixedFact $ get rActs ru)
+                      let bset = (S.fromList $ basisOfRule ru)
+                          nbset = (S.fromList $ notBasisOfRule ru) 
+                      (void (solveMixedFactEqs SplitNow (Equal fa act) bset nbset (protoCase SplitNow bset nbset)))
+                      void substSystem
+                      return ru
             _                                        -> do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
                    act <- disjunctionOfList $ get rActs ru
@@ -675,14 +685,14 @@ solveDHIndaux bset nbset term p rules = do
             else 
               if universal == nInds || null universal
                 then do   
-                  possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n Nothing
+                  possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n (sortOfLNTerm $ head xrooterms) Nothing
                   insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
                   return "FindingIndicators" 
                 else do
-                  possibletuple1 <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules m Nothing
+                  possibletuple1 <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules m (sortOfLNTerm $ head xrooterms) Nothing
                   checkUniversalTerms (map (\(a,b,(c,t),d,e,f)-> d) possibletuple1) universal
                   forM_ (toaddnocanc) (\(a,b) -> insertNoCanc a b)
-                  possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n Nothing
+                  possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n (sortOfLNTerm $ head xrooterms) Nothing
                   insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
                   return "FindingIndicators" 
       (les, js) -> do

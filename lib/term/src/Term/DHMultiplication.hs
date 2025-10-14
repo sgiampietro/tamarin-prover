@@ -46,6 +46,7 @@ module Term.DHMultiplication (
   , isNoCanc
   , notUnifiableLits
   , isUniversal
+  , compatibleSort
   --, rootIndicator
   --, indicator
    --, clean2
@@ -425,3 +426,11 @@ isUniversal :: Eq a => [a] -> [(a,a)] -> a -> Bool
 isUniversal xs pairs x =
     let others = filter (/= x) xs
     in all (\y -> hasPair (x,y) pairs) others
+
+
+compatibleSort :: LSort -> LNTerm -> Bool
+compatibleSort LSortG t = sortOfLNTerm t == LSortG || sortOfLNTerm t == LSortPubG
+compatibleSort LSortPubG t = sortOfLNTerm t == LSortG || sortOfLNTerm t == LSortPubG
+compatibleSort LSortE t = sortOfLNTerm t == LSortE || sortOfLNTerm t == LSortFrNZE || sortOfLNTerm t == LSortNZE
+compatibleSort LSortNZE t = sortOfLNTerm t == LSortE || sortOfLNTerm t == LSortFrNZE || sortOfLNTerm t == LSortNZE
+compatibleSort LSortFrNZE t = sortOfLNTerm t == LSortE || sortOfLNTerm t == LSortFrNZE || sortOfLNTerm t == LSortNZE
