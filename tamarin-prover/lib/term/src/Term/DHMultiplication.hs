@@ -30,6 +30,7 @@ module Term.DHMultiplication (
   , getInvLit
   , isPubExp
   , isPublic
+  , isDHConst
   , containsMuH
   , containsBP
   , removesBP
@@ -386,6 +387,12 @@ getInvLit:: LNTerm -> LNTerm
 getInvLit t@(viewTerm2 -> FdhInv t1) = t1
 getInvLit _ = error "not inverse term for getInvLit function"
 
+isDHConst :: LNTerm -> Bool
+isDHConst t@(viewTerm2 -> DHOne) = True
+isDHConst t@(viewTerm2 -> DHZero) = True
+isDHConst t@(viewTerm2 -> DHEg) = True
+isDHConst _ = False
+
 isPubExp :: LNTerm -> Maybe (LNTerm, LNTerm)
 isPubExp t@(viewTerm2 -> FdhExp t1 t2) = if (isPubGVar t1 || isGConst t1) then (Just (t1,t2)) else Nothing
 isPubExp _ = Nothing
@@ -406,8 +413,11 @@ compatibleLitsStrict ta1 ta2 = case sortCompare (sortOfLNTerm ta1) (sortOfLNTerm
 
 
 compatibleLits :: LNTerm -> LNTerm -> Bool
-compatibleLits t t2 = True -- ta1@(viewTerm -> Lit (Var v1)) ta2 = all (compatibleVars v1) $ varsVTerm ta2
-                      
+compatibleLits ta1 ta2 = if (sortOfLNTerm ta1 == LSortE || sortOfLNTerm ta1 == LSortFrNZE) 
+                          then (sortOfLNTerm ta2 == LSortE || sortOfLNTerm ta2 == LSortFrNZE) -- ta1@(viewTerm -> Lit (Var v1)) ta2 = all (compatibleVars v1) $ varsVTerm ta2
+                          else if (sortOfLNTerm ta1 == LSortG || sortOfLNTerm ta1 == LSortPubG) 
+                                  then (sortOfLNTerm ta2 == LSortG || sortOfLNTerm ta2 == LSortPubG) 
+                                  else True
 
 notUnifiableLits :: LNTerm -> LNTerm -> Bool
 notUnifiableLits ta1 ta2 

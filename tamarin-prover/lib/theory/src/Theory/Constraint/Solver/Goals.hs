@@ -288,7 +288,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                                     cLearn = (i, ConcIdx 0)
                                     pLearn = (i, PremIdx 0)
                                 modM sNodes  (M.insert i ruLearn)
-                                solvePremise rules pLearn premLearn
+                                trace (show ("callingSolvePremise", t1)) $ solvePremise rules pLearn premLearn
                                 return ruLearn 
                             _   -> do
                                 let premLearn = fa
@@ -297,7 +297,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                                     cLearn = (i, ConcIdx 0)
                                     pLearn = (i, PremIdx 0)
                                 modM sNodes (M.insert i ruLearn)
-                                solvePremise rules pLearn premLearn
+                                trace (show ("callingSolvePremise", fa)) $ solvePremise rules pLearn premLearn
                                 return ruLearn 
             _ | (isDHFact fa)                       -> do
                   nodes <- getM sNodes
@@ -390,8 +390,8 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
              -> LNFact         -- ^ Fact required at this premise.
              -> Reduction String -- ^ Case name to use.
 solvePremise rules p faPrem
-  | trace (show ("sikvubgPREMISE", faPrem, isProtoDHFact faPrem, isProtoMixedFact faPrem)) $ isKdhFact faPrem && isDHFact faPrem = (solveDHInd rules p faPrem)
-  | isKdhFact faPrem && isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
+  | trace (show ("sikvubgPREMISE", faPrem, isProtoDHFact faPrem, isProtoMixedFact faPrem)) $ isKdhFact faPrem && isDHFact faPrem = trace (show ("SOLVINGTHISPREMIS",faPrem)) (solveDHInd rules p faPrem)
+  | isKdhFact faPrem && isMixedFact faPrem = trace (show ("SOLVINGTHISPREMISE",faPrem)) (solveDHIndMixed rules p faPrem)
   | isProtoDHFact faPrem =  solveDHIndProto rules p faPrem
   | isProtoMixedFact faPrem = solveDHMixedPremise rules p faPrem
   | isKDFact faPrem = do
@@ -625,7 +625,7 @@ solveDHInd rules p faPrem =  do
           [x] | S.member x bset  -> do 
                     contradictoryIf True
                     return "basis element is not known"
-          [x] | otherwise -> solveDHIndaux bset nbset x p rules 
+          [x] | otherwise -> trace (show ("here faPrem", x)) solveDHIndaux bset nbset x p rules 
           -- [x] -> solveDHIndaux bset nbset x p faPrem rules (M.assocs nodes)
           _   -> error "In Fact should have arity 1"
 
@@ -671,19 +671,19 @@ solveByOuterSym hndNormal js bset nbset p rules xrooterms instrules = do
               universal = filter (\x-> isUniversal nInds isnocanc x) nInds
               m = length universal 
           forM_ js (\i-> insertLess i (fst p) Adversary)
-          if null neededInds 
+          if trace (show "SOLVINGHERE") $ null neededInds 
             then return "Indicators are public"
             else do
               if universal == nInds || null universal
                 then do   
-                  possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n (sortOfLNTerm $ head xrooterms) Nothing
+                  possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm $ head xrooterms) Nothing
                   insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
                   return "FindingIndicators" 
                 else do
-                  possibletuple1 <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules m (sortOfLNTerm $ head xrooterms) Nothing
+                  possibletuple1 <- insertFreshNodeConcOutInst rules instrules m (sortOfLNTerm $ head xrooterms) Nothing
                   checkUniversalTerms (map (\(a,b,(c,t),d,e,f)-> d) possibletuple1) universal
                   forM_ (toaddnocanc) (\(a,b) -> insertNoCanc a b)
-                  possibletuple <- insertFreshNodeConcOutInst (filter isProtocolRule rules) instrules n (sortOfLNTerm $ head xrooterms) Nothing
+                  possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm $ head xrooterms) Nothing
                   insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
                   return "FindingIndicators" 
 
