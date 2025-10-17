@@ -26,7 +26,7 @@ module Theory.Constraint.Solver.Goals (
   , isDHLit
   ) where
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 
 import           Prelude                                 hiding (id, (.))
 
@@ -410,7 +410,7 @@ solvePremise rules p faPrem
         else (do 
           bset <- getM sBasis
           nbset <- getM sNotBasis
-          nodes <- trace (show ("insertDirectEdge1Goals", bset, nbset,faPrem)) $ getM sNodes
+          nodes <- trace (show ("insertDirectEdge1Goals", bset, nbset,faPrem, "RULS", map showRuleCaseName rules)) $ getM sNodes
           let ta2 = head $ factTerms faPrem
           case trace (show ("doubleFesh","**",doubleFresh nodes)) $  neededexponents bset nbset ta2 of 
             ([],js) -> do 
@@ -434,8 +434,10 @@ solvePremise rules p faPrem
                   insertLess i (fst p) Adversary
                   insertNotBasisElem x i)
               nodes2 <- getM sNodes
-              trace (show ("doubleFesh","**",doubleFresh nodes2)) $ insertDHdirectEdge ta2 faPrem p rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
-              void substSystem
+              newbset <- getM sBasis
+              newnbset <- getM sNotBasis
+              trace (show ("doubleFesh","**",doubleFresh nodes2,"**", newbset,newnbset)) $ insertDHdirectEdge ta2 faPrem p rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+              substSystem
               void normSystem
               return "Using_OutFacts")
   | isOut faPrem = do    
@@ -443,10 +445,10 @@ solvePremise rules p faPrem
       (ru, c, faConc) <- insertFreshNodeConcOutInstMixed rules (M.assocs nodes)
       insertEdges [(c, faConc, faPrem, p)] 
       return $ showRuleCaseName ru  
-  | trace (show ("solvingPREMISE", faPrem)) $ isKIFact faPrem && isDHFact faPrem = do -- should match indicators with indicators (avoiding mu). In paper transform the mu rule also with any 1 way function.
-      nodes <- trace (show ("isdhfact", faPrem)) $ getM sNodes
+  | isKIFact faPrem && isDHFact faPrem = do -- should match indicators with indicators (avoiding mu). In paper transform the mu rule also with any 1 way function.
+      nodes <- getM sNodes
       (ru, c, (faConc, t)) <- insertFreshNodeConcKI rules (M.assocs nodes)-- (filter isIntruderRule rules) (M.assocs nodes)
-      trace (show ("here", faPrem)) $ insertOutKIEdge (c, faConc, t, faPrem, p)
+      insertOutKIEdge (c, faConc, t, faPrem, p)
       return $ showRuleCaseName ru
   | isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
   | otherwise = do
@@ -625,6 +627,8 @@ solveDHInd rules p faPrem =  do
           [x] | S.member x bset  -> do 
                     contradictoryIf True
                     return "basis element is not known"
+          [x] | S.member x (S.map fst nbset)  -> do 
+                    return "Already leaked"
           [x] | otherwise -> trace (show ("here faPrem", x)) solveDHIndaux bset nbset x p rules 
           -- [x] -> solveDHIndaux bset nbset x p faPrem rules (M.assocs nodes)
           _   -> error "In Fact should have arity 1"
@@ -676,15 +680,15 @@ solveByOuterSym hndNormal js bset nbset p rules xrooterms instrules = do
             else do
               if universal == nInds || null universal
                 then do   
-                  possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm $ head xrooterms) Nothing
-                  insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+                  possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm $ head xrooterms) (expBase $ head nInds) Nothing
+                  insertDHEdges possibletuple nInds newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
                   return "FindingIndicators" 
                 else do
-                  possibletuple1 <- insertFreshNodeConcOutInst rules instrules m (sortOfLNTerm $ head xrooterms) Nothing
+                  possibletuple1 <- insertFreshNodeConcOutInst rules instrules m (sortOfLNTerm $ head xrooterms) (expBase $ head nInds) Nothing
                   checkUniversalTerms (map (\(a,b,(c,t),d,e,f)-> d) possibletuple1) universal
                   forM_ (toaddnocanc) (\(a,b) -> insertNoCanc a b)
-                  possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm $ head xrooterms) Nothing
-                  insertDHEdges possibletuple (map fst neededInds) newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+                  possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm $ head xrooterms) (expBase $ head nInds) Nothing
+                  insertDHEdges possibletuple nInds newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
                   return "FindingIndicators" 
 
 solveByOuterSym2 :: MaudeHandle -> LNTerm -> (LNTerm, LNTerm) -> [NodeId] -> S.Set LNTerm -> S.Set (LNTerm, b) -> (NodeId, PremIdx) -> [RuleAC] -> [LNTerm] -> [(NodeId, RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
@@ -720,12 +724,12 @@ solveDHIndaux bset nbset term p rules = do
       xrooterms = multRootMixed cterm
   case  neededexponentslist bset nbset xrooterms of
       ([], js) | containsBP nterm ->  case getsBPbase nterm of
-                    Just (g1,g2) -> solveByOuterSym2 hndNormal (expBase nterm) (g1,g2) js bset nbset p (filter isProtocolRule rules) xrooterms instrules
+                    Just (g1,g2) -> solveByOuterSym2 hndNormal (expBase nterm) (g1,g2) js bset nbset p rules xrooterms instrules
                     _ -> error "bp does not have a basis - malformed term"
       ([], js) | otherwise -> do            
           case viewTerm2 nterm of 
-              FdhMu t1 -> solveByOuterSym hndNormal js bset nbset p (filter isProtocolRule rules) xrooterms instrules
-              _ -> solveByOuterSym hndNormal js bset nbset p (filter isProtocolRule rules) xrooterms instrules
+              FdhMu t1 -> solveByOuterSym hndNormal js bset nbset p rules xrooterms instrules
+              _ -> solveByOuterSym hndNormal js bset nbset p rules xrooterms instrules
       (les, js) -> do
           let fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) les
               otheres = les \\ fres

@@ -318,24 +318,17 @@ normRule' (Rule i ps cs as nvs) = reader $ \hnd ->
 dhmultIntruderRules ::  [IntrRuleAC]
 dhmultIntruderRules = [
     kuRule PubGConstrRule   []                             (x_pub_var)     [(x_pub_var)]
-    --, kuRule FreshNZEConstrRule [freshDHFact x_fresh_var] (x_fresh_var)          []
-    --, Rule FreshNZEConstrRule [freshDHFact x_fresh_var] [kuFact x_fresh_var] [ kuFact x_fresh_var,  kuFact (fAppdhExp (gname, x_fresh_var)) ]         []
-    , Rule FreshNZEConstrRule [freshDHFact x_fresh_var] [kuFact x_fresh_var, outFact x_fresh_var] [ kuFact x_fresh_var,  kuFact (fAppdhExp (gname, x_fresh_var)) , kdhFact x_fresh_var, kdhFact (fAppdhExp (gname, x_fresh_var))]         []
-    --Rule PubGConstrRule   [] [ kdhFact (x_pub_var)] [kLogFact (x_pub_var)]  []
-    --, kdhRule FreshNZEConstrRule [freshDHFact x_fresh_var] (x_fresh_var) (x_fresh_var)         []
+    , Rule FreshNZEConstrRule [freshDHFact x_fresh_var] [kuFact x_fresh_var, outFact x_fresh_var, kdhFact x_fresh_var ] [ kuFact x_fresh_var,  kuFact (fAppdhExp (gname, x_fresh_var)) , kdhFact x_fresh_var, kdhFact (fAppdhExp (gname, x_fresh_var))]         []
     , Rule ISendRule   [kdhFact x_varG] [inFact x_varG] [kLogFact x_varG]        []
     , Rule ISendRule   [kdhFact x_varE] [inFact x_varE] [kLogFact x_varE]        []
     , Rule IRecvRule [outFact x_varE] [kIFact x_varE] []  [] 
-    -- , kuRule PubGConstrRule [kdhFact x_varG] (x_varG) [(x_varG)] 
     , Rule PubGConstrRule [] [outFact $ fAppdhOne] [kdhFact fAppdhOne, kLogFact fAppdhOne, kuFact (fAppdhExp (gname, fAppdhOne)), kLogFact (fAppdhExp (gname, fAppdhOne)), kdhFact (fAppdhExp (gname, fAppdhOne))] []
     , Rule PubGConstrRule [] [outFact $ fAppdhZero] [kdhFact fAppdhZero, kLogFact fAppdhZero, kuFact (fAppdhExp (gname, fAppdhZero)), kLogFact (fAppdhExp (gname, fAppdhZero)), kdhFact (fAppdhExp (gname, fAppdhZero))] []
-    --, Rule (ConstrRule (append (pack "_") dhMuSymString)) [kdhFact x_varG] [kdhFact (fAppdhMu x_varG)] [] []
-    -- , Rule FreshNZEConstrRule [freshDHFact x_fresh_var] [kIFact x_fresh_var] [ ]         []
-    
-    --, Rule IRecvRule [outFact x_varE] [kIFact x_varE] []  [] 
+    -- , Rule PubGConstrRule [kdhFact x_varE, kdhFact x_pub_var] [ outFact (fAppdhExp (x_pub_var, x_varE)), kdhFact (fAppdhExp (x_pub_var, x_varE)) ] [kdhFact (fAppdhExp (x_pub_var, x_varE)), kuFact (fAppdhExp (x_pub_var, x_varE))] []
+    , Rule PubGConstrRule [kdhFact x_varE, kdhFact x_pub_var] [ outFact (fAppdhExp (x_pub_var, fAppdhH x_varE)), kdhFact (fAppdhExp (x_pub_var, fAppdhH x_varE)) ] [kdhFact (fAppdhExp (x_pub_var, fAppdhH x_varE)), kuFact (fAppdhExp (x_pub_var, fAppdhH x_varE))] []   
     ]
   where
-    kuRule name prems t nvs = Rule name prems [kuFact t] [kuFact t] nvs
+    kuRule name prems t nvs = Rule name prems [kuFact t, kdhFact t] [kuFact t, kdhFact t] nvs
     --kdhRule name prems t t2 nvs = Rule name prems [kdhFact t] [kLogFact (t2)] nvs
     x_pub_var   = varTerm (LVar "x"  LSortPubG  0) --PubG 
     x_fresh_var = varTerm (LVar "x"  LSortFrNZE 0) --FrNZE

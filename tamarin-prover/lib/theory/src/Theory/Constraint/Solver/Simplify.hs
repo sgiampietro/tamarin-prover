@@ -176,16 +176,18 @@ removeRedundantGoals :: Reduction ChangeIndicator
 removeRedundantGoals = do
     oldOpenGoals <- gets plainOpenGoals
     nodes <- getM sNodes
-    let rus = M.elems nodes
+    nb <- getM sNotBasis
+    let rus = trace (show ("REDUNDNCY", nb)) $ M.elems nodes
         check x = (sortOfLNTerm x == LSortFrNZE) && (elem (outFact x) $ concatMap (\ru -> filter isDHFact $ get rConcs ru) rus)
+        check2 x = elem x (map fst $ S.toList nb)
     let kdhActions = [ActionG i g | (ActionG i g, _) <- oldOpenGoals,  isKLogFact g || isKdhFact g] 
-        goalsToRemove = filter (\(ActionG i g) -> factTerms g == [fAppdhOne] || factTerms g == [fAppdhZero] || factTerms g ==[fAppdhEg] ) kdhActions
-        goalsToRemove2 = filter (\(ActionG i g) -> all check $ factTerms g) kdhActions   
+        goalsToRemove = filter (\(ActionG i g) -> factTerms g == [fAppdhOne] || factTerms g == [fAppdhZero] || factTerms g ==[fAppdhEg]) kdhActions
+        goalsToRemove2 = filter (\(ActionG i g) -> all (\y -> (check y || check2 y )) $ factTerms g) kdhActions   
         --singleGoals = nubBy (\(ActionG i g) (ActionG i2 g2) -> g == g2) kdhActions
         --goalstoRemove3 = kdhActions \\ singleGoals
     forM_ (goalsToRemove++goalsToRemove2) (modM sGoals . M.delete)
     newOpenGoals <- gets plainOpenGoals
-    return $ trace (show ("xx", newOpenGoals)) (if (length goalsToRemove) > 0 then Changed else Unchanged)
+    return $ trace (show ("xx", newOpenGoals, goalsToRemove2)) (if (length goalsToRemove) > 0 then Changed else Unchanged)
 
 
 

@@ -60,6 +60,7 @@ module Term.DHMultiplication (
   , sameOuterFunction
   , removeOuterFunction
   , compatibleSort
+  , hasSameBase
   --, rootIndicator
   --, indicator
    --, clean2
@@ -107,6 +108,8 @@ import Term.Maude.Process
 import           Debug.Trace.Ignore
 import Text.PrettyPrint.Class (Document(text))
 import GHC.IO.Exception (blockedIndefinitelyOnSTM)
+import Data.Bool (Bool(True))
+import Term.LTerm (varsVTerm)
 --import Theory (Fact(factTerms))
 
 -- Useful functions for the diffie-hellman multiplication approach
@@ -168,11 +171,11 @@ clean t@(viewTerm3 -> DH f dht) = do
 
 
 expBase ::  LNTerm -> LNTerm
-expBase t@(LIT l) = if (isPubGVar t || isGConst t) then t else pubGTerm "g"
+expBase t@(LIT l) = if (isPubGVar t || isGConst t) then t else error $ "unexpected term form2: `"++show t++"'"
 expBase t@(FAPP (DHMult o) ts) = case ts of
     [ t1, t2 ] | o == dhMultSym   -> expBase t1
     [ t1, t2 ] | o == dhTimesESym   -> pubGTerm "g"
-    [ t1, t2 ] | o == dhExpSym   ->  t1
+    [ t1, t2 ] | o == dhExpSym   ->  expBase t1
     [ t1, t2 ] | o == dhPlusSym   -> pubGTerm "g"
     [ t1, t2 ] | o == dhMu2Sym   -> pubGTerm "g"
     [ t1, t2 ] | o == dhH2Sym   -> pubGTerm "g"
@@ -259,6 +262,13 @@ isSameSymb symb t1 = case t1 of
 isOfBase :: LNTerm -> LNTerm -> Bool 
 isOfBase base t1 = expBase t1 == base
 
+hasSameBase :: LNTerm -> LSort -> LNTerm -> Bool
+hasSameBase base lso t 
+  | lso == LSortE = True
+  | lso == LSortFrNZE = True
+  | isGConst t = isOfBase base t
+  | otherwise = True
+
 containsBP :: LNTerm -> Bool
 containsBP = foldTerm (const False) ffapp
   where ffapp funsym bls = case funsym of 
@@ -343,7 +353,10 @@ eTermsOf t@(LIT l)
   | isFrNZEVar t = [t]
   | otherwise = []
 eTermsOf t@(FAPP (DHMult o) ts) 
-  | o == dhMuSym = [t]
+  | o == dhMuSym = if (all (\v-> lvarSort v == LSortFrNZE) $ concatMap varsVTerm ts) then concatMap eTermsOf ts else [t]
+  | o == dhHSym = if (all (\v-> lvarSort v == LSortFrNZE) $ concatMap varsVTerm ts) then concatMap eTermsOf ts else [t]
+  | o == dhH2Sym = if (all (\v-> lvarSort v == LSortFrNZE) $ concatMap varsVTerm ts) then concatMap eTermsOf ts else [t]
+  | o == dhMu2Sym = if (all (\v-> lvarSort v == LSortFrNZE) $ concatMap varsVTerm ts) then concatMap eTermsOf ts else [t]
   | otherwise = concatMap eTermsOf ts
 eTermsOf t@(FAPP f ts) = concatMap eTermsOf ts
 
@@ -430,10 +443,10 @@ notUnifiableLits ta1 ta2
  
 neededexponents:: S.Set LNTerm -> S.Set (LNTerm, NodeId) -> LNTerm -> ([LNTerm], [NodeId])
 neededexponents b nb t
-  | trace (show ("tryingneeded", b, nb, es, et)) $ null es = ([], map snd (filter (\(y,_) -> y `elem` et) (S.toList nb)))
+  | null es = ([], map snd (filter (\(y,_) -> y `elem` et) (S.toList nb)))
   | otherwise = (S.toList es, map snd (filter (\(y,_) -> y `elem` et) (S.toList nb)))
-      where et = eTermsOf t
-            es = trace (show ("thishose", b, nb, eTermsOf t)) $ S.fromList et `S.difference` (b `S.union` (S.map fst nb))
+      where et = List.nub $ eTermsOf t
+            es = S.fromList et `S.difference` (b `S.union` (S.map fst nb))
 
 neededexponentslist:: S.Set LNTerm -> S.Set (LNTerm,NodeId) -> [LNTerm] -> ([LNTerm], [NodeId])
 neededexponentslist b nb terms = myNub es
@@ -492,16 +505,25 @@ rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhGinv dht) = rootIndKnown2 hnd b nb dht
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhTimesE t1 t2) =  runReader (norm' (FAPP (DHMult dhTimesESym) [rootIndKnown2 hnd b nb t1, rootIndKnown2 hnd b nb t2])) hnd
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhMu t1) 
   | S.member t nb = FAPP (DHMult dhOneSym) []
+  -- | S.member t1 nb = FAPP (DHMult dhOneSym) []
+  -- | rootIndKnown2 hnd b nb t1 == fAppdhOne = FAPP (DHMult dhOneSym) []
   | otherwise = t
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhBP t1 t2) = (FAPP (DHMult dhOneSym) [])
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhH t1)
   | S.member t nb = FAPP (DHMult dhOneSym) []
+  -- | S.member t1 nb = FAPP (DHMult dhOneSym) []
+  -- | rootIndKnown2 hnd b nb t1 == fAppdhOne = FAPP (DHMult dhOneSym) []
   | otherwise = t
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhH2 t1 t2)
   | S.member t nb = FAPP (DHMult dhOneSym) []
+  | S.member t1 nb && S.member t2 nb = FAPP (DHMult dhOneSym) []
+  | rootIndKnown2 hnd b nb t1 == fAppdhOne && rootIndKnown2 hnd b nb t1 == fAppdhOne = FAPP (DHMult dhOneSym) []
   | otherwise = t  
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhMu2 t1 t2)
   | S.member t nb = FAPP (DHMult dhOneSym) []
+  | S.member t1 nb && S.member t2 nb = FAPP (DHMult dhOneSym) []
+  | rootIndKnown2 hnd b nb t1 == fAppdhOne && rootIndKnown2 hnd b nb t1 == fAppdhOne = FAPP (DHMult dhOneSym) []
+  | otherwise = t  
   | otherwise = t
 --rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhMu t1) = if isMult t1 then t else (if (isPublic $ rootIndKnown2 hnd b nb t1) then trace (show ("pubind", t, t1, rootIndKnown2 hnd b nb t1)) (FAPP (DHMult dhOneSym) []) else trace (show ("privind", t, t1, rootIndKnown2 hnd b nb t1)) t) --  rootIndKnown b nb t1 -- TODO FIX: you should also consider the possibility of finding rootIndKnown of t1. -- (FAPP (DHMult dhZeroSym) [])
 rootIndKnown2 hnd b nb t@(viewTerm2 -> FdhMinus t1) = rootIndKnown2 hnd b nb t1
@@ -524,10 +546,10 @@ rootIndUnknown n nb t = ( LIT (Var newv), [(newv, t)])
 
 isNoCanc :: LNTerm -> LNTerm -> Bool
 isNoCanc x y 
-      | all (\v -> sortOfLNTerm v == LSortFrNZE ) (evars1++evars2) = True 
-      | all (\v -> elem v $ varInMu y) (filter (\v -> sortOfLNTerm (LIT (Var v)) == LSortE)  $ varsVTerm x) = True
-      | all (\v -> elem v $ varInMu x) (filter (\v -> sortOfLNTerm (LIT (Var v)) == LSortE)  $ varsVTerm y) = True
-      | otherwise = False
+      | trace (show ("isNOcanc", x, y, "**", evars1, "**", evars2)) $ all (\v -> sortOfLNTerm v == LSortFrNZE ) (evars1++evars2) = True 
+      | trace (show ("isNOcanc2", x, y, "Mu**", varInMu x, "Mu*",varInMu y ,"vars*", varsVTerm x, "vars*", varsVTerm y)) $ any (\v -> not $ elem v $ varInMu y) (filter (\v -> sortOfLNTerm (LIT (Var v)) == LSortE)  $ varsVTerm x) = False
+      | trace (show ("isNOcanc2", x, y, "Mu**", varInMu x, "Mu*",varInMu y ,"vars*", varsVTerm x, "vars*", varsVTerm y)) $ any (\v -> not $ elem v $ varInMu x) (filter (\v -> sortOfLNTerm (LIT (Var v)) == LSortE)  $ varsVTerm y) = False
+      | trace (show "here") $ otherwise = False
     where evars1 = eTermsOf x
           evars2 = eTermsOf y
 

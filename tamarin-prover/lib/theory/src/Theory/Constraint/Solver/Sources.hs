@@ -66,7 +66,7 @@ import           Theory.Model
 
 import           Control.Monad.Bind
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 import qualified GHC.Generics as G
 import qualified Data.Binary  as B
 

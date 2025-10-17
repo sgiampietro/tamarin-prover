@@ -624,7 +624,7 @@ addDHEqs2 hnd zzbool t1zzs permt eqdhstore =
             trace (show ("addDHEq2", "emptysol")) $ return (eqdhstore, Nothing,[])
         substs -> do
             newsubsts <- trace (show ("addDHEqs2 somesol", substs)) $ mapM generalize substs 
-            let eqStore' = changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) newsubsts ) eqdhstore
+            let eqStore' = trace (show ("problematicsolution", substs)) $ changeqstore (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) newsubsts ) eqdhstore
             return $ (eqStore', Nothing, (map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) newsubsts ) )
   where
     t1 = (map (\(a,_,_)->a) t1zzs)
@@ -647,6 +647,8 @@ addDHEqs2 hnd zzbool t1zzs permt eqdhstore =
                   return (c,cterm)
                   --v1 <- freshLVar "zk" LSortVarE
                   --return $ trace (show ("show", v1)) (c, fAppdhTimesE (cterm, varTerm v1))
+        a | a == LSortE && isEVar cterm -> do
+                  return (c,cterm)
         a | a == LSortE  -> do
                   w1 <- freshLVar "yk" LSortVarE
                   --v1 <- freshLVar "zk" LSortVarE
