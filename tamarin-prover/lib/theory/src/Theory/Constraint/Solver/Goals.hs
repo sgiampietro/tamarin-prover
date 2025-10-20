@@ -26,7 +26,7 @@ module Theory.Constraint.Solver.Goals (
   , isDHLit
   ) where
 
-import           Debug.Trace -- .Ignore
+import           Debug.Trace.Ignore
 
 import           Prelude                                 hiding (id, (.))
 
@@ -411,9 +411,9 @@ solvePremise rules p faPrem
         else (do 
           bset <- getM sBasis
           nbset <- getM sNotBasis
-          nodes <- trace (show ("insertDirectEdge1Goals", bset, nbset,faPrem, "RULS", map showRuleCaseName rules)) $ getM sNodes
+          nodes <- getM sNodes
           let ta2 = head $ factTerms faPrem
-          case trace (show ("doubleFesh","**",doubleFresh nodes)) $  neededexponents bset nbset ta2 of 
+          case neededexponents bset nbset ta2 of 
             ([],js) -> do 
                     forM_ js (\i-> insertLess i (fst p) Adversary)
                     insertDHdirectEdge ta2 faPrem p rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
@@ -680,7 +680,7 @@ solveByOuterSym hndNormal js bset nbset p rules xrooterms instrules = do
               if trace (show ("THESEARE THE INDS", nInds)) $ universal == nInds || null universal
                 then do   
                   possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm $ head nInds) (expBase $ head nInds) Nothing
-                  trace (show ("this case", map showRuleCaseName (map (\(a,b,c,d,e,f) -> a) possibletuple))) $ insertDHEdges possibletuple nInds newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+                  insertDHEdges possibletuple nInds newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
                   return "FindingIndicators" 
                 else do
                   possibletuple1 <- insertFreshNodeConcOutInst rules instrules m (sortOfLNTerm $ head nInds) (expBase $ head nInds) Nothing
@@ -734,6 +734,15 @@ solveDHIndaux bset nbset term p rules = do
                     insertLess i (fst p) Adversary)
              solveByOuterSym hndNormal js bset nbset p rules (multRootMixed $ removesBP dhMuSym nterm) instrules
                 where possargs = getMuArguments dhMuSym nterm
+      ([], js) | containsBP dhMu2Sym nterm -> do            
+          solveByOuterSym hndNormal js bset nbset p rules xrooterms instrules
+            `disjunction` do
+             is <- replicateM (length possargs) $ freshLVar "vk" LSortNode
+             forM_ (zip is possargs) (\(i,a) -> do
+                    insertGoal (ActionG i (kdhFact a)) False
+                    insertLess i (fst p) Adversary)
+             solveByOuterSym hndNormal js bset nbset p rules (multRootMixed $ removesBP dhMu2Sym nterm) instrules
+                where possargs = getMuArguments dhMu2Sym nterm
       ([], js) | otherwise -> solveByOuterSym hndNormal js bset nbset p rules xrooterms instrules
       (les, js) -> do
           let fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) les
