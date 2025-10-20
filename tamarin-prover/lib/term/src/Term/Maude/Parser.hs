@@ -580,6 +580,8 @@ ppTheoryDHsimp = BC.unlines $
       , " op tamXCdhMult : G G -> G ."
       , " op tamXCdhZero : -> E ."
       , " op tamXCdhInv : E -> E ."
+      , " op tamXCdhMinus : E -> E ."
+      , " op tamXCdhPlus : E E -> E ."
       , " op tamXCdhEg : -> G ."
       , " op tamXCdhTimesE : E E -> E [assoc comm] ."
       , " op tamXCdhExp : G E -> G ."

@@ -26,7 +26,7 @@ module Theory.Constraint.Solver.Goals (
   , isDHLit
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 
 import           Prelude                                 hiding (id, (.))
 
@@ -63,6 +63,7 @@ import           Term.Rewriting.Norm
 import           Theory.Constraint.Solver.Combination
 
 import           Utils.Misc                              (twoPartitions)
+-- import Theory (showRuleCaseName)
 -- import Theory.Constraint.Solver.Simplify (simplifySystem)
 
 
@@ -390,8 +391,8 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
              -> LNFact         -- ^ Fact required at this premise.
              -> Reduction String -- ^ Case name to use.
 solvePremise rules p faPrem
-  | trace (show ("sikvubgPREMISE", faPrem, isProtoDHFact faPrem, isProtoMixedFact faPrem)) $ isKdhFact faPrem && isDHFact faPrem = trace (show ("SOLVINGTHISPREMIS",faPrem)) (solveDHInd rules p faPrem)
-  | isKdhFact faPrem && isMixedFact faPrem = trace (show ("SOLVINGTHISPREMISE",faPrem)) (solveDHIndMixed rules p faPrem)
+  | isKdhFact faPrem && isDHFact faPrem = (solveDHInd rules p faPrem)
+  | isKdhFact faPrem && isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
   | isProtoDHFact faPrem =  solveDHIndProto rules p faPrem
   | isProtoMixedFact faPrem = solveDHMixedPremise rules p faPrem
   | isKDFact faPrem = do
@@ -627,9 +628,7 @@ solveDHInd rules p faPrem =  do
           [x] | S.member x bset  -> do 
                     contradictoryIf True
                     return "basis element is not known"
-          [x] | S.member x (S.map fst nbset)  -> do 
-                    return "Already leaked"
-          [x] | otherwise -> trace (show ("here faPrem", x)) solveDHIndaux bset nbset x p rules 
+          [x] | otherwise -> solveDHIndaux bset nbset x p rules 
           -- [x] -> solveDHIndaux bset nbset x p faPrem rules (M.assocs nodes)
           _   -> error "In Fact should have arity 1"
 
@@ -678,17 +677,17 @@ solveByOuterSym hndNormal js bset nbset p rules xrooterms instrules = do
           if trace (show "SOLVINGHERE") $ null neededInds 
             then return "Indicators are public"
             else do
-              if universal == nInds || null universal
+              if trace (show ("THESEARE THE INDS", nInds)) $ universal == nInds || null universal
                 then do   
-                  possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm $ head xrooterms) (expBase $ head nInds) Nothing
-                  insertDHEdges possibletuple nInds newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+                  possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm $ head nInds) (expBase $ head nInds) Nothing
+                  trace (show ("this case", map showRuleCaseName (map (\(a,b,c,d,e,f) -> a) possibletuple))) $ insertDHEdges possibletuple nInds newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
                   return "FindingIndicators" 
                 else do
-                  possibletuple1 <- insertFreshNodeConcOutInst rules instrules m (sortOfLNTerm $ head xrooterms) (expBase $ head nInds) Nothing
+                  possibletuple1 <- insertFreshNodeConcOutInst rules instrules m (sortOfLNTerm $ head nInds) (expBase $ head nInds) Nothing
                   checkUniversalTerms (map (\(a,b,(c,t),d,e,f)-> d) possibletuple1) universal
                   forM_ (toaddnocanc) (\(a,b) -> insertNoCanc a b)
-                  possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm $ head xrooterms) (expBase $ head nInds) Nothing
-                  insertDHEdges possibletuple nInds newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+                  possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm $ head nInds) (expBase $ head nInds) Nothing
+                  trace (show ("this case2", map showRuleCaseName (map (\(a,b,c,d,e,f) -> a) possibletuple))) $ insertDHEdges possibletuple nInds newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
                   return "FindingIndicators" 
 
 solveByOuterSym2 :: MaudeHandle -> LNTerm -> (LNTerm, LNTerm) -> [NodeId] -> S.Set LNTerm -> S.Set (LNTerm, b) -> (NodeId, PremIdx) -> [RuleAC] -> [LNTerm] -> [(NodeId, RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
@@ -723,13 +722,19 @@ solveDHIndaux bset nbset term p rules = do
       cterm = clterm nterm
       xrooterms = multRootMixed cterm
   case  neededexponentslist bset nbset xrooterms of
-      ([], js) | containsBP nterm ->  case getsBPbase nterm of
+      ([], js) | containsBP dhBPSym nterm ->  case getsBPbase nterm of
                     Just (g1,g2) -> solveByOuterSym2 hndNormal (expBase nterm) (g1,g2) js bset nbset p rules xrooterms instrules
                     _ -> error "bp does not have a basis - malformed term"
-      ([], js) | otherwise -> do            
-          case viewTerm2 nterm of 
-              FdhMu t1 -> solveByOuterSym hndNormal js bset nbset p rules xrooterms instrules
-              _ -> solveByOuterSym hndNormal js bset nbset p rules xrooterms instrules
+      ([], js) | containsBP dhMuSym nterm -> do            
+          solveByOuterSym hndNormal js bset nbset p rules xrooterms instrules
+            `disjunction` do
+             is <- replicateM (length possargs) $ freshLVar "vk" LSortNode
+             forM_ (zip is possargs) (\(i,a) -> do
+                    insertGoal (ActionG i (kdhFact a)) False
+                    insertLess i (fst p) Adversary)
+             solveByOuterSym hndNormal js bset nbset p rules (multRootMixed $ removesBP dhMuSym nterm) instrules
+                where possargs = getMuArguments dhMuSym nterm
+      ([], js) | otherwise -> solveByOuterSym hndNormal js bset nbset p rules xrooterms instrules
       (les, js) -> do
           let fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) les
               otheres = les \\ fres

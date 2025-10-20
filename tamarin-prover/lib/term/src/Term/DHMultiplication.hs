@@ -53,6 +53,7 @@ module Term.DHMultiplication (
   , varTermsOf
   , varTermsOf'
   , varInMu
+  , getMuArguments
   --, unbox
   , isNoCanc
   , notUnifiableLits
@@ -269,10 +270,10 @@ hasSameBase base lso t
   | isGConst t = isOfBase base t
   | otherwise = True
 
-containsBP :: LNTerm -> Bool
-containsBP = foldTerm (const False) ffapp
+containsBP :: DHMultSym -> LNTerm -> Bool
+containsBP bpsym = foldTerm (const False) ffapp
   where ffapp funsym bls = case funsym of 
-            (DHMult (bs, _)) | bs == dhBPSymString -> True
+            (DHMult bs) | bs == bpsym -> True
                              | otherwise -> or bls
             _ -> or bls
 
@@ -287,10 +288,10 @@ containsMuH = foldTerm (const False) ffapp
             _ -> or bls
 
 -- following function replaces every occurence of bp(g1,g2) with 1
-removesBP :: LNTerm -> LNTerm
-removesBP = foldTerm (\a -> LIT a) ffapp
+removesBP :: DHMultSym -> LNTerm -> LNTerm
+removesBP bpsym = foldTerm (\a -> LIT a) ffapp
   where ffapp funsym fterms = case funsym of
-          DHMult bs | bs == dhBPSym -> fAppdhOne
+          DHMult bs | bs == bpsym -> fAppdhOne
                     | otherwise -> FAPP funsym fterms         
           _ -> FAPP funsym fterms
 
@@ -369,6 +370,14 @@ varInMu t@(viewTerm2 -> FdhMu2 t1 t2) =  varsVTerm t1 ++ varsVTerm t2
 varInMu t@(FAPP (DHMult o) []) = []
 varInMu t@(FAPP (DHMult o) ts) = concatMap varInMu ts
 varInMu t = error ("shouldn't get to this term"++(show t))
+
+getMuArguments :: DHMultSym -> LNTerm -> [LNTerm]
+getMuArguments musym t@(LIT l) = []
+getMuArguments musym t@(FAPP (DHMult o) []) = []
+getMuArguments musym t@(FAPP (DHMult o) ts) 
+  | o == musym = ts
+  | otherwise = concatMap (getMuArguments musym) ts
+getMuArguments musym t = error ("shouldn't get to this term"++(show t))
 
 varTermsOf :: LNTerm -> [ LNTerm ]
 --varTermsOf t@(viewTerm3 -> Box dht) = varTermsOf dht
@@ -590,7 +599,6 @@ isUniversal xs pairs x =
 isInvertible :: LNTerm -> Maybe LNTerm 
 isInvertible t = case viewTerm2 t of
       FdhMu t1  -> Just t1
-      FdhH t1 -> Just t1
       FdhGinv t1 -> Just t1
       FdhMinus t1 -> Just t1
       _     -> Nothing

@@ -176,13 +176,11 @@ removeRedundantGoals :: Reduction ChangeIndicator
 removeRedundantGoals = do
     oldOpenGoals <- gets plainOpenGoals
     nodes <- getM sNodes
-    nb <- getM sNotBasis
-    let rus = trace (show ("REDUNDNCY", nb)) $ M.elems nodes
+    let rus = M.elems nodes
         check x = (sortOfLNTerm x == LSortFrNZE) && (elem (outFact x) $ concatMap (\ru -> filter isDHFact $ get rConcs ru) rus)
-        check2 x = elem x (map fst $ S.toList nb)
     let kdhActions = [ActionG i g | (ActionG i g, _) <- oldOpenGoals,  isKLogFact g || isKdhFact g] 
         goalsToRemove = filter (\(ActionG i g) -> factTerms g == [fAppdhOne] || factTerms g == [fAppdhZero] || factTerms g ==[fAppdhEg]) kdhActions
-        goalsToRemove2 = filter (\(ActionG i g) -> all (\y -> (check y || check2 y )) $ factTerms g) kdhActions   
+        goalsToRemove2 = filter (\(ActionG i g) -> all (\y -> (check y)) $ factTerms g) kdhActions   
         --singleGoals = nubBy (\(ActionG i g) (ActionG i2 g2) -> g == g2) kdhActions
         --goalstoRemove3 = kdhActions \\ singleGoals
     forM_ (goalsToRemove++goalsToRemove2) (modM sGoals . M.delete)
