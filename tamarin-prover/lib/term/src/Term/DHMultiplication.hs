@@ -556,9 +556,9 @@ rootIndUnknown n nb t = ( LIT (Var newv), [(newv, t)])
 isNoCanc :: LNTerm -> LNTerm -> Bool
 isNoCanc x y 
       | trace (show ("isNOcanc", x, y, "**", evars1, "**", evars2)) $ all (\v -> sortOfLNTerm v == LSortFrNZE ) (evars1++evars2) = True 
-      | trace (show ("isNOcanc2", x, y, "Mu**", varInMu x, "Mu*",varInMu y ,"vars*", varsVTerm x, "vars*", varsVTerm y)) $ any (\v -> not $ elem v $ varInMu y) (filter (\v -> sortOfLNTerm (LIT (Var v)) == LSortE)  $ varsVTerm x) = False
-      | trace (show ("isNOcanc2", x, y, "Mu**", varInMu x, "Mu*",varInMu y ,"vars*", varsVTerm x, "vars*", varsVTerm y)) $ any (\v -> not $ elem v $ varInMu x) (filter (\v -> sortOfLNTerm (LIT (Var v)) == LSortE)  $ varsVTerm y) = False
-      | trace (show "here") $ otherwise = False
+      | trace (show ("isNOcanc2", x, y, "Mu**", varInMu x, "Mu*",varInMu y ,"vars*", varsVTerm x, "vars*", varsVTerm y)) $ any (\v -> not $ elem v $ varInMu y) (filter (\v -> sortOfLNTerm (LIT (Var v)) == LSortE && not (elem v $ varInMu x))  $ varsVTerm x) = False
+      | trace (show ("isNOcanc2", x, y, "Mu**", varInMu x, "Mu*",varInMu y ,"vars*", varsVTerm x, "vars*", varsVTerm y)) $ any (\v -> not $ elem v $ varInMu x) (filter (\v -> sortOfLNTerm (LIT (Var v)) == LSortE && not (elem v $ varInMu y))  $ varsVTerm y) = False
+      | trace (show "here") $ otherwise = True
     where evars1 = eTermsOf x
           evars2 = eTermsOf y
 

@@ -628,7 +628,7 @@ solveDHInd rules p faPrem =  do
           [x] | S.member x bset  -> do 
                     contradictoryIf True
                     return "basis element is not known"
-          [x] | otherwise -> solveDHIndaux bset nbset x p rules 
+          [x] | otherwise -> trace (show ("PRINTING HERE,", faPrem)) $ solveDHIndaux bset nbset x p rules 
           -- [x] -> solveDHIndaux bset nbset x p faPrem rules (M.assocs nodes)
           _   -> error "In Fact should have arity 1"
 
@@ -661,48 +661,26 @@ insertMuAction x@(LIT l) i j | sortOfLNTerm x == LSortFrNZE = do
               insertNotBasisElem x i
 
 
-solveByOuterSym ::  MaudeHandle -> [NodeId] -> S.Set LNTerm -> S.Set (LNTerm, b) -> (NodeId, PremIdx) -> [RuleAC] -> [LNTerm] -> [(NodeId, RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
-solveByOuterSym hndNormal js bset nbset p rules xrooterms instrules = do
-          let inds = map (\x -> (rootIndKnown2 hndNormal bset (S.map fst nbset) x,x)) $ xrooterms
-              neededInds = filter (\(a,b)-> not $ isPublic a) inds
-              newterm = foldr (\a b -> if b == fAppdhEg then a else fAppdhMult (a,b)) fAppdhEg $ map snd neededInds
-              n = length neededInds
-              nInds = map fst neededInds
-              pairs = [(x, y) | (x:ys) <- tails nInds, y <- ys]
-              toaddnocanc = filter (\(a,b) -> not $ isNoCanc a b) pairs
-              isnocanc = filter (\(a,b) -> isNoCanc a b) pairs
-              universal = filter (\x-> isUniversal nInds isnocanc x) nInds
-              m = length universal 
-          forM_ js (\i-> insertLess i (fst p) Adversary)
-          if trace (show "SOLVINGHERE") $ null neededInds 
+
+solveByOuterSym hndNormal js bset nbset p rules n nInds newterm instrules = do
+          if null nInds 
             then return "Indicators are public"
             else do
-              if trace (show ("THESEARE THE INDS", nInds)) $ universal == nInds || null universal
-                then do   
-                  possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm $ head nInds) (expBase $ head nInds) Nothing
-                  insertDHEdges possibletuple nInds newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
-                  return "FindingIndicators" 
-                else do
-                  possibletuple1 <- insertFreshNodeConcOutInst rules instrules m (sortOfLNTerm $ head nInds) (expBase $ head nInds) Nothing
-                  checkUniversalTerms (map (\(a,b,(c,t),d,e,f)-> d) possibletuple1) universal
-                  forM_ (toaddnocanc) (\(a,b) -> insertNoCanc a b)
-                  possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm $ head nInds) (expBase $ head nInds) Nothing
-                  trace (show ("this case2", map showRuleCaseName (map (\(a,b,c,d,e,f) -> a) possibletuple))) $ insertDHEdges possibletuple nInds newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
-                  return "FindingIndicators" 
+              possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm $ head nInds) (expBase $ head nInds) Nothing
+              insertDHEdges possibletuple nInds newterm p (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+              return "FindingIndicators" 
 
 solveByOuterSym2 :: MaudeHandle -> LNTerm -> (LNTerm, LNTerm) -> [NodeId] -> S.Set LNTerm -> S.Set (LNTerm, b) -> (NodeId, PremIdx) -> [RuleAC] -> [LNTerm] -> [(NodeId, RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
 solveByOuterSym2 hndNormal gT (g1,g2) js bset nbset p rules xrooterms instrules = do
-          let inds = map (\x -> (rootIndKnown2 hndNormal bset (S.map fst nbset) x,x)) $ xrooterms
-              neededInds = nub $ filter (\(a,b)-> not $ isPublic a) inds
-              nInds = map fst neededInds
-              pairs = [(x, y) | (x:ys) <- tails nInds, y <- ys]
-              toaddnocanc = filter (\(a,b) -> not $ isNoCanc a b) pairs
+          let inds2 = map (\x -> (rootIndKnown2 hndNormal bset (S.map fst nbset) x,x)) $ xrooterms
+              neededInds2 = nub $ filter (\(a,b)-> not $ isPublic a) inds2
+              nInds2 = map fst neededInds2
+              pairs2 = [(x, y) | (x:ys) <- tails nInds2, y <- ys]
           forM_ js (\i-> insertLess i (fst p) Adversary)
-          forM_ (toaddnocanc) (\(a,b) -> insertNoCanc a b)
-          if null neededInds 
+          if null neededInds2
             then return "Indicators are public"
             else do
-              solveBPedge gT (g1,g2) neededInds p rules instrules (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x))
+              solveBPedge gT (g1,g2) neededInds2 p rules instrules (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x))
 
 --solveDHIndaux :: S.Set LNTerm -> S.Set LNTerm -> LNTerm -> NodePrem -> LNFact -> [RuleAC] -> [(NodeId,RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
 --solveDHIndaux bset nbset term p faPrem rules instrules =
@@ -722,29 +700,57 @@ solveDHIndaux bset nbset term p rules = do
       cterm = clterm nterm
       xrooterms = multRootMixed cterm
   case  neededexponentslist bset nbset xrooterms of
-      ([], js) | containsBP dhBPSym nterm ->  case getsBPbase nterm of
-                    Just (g1,g2) -> solveByOuterSym2 hndNormal (expBase nterm) (g1,g2) js bset nbset p rules xrooterms instrules
-                    _ -> error "bp does not have a basis - malformed term"
-      ([], js) | containsBP dhMuSym nterm -> do            
-          solveByOuterSym hndNormal js bset nbset p rules xrooterms instrules
-            `disjunction` do
-             is <- replicateM (length possargs) $ freshLVar "vk" LSortNode
-             forM_ (zip is possargs) (\(i,a) -> do
-                    insertGoal (ActionG i (kdhFact a)) False
-                    insertLess i (fst p) Adversary)
-             solveByOuterSym hndNormal js bset nbset p rules (multRootMixed $ removesBP dhMuSym nterm) instrules
-                where possargs = getMuArguments dhMuSym nterm
-      ([], js) | containsBP dhMu2Sym nterm -> do            
-          solveByOuterSym hndNormal js bset nbset p rules xrooterms instrules
-            `disjunction` do
-             is <- replicateM (length possargs) $ freshLVar "vk" LSortNode
-             forM_ (zip is possargs) (\(i,a) -> do
-                    insertGoal (ActionG i (kdhFact a)) False
-                    insertLess i (fst p) Adversary)
-             solveByOuterSym hndNormal js bset nbset p rules (multRootMixed $ removesBP dhMu2Sym nterm) instrules
-                where possargs = getMuArguments dhMu2Sym nterm
-      ([], js) | otherwise -> solveByOuterSym hndNormal js bset nbset p rules xrooterms instrules
-      (les, js) -> do
+    ([], js) -> do 
+        let inds = map (\x -> (rootIndKnown2 hndNormal bset (S.map fst nbset) x,x)) $ xrooterms
+            neededInds = filter (\(a,b)-> not $ isPublic a) inds
+            newterm = foldr (\a b -> if b == fAppdhEg then a else fAppdhMult (a,b)) fAppdhEg $ map snd neededInds
+            n = length neededInds
+            nInds = map fst neededInds
+            pairs = [(x, y) | (x:ys) <- tails xrooterms, y <- ys]
+            toaddnocanc = filter (\(a,b) -> not $ isNoCanc a b) pairs
+            isnocanc = filter (\(a,b) -> isNoCanc a b) pairs
+            universal' = filter (\x-> isUniversal xrooterms isnocanc x) xrooterms
+            universal = map (\x -> (rootIndKnown2 hndNormal bset (S.map fst nbset) x)) universal'
+            m = length universal 
+        forM_ js (\i-> insertLess i (fst p) Adversary)
+        let action | containsBP dhBPSym nterm =  case getsBPbase nterm of
+                                  Just (g1,g2) -> solveByOuterSym2 hndNormal (expBase nterm) (g1,g2) js bset nbset p rules xrooterms instrules
+                                  _ -> error "bp does not have a basis - malformed term"
+                   | containsBP dhMuSym nterm = do            
+                                              solveByOuterSym hndNormal js bset nbset p rules n nInds newterm instrules
+                                               `disjunction` do
+                                                 let possargs = getMuArguments dhMuSym nterm
+                                                 is <- replicateM (length possargs) $ freshLVar "vk" LSortNode
+                                                 forM_ (zip is possargs) (\(i,a) -> do
+                                                            insertGoal (ActionG i (kdhFact a)) False
+                                                            insertLess i (fst p) Adversary)
+                                                 solveByOuterSym hndNormal js bset nbset p rules n (map (\a -> runReader (norm' (removesBP dhMuSym a)) hndNormal) nInds) (runReader (norm' (removesBP dhMuSym newterm)) hndNormal) instrules
+                   | containsBP dhMu2Sym nterm = do            
+                                              solveByOuterSym hndNormal js bset nbset p rules n nInds newterm instrules
+                                                `disjunction` do
+                                                  let possargs = getMuArguments dhMu2Sym nterm
+                                                  is <- replicateM (length possargs) $ freshLVar "vk" LSortNode
+                                                  forM_ (zip is possargs) (\(i,a) -> do
+                                                        insertGoal (ActionG i (kdhFact a)) False
+                                                        insertLess i (fst p) Adversary)
+                                                  solveByOuterSym hndNormal js bset nbset p rules n (map (\a -> runReader (norm' (removesBP dhMu2Sym a)) hndNormal) nInds) (runReader (norm' (removesBP dhMu2Sym newterm)) hndNormal) instrules
+                   | otherwise = solveByOuterSym hndNormal js bset nbset p rules n nInds newterm instrules
+        if trace (show ("SOLVINGHERE", universal, "**", isnocanc, "()", pairs, nInds)) $ null neededInds 
+          then return "Indicators are public"
+          else do
+            if universal == nInds || null universal
+              then action
+              else do 
+                possibletuple1 <- insertFreshNodeConcOutInst rules instrules m (sortOfLNTerm $ head nInds) (expBase $ head nInds) Nothing
+                trace (show ("JERE")) $ checkUniversalTerms (map (\(a,b,(c,t),d,e,f)-> d) possibletuple1) universal
+                forM_ (toaddnocanc) (\(a,b) -> insertNoCanc a b)
+                seg <- getM sEqStore
+                if eqsIsFalse seg 
+                  then do 
+                    contradictoryIf True
+                    return "False"
+                  else trace (show ("I shouldn't get here", seg)) action
+    (les, js) -> do
           let fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) les
               otheres = les \\ fres
           forM_ js (\i-> insertLess i (fst p) Adversary)

@@ -802,7 +802,7 @@ checkUniversalTerms tuplelist indts = do
     hnd <- getMaudeHandleDH
     (eqs2, maySplitId,subst1) <- addDHEqs2 hnd False genindterms prterms =<< getM sEqStore 
     contradictoryIf $ null subst1
-    contradictoryIf $ eqsIsFalse eqs2
+    trace (show ("thisisreturnedUNIVERSAL", eqs2)) $ contradictoryIf $ eqsIsFalse eqs2
 
 
 --solveBPedge :: LNTerm -> (LNTerm, LNTerm) -> [(LNTerm, LNTerm)] -> NodePrem -> [RuleAC] -> [(NodeId, RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
@@ -1584,10 +1584,10 @@ solveTermDHEqsChain splitStrat mayB rules instrules fun p faPrem (j,ruj, fa1, c)
                 pairs = [(x, y) | (x:ys) <- tails xrooterms, y <- ys]
                 toaddnocanc = filter (\(a,b) -> not $ isNoCanc a b) pairs
                 isnocanc = filter (\(a,b) -> isNoCanc a b) pairs
-                universal = filter (\x-> isUniversal nInds isnocanc x) nInds
+                universal' = filter (\x-> isUniversal xrooterms isnocanc x) xrooterms
+                universal = map (\x -> (rootIndKnown2 hndNormal bset nbset x)) universal'
                 m = length universal 
             forM_ js (\i-> insertLess i (fst p) Adversary)
-            forM_ (toaddnocanc) (\(a,b) -> insertNoCanc a b)
             let symcase sym = do 
                             let possargs = getMuArguments sym nta2
                                 remnInds = map (\a -> runReader (norm' (removesBP sym a)) hndNormal) nInds
@@ -1616,21 +1616,21 @@ solveTermDHEqsChain splitStrat mayB rules instrules fun p faPrem (j,ruj, fa1, c)
                                possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm $ head nInds) (expBase $ head nInds) (Just ((j,ruj, fa1, c), nta1))
                                insertDHEdges possibletuple nInds newterm p fun
                                return Changed
-                        | universal == nInds  || null universal = do
-                            possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm $ head nInds) (expBase $ head nInds) (Just ((j,ruj, fa1, c), nta1))
-                            insertDHEdges possibletuple nInds newterm p fun
-                            return Changed
-                        | otherwise = do 
-                            possibletuple1 <- insertFreshNodeConcOutInst rules instrules m (sortOfLNTerm $ head nInds) (expBase $ head nInds) (Just ((j,ruj, fa1, c), nta1))
-                            checkUniversalTerms (map (\(a,b,(c,t),d,e,f)-> d) possibletuple1) universal 
+                        | otherwise = do
                             possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm $ head nInds) (expBase $ head nInds) (Just ((j,ruj, fa1, c), nta1))
                             insertDHEdges possibletuple nInds newterm p fun
                             return Changed
             if null neededInds
               then do 
-                -- insertDHEdge ((j,c), fa1, faPrem, p) bset nbset -- TODO: fix this to make final drawing better
+                insertDHEdge ((j,c), fa1, faPrem, p) bset nbset -- TODO: fix this to make final drawing better
                 return Changed
-              else action
+              else if universal == nInds || null universal 
+                  then trace (show ("OHNO", universal, nInds)) action
+                  else do
+                    possibletuple1 <- insertFreshNodeConcOutInst rules instrules m (sortOfLNTerm $ head nInds) (expBase $ head nInds) Nothing
+                    trace (show ("SHOWUNIVERSAL", universal, isnocanc, pairs)) $ checkUniversalTerms (map (\(a,b,(c,t),d,e,f)-> d) possibletuple1) universal 
+                    forM_ (toaddnocanc) (\(a,b) -> insertNoCanc a b)
+                    action
         (es, js) -> do
                 let fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) es
                     otheres = es \\ fres
@@ -1675,10 +1675,10 @@ solveTermDHEqsChain2 splitStrat mayB rules instrules fun p faPrem ta2 = do
                 pairs = [(x, y) | (x:ys) <- tails xrooterms, y <- ys]
                 toaddnocanc = filter (\(a,b) -> not $ isNoCanc a b) pairs
                 isnocanc = filter (\(a,b) -> isNoCanc a b) pairs
-                universal = filter (\x-> isUniversal nInds isnocanc x) nInds
+                universal' = filter (\x-> isUniversal xrooterms isnocanc x) xrooterms
+                universal = map (\x -> (rootIndKnown2 hndNormal bset nbset x)) universal'
                 m = length universal 
             forM_ js (\i-> insertLess i (fst p) Adversary)
-            forM_ (toaddnocanc) (\(a,b) -> insertNoCanc a b)
             let symcase sym = do 
                             let possargs = getMuArguments sym nta2
                                 remnInds = map (\a -> runReader (norm' (removesBP sym a)) hndNormal) nInds
@@ -1707,19 +1707,20 @@ solveTermDHEqsChain2 splitStrat mayB rules instrules fun p faPrem ta2 = do
                                possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm $ head nInds) (expBase $ head nInds) Nothing
                                insertDHEdges possibletuple nInds newterm p fun
                                return "All Out Facts Used"
-                        | universal == nInds  || null universal = do
-                            possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm $ head nInds) (expBase $ head nInds) Nothing
-                            insertDHEdges possibletuple nInds newterm p fun
-                            return "All Out Facts Used"
-                        | otherwise = do 
-                            possibletuple1 <- insertFreshNodeConcOutInst rules instrules m (sortOfLNTerm $ head nInds) (expBase $ head nInds) Nothing
-                            checkUniversalTerms (map (\(a,b,(c,t),d,e,f)-> d) possibletuple1) universal 
+                        | otherwise = do
                             possibletuple <- insertFreshNodeConcOutInst rules instrules n (sortOfLNTerm $ head nInds) (expBase $ head nInds) Nothing
                             insertDHEdges possibletuple nInds newterm p fun
                             return "All Out Facts Used"
             if null neededInds
              then return "All Indicators public"
-             else action
+             else 
+                if universal == nInds || null universal 
+                  then trace (show ("OHNO2", universal, nInds)) action
+                  else do
+                    possibletuple1 <- insertFreshNodeConcOutInst rules instrules m (sortOfLNTerm $ head nInds) (expBase $ head nInds) Nothing
+                    trace (show ("SHOWUNIVERSALw", universal, isnocanc, pairs)) $ checkUniversalTerms (map (\(a,b,(c,t),d,e,f)-> d) possibletuple1) universal 
+                    forM_ (toaddnocanc) (\(a,b) -> insertNoCanc a b)
+                    action
         (es,js) -> do
                 let fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) es
                     otheres = es \\ fres
