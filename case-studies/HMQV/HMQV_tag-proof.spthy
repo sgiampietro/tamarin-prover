@@ -1,4 +1,4 @@
-theory MQV_tag begin
+theory HMQV_tag begin
 
 // Function signature and definition of the equational theory E
 
@@ -30,7 +30,7 @@ rule (modulo E) GenKey:
 rule (modulo E) GenKeyCompromised:
    [ Kdh( Ey ) ]
   --[ Compromised( PA ) ]->
-   [ !PubKey( PA, dhExp(P'g', Ey) ), Out( dhExp(P'g', Ey) ) ]
+   [ !PubKey( PA, dhExp(P'g', Ey) ) ]
 
   /* has exactly the trivial AC variant */
 
@@ -195,7 +195,27 @@ solve( AgreeKeyI( I, R, Ek ) @ #i )
                                m
                  ) ▶₁ #j )
             case ReceiverRole_case_1
-            by sorry
+            solve( !SKey( PR, Fx ) ▶₀ #vr.3 )
+              case GenKey_case_1
+              by contradiction /* from formulas */
+            next
+              case GenKey_case_2
+              solve( !PubKey( PI,
+                              dhGinv(dhExp(P'g',
+                                           dhTimesE(Evy,
+                                                    dhInv(dhMu2(PR,
+                                                                dhMult(dhExp(P'g', Evy),
+                                                                       dhMult(dhExp(P'g', Fei),
+                                                                              dhExp(P'g',
+                                                                                    dhTimesE(Fski,
+                                                                                             dhMu2(PR,
+                                                                                                   dhExp(P'g',
+                                                                                                         Fei)))))))))))
+                     ) ▶₁ #vr.3 )
+                case GenKeyCompromised
+                by contradiction /* from formulas */
+              qed
+            qed
           next
             case ReceiverRole_case_2
             solve( !SKey( PR, Fx ) ▶₀ #vr.3 )
@@ -260,9 +280,6 @@ solve( AgreeKeyI( I, R, Ek ) @ #i )
                                                                                                     dhExp(P'g',
                                                                                                           Fer)))))))))))
                          ) ▶₀ #vk )
-                    case GenKeyCompromised
-                    by contradiction /* from formulas */
-                  next
                     case GenKey_case_1
                     by contradiction /* impossible chain */
                   next
@@ -345,9 +362,6 @@ solve( AgreeKeyI( I, R, Ek ) @ #i )
                                                                                                           dhExp(P'g',
                                                                                                                 Fer)))))))))))
                                ) ▶₀ #vk.1 )
-                          case GenKeyCompromised
-                          by contradiction /* from formulas */
-                        next
                           case GenKey_case_1
                           by contradiction /* impossible chain */
                         next
@@ -366,20 +380,14 @@ solve( AgreeKeyI( I, R, Ek ) @ #i )
                             solve( !KU( dhExp(P'g', Fer) ) @ #vk.2 )
                               case coerce
                               solve( !KD( dhExp(P'g', Fer) ) ▶₀ #vk.2 )
-                                case Using_OutFacts_case_1
+                                case Using_OutFacts
                                 solve( !KU( dhExp(P'g', Fei) ) @ #vk.3 )
                                   case coerce
                                   solve( !KD( dhExp(P'g', Fei) ) ▶₀ #vk.3 )
-                                    case Using_OutFacts_case_1
-                                    SOLVED // trace found
-                                  next
-                                    case Using_OutFacts_case_2
+                                    case Using_OutFacts
                                     SOLVED // trace found
                                   qed
                                 qed
-                              next
-                                case Using_OutFacts_case_2
-                                by sorry
                               qed
                             qed
                           qed
@@ -410,6 +418,9 @@ solve( AgreeKeyI( I, R, Ek ) @ #i )
                         next
                           case pubGConstr_case_2
                           by contradiction /* forbidden KD-fact */
+                        next
+                          case pubGConstr_case_3
+                          by contradiction /* cyclic */
                         qed
                       qed
                     qed
@@ -425,6 +436,9 @@ solve( AgreeKeyI( I, R, Ek ) @ #i )
                   next
                     case pubGConstr_case_2
                     by contradiction /* forbidden KD-fact */
+                  next
+                    case pubGConstr_case_3
+                    by contradiction /* cyclic */
                   qed
                 qed
               next
@@ -662,9 +676,6 @@ solve( AgreeKeyI( I, R, Ek ) @ #i )
                                                                                             dhExp(P'g',
                                                                                                   Efer)))))))))))
                  ) ▶₀ #vk )
-            case GenKeyCompromised
-            by solve( (#vl, 0) ~~> (#vk, 0) )
-          next
             case GenKey_case_1
             by contradiction /* impossible chain */
           next
@@ -702,9 +713,6 @@ solve( AgreeKeyI( I, R, Ek ) @ #i )
             next
               case senc_case_2
               by contradiction /* from formulas */
-            next
-              case senc_case_3
-              by contradiction /* from formulas */
             qed
           next
             case pubGConstr_case_1
@@ -712,6 +720,9 @@ solve( AgreeKeyI( I, R, Ek ) @ #i )
           next
             case pubGConstr_case_2
             by contradiction /* forbidden KD-fact */
+          next
+            case pubGConstr_case_3
+            by contradiction /* cyclic */
           qed
         qed
       qed
@@ -942,9 +953,6 @@ solve( AgreeKeyR( R, I, Ek ) @ #i )
                                                                                             dhExp(P'g',
                                                                                                   Efei)))))))))))
                  ) ▶₀ #vk )
-            case GenKeyCompromised
-            by solve( (#vl, 0) ~~> (#vk, 0) )
-          next
             case GenKey_case_1
             by contradiction /* impossible chain */
           next
@@ -977,9 +985,6 @@ solve( AgreeKeyR( R, I, Ek ) @ #i )
             next
               case senc_case_5
               by contradiction /* from formulas */
-            next
-              case senc_case_6
-              by contradiction /* from formulas */
             qed
           next
             case ReceiverRole_case_1
@@ -1005,6 +1010,9 @@ solve( AgreeKeyR( R, I, Ek ) @ #i )
           next
             case pubGConstr_case_2
             by contradiction /* forbidden KD-fact */
+          next
+            case pubGConstr_case_3
+            by contradiction /* cyclic */
           qed
         qed
       qed
@@ -1075,8 +1083,8 @@ Failed to derive Variable(s): m, m2, EkH, PI, PR
 Generated from:
 Tamarin version 1.9.0
 Maude version 3.3.1
-Git revision: 0b90ec93ddb21918616f1bfe197b035c5fa0fe54 (with uncommited changes), branch: main
-Compiled at: 2025-09-10 13:48:36.668703 UTC
+Git revision: b447e7052beaf9c51709c1350999d928e3b3f145 (with uncommited changes), branch: main
+Compiled at: 2025-10-20 06:35:11.249292 UTC
 */
 
 end

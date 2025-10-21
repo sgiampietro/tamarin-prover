@@ -20,8 +20,7 @@ key for arbitrarily chosen private keys. */
 rule GenKeyCompromised:
     [Kdh(Ey)]
    --[ Compromised(PA) ]->
-   [ !PubKey(PA, dhExp(P'g', Ey) ) ,
-     Out(dhExp(P'g', Ey)) ]
+   [ !PubKey(PA, dhExp(P'g', Ey))]
 
 
 /* -------------- */

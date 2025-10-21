@@ -1,0 +1,89 @@
+theory BLSagg
+begin
+
+
+/* ----------------- */
+/* Equational theory */
+/* ----------------- */
+
+/* Load the built-in symmetrical encryption theory */
+builtins: DH-multiplication
+
+
+/* Key Generation Algorithm */
+
+rule GenKey:  // Generate a key pair
+   [ FrDH(Fx) ] 
+   --[ Given(dhExp(P'g2', Fx)) ]->
+   [ !SKey(Fx, dhExp(P'g2', Fx) ), !PubKey($A, dhExp(P'g2', Fx)), 
+     Out(dhExp(P'g2', Fx)) ]
+
+rule GenKeyAdv:  // adversarial key construction
+   [ Kdh(dhExp(P'g2', Eadv)) ] 
+   --[  ]->
+   [ !PubKey($A, dhExp(P'g2', Eadv))]
+
+/* Signing Algorithm */
+
+rule SignMessage: 
+  let sgn = dhExp(dhExp(P'g',dhH(Fx)), Fski)
+  in
+  [!SKey(Fski, dhExp(P'g2', Fski)), In(Fx)]
+  --[ Oracle(dhExp(P'g2', Fski), Fx) ]->
+  [Out(sgn)]
+
+
+/* Verification Algorithm */
+
+rule VerifySign: 
+  [!PubKey($I, dhExp(P'g2', Epki)), In(Em), In(dhExp(P'g', Esgn)) ]
+  --[ Eq(dhBP( dhExp(P'g', Esgn), P'g2'), dhBP( dhExp(P'g',dhH(Em)), dhExp(P'g2', Epki) ) ), Verified(Em, dhExp(P'g', Esgn)) ]->
+  []
+
+
+/* Aggregation Algorithm */
+
+//rule Aggregate:
+//let sgn1 = dhExp(P'g', Esg1)
+//    sgn2 = dhExp(P'g', Esg2)
+//    sgn3 = dhExp(P'g', Esg3)
+//in
+//  [In(<$I1, Fx1, sgn1>), In(<$I2, Fx2, sgn2>), In(<$I3, Fx3, sgn3>) ]
+//  --[AggregateSignature(<$I1, $I2, $I3>, <Fx1, Fx2,Fx3>, dhMult(sgn1, dhMult(sgn2,sgn3))) ]->
+//  [ Out(<$I1, $I2, $I3>), Out(<Fx1, Fx2,Fx3>), Out(dhMult(sgn1, dhMult(sgn2,sgn3))) ]
+//-}
+
+
+/* Verification Algorithm */
+
+rule VerifyAggSign:
+  let pk1 = dhExp(P'g2', Ex1)
+      pk2 = dhExp(P'g2', Ex2)
+      bp1 = dhBP(dhExp(P'g',dhH(Fm1)), pk1)
+      bp2 = dhBP(dhExp(P'g',dhH(Fm2)), pk2)
+      aggsign = dhExp(P'g', Eagg)
+  in
+  [ In(<Fm1,Fm2>), In(aggsign),
+  !PubKey($I2, pk1), !PubKey($I2, pk2)]
+  --[ Eq( dhMult(dhExp(P'gT',bp1), dhExp(P'gT',bp2)), dhExp(P'gT', dhBP(aggsign, P'g2')) ),  
+      Verified(<Fm1,Fm2>, <pk1,pk2>) ]->
+  [ ]
+
+
+restriction equality: 
+"All #i x y. Eq(x,y)@i ==> x = y"
+
+
+lemma executable:
+exists-trace
+"Ex Em1 Em2 Gpk1 Gpk2 #i #j1 #j2. Verified(<Em1,Em2>, <Gpk1,Gpk2>)@i &
+ Oracle(Gpk1, Em1)@j1 & Oracle(Gpk2, Em2)@j2"
+
+lemma agg_security:
+" All Gpk1 Gpk2 Em1 Em2 #i #j. Verified(<Em1,Em2>, <Gpk1,Gpk2>)@i & Given(Gpk1)@j ==>
+ Ex #j. Oracle(Gpk1,Em1)@j "
+
+end
+
+
+

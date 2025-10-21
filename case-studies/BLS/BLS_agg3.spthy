@@ -13,43 +13,62 @@ builtins: DH-multiplication
 /* Protocol rules */
 /* -------------- */
 
+
+rule Aggregate3:
+let sgn1 = dhExp(P'g', Esg1)
+    sgn2 = dhExp(P'g', Esg2)
+    sgn3 = dhExp(P'g', Esg3)
+in
+  [In(<$I1, Fx1, sgn1>), In(<$I2, Fx2, sgn2>), In(<$I3, Fx3, sgn3>) ]
+  --[AggregateSignature(<$I1, $I2, $I3>, <Fx1, Fx2,Fx3>, dhMult(sgn1, dhMult(sgn2,sgn3))) ]->
+  [ Out(<$I1, $I2, $I3>), Out(<Fx1, Fx2,Fx3>), Out(dhMult(sgn1, dhMult(sgn2,sgn3))) ]
+  // AggregateSignature(<$I1, $I2, $I3>, <x1, x2,x3>, dhMult(Gsgn1, dhMult(Gsgn2,Gsgn3)) ]
+
 rule GenKey:  // share a key pair between two parties.
    [ FrDH(Fx) ] 
    --[  ]->
-   [ !SKey($A, Fx), !PubKey($A, dhExp(P'g', Fx)),
-     Out(dhExp(P'g', Fx)) ]
+   [ !SKey($A, Fx), !PubKey($A, dhExp(P'g2', Fx)), // TODO: need to allow malicious public keys for some known attacks!
+     Out(dhExp(P'g2', Fx)) ]
 
 rule SignMessage: //This is like an oracle!
-  let sgn = dhExp(dhExp(P'g',dhH(x)), Fski)
-  [!SKey($I, Fski), In(x)]
-  --[ Signed($I, x) ]->
-  [Out(<$I, x, sgn>)]
+  let sgn = dhExp(dhExp(P'g',dhH(Fx)), Fski)
+  in
+  [!SKey($I, Fski), In(Fx)]
+  --[ Signed($I, Fx) ]->
+  [Out(<$I, Fx, sgn>)]
 
-rule Aggregate3:
-  [In(<$I1, x1, Gsgn1>), In(<$I2, x2, Gsgn2>), In(<$I3, x3, Gsgn3>) ]
-  --[AggregateSignature(<$I1, $I2, $I3>, <x1, x2,x3>, dhMult(Gsgn1, dhMult(Gsgn2,Gsgn3))]->
-  [ Out(<$I1, $I2, $I3>), Out(<x1, x2,x3>), Out(dhMult(Gsgn1, dhMult(Gsgn2,Gsgn3))) ]
-  // AggregateSignature(<$I1, $I2, $I3>, <x1, x2,x3>, dhMult(Gsgn1, dhMult(Gsgn2,Gsgn3)) ]
+
 
 rule VerifyAggSign:
-  [ In(<$I1, $I2, $I3>), In(<m1,m2,m3>), In(Gaggsign)
-  !PubKey($I2, Gpk1),!PubKey($I2, Gpk2),!PubKey($I3, Gpk3) ]
-  --[ Eq( dhMult( dhBP(dhExp(P'g',dhH(m1)), Gpk1), dhMult(dhBP(dhExp(P'g',dhH(m2)), Gpk2),dhBP(dhExp(P'g',dhH(m3)), Gpk3))) 
-        , dhBp(Gaggsign, 'g') ) ]->
-  [ Verified(<m1,m2,m3>, <$I1, $I2, $I3>, Gsign) ]
+  let pk1 = dhExp(P'g2', Ex1)
+      pk2 = dhExp(P'g2', Ex2)
+      pk3 = dhExp(P'g2', Ex3)
+      bp1 = dhBP(dhExp(P'g',dhH(Fm1)), pk1)
+      bp2 = dhBP(dhExp(P'g',dhH(Fm2)), pk2)
+      bp3 = dhBP(dhExp(P'g',dhH(Fm3)), pk3)
+      aggsign = dhExp(P'g', Eagg)
+  in
+  [ In(<$I1, $I2, $I3>), In(<Fm1,Fm2,Fm3>), In(aggsign),
+  !PubKey($I2, pk1), !PubKey($I2, pk2), !PubKey($I3, pk3) ]
+  --[ Eq( dhMult(dhExp(P'gT',bp1), dhMult(dhExp(P'gT',bp2),dhExp(P'gT',bp3))), dhExp(P'gT', dhBP(aggsign, P'g2')) ),  Verified(<Fm1,Fm2,Fm3>, <$I1, $I2, $I3>) ]->
+  [ ]
+
+
+restriction equality: 
+"All #i x y. Eq(x,y)@i ==> x = y"
 
 
 lemma executable:
 exists-trace
-"Ex I1 I2 I3 Gs m1 m2 m3 #i #j1 #j2 #j3. Verified(<m1,m2,m3>, <I1,I2,I3>, Gs)@i &
- Signed(I1, m1)@j1 & Signed(I2, m2)@j2 & Signed(I3,m3)@j3"
+"Ex I1 I2 I3 Em1 Em2 Em3 #i #j1 #j2 #j3. Verified(<Em1,Em2,Em3>, <I1,I2,I3>)@i &
+ Signed(I1, Em1)@j1 & Signed(I2, Em2)@j2 & Signed(I3,Em3)@j3"
 
 
 // fix to encode EUF-CMA with a Tamarin lemma 
 // (in particular, need to allow to compromise parties!)
 lemma unforgeable:
-"All I1 I2 I3 Gs m1 m2 m3 #i . Verified(<m1,m2,m3>, <I1,I2,I3>, Gs)@i ==>
- Ex #j1. Signed(I1, m1)@j1 | Ex #j2. Signed(I2, m2)@j2 | Ex #j3. Signed(I3,m3)@j3"
+"All I1 I2 I3 Em1 Em2 Em3 #i . Verified(<Em1,Em2,Em3>, <I1,I2,I3>)@i ==>
+ (Ex #j1 #j2 #j3. Signed(I1, Em1)@j1 & Signed(I2, Em2)@j2 & Signed(I3,Em3)@j3)"
 
 end
 

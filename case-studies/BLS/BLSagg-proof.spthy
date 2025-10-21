@@ -1,0 +1,892 @@
+theory BLSagg begin
+
+// Function signature and definition of the equational theory E
+
+builtins: DH-multiplication
+functions: fst/1, pair/2, snd/1
+equations: fst(<x.1, x.2>) = x.1, snd(<x.1, x.2>) = x.2
+
+
+
+
+
+
+
+rule (modulo E) GenKey:
+   [ FrDH( Fx ) ]
+  --[ Given( dhExp(P'g2', Fx) ) ]->
+   [
+   !SKey( Fx, dhExp(P'g2', Fx) ), !PubKey( $A, dhExp(P'g2', Fx) ),
+   Out( dhExp(P'g2', Fx) )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) GenKeyAdv:
+   [ Kdh( dhExp(P'g2', Eadv) ) ]
+  -->
+   [ !PubKey( $A, dhExp(P'g2', Eadv) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) SignMessage:
+   [ !SKey( Fski, dhExp(P'g2', Fski) ), In( Fx ) ]
+  --[ Oracle( dhExp(P'g2', Fski), Fx ) ]->
+   [ Out( dhExp(dhExp(P'g', dhH(Fx)), Fski) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) VerifySign:
+   [
+   !PubKey( $I, dhExp(P'g2', Epki) ), In( Em ),
+   In( dhExp(P'g', Esgn) )
+   ]
+  --[
+  Eq( dhBP(dhExp(P'g', Esgn), P'g2'),
+      dhBP(dhExp(P'g', dhH(Em)), dhExp(P'g2', Epki))
+  ),
+  Verified( Em, dhExp(P'g', Esgn) )
+  ]->
+   [ ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) VerifyAggSign:
+   [
+   In( <Fm1, Fm2> ), In( dhExp(P'g', Eagg) ),
+   !PubKey( $I2, dhExp(P'g2', Ex1) ),
+   !PubKey( $I2, dhExp(P'g2', Ex2) )
+   ]
+  --[
+  Eq( dhMult(dhExp(P'gT',
+                   dhBP(dhExp(P'g', dhH(Fm1)), dhExp(P'g2', Ex1))),
+             dhExp(P'gT', dhBP(dhExp(P'g', dhH(Fm2)), dhExp(P'g2', Ex2)))),
+      dhExp(P'gT', dhBP(dhExp(P'g', Eagg), P'g2'))
+  ),
+  Verified( <Fm1, Fm2>, <dhExp(P'g2', Ex1), dhExp(P'g2', Ex2)> )
+  ]->
+   [ ]
+
+  /* has exactly the trivial AC variant */
+
+restriction equality:
+  "∀ #i x y. (Eq( x, y ) @ #i) ⇒ (x = y)"
+  // safety formula
+
+lemma executable:
+  exists-trace
+  "∃ Em1 Em2 Gpk1 Gpk2 #i #j1 #j2.
+    ((Verified( <Em1, Em2>, <Gpk1, Gpk2> ) @ #i) ∧
+     (Oracle( Gpk1, Em1 ) @ #j1)) ∧
+    (Oracle( Gpk2, Em2 ) @ #j2)"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ Em1 Em2 Gpk1 Gpk2 #i #j1 #j2.
+  (Verified( <Em1, Em2>, <Gpk1, Gpk2> ) @ #i) ∧
+  (Oracle( Gpk1, Em1 ) @ #j1) ∧
+  (Oracle( Gpk2, Em2 ) @ #j2)"
+*/
+simplify
+solve( Verified( <Em1, Em2>, <Gpk1, Gpk2> ) @ #i )
+  case VerifyAggSign
+  solve( !PubKey( $I2, dhExp(P'g2', Ex1) ) ▶₂ #i )
+    case GenKey
+    solve( Oracle( dhExp(P'g2', Fx), Fm1 ) @ #j1 )
+      case SignMessage
+      solve( !SKey( Fx, dhExp(P'g2', Fx) ) ▶₀ #j1 )
+        case GenKey
+        solve( !PubKey( $I2, dhExp(P'g2', Ex2) ) ▶₃ #i )
+          case GenKeyAdv
+          by sorry
+        next
+          case GenKey_case_1
+          by sorry
+        next
+          case GenKey_case_2
+          solve( Oracle( dhExp(P'g2', Fx.1), Fm2 ) @ #j2 )
+            case SignMessage_case_1
+            by sorry
+          next
+            case SignMessage_case_2
+            solve( !SKey( Fx.1, dhExp(P'g2', Fx.1) ) ▶₀ #j2 )
+              case GenKey_case_1
+              by sorry
+            next
+              case GenKey_case_2
+              solve( !KU( Fm1 ) @ #vk.3 )
+                case freshNZE
+                solve( !KU( Fm2 ) @ #vk.4 )
+                  case freshNZE_case_1
+                  solve( dhMult(dhExp(P'gT',
+                                      dhTimesE(Fx.1, dhTimesE(dhH(Fm2), dhBP(P'g', P'g2')))),
+                                dhExp(P'gT',
+                                      dhTimesE(Fx,
+                                               dhTimesE(dhH(Fm1),
+                                                        dhBP(P'g', P'g2'))))) DHEq dhExp(P'gT',
+                                                                                         dhTimesE(Eagg,
+                                                                                                  dhBP(P'g',
+                                                                                                       P'g2'))) )
+                    case solveeq
+                    solve( dhMult(dhExp(P'gT',
+                                        dhTimesE(Fx.1, dhTimesE(dhH(Fm2), dhBP(P'g', P'g2')))),
+                                  dhExp(P'gT',
+                                        dhTimesE(Fx,
+                                                 dhTimesE(dhH(Fm1),
+                                                          dhBP(P'g',
+                                                               P'g2'))))) DHEq dhMult(dhExp(P'gT',
+                                                                                            dhTimesE(Fx,
+                                                                                                     dhTimesE(dhH(Fm1),
+                                                                                                              dhBP(P'g',
+                                                                                                                   P'g2')))),
+                                                                                      dhExp(P'gT',
+                                                                                            dhTimesE(Fx.1,
+                                                                                                     dhTimesE(dhH(Fm2),
+                                                                                                              dhBP(P'g',
+                                                                                                                   P'g2'))))) )
+                      case solveeq
+                      solve( !KU( dhMult(dhExp(P'g', dhTimesE(Fx, dhH(Fm1))),
+                                         dhExp(P'g', dhTimesE(Fx.1, dhH(Fm2))))
+                             ) @ #vk.5 )
+                        case coerce
+                        solve( !KD( dhMult(dhExp(P'g', dhTimesE(Fx, dhH(Fm1))),
+                                           dhExp(P'g', dhTimesE(Fx.1, dhH(Fm2))))
+                               ) ▶₀ #vk )
+                          case Using_OutFacts_case_01
+                          SOLVED // trace found
+                        next
+                          case Using_OutFacts_case_02
+                          by contradiction /* adversary derived secret element! */
+                        next
+                          case Using_OutFacts_case_03
+                          by sorry
+                        next
+                          case Using_OutFacts_case_04
+                          by sorry
+                        next
+                          case Using_OutFacts_case_05
+                          by contradiction /* adversary derived secret element! */
+                        next
+                          case Using_OutFacts_case_06
+                          by contradiction /* adversary derived secret element! */
+                        next
+                          case Using_OutFacts_case_07
+                          by contradiction /* adversary derived secret element! */
+                        next
+                          case Using_OutFacts_case_08
+                          by sorry
+                        next
+                          case Using_OutFacts_case_09
+                          by contradiction /* adversary derived secret element! */
+                        next
+                          case Using_OutFacts_case_10
+                          by contradiction /* adversary derived secret element! */
+                        next
+                          case Using_OutFacts_case_11
+                          by contradiction /* adversary derived secret element! */
+                        next
+                          case Using_OutFacts_case_12
+                          by sorry
+                        qed
+                      qed
+                    qed
+                  qed
+                next
+                  case freshNZE_case_2
+                  by sorry
+                qed
+              qed
+            qed
+          qed
+        qed
+      qed
+    qed
+  next
+    case GenKeyAdv
+    by sorry
+  qed
+qed
+
+lemma agg_security:
+  all-traces
+  "∀ Gpk1 Gpk2 Em1 Em2 #i #j.
+    ((Verified( <Em1, Em2>, <Gpk1, Gpk2> ) @ #i) ∧
+     (Given( Gpk1 ) @ #j)) ⇒
+    (∃ #j.1. Oracle( Gpk1, Em1 ) @ #j.1)"
+/*
+guarded formula characterizing all counter-examples:
+"∃ Gpk1 Gpk2 Em1 Em2 #i #j.
+  (Verified( <Em1, Em2>, <Gpk1, Gpk2> ) @ #i) ∧ (Given( Gpk1 ) @ #j)
+ ∧
+  ∀ #j.1. (Oracle( Gpk1, Em1 ) @ #j.1) ⇒ ⊥"
+*/
+simplify
+solve( Verified( <Em1, Em2>, <Gpk1, Gpk2> ) @ #i )
+  case VerifyAggSign
+  solve( !PubKey( $I2, dhExp(P'g2', Ex1) ) ▶₂ #i )
+    case GenKey
+    solve( Given( dhExp(P'g2', Fx) ) @ #j )
+      case GenKey_case_1
+      solve( !PubKey( $I2, dhExp(P'g2', Ex2) ) ▶₃ #i )
+        case GenKeyAdv
+        solve( dhMult(dhExp(P'gT',
+                            dhTimesE(Ex2, dhTimesE(dhH(Fm2), dhBP(P'g', P'g2')))),
+                      dhExp(P'gT',
+                            dhTimesE(Fx,
+                                     dhTimesE(dhH(Fm1), dhBP(P'g', P'g2'))))) DHEq dhExp(P'gT',
+                                                                                         dhTimesE(Eagg,
+                                                                                                  dhBP(P'g',
+                                                                                                       P'g2'))) )
+          case solveeq
+          solve( dhMult(dhExp(P'gT',
+                              dhTimesE(Ex2, dhTimesE(dhH(Fm2), dhBP(P'g', P'g2')))),
+                        dhExp(P'gT',
+                              dhTimesE(Fx,
+                                       dhTimesE(dhH(Fm1),
+                                                dhBP(P'g', P'g2'))))) DHEq dhMult(dhExp(P'gT',
+                                                                                        dhTimesE(Ex2,
+                                                                                                 dhTimesE(dhH(Fm2),
+                                                                                                          dhBP(P'g',
+                                                                                                               P'g2')))),
+                                                                                  dhExp(P'gT',
+                                                                                        dhTimesE(Fx,
+                                                                                                 dhTimesE(dhH(Fm1),
+                                                                                                          dhBP(P'g',
+                                                                                                               P'g2'))))) )
+            case solveeq
+            solve( !KU( dhMult(dhExp(P'g', dhTimesE(Ex2, dhH(Fm2))),
+                               dhExp(P'g', dhTimesE(Fx, dhH(Fm1))))
+                   ) @ #vk.5 )
+              case coerce
+              solve( !KD( dhMult(dhExp(P'g', dhTimesE(Ex2, dhH(Fm2))),
+                                 dhExp(P'g', dhTimesE(Fx, dhH(Fm1))))
+                     ) ▶₀ #vk )
+                case Using_OutFacts_case_01
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_02
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_03
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_04
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_05
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_06
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_07
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_08
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_09
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_10
+                by contradiction /* from formulas */
+              qed
+            qed
+          qed
+        qed
+      next
+        case GenKey_case_1
+        solve( dhMult(dhExp(P'gT',
+                            dhTimesE(Fx, dhTimesE(dhH(Fm2), dhBP(P'g', P'g2')))),
+                      dhExp(P'gT',
+                            dhTimesE(Fx,
+                                     dhTimesE(dhH(Fm1), dhBP(P'g', P'g2'))))) DHEq dhExp(P'gT',
+                                                                                         dhTimesE(Eagg,
+                                                                                                  dhBP(P'g',
+                                                                                                       P'g2'))) )
+          case solveeq
+          solve( dhMult(dhExp(P'gT',
+                              dhTimesE(Fx, dhTimesE(dhH(Fm2), dhBP(P'g', P'g2')))),
+                        dhExp(P'gT',
+                              dhTimesE(Fx,
+                                       dhTimesE(dhH(Fm1),
+                                                dhBP(P'g', P'g2'))))) DHEq dhMult(dhExp(P'gT',
+                                                                                        dhTimesE(Fx,
+                                                                                                 dhTimesE(dhH(Fm1),
+                                                                                                          dhBP(P'g',
+                                                                                                               P'g2')))),
+                                                                                  dhExp(P'gT',
+                                                                                        dhTimesE(Fx,
+                                                                                                 dhTimesE(dhH(Fm2),
+                                                                                                          dhBP(P'g',
+                                                                                                               P'g2'))))) )
+            case solveeq
+            solve( !KU( dhMult(dhExp(P'g', dhTimesE(Fx, dhH(Fm1))),
+                               dhExp(P'g', dhTimesE(Fx, dhH(Fm2))))
+                   ) @ #vk.5 )
+              case coerce
+              solve( !KD( dhMult(dhExp(P'g', dhTimesE(Fx, dhH(Fm1))),
+                                 dhExp(P'g', dhTimesE(Fx, dhH(Fm2))))
+                     ) ▶₀ #vk )
+                case Using_OutFacts_case_01
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_02
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_03
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_04
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_05
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_06
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_07
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_08
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_09
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_10
+                by contradiction /* from formulas */
+              qed
+            qed
+          qed
+        qed
+      next
+        case GenKey_case_2
+        solve( dhMult(dhExp(P'gT',
+                            dhTimesE(Fx.1, dhTimesE(dhH(Fm2), dhBP(P'g', P'g2')))),
+                      dhExp(P'gT',
+                            dhTimesE(Fx,
+                                     dhTimesE(dhH(Fm1), dhBP(P'g', P'g2'))))) DHEq dhExp(P'gT',
+                                                                                         dhTimesE(Eagg,
+                                                                                                  dhBP(P'g',
+                                                                                                       P'g2'))) )
+          case solveeq
+          solve( dhMult(dhExp(P'gT',
+                              dhTimesE(Fx.1, dhTimesE(dhH(Fm2), dhBP(P'g', P'g2')))),
+                        dhExp(P'gT',
+                              dhTimesE(Fx,
+                                       dhTimesE(dhH(Fm1),
+                                                dhBP(P'g', P'g2'))))) DHEq dhMult(dhExp(P'gT',
+                                                                                        dhTimesE(Fx,
+                                                                                                 dhTimesE(dhH(Fm1),
+                                                                                                          dhBP(P'g',
+                                                                                                               P'g2')))),
+                                                                                  dhExp(P'gT',
+                                                                                        dhTimesE(Fx.1,
+                                                                                                 dhTimesE(dhH(Fm2),
+                                                                                                          dhBP(P'g',
+                                                                                                               P'g2'))))) )
+            case solveeq
+            solve( !KU( dhMult(dhExp(P'g', dhTimesE(Fx, dhH(Fm1))),
+                               dhExp(P'g', dhTimesE(Fx.1, dhH(Fm2))))
+                   ) @ #vk.5 )
+              case coerce
+              solve( !KD( dhMult(dhExp(P'g', dhTimesE(Fx, dhH(Fm1))),
+                                 dhExp(P'g', dhTimesE(Fx.1, dhH(Fm2))))
+                     ) ▶₀ #vk )
+                case Using_OutFacts_case_01
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_02
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_03
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_04
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_05
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_06
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_07
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_08
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_09
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_10
+                by contradiction /* from formulas */
+              qed
+            qed
+          qed
+        qed
+      qed
+    next
+      case GenKey_case_2
+      solve( !PubKey( $I2, dhExp(P'g2', Ex2) ) ▶₃ #i )
+        case GenKeyAdv
+        solve( dhMult(dhExp(P'gT',
+                            dhTimesE(Ex2, dhTimesE(dhH(Fm2), dhBP(P'g', P'g2')))),
+                      dhExp(P'gT',
+                            dhTimesE(Fx,
+                                     dhTimesE(dhH(Fm1), dhBP(P'g', P'g2'))))) DHEq dhExp(P'gT',
+                                                                                         dhTimesE(Eagg,
+                                                                                                  dhBP(P'g',
+                                                                                                       P'g2'))) )
+          case solveeq
+          solve( dhMult(dhExp(P'gT',
+                              dhTimesE(Ex2, dhTimesE(dhH(Fm2), dhBP(P'g', P'g2')))),
+                        dhExp(P'gT',
+                              dhTimesE(Fx,
+                                       dhTimesE(dhH(Fm1),
+                                                dhBP(P'g', P'g2'))))) DHEq dhMult(dhExp(P'gT',
+                                                                                        dhTimesE(Ex2,
+                                                                                                 dhTimesE(dhH(Fm2),
+                                                                                                          dhBP(P'g',
+                                                                                                               P'g2')))),
+                                                                                  dhExp(P'gT',
+                                                                                        dhTimesE(Fx,
+                                                                                                 dhTimesE(dhH(Fm1),
+                                                                                                          dhBP(P'g',
+                                                                                                               P'g2'))))) )
+            case solveeq
+            solve( !KU( dhMult(dhExp(P'g', dhTimesE(Ex2, dhH(Fm2))),
+                               dhExp(P'g', dhTimesE(Fx, dhH(Fm1))))
+                   ) @ #vk.5 )
+              case coerce
+              solve( !KD( dhMult(dhExp(P'g', dhTimesE(Ex2, dhH(Fm2))),
+                                 dhExp(P'g', dhTimesE(Fx, dhH(Fm1))))
+                     ) ▶₀ #vk )
+                case Using_OutFacts_case_01
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_02
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_03
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_04
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_05
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_06
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_07
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_08
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_09
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_10
+                by contradiction /* from formulas */
+              qed
+            qed
+          qed
+        qed
+      next
+        case GenKey_case_1
+        solve( dhMult(dhExp(P'gT',
+                            dhTimesE(Fx, dhTimesE(dhH(Fm2), dhBP(P'g', P'g2')))),
+                      dhExp(P'gT',
+                            dhTimesE(Fx,
+                                     dhTimesE(dhH(Fm1), dhBP(P'g', P'g2'))))) DHEq dhExp(P'gT',
+                                                                                         dhTimesE(Eagg,
+                                                                                                  dhBP(P'g',
+                                                                                                       P'g2'))) )
+          case solveeq
+          solve( dhMult(dhExp(P'gT',
+                              dhTimesE(Fx, dhTimesE(dhH(Fm2), dhBP(P'g', P'g2')))),
+                        dhExp(P'gT',
+                              dhTimesE(Fx,
+                                       dhTimesE(dhH(Fm1),
+                                                dhBP(P'g', P'g2'))))) DHEq dhMult(dhExp(P'gT',
+                                                                                        dhTimesE(Fx,
+                                                                                                 dhTimesE(dhH(Fm1),
+                                                                                                          dhBP(P'g',
+                                                                                                               P'g2')))),
+                                                                                  dhExp(P'gT',
+                                                                                        dhTimesE(Fx,
+                                                                                                 dhTimesE(dhH(Fm2),
+                                                                                                          dhBP(P'g',
+                                                                                                               P'g2'))))) )
+            case solveeq
+            solve( !KU( dhMult(dhExp(P'g', dhTimesE(Fx, dhH(Fm1))),
+                               dhExp(P'g', dhTimesE(Fx, dhH(Fm2))))
+                   ) @ #vk.5 )
+              case coerce
+              solve( !KD( dhMult(dhExp(P'g', dhTimesE(Fx, dhH(Fm1))),
+                                 dhExp(P'g', dhTimesE(Fx, dhH(Fm2))))
+                     ) ▶₀ #vk )
+                case Using_OutFacts_case_01
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_02
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_03
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_04
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_05
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_06
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_07
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_08
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_09
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_10
+                by contradiction /* from formulas */
+              qed
+            qed
+          qed
+        qed
+      next
+        case GenKey_case_2
+        solve( dhMult(dhExp(P'gT',
+                            dhTimesE(Fx.1, dhTimesE(dhH(Fm2), dhBP(P'g', P'g2')))),
+                      dhExp(P'gT',
+                            dhTimesE(Fx,
+                                     dhTimesE(dhH(Fm1), dhBP(P'g', P'g2'))))) DHEq dhExp(P'gT',
+                                                                                         dhTimesE(Eagg,
+                                                                                                  dhBP(P'g',
+                                                                                                       P'g2'))) )
+          case solveeq
+          solve( dhMult(dhExp(P'gT',
+                              dhTimesE(Fx.1, dhTimesE(dhH(Fm2), dhBP(P'g', P'g2')))),
+                        dhExp(P'gT',
+                              dhTimesE(Fx,
+                                       dhTimesE(dhH(Fm1),
+                                                dhBP(P'g', P'g2'))))) DHEq dhMult(dhExp(P'gT',
+                                                                                        dhTimesE(Fx,
+                                                                                                 dhTimesE(dhH(Fm1),
+                                                                                                          dhBP(P'g',
+                                                                                                               P'g2')))),
+                                                                                  dhExp(P'gT',
+                                                                                        dhTimesE(Fx.1,
+                                                                                                 dhTimesE(dhH(Fm2),
+                                                                                                          dhBP(P'g',
+                                                                                                               P'g2'))))) )
+            case solveeq
+            solve( !KU( dhMult(dhExp(P'g', dhTimesE(Fx, dhH(Fm1))),
+                               dhExp(P'g', dhTimesE(Fx.1, dhH(Fm2))))
+                   ) @ #vk.5 )
+              case coerce
+              solve( !KD( dhMult(dhExp(P'g', dhTimesE(Fx, dhH(Fm1))),
+                                 dhExp(P'g', dhTimesE(Fx.1, dhH(Fm2))))
+                     ) ▶₀ #vk )
+                case Using_OutFacts_case_01
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_02
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_03
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_04
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_05
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_06
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_07
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_08
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_09
+                by contradiction /* from formulas */
+              next
+                case Using_OutFacts_case_10
+                by contradiction /* from formulas */
+              qed
+            qed
+          qed
+        qed
+      qed
+    qed
+  next
+    case GenKeyAdv
+    solve( dhMult(dhExp(P'gT',
+                        dhTimesE(Ex1, dhTimesE(dhH(Fm1), dhBP(P'g', P'g2')))),
+                  dhExp(P'gT',
+                        dhTimesE(Ex2,
+                                 dhTimesE(dhH(Fm2), dhBP(P'g', P'g2'))))) DHEq dhExp(P'gT',
+                                                                                     dhTimesE(Eagg,
+                                                                                              dhBP(P'g',
+                                                                                                   P'g2'))) )
+      case solveeq
+      solve( dhMult(dhExp(P'gT',
+                          dhTimesE(Ex1, dhTimesE(dhH(Fm1), dhBP(P'g', P'g2')))),
+                    dhExp(P'gT',
+                          dhTimesE(Ex2,
+                                   dhTimesE(dhH(Fm2), dhBP(P'g', P'g2'))))) DHEq dhMult(dhExp(P'gT',
+                                                                                              dhTimesE(Ex1,
+                                                                                                       dhTimesE(dhH(Fm1),
+                                                                                                                dhBP(P'g',
+                                                                                                                     P'g2')))),
+                                                                                        dhExp(P'gT',
+                                                                                              dhTimesE(Ex2,
+                                                                                                       dhTimesE(dhH(Fm2),
+                                                                                                                dhBP(P'g',
+                                                                                                                     P'g2'))))) )
+        case solveeq
+        solve( !KU( dhMult(dhExp(P'g', dhTimesE(Ex1, dhH(Fm1))),
+                           dhExp(P'g', dhTimesE(Ex2, dhH(Fm2))))
+               ) @ #vk.5 )
+          case coerce
+          solve( Given( dhExp(P'g2', Ex1) ) @ #j )
+            case GenKey
+            solve( !PubKey( $I2, dhExp(P'g2', Ex2) ) ▶₃ #i )
+              case GenKeyAdv_case_1
+              solve( Kdh( dhExp(P'g2', Fx) ) ▶₀ #vr )
+                case LeakedSetInserted
+                solve( dhMult(dhExp(P'gT',
+                                    dhTimesE(Fx, dhTimesE(dhH(Fm2), dhBP(P'g', P'g2')))),
+                              dhExp(P'gT',
+                                    dhTimesE(Fx,
+                                             dhTimesE(dhH(Fm1),
+                                                      dhBP(P'g', P'g2'))))) DHEq dhMult(dhExp(P'gT',
+                                                                                              dhTimesE(Fx,
+                                                                                                       dhTimesE(dhH(Fm2),
+                                                                                                                dhBP(P'g',
+                                                                                                                     P'g2')))),
+                                                                                        dhExp(P'gT',
+                                                                                              dhTimesE(Fx,
+                                                                                                       dhTimesE(dhH(Fm1),
+                                                                                                                dhBP(P'g',
+                                                                                                                     P'g2'))))) )
+                  case solveeq
+                  solve( !KD( dhMult(dhExp(P'g', dhTimesE(Fx, dhH(Fm2))),
+                                     dhExp(P'g', dhTimesE(Fx, dhH(Fm1))))
+                         ) ▶₀ #vk )
+                    case Using_OutFacts_case_01
+                    by contradiction /* from formulas */
+                  next
+                    case Using_OutFacts_case_02
+                    by contradiction /* from formulas */
+                  next
+                    case Using_OutFacts_case_03
+                    by contradiction /* from formulas */
+                  next
+                    case Using_OutFacts_case_04
+                    by contradiction /* from formulas */
+                  next
+                    case Using_OutFacts_case_05
+                    by contradiction /* from formulas */
+                  next
+                    case Using_OutFacts_case_06
+                    by contradiction /* from formulas */
+                  next
+                    case Using_OutFacts_case_07
+                    by contradiction /* from formulas */
+                  next
+                    case Using_OutFacts_case_08
+                    by contradiction /* from formulas */
+                  next
+                    case Using_OutFacts_case_09
+                    by contradiction /* from formulas */
+                  next
+                    case Using_OutFacts_case_10
+                    by contradiction /* from formulas */
+                  qed
+                qed
+              qed
+            next
+              case GenKeyAdv_case_2
+              solve( Kdh( dhExp(P'g2', Fx) ) ▶₀ #vr )
+                case LeakedSetInserted
+                solve( !KD( dhMult(dhExp(P'g', dhTimesE(Ex2, dhH(Fm2))),
+                                   dhExp(P'g', dhTimesE(Fx, dhH(Fm1))))
+                       ) ▶₀ #vk )
+                  case Using_OutFacts_case_01
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_02
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_03
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_04
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_05
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_06
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_07
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_08
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_09
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_10
+                  by contradiction /* from formulas */
+                qed
+              qed
+            next
+              case GenKey_case_1
+              solve( Kdh( dhExp(P'g2', Fx) ) ▶₀ #vr )
+                case LeakedSetInserted
+                solve( !KD( dhMult(dhExp(P'g', dhTimesE(Fx, dhH(Fm2))),
+                                   dhExp(P'g', dhTimesE(Fx, dhH(Fm1))))
+                       ) ▶₀ #vk )
+                  case Using_OutFacts_case_01
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_02
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_03
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_04
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_05
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_06
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_07
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_08
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_09
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_10
+                  by contradiction /* from formulas */
+                qed
+              qed
+            next
+              case GenKey_case_2
+              solve( Kdh( dhExp(P'g2', Fx.1) ) ▶₀ #vr )
+                case LeakedSetInserted
+                solve( !KD( dhMult(dhExp(P'g', dhTimesE(Fx, dhH(Fm2))),
+                                   dhExp(P'g', dhTimesE(Fx.1, dhH(Fm1))))
+                       ) ▶₀ #vk )
+                  case Using_OutFacts_case_01
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_02
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_03
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_04
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_05
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_06
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_07
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_08
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_09
+                  by contradiction /* from formulas */
+                next
+                  case Using_OutFacts_case_10
+                  by contradiction /* from formulas */
+                qed
+              qed
+            qed
+          qed
+        qed
+      qed
+    qed
+  qed
+qed
+
+
+
+
+
+
+
+/*
+WARNING: the following wellformedness checks failed!
+
+Quantifier sorts
+================
+
+  lemma `executable' uses quantifiers with wrong sort: ("m1",LSortE),
+    ("m2",LSortE), ("pk1",LSortG), ("pk2",LSortG)
+  
+  lemma `agg_security' uses quantifiers with wrong sort:
+    ("pk1",LSortG), ("pk2",LSortG), ("m1",LSortE), ("m2",LSortE)
+
+Message Derivation Checks
+=========================
+
+  The variables of the follwing rule(s) are not derivable from their premises, you may be performing unintended pattern matching.
+
+Rule GenKey: 
+Failed to derive Variable(s): $A, Fx
+
+Rule GenKeyAdv: 
+Failed to derive Variable(s): $A, Eadv
+
+Rule SignMessage: 
+Failed to derive Variable(s): Fski, Fx
+
+Rule VerifySign: 
+Failed to derive Variable(s): $I, Em, Epki, Esgn
+
+Rule VerifyAggSign: 
+Failed to derive Variable(s): $I2, Eagg, Ex1, Ex2, Fm1, Fm2
+*/
+
+/*
+Generated from:
+Tamarin version 1.9.0
+Maude version 3.3.1
+Git revision: b447e7052beaf9c51709c1350999d928e3b3f145 (with uncommited changes), branch: main
+Compiled at: 2025-10-20 06:35:11.249292 UTC
+*/
+
+end
