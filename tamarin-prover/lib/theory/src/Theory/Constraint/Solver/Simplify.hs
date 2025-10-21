@@ -172,13 +172,15 @@ simplifySystem = do
               traceIfLooping $ go (n + 1) (map snd changes)
 
 
-removeRedundantGoals :: Reduction ChangeIndicator
+removentGoals :: Reduction ChangeIndicator
 removeRedundantGoals = do
     oldOpenGoals <- gets plainOpenGoals
     nodes <- getM sNodes
     let rus = M.elems nodes
-        check x = (sortOfLNTerm x == LSortFrNZE) && (elem (outFact x) $ concatMap (\ru -> filter isDHFact $ get rConcs ru) rus)
-    let kdhActions = [ActionG i g | (ActionG i g, _) <- oldOpenGoals,  isKLogFact g || isKdhFact g] 
+        factss = concatMap factTerms $ concatMap (\ru -> filter isOut $ get rConcs ru) rus
+        outdhterms = map fst $ (concatMap extractMixedRoot factss)
+        check x = (sortOfLNTerm x == LSortFrNZE) && (x `elem` outdhterms)
+        kdhActions = [ActionG i g | (ActionG i g, _) <- oldOpenGoals,  isKLogFact g || isKdhFact g] 
         goalsToRemove = filter (\(ActionG i g) -> factTerms g == [fAppdhOne] || factTerms g == [fAppdhZero] || factTerms g ==[fAppdhEg]) kdhActions
         goalsToRemove2 = filter (\(ActionG i g) -> all (\y -> (check y)) $ factTerms g) kdhActions   
         --singleGoals = nubBy (\(ActionG i g) (ActionG i2 g2) -> g == g2) kdhActions
