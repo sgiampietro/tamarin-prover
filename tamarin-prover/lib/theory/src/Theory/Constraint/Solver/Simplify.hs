@@ -172,7 +172,7 @@ simplifySystem = do
               traceIfLooping $ go (n + 1) (map snd changes)
 
 
-removentGoals :: Reduction ChangeIndicator
+removeRedundantGoals :: Reduction ChangeIndicator
 removeRedundantGoals = do
     oldOpenGoals <- gets plainOpenGoals
     nodes <- getM sNodes
