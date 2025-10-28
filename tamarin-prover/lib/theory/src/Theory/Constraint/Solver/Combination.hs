@@ -219,7 +219,7 @@ getcoefromProd vars t@(FAPP (DHMult o) ts) = case ts of
         (LIT l) -> if (elem t1 vars) then getcoefromProd vars t2 else simplifyraw $ fAppdhTimesE (t1, getcoefromProd vars t2)
         _       -> simplifyraw $ fAppdhTimesE (getcoefromProd vars t1, getcoefromProd vars t2))
     [ t1, t2]  | o == dhBPSym -> fAppdhOne
-    [ t1 ]     | o == dhInvSym    -> if (elem t1 vars) then fAppdhOne else t -- check how to deal with inverse!
+    [ t1 ]     | o == dhInvSym    -> if (elem t1 vars) then fAppdhOne else simplifyraw $ fAppdhInv t1
     [ t1 ]     | o == dhMinusSym    -> simplifyraw $ fAppdhMinus (getcoefromProd vars t1)
     [ t1 ]     | o == dhMuSym    -> fAppdhMu t1  --should never get here
     [ t1 ]     | o == dhHSym    -> t

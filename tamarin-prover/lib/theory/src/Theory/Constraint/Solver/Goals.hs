@@ -305,7 +305,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                   let instrules = M.assocs nodes
                   (i,ru) <- disjunctionOfList instrules
                   act <- disjunctionOfList (filter isDHFact $ get rActs ru)
-                  trace (show ("TRYNG", act))(void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
+                  (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru))))
                   void substSystem
                   return ru
                   `disjunction` do
@@ -465,7 +465,7 @@ solveDHEq t1 t2 = do
                         (FApp (NoEq pairSym) [x, y]) ->(x,y)
                         _ -> error $ "something went wrong" ++ show t
       (sta1,sta2) =  unpair normedpair
-  _ <- protoCase SplitNow S.empty S.empty (sta1, sta2)
+  _ <- trace (show ("CALLING HERE", sta1, sta2)) $ solveTermDHEqs SplitNow (protoCase SplitNow S.empty S.empty) (sta1, sta2)
   return "solveeq"
 
 -- | CR-rule *DG2_chain*: solve a chain constraint.
@@ -699,7 +699,7 @@ solveDHIndaux bset nbset term p rules = do
                         _        -> t
       cterm = clterm nterm
       xrooterms = multRootMixed cterm
-  case  neededexponentslist bset nbset xrooterms of
+  case trace (show ("show", xrooterms)) neededexponentslist bset nbset xrooterms of
     ([], js) -> do 
         let inds = map (\x -> (rootIndKnown2 hndNormal bset (S.map fst nbset) x,x)) $ xrooterms
             neededInds = filter (\(a,b)-> not $ isPublic a) inds

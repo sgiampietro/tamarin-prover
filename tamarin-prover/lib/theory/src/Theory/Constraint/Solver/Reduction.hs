@@ -98,6 +98,7 @@ module Theory.Constraint.Solver.Reduction (
 
   , solveNodeIdEqs
   , solveTermEqs
+  , solveTermDHEqs
   , solveFactEqs
   , solveFactDHEqs
   , solveMixedFactEqs
@@ -1775,7 +1776,7 @@ protoCase :: SplitStrategy -> S.Set LNTerm -> S.Set LNTerm -> (LNTerm, LNTerm) -
 protoCase splitStrat bset nbset (ta1, ta2) = do
         subst <- getM sEqStore
         hndNormal <- getMaudeHandle
-        trace (show ("protocase", ta1, ta2)) $ contradictoryIf $ not (sameOuterFunction ta1 ta2)
+        trace (show ("protocase", ta1, ta2, "bset", "nbset")) $ contradictoryIf $ not (sameOuterFunction ta1 ta2)
         let ta1bp = if containsBP dhBPSym ta1 then removesBP dhBPSym ta1 else ta1
             ta2bp = if containsBP dhBPSym ta2 then removesBP dhBPSym ta2 else ta2
             ta11 = applyVTerm (_eqsSubst subst) ta1bp
@@ -1855,21 +1856,21 @@ solveTermDHEqs splitStrat fun (ta1, ta2)
                                                      return Changed
         | ta1 == fAppdhOne && ta2 == fAppdhZero = do contradictoryIf True
                                                      return Changed
-        | ((isDHLit ta1 || isDHConst ta1) && compatibleLitsStrict ta1 ta2) = (do
+        | ((isDHLit ta1 || isDHConst ta1) && compatibleLitsStrict ta1 ta2) = trace (show ("thiscase", ta1,ta2)) $ (do
                             solveTermEqs splitStrat [(Equal ta1 ta2)]
                             void substSystem
                             void normSystem
                             return Changed)
-        | ((isDHLit ta2 || isDHConst ta2) && compatibleLitsStrict ta2 ta1) = ( do
+        | ((isDHLit ta2 || isDHConst ta2) && compatibleLitsStrict ta2 ta1) = trace (show ("thiscase2", ta1,ta2)) $ ( do
                             solveTermEqs splitStrat [(Equal ta1 ta2)]
                             void substSystem
                             void normSystem
                             return Changed)
         | (isDHLit ta1 && (not $ compatibleLits ta1 ta2)) = do
-            contradictoryIf True 
+            trace (show ("thiscase3", ta1,ta2)) $ contradictoryIf True 
             return Changed
         | (isDHLit ta2 && (not $ compatibleLits ta2 ta1)) = do
-            contradictoryIf True 
+            trace (show ("thiscase4", ta1,ta2)) $ contradictoryIf True 
             return Changed 
         | otherwise = case (isPubExp ta1, isPubExp ta2) of
                 (Just (pg1,e1), Just (pg2,e2)) -> do
@@ -1931,7 +1932,7 @@ solveFactOutKIEqs split fa1 ta1 fa2 = do
 
 solveMixedFactEqs :: SplitStrategy -> Equal LNFact -> S.Set LNTerm -> S.Set LNTerm -> ((LNTerm, LNTerm) -> Reduction ChangeIndicator) -> Reduction ChangeIndicator
 solveMixedFactEqs split (Equal fa1 fa2) bset nbset fun = do
-    trace (show ("AnyContradictionsHere?", not (factTag fa1 == factTag fa2), not ((length $ factTerms fa1) == (length $ factTerms fa2))) ) $ contradictoryIf (not (factTag fa1 == factTag fa2))
+    contradictoryIf (not (factTag fa1 == factTag fa2))
     contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
     let normalfacts = filter (\a -> not $ isMixedTerm a) (factTerms fa1)
         normalfacts2 = filter (\a -> not $ isMixedTerm a) (factTerms fa2)
