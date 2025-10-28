@@ -378,8 +378,8 @@ lvar :: Parser LVar
 lvar = sortedLVar [minBound..]
 
 -- | Parse a non-node variable.
-msgvar :: Parser LVar
-msgvar = sortedLVar [LSortFresh, LSortPub, LSortNat,LSortG, LSortE, LSortNZE, LSortPubG, LSortFrNZE, LSortMsg, LSortDH ]
+msgvar :: Parser LVar -- the ordering inside list is relevant to ensure that no earlier version is a prefix of another one
+msgvar = sortedLVar [LSortPubG, LSortFrNZE, LSortFresh, LSortPub, LSortNat, LSortG, LSortE, LSortNZE, LSortMsg, LSortDH ]
 
 dhvar :: Parser LVar
 dhvar = sortedLVar [LSortDH, LSortG, LSortE, LSortNZE, LSortPubG, LSortFrNZE]
