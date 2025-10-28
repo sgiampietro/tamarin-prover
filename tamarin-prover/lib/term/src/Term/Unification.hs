@@ -177,7 +177,7 @@ allFrVarsOptions subst = n < length frsubst
 allDistinctFrVars :: SubstVFresh Name LVar -> Bool
 allDistinctFrVars subst = length (nub $ map fst tupsubst) == length (nub $ map snd tupsubst)
     where tupsubst = filter (\(a,b)-> sortOfLNTerm (LIT (Var a)) == LSortFrNZE ) $ substToListVFresh subst
-
+-- check if this is too restrictive!
 
 pruneSimilar :: [[(LVar, LNTerm)]] -> [[(LVar, LNTerm)]]
 pruneSimilar = go Set.empty []
@@ -199,7 +199,7 @@ unifyLNDHProtoTermFactored eq = do
       substs <- unifyLDHFrTermFactored n sortOfName eq
       if (length substs < n) || (any allDistinctFrVars substs) || (allFrVarsOptions substs)
         then return $ map substFromListVFresh ( pruneSimilar $ map substToListVFresh substs )
-        else trace (show ("calling FILTEREDVARIANT",eq)) $ unifyLDHProtoTermFactored sortOfName eq
+        else unifyLDHProtoTermFactored sortOfName eq
     where 
       -- length $ nub $ filter (\l -> lvarSort l == LSortFrNZE) (concatMap (\(Equal a b)-> varsVTerm a) eq)
       m = length $ nub $ filter (\l -> lvarSort l == LSortFrNZE) (concatMap (\(Equal a b)-> varsVTerm a ++ varsVTerm b) eq)

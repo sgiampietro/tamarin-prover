@@ -140,6 +140,7 @@ nfViaHaskell t0 = reader $ \hnd -> check hnd
             FNatPlus   ts    -> all go ts
             FAppNoEq _ ts    -> all go ts
             FAppC _    ts    -> all go ts
+            _ -> True
 
         struleApplicable t (CtxtStRule lhs rhs) =
             case solveMatchLNTerm (t `matchWith` lhs) `runReader` hnd of

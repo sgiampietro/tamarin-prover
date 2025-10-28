@@ -801,9 +801,10 @@ checkUniversalTerms tuplelist indts = do
     let genindterms = zipWith (genTerm hndNormal) xindterms zzs
     se  <- gets id
     hnd <- getMaudeHandleDH
-    (eqs2, maySplitId,subst1) <- addDHEqs2 hnd False genindterms prterms =<< getM sEqStore 
-    contradictoryIf $ null subst1
-    trace (show ("thisisreturnedUNIVERSAL", eqs2)) $ contradictoryIf $ eqsIsFalse eqs2
+    eqstore <- getM sEqStore
+    eqList <- addDHEqs2 hnd False genindterms prterms eqstore
+    (eqs2, maySplitId) <- disjunctionOfList eqList
+    contradictoryIf $ eqsIsFalse eqs2
 
 
 --solveBPedge :: LNTerm -> (LNTerm, LNTerm) -> [(LNTerm, LNTerm)] -> NodePrem -> [RuleAC] -> [(NodeId, RuleACInst)] -> StateT System (FreshT (DisjT (Reader ProofContext))) String
@@ -1970,16 +1971,19 @@ solveIndFactDH split listtups faPrem = do
         queries = filter (\(Equal t rt) -> t /= rt) queries'
         xindterms = map (\(Equal rt ind) -> ind) queries
         prterms = map (\(Equal rt ind) -> rt) queries
-    if trace (show ("queriesbefore", queries, queries', faPrem, "*", listtups)) $ queries == [] 
+    if queries == [] 
      then return (faPrem, nub $ map (\((a,b),c)-> a) listtups)
      else do
         zzs <- replicateM (length xindterms) $ freshLVar "zz" LSortE
         let genindterms = zipWith (genTerm hndNormal) xindterms zzs
         se  <- gets id
-        hnd <- trace (show ("queries", queries)) getMaudeHandleDH
-        (eqs2, maySplitId,subst1) <- addDHEqs2 hnd False genindterms prterms =<< getM sEqStore 
+        hnd <- getMaudeHandleDH
+        eqstore <- getM sEqStore
+        eqList <- addDHEqs2 hnd False genindterms prterms eqstore
+        (eqs2, maySplitId) <- disjunctionOfList eqList
+        se  <-  gets id
         setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
-        trace (show ("solution", eqs2, "@@@", listtups)) noContradictoryEqStore
+        noContradictoryEqStore
         subst <- getM sEqStore
         void substSystem
         nodes <- getM sNodes
@@ -1996,7 +2000,10 @@ solveIndFactDHBP split listtups faPrem listterms = do
     let genindterms = zipWith (genTerm hndNormal) xindterms zzs
     se  <- gets id
     hnd <- getMaudeHandleDH
-    (eqs2, maySplitId,subst1) <- addDHEqs2 hnd False genindterms prterms =<< getM sEqStore 
+    eqstore <- getM sEqStore
+    eqList <- addDHEqs2  hnd False genindterms prterms eqstore
+    (eqs2, maySplitId) <- disjunctionOfList eqList
+    se  <-  gets id
     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2
     noContradictoryEqStore
     subst <- getM sEqStore
