@@ -117,7 +117,7 @@ module Theory.Constraint.Solver.Reduction (
 
   ) where
 
-import           Debug.Trace.Ignore
+import           Debug.Trace -- .Ignore
 import           Prelude                                 hiding (id, (.))
 
 import qualified Data.Foldable                           as F
@@ -273,10 +273,11 @@ insertFreshNodeConcInst rules instrules = do
 
 insertFreshNodeConcKI ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, (LNFact, LNTerm))
 insertFreshNodeConcKI rules instrules = do
-      irulist <- traverseDHNodes 1 rules
-      let pairs = [(ru, (i,c), (f, rterm), mc) | (i, ru, mc) <- irulist, (c,f) <- enumConcs ru, (factTag f == OutFact), isMixedFact f, rterm <- map fst $ extractMixedRoot ((head $ factTerms f)), sortOfLNTerm rterm == LSortE || sortOfLNTerm rterm == LSortFrNZE  ]
-      (ru,(i,c),f, mc) <- disjunctionOfList pairs
-      exploitNodeId i ru mc 
+      irulist <-traverseDHNodes 1 rules
+      let pairs =  trace (show ("callingonrules")) $ [(ru, (i,c), (f, rterm), mc) | (i, ru, mc) <- irulist, (c,f) <- enumConcs ru, factTag f == OutFact, isMixedFact f, rterm <- map fst $ extractMixedRoot ((head $ factTerms f)), sortOfLNTerm rterm == LSortE || sortOfLNTerm rterm == LSortFrNZE ]
+          pairs2 = trace (show ("callingonrules")) $ [(ru, (i,c), (f, rterm), mc) | (i, ru, mc) <- irulist, (c,f) <- enumConcs ru, factTag f == KDFact, rterm <- factTerms f, isVar rterm ]
+      (ru,(i,c),f, mc) <- disjunctionOfList (pairs++pairs2)
+      trace (show ("withPAIRS", pairs)) $ exploitNodeId i ru mc 
       return (ru, (i,c),f)
     `disjunction`
     (do 
@@ -454,7 +455,7 @@ insertEdges edges = do
 
 insertOutKIEdge :: (NodeConc, LNFact,LNTerm, LNFact, NodePrem) -> Reduction ()
 insertOutKIEdge (c, fa1,t1,fa2,p) = do
-    void (solveFactOutKIEqs SplitNow fa1 t1 fa2)
+    (solveFactOutKIEqs SplitNow fa1 t1 fa2)
     modM sEdges (\es -> foldr S.insert es [ Edge c p ])
 
 
@@ -934,7 +935,7 @@ insertDHdirectEdge :: LNTerm -> LNFact -> NodePrem -> [RuleAC] -> [(NodeId, Rule
                     (LNTerm -> NodeId -> Reduction String) -> Reduction String
 insertDHdirectEdge ta2 fa2 p rules rulesinst fun= 
     trace (show "callingchaing") $ solveTermDHEqsChain2 SplitNow Nothing rules rulesinst fun p fa2 ta2
-    --(solveMixedFactEqs SplitNow (Equal fa2 fa1) bset nbset chainFun)
+ --TODO: add here a disjunction over rules that are Destruction rules!
 
 insertBasisElem :: LNTerm -> Reduction ()
 insertBasisElem x = do
@@ -1922,9 +1923,8 @@ solveFactEqs split eqs = do
 
 solveFactOutKIEqs :: SplitStrategy -> LNFact -> LNTerm -> LNFact -> Reduction ChangeIndicator
 solveFactOutKIEqs split fa1 ta1 fa2 = do
-    contradictoryIf (not (factTag fa1 == OutFact) && (factTag fa2 == KIFact ) )
+    trace (show ("solveFactOutKI", fa1, ta1, fa2)) contradictoryIf $ not (((factTag fa1 == OutFact) && (factTag fa2 == KIFact )) || ((factTag fa1 == KDFact) && (factTag fa2 == KIFact )))
     contradictoryIf (not ((length $ factTerms fa1) == (length $ factTerms fa2)))
-    hndNormal <- getMaudeHandle
     case (factTerms fa2) of 
         [ta2] -> (solveTermEqs split)  $ [Equal ta1 ta2]
         _ -> error "Out and KI facts should be of arity 1"

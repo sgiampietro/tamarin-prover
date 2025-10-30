@@ -216,6 +216,8 @@ sortCompare s1 s2 = case (s1, s2) of
     (LSortMsg,   LSortE)  -> Just GT
     (LSortE,     LSortMsg )  -> Just LT
     (LSortMsg,   LSortNZE)  -> Just GT
+    (LSortMsg,   LSortFrNZE)  -> Just GT
+    (LSortFrNZE,   LSortMsg)  -> Just LT
     (LSortNZE,   LSortMsg )  -> Just LT
     (LSortMsg,   LSortVarG)  -> Just GT
     (LSortVarG,   LSortMsg )  -> Just LT

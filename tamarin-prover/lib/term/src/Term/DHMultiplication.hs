@@ -245,7 +245,7 @@ multRootMixed a = case sortOfLNTerm a of
 extractMixedRoot :: LNTerm -> [(LNTerm, LNTerm)]
 extractMixedRoot t = case viewTerm2 t of
                         (FPair x y) -> (map (\rx -> (rx,x) ) $ multRootMixed x) ++ extractMixedRoot y-- (map (\ry -> (ry,y) ) $ multRootMixed y)  
-                        _ -> if isDHTerm t then  map (\rt -> (rt, t)) $ multRootList t else trace (show ("extractmiced root3", t)) []
+                        _ -> if isDHTerm t then  map (\rt -> (rt, t)) $ multRootList t else []
  
 isRoot :: (Show a, Ord a ) => DHMultSym -> Term a -> Bool
 isRoot o (LIT l) = True
