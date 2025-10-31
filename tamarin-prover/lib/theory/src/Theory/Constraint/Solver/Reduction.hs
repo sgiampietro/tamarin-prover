@@ -271,11 +271,12 @@ insertFreshNodeConcInst rules instrules = do
         (v, fa) <- disjunctionOfList $ [(c,f)| (c,f) <- enumConcs ru,  isDHFact f ]
         return (ru, (i, v), fa))
 
-insertFreshNodeConcKI ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, (LNFact, LNTerm))
-insertFreshNodeConcKI rules instrules = do
+insertFreshNodeConcKI ::  [RuleAC] -> [RuleAC] -> [(NodeId,RuleACInst)] -> Reduction (RuleACInst, NodeConc, (LNFact, LNTerm))
+insertFreshNodeConcKI rules drules instrules = do
       irulist <-traverseDHNodes 1 rules
       let pairs =  trace (show ("callingonrules")) $ [(ru, (i,c), (f, rterm), mc) | (i, ru, mc) <- irulist, (c,f) <- enumConcs ru, factTag f == OutFact, isMixedFact f, rterm <- map fst $ extractMixedRoot ((head $ factTerms f)), sortOfLNTerm rterm == LSortE || sortOfLNTerm rterm == LSortFrNZE ]
-          pairs2 = trace (show ("callingonrules")) $ [(ru, (i,c), (f, rterm), mc) | (i, ru, mc) <- irulist, (c,f) <- enumConcs ru, factTag f == KDFact, rterm <- factTerms f, isVar rterm ]
+      irulist2 <- traverseDHNodes 1 drules    
+      let pairs2 = trace (show ("callingonrules")) $ [(ru, (i,c), (f, rterm), mc) | (i, ru, mc) <- irulist2, (c,f) <- enumConcs ru, factTag f == KDFact, rterm <- factTerms f, isVar rterm ]
       (ru,(i,c),f, mc) <- disjunctionOfList (pairs++pairs2)
       trace (show ("withPAIRS", pairs)) $ exploitNodeId i ru mc 
       return (ru, (i,c),f)
@@ -318,12 +319,14 @@ insertFreshNodeConcOutInst ::  [RuleAC] -> [(NodeId,RuleACInst)] -> Int -> LSort
 insertFreshNodeConcOutInst rules instrules n lso base Nothing = do
       irulist <- traverseDHNodes n rules
       let pairs = [(ru, (i,c), (f, headf), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isMixedFact f, not $ isMuTerm (head $ factTerms f), (rterm, headf) <- extractMixedRoot (head $ factTerms f) , compatibleSort lso rterm, hasSameBase base lso rterm]
-      disjunctionOfList (nub $ concatMap permutations (nub $ combinations n pairs))
+          pairs2 = [(ru, (i,c), (f, rterm), rterm, mconstrs, b) | (i, ru, mconstrs, b) <- (map (\(a,b,c)->(a,b,c, True)) irulist), (c,f) <- enumConcs ru, factTag f == KDFact, rterm <- factTerms f, isVar rterm ]
+      disjunctionOfList (nub $ concatMap permutations (nub $ combinations n (pairs++pairs2)))
 insertFreshNodeConcOutInst rules instrules n lso base (Just ((j,ruj,faConc,cj), ta)) = do
       irulist <- traverseDHNodes n rules
       let pairs = [(ru, (i,c), (f, headf), rterm, mconstrs,b) | (i, ru, mconstrs, b) <- ((map (\(a,b)->(a,b,Nothing, False)) instrules)++ (map (\(a,b,c)->(a,b,c, True)) irulist)), (c,f) <- enumConcs ru, (factTag f == OutFact), isMixedFact f, not $ isMuTerm (head $ factTerms f), (rterm, headf) <- extractMixedRoot (head $ factTerms f), compatibleSort lso rterm, hasSameBase base lso rterm ]
-          pairs2 =  [(ruj, (j,cj), (faConc, ta), rterm , Nothing,False) | rterm <- multRootList ta, compatibleSort lso rterm ]
-          finallist = nub $ (concatMap permutations (filter ( any (\(a,(i,b),c,d,e,f) -> i==j && a ==ruj)) (combinations n $ pairs++pairs2)) )
+          pairs2 = [(ru, (i,c), (f, rterm), rterm, mconstrs, b) | (i, ru, mconstrs, b) <- (map (\(a,b,c)->(a,b,c, True)) irulist), (c,f) <- enumConcs ru, factTag f == KDFact, rterm <- factTerms f, isVar rterm ]
+          pairs3 =  [(ruj, (j,cj), (faConc, ta), rterm , Nothing,False) | rterm <- multRootList ta, compatibleSort lso rterm ]
+          finallist = nub $ (concatMap permutations (filter ( any (\(a,(i,b),c,d,e,f) -> i==j && a ==ruj)) (combinations n $ pairs++pairs2++pairs3)) )
       disjunctionOfList finallist
 
 insertFreshNodeBySym :: DHMultSym -> [RuleAC] -> [(NodeId,RuleACInst)] -> Int -> Maybe ((NodeId, RuleACInst, LNFact, ConcIdx), LNTerm) -> Reduction [(RuleACInst, NodeConc, (LNFact, LNTerm), LNTerm, Maybe RuleACConstrs,Bool)]

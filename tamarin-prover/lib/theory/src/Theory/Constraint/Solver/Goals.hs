@@ -260,7 +260,9 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                             mapM_ requiresKU [a, b] *> return ru
             (Fact KUFact _ [m]) | (sortOfLNTerm m == LSortFrNZE) -> do
                    nodes <- getM sNodes
-                   (a,b,(c,d)) <- insertFreshNodeConcKI rules (M.assocs nodes)
+                   drules <- askM pcRules
+                   let drules2 = filter (\r->showRuleCaseName r /= "d_0_snd" && showRuleCaseName r /= "d_0_fst") (get crDestruct drules)
+                   (a,b,(c,d)) <- insertFreshNodeConcKI rules drules2 (M.assocs nodes)
                    solveTermEqs SplitNow ([Equal m d])
                    void substSystem
                    return a
@@ -390,8 +392,14 @@ solvePremise :: [RuleAC]       -- ^ All rules with a non-K-fact conclusion.
              -> LNFact         -- ^ Fact required at this premise.
              -> Reduction String -- ^ Case name to use.
 solvePremise rules p faPrem
-  | isKdhFact faPrem && isDHFact faPrem = (solveDHInd rules p faPrem)
-  | isKdhFact faPrem && isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
+  | isKdhFact faPrem && isDHFact faPrem = do 
+        drules <- askM pcRules
+        let drules2 = filter (\r->showRuleCaseName r /= "d_0_snd" && showRuleCaseName r /= "d_0_fst") (get crDestruct drules)
+        (solveDHInd (rules++drules2) p faPrem)
+  | isKdhFact faPrem && isMixedFact faPrem = do 
+        drules <- askM pcRules
+        let drules2 = filter (\r->showRuleCaseName r /= "d_0_snd" && showRuleCaseName r /= "d_0_fst") (get crDestruct drules)
+        (solveDHIndMixed (rules++drules2) p faPrem)
   | isProtoDHFact faPrem =  solveDHIndProto rules p faPrem
   | isProtoMixedFact faPrem = solveDHMixedPremise rules p faPrem
   | isKDFact faPrem = do
@@ -411,11 +419,13 @@ solvePremise rules p faPrem
           bset <- getM sBasis
           nbset <- getM sNotBasis
           nodes <- getM sNodes
-          let ta2 = head $ factTerms faPrem
+          drules <- askM pcRules
+          let drules2 = filter (\r->showRuleCaseName r /= "d_0_snd" && showRuleCaseName r /= "d_0_fst") (get crDestruct drules)
+              ta2 = head $ factTerms faPrem
           case neededexponents bset nbset ta2 of 
             ([],js) -> do 
                     forM_ js (\i-> insertLess i (fst p) Adversary)
-                    insertDHdirectEdge ta2 faPrem p rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+                    insertDHdirectEdge ta2 faPrem p (rules++drules2) (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
                     void substSystem
                     void normSystem
                     return "Using_OutFacts"
@@ -432,7 +442,7 @@ solvePremise rules p faPrem
                   insertGoal (ActionG i (kdhFact x)) False
                   insertLess i (fst p) Adversary
                   insertNotBasisElem x i)
-              insertDHdirectEdge ta2 faPrem p rules (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
+              insertDHdirectEdge ta2 faPrem p (rules++drules2) (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
               substSystem
               void normSystem
               return "Using_OutFacts")
@@ -445,7 +455,7 @@ solvePremise rules p faPrem
         nodes <- getM sNodes
         drules <- askM pcRules
         let drules2 = filter (\r->showRuleCaseName r /= "d_0_snd" && showRuleCaseName r /= "d_0_fst") (get crDestruct drules)
-        (ru, c, (faConc, t)) <- insertFreshNodeConcKI (rules++drules2) (M.assocs nodes)-- (filter isIntruderRule rules) (M.assocs nodes)
+        (ru, c, (faConc, t)) <- insertFreshNodeConcKI rules drules2 (M.assocs nodes)-- (filter isIntruderRule rules) (M.assocs nodes)
         insertOutKIEdge (c, faConc, t, faPrem, p)
         return $ showRuleCaseName ru
   | isMixedFact faPrem = (solveDHIndMixed rules p faPrem)
@@ -550,7 +560,8 @@ solveChain rules (c, p) = do
             bset <- getM sBasis
             nbset <- getM sNotBasis
             nodes <- trace (show ("insertDirectEdge1GoalsMixed", bset, nbset,faPrem)) $ getM sNodes
-            insertDHMixedEdge False (c, faConc, faPrem, p) cRule (S.fromList $ basisOfRule cRule) (S.fromList $ notBasisOfRule cRule) (get crProtocol rules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
+            let drules2 = filter (\r->showRuleCaseName r /= "d_0_snd" && showRuleCaseName r /= "d_0_fst") (get crDestruct rules2)
+            insertDHMixedEdge False (c, faConc, faPrem, p) cRule (S.fromList $ basisOfRule cRule) (S.fromList $ notBasisOfRule cRule) ((get crProtocol rules2) ++drules2) (M.assocs nodes) (\x i -> solvePremise (get crProtocol rules2 ++ get crConstruct rules2) (i, PremIdx 0) (kIFact x)) 
             let mPrem = case kFactView faConc of
                                 Just (DnK, m') -> m'
                                 _              -> error $ "solveChain: impossible"
