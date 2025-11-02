@@ -418,18 +418,17 @@ sortOfLTerm sortOfConst t = case viewTerm2 t of
     FdhGinv _ -> LSortG
     FdhMinus _ -> LSortE
     DHZero  -> LSortE
-    FdhInv _ -> LSortNZE
+    FdhInv _ -> LSortE
     DHEg -> LSortG
-    FdhTimes _ _ -> LSortNZE
     FdhExp _ _ -> LSortG
-    DHOne -> LSortNZE
+    DHOne -> LSortE
     FdhTimesE _ _ -> LSortE
     FdhPlus _ _ -> LSortE
-    FdhMu _ -> LSortNZE
-    FdhMu2 _ _ -> LSortNZE
+    FdhMu _ -> LSortE
+    FdhMu2 _ _ -> LSortE
     -- for bilinear pairings
     FdhBP _ _ -> LSortG
-    FdhH _ -> LSortNZE
+    FdhH _ -> LSortE
     --FdhBox _ -> LSortG
     --FdhBoxE _ -> LSortE
     _             -> LSortMsg
@@ -525,7 +524,6 @@ getMsgVar _                                                    = Nothing
 
 allFrVarsAux :: LNTerm -> Bool
 allFrVarsAux a = case viewTerm2 a of
-    FdhTimes t1 t2 -> (all (\v -> lvarSort v == LSortFrNZE ) $ varsVTerm t1) || (all (\v -> lvarSort v == LSortFrNZE ) $ varsVTerm t2)
     FdhTimesE t1 t2 -> (all (\v -> lvarSort v == LSortFrNZE ) $ varsVTerm t1) || (all (\v -> lvarSort v == LSortFrNZE ) $ varsVTerm t2)
     FdhExp t1 t2 -> allFrVarsAux t2
     _ -> False

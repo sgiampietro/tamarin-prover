@@ -38,6 +38,7 @@ module Theory.Model.Rule (
   , enumConcsDhOut
   , enumConcsDhExpOut
   , basisVars
+  , basisVarsIn
 
   -- ** Extended positions
   , ExtendedPosition
@@ -266,9 +267,21 @@ enumConcsDhOut ru = filter (\i -> isDHTerm i && sortOfLNTerm i == LSortG && isEx
 enumConcsDhExpOut :: Rule i -> [LNTerm]
 enumConcsDhExpOut ru = filter (isDHTerm) $ concat [ factTerms f | (c,f) <- enumConcs ru, factTag f == OutFact]
 
+
+extractPairs :: LNTerm -> [LNTerm]
+extractPairs t = case viewTerm2 t of
+                        (FPair x y) -> x:(extractPairs y)-- (map (\ry -> (ry,y) ) $ multRootMixed y)  
+                        _ -> if isDHTerm t then [t] else []
+
+basisVarsIn :: Rule i -> [LNTerm]
+basisVarsIn ru = map (\y -> if isDHInvLit y then getInvLit y else y) $ filter (\i -> (isDHLit i || isDHInvLit i) && ( sortOfLNTerm i == LSortFrNZE)) (allterms)
+                where allterms = [ t | f <- (map (\(c,f)->f) $ enumPrems ru) , factTag f == InFact,  t <- concatMap extractPairs $ factTerms f]
+
+
+
 basisVars :: Rule i -> [LNTerm]
-basisVars ru = map (\y -> if isDHInvLit y then getInvLit y else y) $ filter (\i -> (isDHLit i || isDHInvLit i) && ( sortOfLNTerm i == LSortFrNZE)) allterms
-                where allterms = [ t | f <- (map (\(c,f)->f) $ enumConcs ru) ++ enumActs ru , factTag f == OutFact || factTag f == KdhFact, t<- factTerms f]
+basisVars ru = map (\y -> if isDHInvLit y then getInvLit y else y) $ filter (\i -> (isDHLit i || isDHInvLit i) && ( sortOfLNTerm i == LSortFrNZE)) (allterms)
+                where allterms = [ t | f <- (map (\(c,f)->f) $ enumConcs ru) ++ enumActs ru , factTag f == OutFact || factTag f == KdhFact, t<- concatMap extractPairs $ factTerms f]
 
 
 

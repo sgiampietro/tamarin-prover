@@ -123,7 +123,6 @@ nfViaHaskell t0 = reader $ \hnd -> check hnd
             FdhTimesE t1 t2 -> True -- go t1 && go t2
             FdhExp _ _ -> True --False
             DHOne -> True
-            FdhTimes _ _ -> True --False
             FdhPlus t1 t2 -> True-- go t1 && go t2
             FdhMu t -> True
             -- FdhBox t -> go t
@@ -141,6 +140,7 @@ nfViaHaskell t0 = reader $ \hnd -> check hnd
             FNatPlus   ts    -> all go ts
             FAppNoEq _ ts    -> all go ts
             FAppC _    ts    -> all go ts
+            _ -> True
 
         struleApplicable t (CtxtStRule lhs rhs) =
             case solveMatchLNTerm (t `matchWith` lhs) `runReader` hnd of

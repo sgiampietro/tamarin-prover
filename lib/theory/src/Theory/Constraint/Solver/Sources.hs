@@ -388,6 +388,7 @@ precomputeSources
     -> [LNGuarded]       -- ^ Restrictions.
     -> [Source]
 precomputeSources parameters ctxt restrictions =
+    --trace (show ("DEBUGG", rawSources, "DEBUGGAFTER", sources')) 
     (map cleanupCaseNames (sources'))
   where
     sources' = saturateSources parameters ctxt rawSources

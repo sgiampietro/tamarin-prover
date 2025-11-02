@@ -23,7 +23,7 @@ import qualified Data.Map     as Map
 
 import GHC.Real
 import Term.LTerm -- (LNTerm)
-import Debug.Trace -- .Ignore
+import Debug.Trace.Ignore
 --import Term.Builtin.Convenience (x0)
 
 import Data.List (subsequences, (\\))
@@ -69,15 +69,6 @@ simplify mterm = simplifyraw mterm --runReader (norm' mterm) hnd
 simplifyraw :: LNTerm -> LNTerm
 simplifyraw t= case viewTerm2 t of 
   Lit2 l -> t
-  FdhTimes t1 t2 -> (case (viewTerm2 t1, viewTerm2 t2) of
-    (DHOne, DHOne)  -> fAppdhOne
-    (DHOne, _ )     -> simplifyraw t2
-    (_    , DHOne)  -> simplifyraw t1
-    (DHZero, _ )    -> fAppdhZero
-    (_    , DHZero) -> fAppdhZero
-    (FdhInv t3, _) ->  if (t2 == t3) then fAppdhOne else t
-    (_, FdhInv t3) ->  if (t1 == t3) then fAppdhOne else t
-    (_    , _ )     -> t )
   FdhTimesE t1 t2 -> (case (viewTerm2 t1, viewTerm2 t2) of
     (DHOne, DHOne) -> fAppdhOne
     (DHOne, _ )    -> simplifyraw t2
@@ -150,7 +141,7 @@ pivotCheck zero (r:rs) counter vars
     | rs == [] = ((r:rs), vars)
     | counter == 0 = ((r:rs), vars)
     | (head r /= zero) = ((r:rs), vars)
-    | otherwise = (fst $ pivotCheck zero (rs ++ [r]) (counter-1) vars, vars)
+    | otherwise = trace (show "swappedrow!!!!") (fst $ pivotCheck zero (rs ++ [r]) (counter-1) (vars), vars)
 
 
 removeZeroRows :: LNTerm -> Matrix LNTerm -> [LNTerm] -> (Matrix LNTerm, [LNTerm], [LNTerm])
@@ -206,14 +197,14 @@ innerProduct :: LNTerm -> Vector LNTerm -> Vector LNTerm -> LNTerm
 innerProduct zero [] [] = zero
 innerProduct zero [y] [x] = (simplifyraw $ y*x)
 innerProduct zero (y:ys) (x:xs) = simplifyraw $ (simplifyraw $ y*x)+(innerProduct zero ys xs)
-innerProduct zero t s = error ("unexpected format" ++ show t ++ "and" ++ show s)
+innerProduct zero t s =  zero -- error ("unexpected format" ++ show t ++ "and" ++ show s)
 
 -- Use back substitution to calculate the solutions
 traceBack2' :: LNTerm -> Int -> Matrix LNTerm -> Vector LNTerm -> Vector LNTerm
 traceBack2' zero n [] extravars = []
-traceBack2' zero n (r:rows) extravars =  (var : (traceBack2' zero n rs extravars))
+traceBack2' zero n (r:rows) extravars = (var : (traceBack2' zero n rs extravars))
     where
-        var2 = if length (drop 1 r) == 1 then fAppdhZero else (innerProduct zero extravars (map (simplifyraw . negate ) (take n (drop 1 r)))) -- negate
+        var2 = (innerProduct zero extravars (map (simplifyraw . negate ) (take (min (length $ drop 1 r) n) (drop 1 r)))) -- negate
         var = simplifyraw $ (simplifyraw $ (head r) + var2)/(last r)
         rs = map substituteVariable rows
         substituteVariable (x:(y:ys)) = ((simplifyraw $ x +(simplifyraw $ negate (simplifyraw $ var*y) ) ):ys) 
@@ -254,28 +245,27 @@ solveMatrix2 :: LNTerm -> [LNTerm] -> Matrix LNTerm -> [LNTerm] -> (Maybe [(Vect
 solveMatrix2 zero basis matrix variables 
   | inconsistentMatrix zero cleanmatrix = Nothing
   | null cleanmatrix = Nothing
-  | otherwise = 
+  | otherwise = trace (show ("EXTRAVARS", ncol, nrows,ncol - nrows, extravars)) $ 
   Just (map (\evars -> (traceBack2 zero cleanmatrix (map fst evars) (map snd evars) , variablesP, subszero, evars)) options)  --Just (traceBack zero cleanmatrix) 
     where 
       (redmatrix, variables2) = gaussReduction zero matrix variables
-      (cleanmatrix, variablesP, subszero) =  removeZeroRows zero redmatrix variables2
+      (cleanmatrix, variablesP, subszero) =  trace (show ("remafrtsu", redmatrix, variables2)) $ removeZeroRows zero redmatrix variables2
       ncol = length (head cleanmatrix) - 1
       nrows = length cleanmatrix
-      n = ncol - nrows
       zerovars = map getVar subszero
       extravars = map fromJust $ ((map getVar variables) \\ (map getVar variablesP))\\zerovars
       -- extravars' = filter (\i-> lvarName i /= "yk") extravars
-      m = length extravars --'
+      m = trace (show "waiting") length extravars --'
       extravarssubst = take m basis-- filter (\z-> not $ all (fAppdhZero == ) z) $ combineNlists m [fAppdhOne, fAppdhZero]
-      options =  [zip extravars extravarssubst] -- (combineNlists m extravarssubst)
+      options = trace (show ("extravarsubst", extravarssubst, "varP", variablesP, "zleanmatrix", cleanmatrix, cleanmatrix)) $ [zip extravars extravarssubst] -- (combineNlists m extravarssubst)
 
 
 
 -- should return a Maybe [(Vector LNTerm, [LNTerm], [LNTerm])] (list of nulspace basis vectors)
 solveMatrix :: LNTerm -> Matrix LNTerm -> [LNTerm] -> (Maybe (Vector LNTerm), [LNTerm], [LNTerm])
 solveMatrix zero matrix variables 
-  | inconsistentMatrix zero cleanmatrix = (Nothing, variables, [])
-  | otherwise = (Just (traceBack zero cleanmatrix) , variablesP, subst) --Just (traceBack zero cleanmatrix) 
+  | inconsistentMatrix zero cleanmatrix = trace (show ("inconsistent", cleanmatrix)) (Nothing, variables, [])
+  | otherwise = trace (show ("consistent", cleanmatrix)) (Just (traceBack zero cleanmatrix) , variablesP, subst) --Just (traceBack zero cleanmatrix) 
     where 
       (redmatrix, variables2) = gaussReduction zero matrix variables
       (cleanmatrix, variablesP, subst) = removeZeroRows zero redmatrix variables2

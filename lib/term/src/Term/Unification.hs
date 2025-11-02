@@ -177,7 +177,7 @@ allFrVarsOptions subst = n < length frsubst
 allDistinctFrVars :: SubstVFresh Name LVar -> Bool
 allDistinctFrVars subst = length (nub $ map fst tupsubst) == length (nub $ map snd tupsubst)
     where tupsubst = filter (\(a,b)-> sortOfLNTerm (LIT (Var a)) == LSortFrNZE ) $ substToListVFresh subst
-
+-- check if this is too restrictive!
 
 pruneSimilar :: [[(LVar, LNTerm)]] -> [[(LVar, LNTerm)]]
 pruneSimilar = go Set.empty []
@@ -336,10 +336,11 @@ unifyRaw l0 r0 =  (do
     sortOf <- ask
     l <- gets ((`applyVTerm` l0) . substFromMap)
     r <- gets ((`applyVTerm` r0) . substFromMap)
+    guard (trace (show ("unifyRaw", mappings, viewTerm l ,viewTerm r)) True)
     case (viewTerm l, viewTerm r) of
        (Lit (Var vl), Lit (Var vr)) 
          | vl == vr  -> return ()
-         | otherwise -> (case (lvarSort vl, lvarSort vr) of
+         | otherwise -> trace (show ("SORTS ARE",l,r, lvarSort vl, lvarSort vr)) (case (lvarSort vl, lvarSort vr) of
              (sl, sr) | sl == sr                 -> if vl < vr then (elim vr l)
                                                     else (elim vl r) 
              _        | sortGeqLTerm sortOf vl r -> (elim vl r)
@@ -376,7 +377,7 @@ unifyRaw l0 r0 =  (do
        _                      -> mzero )-- no unifier
   where
     elim v t
-      | v `occurs` t = mzero -- no unifier
+      | v `occurs` t = trace (show ("impossible", v, t)) mzero -- no unifier
       | otherwise    = do
           sortOf <- ask
           guard  (sortGeqLTerm sortOf v t)
@@ -400,6 +401,7 @@ matchRaw :: IsConst c
          -> ExceptT MatchFailure (State (Map LVar (VTerm c LVar))) ()
 matchRaw sortOf t p = do
     mappings <- get
+    guard (trace (show (mappings,t,p)) True)
     case (viewTerm t, viewTerm p) of
       (_, Lit (Var vp)) ->
           case M.lookup vp mappings of

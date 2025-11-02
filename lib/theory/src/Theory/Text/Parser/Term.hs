@@ -108,6 +108,7 @@ dhMultBuiltins =  [
   , dhMu2SymString
   , dhBPSymString
   , dhHSymString
+  , dhH2SymString
   --, dhBoxSymString
   --, dhBoxESymString  
   ] 

@@ -111,6 +111,7 @@ module Term.Term (
     -- for bilinear pairings
     , dhBPSymString
     , dhHSymString
+    , dhH2SymString
     --, dhBoxSymString
     --, dhBoxESymString
 
@@ -138,6 +139,7 @@ module Term.Term (
     -- for bilinear parinigs:
     , dhBPSym
     , dhHSym
+    , dhH2Sym
     --, dhBoxSym
     --, dhBoxESym
 
@@ -211,6 +213,7 @@ fAppdhPlus (s,p) = fAppDHMult dhPlusSym [s, p]
 fAppdhExp (s,p) = fAppDHMult dhExpSym [s, p]
 fAppdhMu2 (s,p) = fAppDHMult dhMuSym [s, p]
 fAppdhBP (s,p) = fAppDHMult dhBPSym [s, p]
+fAppdhH2 (e,b) = fAppDHMult dhH2Sym [e, b]
 
 fAppdhGinv, fAppdhMinus, fAppdhInv, fAppdhMu, fAppdhH :: Term a -> Term a --, fAppdhBox, fAppdhBoxE
 fAppdhGinv e = fAppDHMult dhGinvSym [e]
@@ -218,6 +221,7 @@ fAppdhMinus e = fAppDHMult dhMinusSym [e]
 fAppdhInv e = fAppDHMult dhInvSym [e]
 fAppdhMu e = fAppDHMult dhMuSym [e]
 fAppdhH e = fAppDHMult dhHSym [e]
+
 --fAppdhBox e = fAppDHMult dhBoxSym [e]
 --fAppdhBoxE e = fAppDHMult dhBoxESym [e]
 

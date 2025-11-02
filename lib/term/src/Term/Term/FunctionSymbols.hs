@@ -59,6 +59,7 @@ module Term.Term.FunctionSymbols (
     -- for bilinear pairings:
     , dhBPSymString
     , dhHSymString
+    , dhH2SymString
     --, dhBoxSymString
     --, dhBoxESymString
 
@@ -92,6 +93,7 @@ module Term.Term.FunctionSymbols (
     -- for bilinear pairings:
     , dhBPSym
     , dhHSym
+    , dhH2Sym
     --, dhBoxSym
     --, dhBoxESym
 
@@ -198,7 +200,7 @@ emapSymString, pmultSymString :: ByteString
 emapSymString  = "em"
 pmultSymString = "pmult"
 
-dhMultSymString, dhGinvSymString, dhZeroSymString, dhMinusSymString,dhInvSymString,dhEgSymString,dhTimesESymString, dhPlusSymString,dhExpSymString,dhOneSymString, dhMuSymString, dhMu2SymString, dhBPSymString, dhHSymString :: ByteString --, dhBoxSymString, dhBoxESymString
+dhMultSymString, dhGinvSymString, dhZeroSymString, dhMinusSymString,dhInvSymString,dhEgSymString,dhTimesESymString, dhPlusSymString,dhExpSymString,dhOneSymString, dhMuSymString, dhMu2SymString, dhBPSymString, dhHSymString, dhH2SymString :: ByteString --, dhBoxSymString, dhBoxESymString
 dhMultSymString = "dhMult"
 dhGinvSymString = "dhGinv"
 dhZeroSymString = "dhZero"
@@ -213,6 +215,7 @@ dhMuSymString = "dhMu"
 dhMu2SymString = "dhMu2"
 dhBPSymString = "dhBP"
 dhHSymString = "dhH"
+dhH2SymString = "dhH2"
 -- dhBoxSymString = "dhBox"
 -- dhBoxESymString = "dhBoxE"
 
@@ -240,7 +243,7 @@ zeroSym  = (zeroSymString,(0,Public,Constructor))
 -- | One for natural numbers.
 natOneSym = (natOneSymString, (0,Public,Constructor))
 
-dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym,dhInvSym,dhEgSym,dhTimesESym, dhPlusSym,dhExpSym,dhOneSym, dhMuSym, dhMu2Sym, dhBPSym, dhHSym :: DHMultSym --, dhBoxSym, dhBoxESym
+dhMultSym, dhGinvSym, dhZeroSym, dhMinusSym,dhInvSym,dhEgSym,dhTimesESym, dhPlusSym,dhExpSym,dhOneSym, dhMuSym, dhMu2Sym, dhBPSym, dhHSym, dhH2Sym :: DHMultSym --, dhBoxSym, dhBoxESym
 dhMultSym = (dhMultSymString,(2,Public,Constructor))
 dhGinvSym = (dhGinvSymString,(1,Public,Constructor))
 dhZeroSym = (dhZeroSymString,(0,Public,Constructor))
@@ -255,6 +258,7 @@ dhMuSym = (dhMuSymString,(1,Public,Constructor))
 dhMu2Sym = (dhMu2SymString,(2,Public,Constructor))
 dhBPSym = (dhBPSymString,(2,Public,Constructor))
 dhHSym = (dhHSymString,(1,Public,Constructor))
+dhH2Sym = (dhH2SymString,(2,Public,Constructor))
 --dhBoxSym = (dhBoxSymString,(1,Private,Constructor))
 --dhBoxESym = (dhBoxESymString,(1,Private,Constructor))
 
@@ -276,7 +280,7 @@ dhFunSig :: FunSig
 dhFunSig = S.fromList [ AC Mult, NoEq expSym, NoEq oneSym, NoEq invSym, NoEq dhNeutralSym ]
 
 dhMultFunSig :: FunSig
-dhMultFunSig = S.fromList [DHMult dhMultSym, DHMult dhGinvSym, DHMult dhZeroSym, DHMult dhMinusSym, DHMult dhInvSym, DHMult dhEgSym, DHMult dhTimesESym, DHMult dhExpSym, DHMult dhOneSym, DHMult dhPlusSym, DHMult dhMuSym, DHMult dhMu2Sym, DHMult dhBPSym, DHMult dhHSym] -- , DHMult dhBoxSym, DHMult dhBoxESym
+dhMultFunSig = S.fromList [DHMult dhMultSym, DHMult dhGinvSym, DHMult dhZeroSym, DHMult dhMinusSym, DHMult dhInvSym, DHMult dhEgSym, DHMult dhTimesESym, DHMult dhExpSym, DHMult dhOneSym, DHMult dhPlusSym, DHMult dhMuSym, DHMult dhMu2Sym, DHMult dhBPSym, DHMult dhHSym, DHMult dhH2Sym] -- , DHMult dhBoxSym, DHMult dhBoxESym
 
 
 -- | The signature for Xor function symbols.

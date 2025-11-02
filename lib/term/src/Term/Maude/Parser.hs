@@ -254,11 +254,11 @@ ppTheory msig = BC.unlines $
     ++
     (if enableDHMult msig
        then
-        [ "  sort G E NZE BG FrNZE VarE VarG ."
+        [ "  sort G E NZE BG FrNZE VarE VarG DH ."
         , "  subsort G < Msg ."
         , "  subsort E < Msg ."
-        --, "  subsort G < DH ."
-        --, "  subsort E < DH ."
+        , "  subsort G < DH ."
+        , "  subsort E < DH ."
         , "  subsort NZE < E ."
         , "  subsort FrNZE < NZE ."
         , "  subsort VarE < E ."
@@ -280,20 +280,17 @@ ppTheory msig = BC.unlines $
         , theoryOpEq "dhInv : E -> E"
         , theoryOpEq "dhEg : -> G"
         , theoryOpDH "dhTimesE : E E -> E"
-        -- , theoryOpDH "dhTimes : NZE NZE -> NZE"
         , theoryOpDH "dhPlus : E E -> E"
         , theoryOpEq "dhExp : G E -> G"
-        , theoryOpEq "dhOne : -> E"
-        , theoryOpEq "dhMu : G -> E"
-        -- , theoryOpEq "dhMu2 : G G -> NZE"
+        , theoryOpEq "dhOne : -> NZE"
+        , theoryOpEq "dhMu : G -> NZE"
+        , theoryOpEq "dhMu2 : G G -> NZE"
         -- for the theory of bilinear pairings: 
-        -- , theoryOpEq "dhBP : G G -> G"
-        --, theoryOpEq "dhH : Msg -> NZE" -- TODO: double check if Msg is OK, or better to put a DH sort? 
-        -- , theoryOpEq "h : Msg -> Msg"
+        , theoryOpEq "dhBP : G G -> E"
+        , theoryOpEq "dhH : E -> E" 
+        , theoryOpEq "dhH2 : E E -> E"
         -- , theoryOpEq "pair : Msg Msg -> Msg"
-        -- , theoryDH "dhBox : G -> G"
-        -- , theoryDH "dhBoxE : E -> E"
-        , "  vars A B : G . "
+        , "  vars A B C : G . "
         , "  vars X Y Z : E ."
         , "  vars U V : E ."
         , "  eq tamXCdhMult(tamXCdhEg, A) = A ."
@@ -319,15 +316,20 @@ ppTheory msig = BC.unlines $
         , "  eq tamXCdhExp(A, tamXCdhMinus(X) ) = tamXCdhGinv(tamXCdhExp(A, X)) ."
         , "  eq tamXCdhGinv (tamXCdhEg) = tamXCdhEg ."
         , "  eq tamXCdhMinus(tamXCdhZero) = tamXCdhZero ."
+        -- , "eq tamXCdhTimesE(tamXCdhMinus(tamXCdhOne), X, Y) = tamXCdhMinus(tamXCdhTimesE(X, Y)) ." 
         , "  eq tamXCdhMinus (tamXCdhPlus(X,Y)) = tamXCdhPlus((tamXCdhMinus(X)), (tamXCdhMinus(Y))) ."
         , "  eq tamXCdhMinus( tamXCdhMinus(X)) = X ."
         , "  eq tamXCdhTimesE(tamXCdhZero, X) = tamXCdhZero ."
         , "  eq tamXCdhTimesE((tamXCdhMinus(X)), Y) = tamXCdhMinus(tamXCdhTimesE(X, Y)) ." 
         -- for bilinear paring operators: 
-        -- , "  eq tamXCdhBP( tamXCdhExp(A, X), B) = tamXCdhExp(tamXCdhBP(A,B), X) ." -- by Commutativity, don't need to add equation for also b right?
-        --, "  eq tamXCdhBP(tamXCdhMult(tamXCdhExp(A, X), tamXCdhExp(A, Y)), B) = tamXCdhExp(tamXCdhBP(A,B), tamXCdhPlus(X,Y)) ."
-        --, "  eq tamXCdhBP(B,  tamXCdhExp(A, X)) = tamXCdhExp(tamXCdhBP(B,A), X) ." -- by Commutativity, don't need to add equation for also b right?
-        --, "  eq tamXCdhBP(B, tamXCdhMult(tamXCdhExp(A, X), tamXCdhExp(A, Y))) = tamXCdhExp(tamXCdhBP(B,A), tamXCdhPlus(X,Y)) ."
+        , "  eq tamXCdhBP( tamXCdhExp(A, X), B) = tamXCdhTimesE(tamXCdhBP(A,B), X) ." 
+        , "  eq tamXCdhBP( A,tamXCdhExp(B, X)) = tamXCdhTimesE(tamXCdhBP(A,B), X) ." 
+        , "  eq tamXCdhBP(tamXCdhGinv(A), B) = tamXCdhMinus(tamXCdhBP(A,B)) ."
+        , "  eq tamXCdhBP(A, tamXCdhGinv(B)) = tamXCdhMinus(tamXCdhBP(A,B)) ."
+        , "  eq tamXCdhBP(A, tamXCdhEg) = tamXCdhZero ."
+        , "  eq tamXCdhBP(tamXCdhEg, B) = tamXCdhZero ."
+        , "  eq tamXCdhBP(tamXCdhMult(A,C), B) = tamXCdhPlus(tamXCdhBP(A,B), tamXCdhBP(C,B)) ."
+        , "  eq tamXCdhBP(B, tamXCdhMult(A,C)) = tamXCdhPlus(tamXCdhBP(B,A), tamXCdhBP(B,C)) ."
         ]
        else [])
     ++
@@ -397,6 +399,7 @@ parseVariantsReply msig reply = flip parseOnly reply $ do
     parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
                      <*> (string " --> " *> parseTerm msig <* endOfLine)
 
+
 -- for the maude command "unify [n]"
 parseUnifyDHFrReply :: MaudeSig -> ByteString -> Either String [MSubst]
 parseUnifyDHFrReply msig reply = flip parseOnly reply $
@@ -405,13 +408,15 @@ parseUnifyDHFrReply msig reply = flip parseOnly reply $
               where
                     parseUnifier = string "Unifier " *> takeWhile1 isDigit *> endOfLine *>
                                     manyTill parseEntry (choice [endOfLine, endOfInput])
+                    --parseUnifier2 = string "Unifier " *> takeWhile1 isDigit *> endOfLine *>
+                    --                manyTill parseEntry endOfInput
                     parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
                                     <*> (string " --> " *> parseTerm msig <* endOfLine) 
 
 
 -- for the maude command "filtered variant unify"
 parseUnifyDHReply :: MaudeSig -> ByteString -> Either String [MSubst]
-parseUnifyDHReply msig reply = flip parseOnly reply $ 
+parseUnifyDHReply msig reply = flip parseOnly reply $ trace (show ("TRYINGTHIS", reply)) $ 
      choice [ endOfLine *> string "No unifiers." <* endOfLine <* string "rewrites: "
               <* takeWhile1 isDigit <* endOfLine *> pure []      <* endOfInput
            , string "rewrites: " *> takeWhile1 isDigit *> endOfLine *>
@@ -421,6 +426,7 @@ parseUnifyDHReply msig reply = flip parseOnly reply $
                                     manyTill parseEntry endOfLine
                     parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
                                     <*> (string " --> " *> parseTerm msig <* endOfLine)
+
 
 
 -- | @parseSubstitution l@ parses a single substitution returned by Maude.
@@ -435,7 +441,7 @@ parseSubstitution msig = do
 
 -- | @parseReduceReply l@ parses a single solution returned by Maude.
 parseReduceReply :: MaudeSig -> ByteString -> Either String MTerm
-parseReduceReply msig reply = (flip parseOnly reply $ do
+parseReduceReply msig reply = trace (show ("reducingresult", reply)) (flip parseOnly reply $ do
     string "result " *> choice [ string "TOP" *> pure LSortMsg, string "[TOP]" *> pure LSortMsg, parseSort ] -- we ignore the sort
         *> string ": " *> parseTerm msig <* endOfLine <* endOfInput)
 
@@ -566,19 +572,25 @@ ppTheoryDHsimp = BC.unlines $
       , " subsort Fresh < Msg ."
       , " subsort G < DH ."
       , " subsort E < DH ."
+      , "  subsort VarE < E ."
       , " subsort NZE < E ."
       , " subsort FrNZE < NZE ."
       , " subsort BG < G ."
       , " op tamXCdhGinv : G -> G ."
       , " op tamXCdhMult : G G -> G ."
       , " op tamXCdhZero : -> E ."
-      , " op tamXCdhInv : NZE -> NZE ."
+      , " op tamXCdhInv : E -> E ."
+      , " op tamXCdhMinus : E -> E ."
+      , " op tamXCdhPlus : E E -> E ."
       , " op tamXCdhEg : -> G ."
       , " op tamXCdhTimesE : E E -> E [assoc comm] ."
-      --, " op tamXCdhTimes : NZE NZE -> NZE [assoc comm] ."
       , " op tamXCdhExp : G E -> G ."
       , " op tamXCdhOne : -> NZE ."
-      , " op tamXCdhMu : G -> NZE ."
+      , " op tamXCdhMu : G -> E ."
+      , " op tamXCdhMu2 : G G -> E ."
+      , " op tamXCdhH : E -> E ."
+      , " op tamXCdhH2 : E E -> E ."
+      , " op tamXCdhBP : G G -> E"
       -- , "op tamPCdhBox : G -> G ."
       -- , "op tamPCdhBoxE : E -> E ."
       , " op dh : Nat -> DH ."
@@ -618,6 +630,7 @@ ppTheoryComRing = BC.unlines $
       , "  subsort Pub < Msg ."
       , "  subsort DH < Msg . "
       , "  subsort E < DH ."
+      , "  subsort VarE < DH ."
       , "  subsort NZE < DH ."
       , "  subsort G < DH ."
       , "  subsort FrNZE < DH ."
@@ -631,9 +644,11 @@ ppTheoryComRing = BC.unlines $
       , "  op tamXCdhTimesE : DH DH -> DH [assoc comm] ."
       , "  op tamXCdhExp : DH DH -> DH ."
       , "  op tamXCdhBP : DH DH -> DH ."
-      , "  op tamXCdhH : Msg -> DH ."
+      , "  op tamXCdhH : DH -> DH ."
+      , "  op tamXCdhH2 : DH DH -> DH ."
       , "  op tamXCdhOne : -> DH ."
       , "  op tamXCdhMu : DH -> DH ."
+      , "  op tamXCdhMu2 : DH DH -> DH ."
       , "  op tamXCdhMinus : DH -> DH ."
       , "  op bg : Nat -> DH ."
       , "  op p : Nat -> DH ."
@@ -641,6 +656,7 @@ ppTheoryComRing = BC.unlines $
       , "  eq tamXCdhPlus(X, tamXCdhZero) = X ."
       , "  eq tamXCdhTimesE(X, tamXCdhOne) = X ."
       , "  eq tamXCdhTimesE(X, tamXCdhZero) = tamXCdhZero ."
+      -- , "  eq tamXCdhMinus(tamXCdhMinus(X)) = X ."
       , "  eq tamXCdhPlus(X, tamXCdhMinus(X)) = tamXCdhZero ."
       , "  eq tamXCdhInv(tamXCdhTimesE(X,Y)) = tamXCdhTimesE(tamXCdhInv(X), tamXCdhInv(Y)) ."
       , "  eq tamXCdhMinus(tamXCdhTimesE(X,Y)) = tamXCdhTimesE(tamXCdhMinus(tamXCdhOne),X, Y) ."
@@ -649,5 +665,4 @@ ppTheoryComRing = BC.unlines $
       , "  ceq tamXCdhTimesE(tamXCdhInv(X), X) = tamXCdhOne "
       , "       if X =/= tamXCdhZero ."
       , "endfm"] 
-
 

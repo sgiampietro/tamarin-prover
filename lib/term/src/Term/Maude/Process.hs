@@ -302,7 +302,7 @@ normViaMaude hnd sortOf t =
     msig = mhMaudeSig hnd
     toMaude = fmap normCmd . (lTermToMTerm sortOf)
     fromMaude bindings reply =
-        (\mt -> (mTermToLNTerm "z" mt `evalBindT` bindings) `evalFresh` nothingUsed)
+        trace (show ("showNORM", reply)) (\mt -> (mTermToLNTerm "z" mt `evalBindT` bindings) `evalFresh` nothingUsed)
             <$> parseReduceReply msig reply
     incNormCount mp = mp { normCount = 1 + normCount mp }
 
@@ -372,7 +372,7 @@ unifyCmdDH eqs =
 
 unifyCmdDHFr :: Int -> [Equal MTerm] -> ByteString
 unifyCmdDHFr _ []  = error "unifyCmd: cannot create cmd for empty list of equations."
-unifyCmdDHFr n eqs = -- "unify [1] in DHsimp : " <> seqs <> " .\n"
+unifyCmdDHFr n eqs =
     --"variant unify [1] in DHsimp : " <> seqs <> " .\n"
     -- "filtered variant unify in DHsimp : " <> seqs <> " .\n"
     (BC.pack $ "unify ["++ show n ++"] in DHsimp : ") <> seqs <> " .\n"
