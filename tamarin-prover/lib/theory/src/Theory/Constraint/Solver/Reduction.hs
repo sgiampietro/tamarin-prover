@@ -938,7 +938,7 @@ insertDHdirectEdge :: LNTerm -> LNFact -> NodePrem -> [RuleAC] -> [(NodeId, Rule
                     (LNTerm -> NodeId -> Reduction String) -> Reduction String
 insertDHdirectEdge ta2 fa2 p rules rulesinst fun= 
     solveTermDHEqsChain2 SplitNow Nothing rules rulesinst fun p fa2 ta2
- --TODO: add here a disjunction over rules that are Destruction rules!
+
 
 insertBasisElem :: LNTerm -> Reduction ()
 insertBasisElem x = do
@@ -1240,7 +1240,7 @@ solveTermEqs splitStrat eqs0 =
 solveMixedTermEqs :: SplitStrategy -> S.Set LNTerm -> S.Set LNTerm  -> ((LNTerm,LNTerm)->Reduction ChangeIndicator) -> (LNTerm, LNTerm) -> Reduction ChangeIndicator
 solveMixedTermEqs splitStrat bset nbset fun (lhs,rhs)
     | (evalEqual (Equal lhs rhs)) = return Unchanged
-    | isDHTerm lhs && isDHTerm rhs = (solveTermDHEqs splitStrat fun) (lhs,rhs)
+    | isDHTerm lhs && isDHTerm rhs = trace (show ("TERMEqs", lhs, rhs)) $ (solveTermDHEqs splitStrat fun) (lhs,rhs)
     | isMixedTerm rhs = do
         (cleanedlhs, lhsDHvars) <- clean lhs
         (cleanedrhs, rhsDHvars) <- clean rhs
@@ -1398,7 +1398,7 @@ processGaussSolution hnd bb t1 t2 = case bb of
         setM sEqStore $ applyEqStore hnd (normsubst') eqStore
         neweqstore <- getM sEqStore
         let oldsubsts =  _eqsSubst neweqstore
-            newsubst =  substFromList $ normalizeSubstList hnd (substToList oldsubsts)
+            -- newsubst =  substFromList $ normalizeSubstList hnd (substToList oldsubsts)
             newsubstCR = substFromList $ normalizeSubstList hnd $ normalizeSubstListCR hndCR (substToList oldsubsts) 
         setM sEqStore ( neweqstore{_eqsSubst = newsubstCR} )
         void substSystem
@@ -1433,7 +1433,7 @@ solveIndicatorProto :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
 solveIndicatorProto basis t1 t2 = do
   hnd  <- getMaudeHandle
   bb <- disjunctionOfList $ (solveIndicatorGaussProto Nothing hnd basis t1 t2 )
-  processGaussSolution hnd bb t1 t2
+  trace (show ("here", t1, t2)) $ processGaussSolution hnd bb t1 t2
 
 solveIndicatorKFacts :: [LNTerm] -> LNTerm -> LNTerm -> Reduction String
 solveIndicatorKFacts basis t1 t2 = do
@@ -1466,7 +1466,11 @@ solveDHProtoEqsAux :: SplitStrategy -> S.Set LNTerm  -> S.Set LNTerm -> MaudeHan
 solveDHProtoEqsAux splitStrat bset nbset hndNormal hnd allevars xindterms ta1 ta2 permutedlist= do
     -- permutedlist <- disjunctionOfList $ permutations outterms
     zzs <- replicateM (length xindterms) $ freshLVar "zz" LSortE
-    let genindterms = zipWith (\i z-> (i, runReader (norm' $ fAppdhExp (i, LIT (Var z)) ) hndNormal, z) ) xindterms zzs
+    let genfy i z | sortOfLNTerm i == LSortG =  (i, runReader (norm' $ fAppdhExp (i, LIT (Var z)) ) hndNormal, z) 
+        genfy i z | sortOfLNTerm i == LSortPubG =  (i, runReader (norm' $ fAppdhExp (i, LIT (Var z)) ) hndNormal, z) 
+        genfy i z | sortOfLNTerm i == LSortE =  (i, runReader (norm' $ fAppdhTimesE (i, LIT (Var z)) ) hndNormal, z)
+        genfy i z | sortOfLNTerm i == LSortFrNZE =  (i, runReader (norm' $ fAppdhTimesE (i, LIT (Var z)) ) hndNormal, z)
+        genindterms = trace (show ("PROTOEQS", zip xindterms zzs)) $ zipWith genfy  xindterms zzs
     --  let genindterms = zip xindterms zzs
     eqstore <- getM sEqStore
     eqList <- addDHProtoEqs hnd allevars genindterms permutedlist False eqstore
@@ -1792,7 +1796,7 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
                                 (FApp (NoEq pairSym) [x, y]) ->(x,y)
                                 _ -> error $ "something went wrong" ++ show t
             (nta1,nta2) =  unpair normedpair
-        if nta1 == nta2
+        if trace (show ("protocase", nta1, nta2)) $ nta1 == nta2
          then do
             return Changed
          else case prodTerms nta1 of
@@ -1802,8 +1806,9 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
                                 xindterms = nub repxindterms 
                                 n = length xindterms
                                 h = head xrooterms
-                                toaddnocanc = filter (\t -> not $ isNoCanc h t) (tail xrooterms)
-                            forM_ (toaddnocanc) (\t->insertNoCanc h t)   
+                                pairs = [(x, y) | (x:ys) <- tails xrooterms, y <- ys]
+                                toaddnocanc = filter (\(a,b) -> not $ isNoCanc a b) pairs
+                            forM_ (toaddnocanc) (\(a,b) -> insertNoCanc a b)   
                             hnd <- getMaudeHandleDH
                             if n == 0
                               then do
@@ -1815,7 +1820,7 @@ protoCase splitStrat bset nbset (ta1, ta2) = do
                                 eqstore <- getM sEqStore
                                 setM sEqStore ( eqstore{_eqsSubst = (compose substEX oldsubst)} )
                                 void substSystem
-                                solveIndicatorProto (map varTerm freevars) (applyVTerm substEX nta1) (applyVTerm substEX nta2)
+                                trace (show ("directly",(applyVTerm substEX nta1) , (applyVTerm substEX nta2))) $ solveIndicatorProto (map varTerm freevars) (applyVTerm substEX nta1) (applyVTerm substEX nta2)
                                 return Changed
                               else do
                                 permutedlist <- disjunctionOfList $ createPerms n nta2
@@ -1886,7 +1891,7 @@ solveTermDHEqs splitStrat fun (ta1, ta2)
                             contradictoryIf (not $ containsBP dhBPSym ta2)
                             solveTermDHEqs splitStrat fun (e1, e2)
                           else do
-                            solveTermDHEqs splitStrat fun (e1, e2)
+                            trace (show ("termdh", e1, e2)) $ solveTermDHEqs splitStrat fun (e1, e2)
                      else do
                         if containsBP dhBPSym ta2
                           then do 
@@ -1944,7 +1949,7 @@ solveMixedFactEqs split (Equal fa1 fa2) bset nbset fun = do
     subst <- getM sEqStore
     let dhfacts1 = map (applyVTerm (_eqsSubst subst)) (factTerms fa1) -- filter isMixedTerm (factTerms fa1) 
         dhfacts2 = map (applyVTerm (_eqsSubst subst)) (factTerms fa2) -- filter isMixedTerm (factTerms fa2)
-    solveListDHEqs (solveMixedTermEqs split bset nbset fun) $ zip dhfacts1 dhfacts2
+    trace (show ("MixedFactEqs", dhfacts1, dhfacts2)) $ solveListDHEqs (solveMixedTermEqs split bset nbset fun) $ zip dhfacts1 dhfacts2
     return Changed
 
 -- t1 here is the result of factTerms fa2, and indt1 the indicator of one product term of t1. 
@@ -2009,7 +2014,7 @@ solveIndFactDHBP split listtups faPrem listterms = do
     se  <- gets id
     hnd <- getMaudeHandleDH
     eqstore <- getM sEqStore
-    eqList <- addDHEqs2  hnd False genindterms prterms eqstore
+    eqList <- addDHEqs2 hnd False genindterms prterms eqstore
     (eqs2, maySplitId) <- disjunctionOfList eqList
     se  <-  gets id
     setM sEqStore =<< simp hnd (substCreatesNonNormalTerms hnd se) eqs2

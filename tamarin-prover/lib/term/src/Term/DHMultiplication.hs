@@ -172,8 +172,8 @@ clean t@(viewTerm3 -> DH f dht) = do
 
 
 expBase ::  LNTerm -> LNTerm
-expBase t@(LIT l) = if (isPubGVar t || isGConst t) then t else error $ "unexpected term form2: `"++show t++"'"
-expBase t@(FAPP (DHMult o) ts) = case ts of
+expBase t@(LIT l) = if trace (show ("expBaselit", t)) $ (isPubGVar t || isGConst t) then t else error $ "unexpected term form2: `"++show t++"'"
+expBase t@(FAPP (DHMult o) ts) = case  trace (show ("expBaset", t)) $ ts of
     [ t1, t2 ] | o == dhMultSym   -> expBase t1
     [ t1, t2 ] | o == dhTimesESym   -> pubGTerm "g"
     [ t1, t2 ] | o == dhExpSym   ->  expBase t1
