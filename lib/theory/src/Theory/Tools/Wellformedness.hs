@@ -1083,6 +1083,43 @@ multRestrictedReportDiff thy = multRestrictedReport' irreducible (diffThyProtoRu
   where
     irreducible = irreducibleFunSyms $ get (sigpMaudeSig . diffThySignature) thy
 
+-- | Check whether all exponentiation terms dhExp(t1, t2) have the same generator.
+-- 1. Collects all terms dhExp(t1, t2) where t1 is a literal.
+-- 2. Ensures that t1 is consistent across terms.
+-- Note: Currently only enforces that the terms are equal, i.e. the generator is still allowed to be a variable.
+dhMultRestrictions :: OpenTranslatedTheory -> WfErrorReport
+dhMultRestrictions thy = 
+  let
+    rules = thyProtoRules thy
+    literals = concatMap generatorLiterals rules
+  in
+    if sameLiterals literals
+      then []
+      else do
+        ru <- rules
+        (,) (underlineTopic "Inconsistent Generator Warning") <$>
+          case generatorLiterals ru of
+            [] -> []
+            literals ->
+              return $
+                (text $ "Rule " ++ quote (getRuleName ru) ++ " uses the following generator literal(s):")
+                $-$ (nest 2 (prettyLNTermList literals))
+  where
+    generatorLiterals ru = -- returns list of literals l (variable or constant) in terms of shape dhExp(l, t2)
+      let
+        allFacts = get rPrems ru ++ get rActs ru ++ get rConcs ru
+      in
+        [ et | Fact _ _ ts <- allFacts, t <- ts, et <- extractGeneratorLiterals t ]
+      where
+        extractGeneratorLiterals t@(viewTerm -> FApp (DHMult dhExpSym) as@[t1, t2]) = case t1 of -- matches dhExp(t1, t2)
+          (viewTerm -> Lit _) -> t1 : concatMap extractGeneratorLiterals as
+          _                   -> concatMap extractGeneratorLiterals as
+        extractGeneratorLiterals (viewTerm -> FApp _  as) = concatMap extractGeneratorLiterals as
+        extractGeneratorLiterals _ = []
+    
+    sameLiterals (l1:xs) = all (\l2 -> l1 == l2) xs
+    sameLiterals _ = True
+
 
 -- | All 2-multicombinations of a list.
 -- multicombine2 :: [a] -> [(a,a)]
@@ -1187,6 +1224,7 @@ checkWellformedness thy sig = concatMap ($ thy)
     , formulaReports
     , lemmaAttributeReport
     , multRestrictedReport
+    , dhMultRestrictions
     , natWellSortedReport
     ]
 
