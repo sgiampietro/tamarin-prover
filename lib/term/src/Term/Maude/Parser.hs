@@ -464,7 +464,6 @@ parseSort =  string "Pub"      *> return LSortPub
 
 
 -- | @parseTerm@ is a parser for Maude terms.
--- TODO: make sure fresh NZE variables also get interpreted as fresh variables!
 parseTerm :: MaudeSig -> Parser MTerm
 parseTerm msig = choice
    [ string "#" *> (lit <$> (FreshVar <$> (decimal <* string ":") <*> parseSort))

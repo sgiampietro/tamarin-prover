@@ -624,7 +624,7 @@ addDHEqs2 hnd zzbool t1zzs permt eqdhstore =
             return [(eqdhstore, Nothing)]
         substs -> do
             newsubsts <- mapM generalize substs 
-            let newsubsts' = map (\x-> freshToFreeAvoiding x (_eqsSubst eqdhstore)) newsubsts
+            let newsubsts' = map (\x-> freshToFreeAvoidingNoRecursion x (_eqsSubst eqdhstore)) newsubsts
                 eqStores' = map (\news -> changeqstore news eqdhstore) newsubsts'
                 eqStores = map (\a -> (a,Nothing)) eqStores'
             return eqStores

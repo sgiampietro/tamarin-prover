@@ -172,8 +172,8 @@ clean t@(viewTerm3 -> DH f dht) = do
 
 
 expBase ::  LNTerm -> LNTerm
-expBase t@(LIT l) = if (isPubGVar t || isGConst t) then t else error $ "unexpected term form2: `"++show t++"'"
-expBase t@(FAPP (DHMult o) ts) = case ts of
+expBase t@(LIT l) = if trace (show ("expBaselit", t)) $ (isPubGVar t || isGConst t) then t else error $ "unexpected term form2: `"++show t++"'"
+expBase t@(FAPP (DHMult o) ts) = case  trace (show ("expBaset", t)) $ ts of
     [ t1, t2 ] | o == dhMultSym   -> expBase t1
     [ t1, t2 ] | o == dhTimesESym   -> pubGTerm "g"
     [ t1, t2 ] | o == dhExpSym   ->  expBase t1
@@ -245,7 +245,7 @@ multRootMixed a = case sortOfLNTerm a of
 extractMixedRoot :: LNTerm -> [(LNTerm, LNTerm)]
 extractMixedRoot t = case viewTerm2 t of
                         (FPair x y) -> (map (\rx -> (rx,x) ) $ multRootMixed x) ++ extractMixedRoot y-- (map (\ry -> (ry,y) ) $ multRootMixed y)  
-                        _ -> if isDHTerm t then  map (\rt -> (rt, t)) $ multRootList t else trace (show ("extractmiced root3", t)) []
+                        _ -> if isDHTerm t then  map (\rt -> (rt, t)) $ multRootList t else []
  
 isRoot :: (Show a, Ord a ) => DHMultSym -> Term a -> Bool
 isRoot o (LIT l) = True
