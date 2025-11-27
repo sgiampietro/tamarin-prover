@@ -56,10 +56,10 @@ data Node = Node {
 
 -- | Different types of graph nodes.
 data NodeType =
-    SystemNode Th.RuleACInst                    -- ^ Nodes from rule instances
-  | UnsolvedActionNode [Th.LNFact]             -- ^ Nodes from unsolved adversary actions.
-  | LastActionAtom                             -- ^ Nodes that are only used for induction.
-  | MissingNode (Either Th.ConcIdx Th.PremIdx) -- ^ Nodes referenced by edges which don't exist elsewhere.
+    SystemNode Th.RuleACInst                           -- ^ Nodes from rule instances
+  | UnsolvedActionNode [Th.LNFact]                     -- ^ Nodes from unsolved adversary actions.
+  | LastActionAtom                                     -- ^ Nodes that are only used for induction.
+  | MissingNode (Maybe (Either Th.ConcIdx Th.PremIdx)) -- ^ Nodes (or premises/conclusions) referenced by edges which don't exist elsewhere.
   deriving( Eq, Ord, Show )
 
 

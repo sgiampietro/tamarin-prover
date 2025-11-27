@@ -308,7 +308,7 @@ graphNodeToJSONGraphNode node = do
       This might occur in the case distinctions shown in the GUI.
       Since a fact is missing, the id is encoded as jgnFactId, could also be done directly in jgnId.
     -}
-    MissingNode (Left conc) -> 
+    MissingNode (Just (Left conc)) -> 
       -- a.d. TODO JSON ignores conc and always sets conclusion id to c0. Is that intended behavior?
       return $ JSONGraphNode 
         { jgnId = show nid
@@ -330,7 +330,7 @@ graphNodeToJSONGraphNode node = do
                   ]
               }
         }
-    MissingNode (Right prem) -> 
+    MissingNode (Just (Right prem)) -> 
       return $ JSONGraphNode 
         { jgnId = show nid
         , jgnType = "missingNodePrem"
@@ -350,6 +350,13 @@ graphNodeToJSONGraphNode node = do
               , jgnActs  = []
               , jgnConcs = []
               }
+        }
+    MissingNode Nothing -> 
+      return $ JSONGraphNode 
+        { jgnId = show nid
+        , jgnType = "missingNode"
+        , jgnLabel = show nid
+        , jgnMetadata = Nothing
         }
 
 

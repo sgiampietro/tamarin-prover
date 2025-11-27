@@ -112,13 +112,19 @@ systemLastActionNode :: Sys.System -> [Node]
 systemLastActionNode se = maybe [] (\nid -> [Node nid LastActionAtom]) (get Sys.sLastAtom se)
 
 -- | Get all nodes from a 'System' that are "missing", i.e. they are mentioned by an edge but don't exist elsewhere.
--- a.d. This assumes that there is no edge where both the source and target are missing. But that situation should never happen.
 systemMissingNodes :: Sys.System -> [Node]
-systemMissingNodes se = mapMaybe missingNode (S.toList $ get Sys.sEdges se)
+systemMissingNodes se = concatMap missingNodeFromEdge (S.toList $ get Sys.sEdges se) ++ concatMap missingNodeFromLessAtom (S.toList $ get Sys.sLessAtoms se)
   where
-    missingNode (Sys.Edge (nid, idx) _) | nid `notElem` nodelist = Just $ Node nid (MissingNode (Left idx))
-    missingNode (Sys.Edge _ (nid, idx)) | nid `notElem` nodelist = Just $ Node nid (MissingNode (Right idx))
-    missingNode _ = Nothing
+    missingNodeFromEdge (Sys.Edge (nid1, idx1) (nid2, idx2)) = case (nid1 `notElem` nodelist, nid2 `notElem` nodelist) of
+      (True, True) -> [ Node nid1 (MissingNode $ Just $ Left idx1), Node nid2 (MissingNode $ Just $ Right idx2) ]
+      (True, False) -> [ Node nid1 (MissingNode $ Just $ Left idx1) ]
+      (False, True) -> [ Node nid2 (MissingNode $ Just $ Right idx2) ]
+      _ -> []
+    missingNodeFromLessAtom (Sys.LessAtom nid1 nid2 _) = case (nid1 `notElem` nodelist, nid2 `notElem` nodelist) of
+      (True, True) -> [ Node nid1 (MissingNode Nothing), Node nid2 (MissingNode Nothing) ]
+      (True, False) -> [ Node nid1 (MissingNode Nothing) ]
+      (False, True) -> [ Node nid2 (MissingNode Nothing) ]
+      _ -> []
     nodelist = map fst $ M.toList $ get Sys.sNodes se
 
 -- | Get all edges from a 'System' corresponding to edges between rule instances.

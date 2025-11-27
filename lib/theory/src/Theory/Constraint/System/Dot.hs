@@ -271,8 +271,9 @@ dotNodeCompact node manualNodeColor = do
                 | otherwise          = [("color","darkblue")]
       mkSimpleNode (render lbl) attrs
     LastActionAtom -> cacheState dsNodes v $ mkSimpleNode (show v) []
-    MissingNode (Left conc) -> cacheState dsConcs (v, conc) $ dotConcC (v, conc)
-    MissingNode (Right prem) -> cacheState dsPrems (v, prem) $ dotPremC (v, prem)
+    MissingNode (Just (Left conc)) -> cacheState dsConcs (v, conc) $ dotConcC (v, conc)
+    MissingNode (Just (Right prem)) -> cacheState dsPrems (v, prem) $ dotPremC (v, prem)
+    MissingNode Nothing -> cacheState dsNodes v $ mkSimpleNode (show v) []  -- required for less constraints on missing nodes
   where
     hasOutgoingEdge graph v =
       let repr = get gRepr graph
