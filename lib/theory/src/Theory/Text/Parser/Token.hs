@@ -2,7 +2,6 @@
 -- Copyright   : (c) 2010-2012 Simon Meier, Benedikt Schmidt
 -- License     : GPL v3 (see LICENSE)
 --
--- Maintainer  : Simon Meier <iridcode@gmail.com>
 -- Portability : portable
 --
 -- Tokenizing infrastructure
@@ -100,6 +99,7 @@ module Theory.Text.Parser.Token (
   , brackets
   , singleQuoted
   , doubleQuoted
+  , stringLiteral
 
   -- * List parsing
   , commaSep
@@ -117,7 +117,11 @@ module Theory.Text.Parser.Token (
   , parseFile
   , parseFileWState
   , parseString
-  ,opLessTerm) where
+  , parseStringWState
+  ,opLessTerm
+  ,extIdentifier
+  ,betweenMatching
+  ,manyCharsExcept) where
 
 import           Prelude             hiding (id, (.))
 
@@ -272,6 +276,26 @@ singleQuoted = between (symbol "'") (symbol "'")
 doubleQuoted :: Parser a -> Parser a
 doubleQuoted = between (symbol "\"") (symbol "\"")
 
+
+-- | Parse between two matching symbols like @"@ and @"@ or @(@ and @)@. Tells parser these symbols so it can ignore it.
+betweenMatching  :: ((Char, Char) -> Parser a) -> Parser a
+betweenMatching p = asum (betweenSymbolsParse <$> matches)
+     where
+     matches = [
+        ('"', '"'),
+        ('\'', '\''),
+        ('(', ')'),
+        ('[', ']'),
+        ('{', '}'),
+        ('|', '|'),
+        ('<', '>') ]
+     betweenSymbolsParse (l,r) = try $ between (char' l) (char' r) (p (l,r))
+     char' = T.lexeme spthy . char -- need to remove whitespace after r, like symbol does.
+
+-- | consume all chars except those in l,  until we reach on in l. Does not consume that last char.
+manyCharsExcept :: [Char] -> Parser [Char]
+manyCharsExcept l = T.lexeme spthy $ manyTill (noneOf l) (lookAhead $ oneOf l)
+
 -- | A dot @.@.
 dot :: Parser ()
 dot = void $ T.dot spthy
@@ -313,6 +337,16 @@ commaSep1 = flip sepEndBy1 comma
 -- | Parse a list of items '[' item ',' ... ',' item ']', or ended with ',]'
 list :: Parser a -> Parser [a]
 list = brackets . commaSep
+
+-- | Parse an arbitrary string literal
+stringLiteral :: Parser String
+stringLiteral = T.stringLiteral spthy
+
+-- | Parse a string literal marked as external, i.e., starting with "x-"
+extIdentifier :: Parser String
+extIdentifier= T.lexeme spthy $ do
+    _ <- try (string "x-")
+    identifier
 
 -- | A formal comment; i.e., (header, body)
 formalComment :: Parser (String, String)
@@ -391,17 +425,22 @@ nodevar = asum
   , (\(n, i) -> LVar n LSortNode i) <$> indexedIdentifier ]
   <?> "timepoint variable"
 
+-- | Parse a non-empty single-quoted string
+-- | that does not contain a single-quote or newline.
+singleQuotedString :: Parser String
+singleQuotedString = singleQuoted $ many1 (noneOf "'\n")
+
 -- | Parse a literal fresh name, e.g., @~'n'@.
 freshName :: Parser String
-freshName = try (symbol "~" *> singleQuoted identifier)
+freshName = try (symbol "~" *> singleQuotedString)
 
 -- | Parse a literal public name, e.g., @'n'@.
 pubName :: Parser String
-pubName = singleQuoted identifier
+pubName = singleQuotedString
 
 -- | Parse a literal nat name, e.g. @%'n'@.
 natName :: Parser String
-natName = try (symbol "%" *> singleQuoted identifier)
+natName = try (symbol "%" *> singleQuotedString)
 
 -- | Parse a literal freshNZE name, e.g. @F'n'@.
 freshNZEName :: Parser String
@@ -644,4 +683,4 @@ opNull = symbol_ "0"
 filePath :: Parser FilePath
 filePath = many charDir
   where
-    charDir = alphaNum <|> oneOf ("." <> [pathSeparator])
+    charDir = alphaNum <|> oneOf ("._-" <> [pathSeparator])

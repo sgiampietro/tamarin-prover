@@ -9,7 +9,6 @@
 -- Copyright   : (c) 2010-2012 Benedikt Schmidt & Simon Meier
 -- License     : GPL v3 (see LICENSE)
 --
--- Maintainer  : Simon Meier <iridcode@gmail.com>
 -- Portability : GHC only
 --
 -- A monad for writing constraint reduction steps together with basic steps
@@ -149,12 +148,10 @@ import           Theory.Constraint.Solver.Contradictions
 import           Theory.Constraint.Solver.Combination
 import           Theory.Constraint.System
 import           Theory.Model
-import           Utils.Misc
 import           Term.DHMultiplication
 import           Term.Rewriting.Norm (norm')
 import Safe (scanl1Note)
 import Data.Aeson (ToJSON(toJSON))
-import Data.Text.Foreign (takeWord16)
 
 
 ------------------------------------------------------------------------------
@@ -184,7 +181,6 @@ execReduction :: Reduction a -> ProofContext -> System -> FreshState
               -> Disj (System, FreshState)
 execReduction m ctxt se fs =
     Disj $ (`runReader` ctxt) . runDisjT . (`runFreshT` fs) $ execStateT m se
-
 
 -- Change management
 --------------------
@@ -390,7 +386,7 @@ exploitNodeId i ru mrconstrs = do
     js <- replicateM m $ freshLVar "vk" LSortNode
     forM_ (zip js bvin) (\ (j,x) -> do
                 insertNotBasisElem x j
-                insertLess j i Adversary)
+                insertLess (LessAtom j i Adversary))
     exploitPrems i ru
     return ru
   where
@@ -398,10 +394,10 @@ exploitNodeId i ru mrconstrs = do
                                     [kuFactAnn ann m] [inFact m] [kLogFact m] []
 
 
-    mkFreshRuleAC m = Rule (ProtoInfo (ProtoRuleACInstInfo FreshRule [] []))
+    mkFreshRuleAC m = Rule (ProtoInfo (ProtoRuleACInstInfo FreshRule mempty []))
                            [] [freshFact m] [] [m]
 
-    mkFreshDHRuleAC m = Rule (ProtoInfo (ProtoRuleACInstInfo FreshRule [] []))
+    mkFreshDHRuleAC m = Rule (ProtoInfo (ProtoRuleACInstInfo FreshRule mempty []))
                            [] [freshDHFact m] [] [m]
 
     exploitPrems i ru = mapM_ (exploitPrem i ru) (enumPrems ru)
@@ -437,7 +433,7 @@ exploitNodeId i ru mrconstrs = do
         
         _ | (isKUFact fa) -> do
               j <- freshLVar "vk" LSortNode
-              insertLess j i Adversary
+              insertLess (LessAtom j i Adversary)
               void (insertAction j fa)
 
           -- Store premise goal for later processing using CR-rule *DG2_2*
@@ -565,12 +561,12 @@ insertAction i fa@(Fact _ ann _) = do
     requiresKU t = do
       j <- freshLVar "vk" LSortNode
       let faKU = kuFactAnn ann t
-      insertLess j i Adversary
+      insertLess (LessAtom j i Adversary)
       void (insertAction j faKU)
 
 -- | Insert a 'Less' atom. @insertLess i j@ means that *i < j* is added.
-insertLess :: NodeId -> NodeId -> Reason-> Reduction ()
-insertLess i j r = modM sLessAtoms (S.insert (i, j, r))
+insertLess :: LessAtom -> Reduction ()
+insertLess = modM sLessAtoms . S.insert
 
 -- | Insert a 'Subterm' atom. *x ⊏ y* is added to the SubtermStore
 insertSubterm :: LNTerm -> LNTerm -> Reduction ()
@@ -599,7 +595,7 @@ insertAtom ato = case ato of
     EqE x y       -> if (isDHTerm x && isDHTerm y) then insertDHEq x y else void $ solveTermEqs SplitNow [Equal x y]
     Subterm x y   -> insertSubterm x y
     Action i fa   -> void $ insertAction (ltermNodeId' i) fa
-    Less i j      -> insertLess (ltermNodeId' i) (ltermNodeId' j) Formula
+    Less i j      -> insertLess (LessAtom (ltermNodeId' i) (ltermNodeId' j) Formula)
     Last i        -> void $ insertLast (ltermNodeId' i)
     Syntactic _   -> return ()
 
@@ -715,9 +711,9 @@ markGoalAsSolved how goal =
     case goal of
       ActionG _ _     -> updateStatus
       PremiseG _ fa
-        | isKDFact fa -> modM sGoals $ M.delete goal
+        | isKDFact fa -> delete
         | otherwise   -> updateStatus
-      ChainG _ _      -> modM sGoals $ M.delete goal
+      ChainG _ _      -> delete
       SplitG _        -> updateStatus
       DisjG disj      -> modM sFormulas       (S.delete $ GDisj disj) >>
                          modM sSolvedFormulas (S.insert $ GDisj disj) >>
@@ -726,13 +722,17 @@ markGoalAsSolved how goal =
       NoCancG _       -> modM sGoals $ M.delete goal
       DHEqG _ _ ->    modM sGoals $ M.delete goal 
   where
+    delete :: Reduction ()
+    delete = modM sGoals $ M.delete goal
+
+    updateStatus :: Reduction ()
     updateStatus = do
         mayStatus <- M.lookup goal <$> getM sGoals
         verbose <- getVerbose
         case mayStatus of
           Just status -> if (verbose) then trace (msg status) $
               modM sGoals $ M.insert goal $ set gsSolved True status else modM sGoals $ M.insert goal $ set gsSolved True status
-          Nothing     -> trace ("markGoalAsSolved: inexistent goal " ++ show goal) $ return ()
+          Nothing     -> trace ("markGoalAsSolved: inexistent constraint " ++ show goal) $ return ()
 
     msg status = render $ nest 2 $ fsep $
         [ text ("solved goal nr. "++ show (get gsNr status))
@@ -775,7 +775,7 @@ insertMuAction ::  (LNTerm -> NodeId -> Reduction String) ->
 insertMuAction fun x@(LIT l) i j | sortOfLNTerm x == LSortFrNZE =  do 
                   insertBasisElem x
                   `disjunction` do
-                    insertLess i j Adversary
+                    insertLess (LessAtom i j Adversary)
                     fun x i
                     insertNotBasisElem x i
            {-nodes <- getM sNodes
@@ -854,7 +854,7 @@ insertDHEdgesBP (gT, g1, g2) gTlist g1list g2list indts indsg1 indsg2 listterms 
     nbset <- getM sNotBasis
     case neededexponentslist bset nbset temppairs of 
         ([],js) -> do
-            forM_ js (\i-> insertLess i (fst p) Adversary)
+            forM_ js (\i-> insertLess (LessAtom i (fst p) Adversary))
             (faPremsubst, listterms) <-  solveIndFactDH SplitNow allrootpairs premTerm
             solveIndicator faPremsubst (map addBPif listterms) -- compute the BP for those terms that are not BP
             forM_ (map (\(_,b,_,_, _, _)->b) allcllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
@@ -862,7 +862,7 @@ insertDHEdgesBP (gT, g1, g2) gTlist g1list g2list indts indsg1 indsg2 listterms 
         (les,js) -> do
             let fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) les
                 otheres = les \\ fres
-            forM_ js (\i-> insertLess i (fst p) Adversary)
+            forM_ js (\i-> insertLess (LessAtom i (fst p) Adversary))
             ifs <- replicateM (length fres) $ freshLVar "vk" LSortNode
             forM_ (zip ifs fres) (\(i,x) -> insertMuAction fun x i (fst p))
             (newb,newNb) <- disjunctionOfList $ solveNeededList2 otheres
@@ -871,7 +871,7 @@ insertDHEdgesBP (gT, g1, g2) gTlist g1list g2list indts indsg1 indsg2 listterms 
             forM_ (zip is newNb) (\(i,x)-> do 
                 insertGoal (ActionG i (kdhFact x)) False
                 insertNotBasisElem x i
-                insertLess i (fst p) Adversary)
+                insertLess (LessAtom i (fst p) Adversary))
             forM_ (map (\(_,b,_,_, _, _)->b) allcllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
             forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) allcllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
             (faPremsubst, listterms2) <- solveIndFactDHBP SplitNow allrootpairs premTerm listterms
@@ -897,7 +897,7 @@ insertDHEdges tuplelist indts premTerm p fun = do
     nbset <- getM sNotBasis
     case neededexponentslist bset nbset temppairs of 
         ([],js) -> do
-            forM_ js (\i-> insertLess i (fst p) Adversary)
+            forM_ js (\i-> insertLess (LessAtom i (fst p) Adversary))
             forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
             forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
             (faPremsubst, listterms) <- solveIndFactDH SplitNow rootpairs premTerm
@@ -905,7 +905,7 @@ insertDHEdges tuplelist indts premTerm p fun = do
         (les,js) -> do
             let fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) les
                 otheres = les \\ fres
-            forM_ js (\i-> insertLess i (fst p) Adversary)
+            forM_ js (\i-> insertLess (LessAtom i (fst p) Adversary))
             ifs <- replicateM (length fres) $ freshLVar "vk" LSortNode
             forM_ (zip ifs fres) (\(i,x) -> insertMuAction fun x i (fst p))
             (newb,newNb) <- disjunctionOfList $ solveNeededList2 otheres
@@ -914,7 +914,7 @@ insertDHEdges tuplelist indts premTerm p fun = do
             forM_ (zip is newNb) (\(i,x)-> do 
                 insertGoal (ActionG i (kdhFact x)) False
                 insertNotBasisElem x i
-                insertLess i (fst p) Adversary)
+                insertLess (LessAtom i (fst p) Adversary))
             forM_ (map (\(_,b,_,_, _, _)->b) cllist) (\c-> (modM sEdges (\es -> foldr S.insert es [ Edge c p ])))
             forM_ (map (\(ru,(i,b),_,_, mc,f)->(i,ru, mc)) (filter (\(ru,_,_,_, mc,b)->b) cllist)) (\(c1,c2,c3) -> exploitNodeId c1 c2 c3)
             (faPremsubst, listterms) <- solveIndFactDH SplitNow rootpairs premTerm
@@ -1000,7 +1000,6 @@ substFormulas       = substPart sFormulas
 substSolvedFormulas = substPart sSolvedFormulas
 substLemmas         = substPart sLemmas
 substNextGoalNr     = return ()
-
 
 -- | Apply the current substitution of the equation store to a part of the
 -- sequent. This is an internal function.
@@ -1089,7 +1088,7 @@ conjoinSystem sys = do
     joinSets sLemmas
     joinSets sEdges
     F.mapM_ insertLast                 $ get sLastAtom    sys
-    F.mapM_  (uncurry3 insertLess)     $ get sLessAtoms   sys
+    F.mapM_ insertLess $ get sLessAtoms sys
     -- split-goals are not valid anymore
     mapM_   (uncurry insertGoalStatus) $ filter (not . isSplitGoal . fst) $ M.toList $ get sGoals sys
     F.mapM_ insertFormula $ get sFormulas sys
@@ -1597,7 +1596,7 @@ solveTermDHEqsChain splitStrat mayB rules instrules fun p faPrem (j,ruj, fa1, c)
                 universal' = filter (\x-> isUniversal xrooterms isnocanc x) xrooterms
                 universal = map (\x -> (rootIndKnown2 hndNormal bset nbset x)) universal'
                 m = length universal 
-            forM_ js (\i-> insertLess i (fst p) Adversary)
+            forM_ js (\i-> insertLess (LessAtom i (fst p) Adversary))
             let symcase sym = do 
                             let possargs = getMuArguments sym nta2
                                 remnInds = map (\a -> runReader (norm' (removesBP sym a)) hndNormal) nInds
@@ -1606,7 +1605,7 @@ solveTermDHEqsChain splitStrat mayB rules instrules fun p faPrem (j,ruj, fa1, c)
                             is <- replicateM (length possargs) $ freshLVar "vk" LSortNode
                             forM_ (zip is possargs) (\(i,a) -> do
                                 insertGoal (ActionG i (kdhFact a)) False
-                                insertLess i (fst p) Adversary)
+                                insertLess (LessAtom i (fst p) Adversary))
                             insertDHEdges possibletuple remnInds remta2 p fun
                             return Changed
                 action  | containsBP dhBPSym nta2 = case getsBPbase nta2 of
@@ -1644,7 +1643,7 @@ solveTermDHEqsChain splitStrat mayB rules instrules fun p faPrem (j,ruj, fa1, c)
         (es, js) -> do
                 let fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) es
                     otheres = es \\ fres
-                forM_ js (\i-> insertLess i (fst p) Adversary)
+                forM_ js (\i-> insertLess (LessAtom i (fst p) Adversary))
                 ifs<- replicateM (length fres) $ freshLVar "vk" LSortNode
                 forM_ (zip ifs fres) (\(i,x) -> insertMuAction fun x i (fst p))
                 (newb,newNb) <- disjunctionOfList $ solveNeededList2 otheres
@@ -1653,7 +1652,7 @@ solveTermDHEqsChain splitStrat mayB rules instrules fun p faPrem (j,ruj, fa1, c)
                 forM_ (zip is newNb) (\(i,x)-> do 
                     insertGoal (ActionG i (kdhFact x)) False
                     insertNotBasisElem x i
-                    insertLess i (fst p) Adversary)
+                    insertLess (LessAtom i (fst p) Adversary))
                 newbset <- getM sBasis
                 newnbset <- getM sNotBasis
                 substSystem
@@ -1688,7 +1687,7 @@ solveTermDHEqsChain2 splitStrat mayB rules instrules fun p faPrem ta2 = do
                 universal' = filter (\x-> isUniversal xrooterms isnocanc x) xrooterms
                 universal = map (\x -> (rootIndKnown2 hndNormal bset nbset x)) universal'
                 m = length universal 
-            forM_ js (\i-> insertLess i (fst p) Adversary)
+            forM_ js (\i-> insertLess (LessAtom i (fst p) Adversary))
             let symcase sym = do 
                             let possargs = getMuArguments sym nta2
                                 remnInds = map (\a -> runReader (norm' (removesBP sym a)) hndNormal) nInds
@@ -1697,7 +1696,7 @@ solveTermDHEqsChain2 splitStrat mayB rules instrules fun p faPrem ta2 = do
                             is <- replicateM (length possargs) $ freshLVar "vk" LSortNode
                             forM_ (zip is possargs) (\(i,a) -> do
                                 insertGoal (ActionG i (kdhFact a)) False
-                                insertLess i (fst p) Adversary)
+                                insertLess (LessAtom i (fst p) Adversary))
                             insertDHEdges possibletuple remnInds remta2 p fun
                             return "All Out Facts Used"
                 action  | containsBP dhBPSym nta2 = case getsBPbase nta2 of
@@ -1734,7 +1733,7 @@ solveTermDHEqsChain2 splitStrat mayB rules instrules fun p faPrem ta2 = do
         (es,js) -> do
                 let fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) es
                     otheres = es \\ fres
-                forM_ js (\i-> insertLess i (fst p) Adversary)
+                forM_ js (\i-> insertLess (LessAtom i (fst p) Adversary))
                 ifs<- replicateM (length fres) $ freshLVar "vk" LSortNode
                 forM_ (zip ifs fres) (\(i,x) -> insertMuAction fun x i (fst p))
                 (newb,newNb) <- disjunctionOfList $ solveNeededList2 otheres
@@ -1743,7 +1742,7 @@ solveTermDHEqsChain2 splitStrat mayB rules instrules fun p faPrem ta2 = do
                 is<- replicateM (length newNb) $ freshLVar "vk" LSortNode
                 forM_ (zip is newNb) (\(i,x)-> do 
                     insertGoal (ActionG i (kdhFact x)) False
-                    insertLess i (fst p) Adversary
+                    insertLess (LessAtom i (fst p) Adversary)
                     insertNotBasisElem x i)
                 newbset <- getM sBasis
                 newnbset <- getM sNotBasis
@@ -2061,4 +2060,3 @@ solveRuleConstraints (Just eqConstr) = do
     setM sEqStore =<< simp hnd (const (const False)) eqs
     noContradictoryEqStore
 solveRuleConstraints Nothing = return ()
-

@@ -7,7 +7,6 @@
 -- Copyright   : (c) 2010-2012 Benedikt Schmidt & Simon Meier
 -- License     : GPL v3 (see LICENSE)
 --
--- Maintainer  : Simon Meier <iridcode@gmail.com>
 -- Portability : GHC only
 --
 -- The constraint reduction rules, which are not enforced as invariants in
@@ -42,10 +41,8 @@ import           Control.Basics
 import           Control.Category
 import           Control.Monad.Disj
 import           Control.Monad.Bind
-import           Control.Monad.State                     (gets)
-import           Control.Monad.Trans.State.Lazy          hiding (get,gets)
-import           Control.Monad.Trans.FastFresh           -- GHC7.10 needs: hiding (get,gets)
-import           Control.Monad.Trans.Reader              -- GHC7.10 needs: hiding (get,gets)
+import           Control.Monad.Reader
+import           Control.Monad.State                     (StateT, gets)
 
 import           Extension.Data.Label                    as L
 
@@ -222,8 +219,8 @@ solveGoal goal = do
     markGoalAsSolved "directly" goal
     rules <- askM pcRules
     case goal of
-      ActionG i fa  -> solveAction  (nonSilentRules rules) (i, fa)
-      DHEqG t1 t2 -> solveDHEq t1 t2
+      ActionG i fa  -> solveAction (nonSilentRules rules) (i, fa)
+      DHEqG t1 t2   -> solveDHEq t1 t2
       PremiseG p fa ->
            solvePremise (get crProtocol rules ++ get crConstruct rules) p fa
       ChainG c p    -> solveChain (get crDestruct rules) (c, p)
@@ -377,7 +374,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
     requiresKU t = do
         j <- freshLVar "vk" LSortNode
         let faKU = kuFact t
-        insertLess j i Adversary
+        insertLess (LessAtom j i Adversary)
         void (insertAction j faKU)
 
 
@@ -424,13 +421,13 @@ solvePremise rules p faPrem
               ta2 = head $ factTerms faPrem
           case neededexponents bset nbset ta2 of 
             ([],js) -> do 
-                    forM_ js (\i-> insertLess i (fst p) Adversary)
+                    forM_ js (\i-> insertLess (LessAtom i (fst p) Adversary))
                     insertDHdirectEdge ta2 faPrem p (rules++drules2) (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
                     void substSystem
                     void normSystem
                     return "Using_OutFacts"
             (les,js) -> do 
-              forM_ js (\i-> insertLess i (fst p) Adversary)
+              forM_ js (\i-> insertLess (LessAtom i (fst p) Adversary))
               let fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) les
                   otheres = les \\ fres
               ifs<- replicateM (length fres) $ freshLVar "vk" LSortNode
@@ -440,7 +437,7 @@ solvePremise rules p faPrem
               is<- replicateM (length newNb) $ freshLVar "vk" LSortNode
               forM_ (zip is newNb) (\(i,x)-> do
                   insertGoal (ActionG i (kdhFact x)) False
-                  insertLess i (fst p) Adversary
+                  insertLess (LessAtom i (fst p) Adversary)
                   insertNotBasisElem x i)
               insertDHdirectEdge ta2 faPrem p (rules++drules2) (M.assocs nodes) (\x i -> solvePremise rules (i, PremIdx 0) (kIFact x)) 
               substSystem
@@ -527,9 +524,7 @@ solveChain rules (c, p) = do
          _ -> error "solveChain: not a down fact" )
   where
     extendAndMark :: NodeId -> RuleACInst -> PremIdx -> LNFact -> LNFact
-      -> Control.Monad.Trans.State.Lazy.StateT System
-      (Control.Monad.Trans.FastFresh.FreshT
-      (DisjT (Control.Monad.Trans.Reader.Reader ProofContext))) String
+      -> Reduction String
     extendAndMark i ru v faPrem faConc = do
         insertEdges [(c, faConc, faPrem, (i, v))]
         markGoalAsSolved "directly" (PremiseG (i, v) faPrem)
@@ -664,7 +659,7 @@ insertMuAction x@(LIT l) i j | sortOfLNTerm x == LSortFrNZE = do
           `disjunction` do
               rulesAll <- askM pcRules
               let rules = filter (\ru -> all isDHFact (get rConcs ru)) (get crProtocol rulesAll ++ get crConstruct rulesAll)
-              insertLess i j Adversary
+              insertLess (LessAtom i j Adversary)
               solvePremise rules (i, PremIdx 0) (kIFact x)
               insertNotBasisElem x i
 
@@ -684,7 +679,7 @@ solveByOuterSym2 hndNormal gT (g1,g2) js bset nbset p rules xrooterms instrules 
               neededInds2 = nub $ filter (\(a,b)-> not $ isPublic a) inds2
               nInds2 = map fst neededInds2
               pairs2 = [(x, y) | (x:ys) <- tails nInds2, y <- ys]
-          forM_ js (\i-> insertLess i (fst p) Adversary)
+          forM_ js (\i-> insertLess (LessAtom i (fst p) Adversary))
           if null neededInds2
             then return "Indicators are public"
             else do
@@ -720,7 +715,7 @@ solveDHIndaux bset nbset term p rules = do
             universal' = filter (\x-> isUniversal xrooterms isnocanc x) xrooterms
             universal = map (\x -> (rootIndKnown2 hndNormal bset (S.map fst nbset) x)) universal'
             m = length universal 
-        forM_ js (\i-> insertLess i (fst p) Adversary)
+        forM_ js (\i-> insertLess (LessAtom i (fst p) Adversary))
         let action | containsBP dhBPSym nterm =  case getsBPbase nterm of
                                   Just (g1,g2) -> solveByOuterSym2 hndNormal (expBase nterm) (g1,g2) js bset nbset p rules xrooterms instrules
                                   _ -> error "bp does not have a basis - malformed term"
@@ -731,7 +726,7 @@ solveDHIndaux bset nbset term p rules = do
                                                  is <- replicateM (length possargs) $ freshLVar "vk" LSortNode
                                                  forM_ (zip is possargs) (\(i,a) -> do
                                                             insertGoal (ActionG i (kdhFact a)) False
-                                                            insertLess i (fst p) Adversary)
+                                                            insertLess (LessAtom i (fst p) Adversary))
                                                  solveByOuterSym hndNormal js bset nbset p rules n (map (\a -> runReader (norm' (removesBP dhMuSym a)) hndNormal) nInds) (runReader (norm' (removesBP dhMuSym newterm)) hndNormal) instrules
                    | containsBP dhMu2Sym nterm = do            
                                               solveByOuterSym hndNormal js bset nbset p rules n nInds newterm instrules
@@ -740,7 +735,7 @@ solveDHIndaux bset nbset term p rules = do
                                                   is <- replicateM (length possargs) $ freshLVar "vk" LSortNode
                                                   forM_ (zip is possargs) (\(i,a) -> do
                                                         insertGoal (ActionG i (kdhFact a)) False
-                                                        insertLess i (fst p) Adversary)
+                                                        insertLess (LessAtom i (fst p) Adversary))
                                                   solveByOuterSym hndNormal js bset nbset p rules n (map (\a -> runReader (norm' (removesBP dhMu2Sym a)) hndNormal) nInds) (runReader (norm' (removesBP dhMu2Sym newterm)) hndNormal) instrules
                    | otherwise = solveByOuterSym hndNormal js bset nbset p rules n nInds newterm instrules
         if null neededInds 
@@ -761,7 +756,7 @@ solveDHIndaux bset nbset term p rules = do
     (les, js) -> do
           let fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) les
               otheres = les \\ fres
-          forM_ js (\i-> insertLess i (fst p) Adversary)
+          forM_ js (\i-> insertLess (LessAtom i (fst p) Adversary))
           ifs<- replicateM (length fres) $ freshLVar "vk" LSortNode
           forM_ (zip ifs fres) (\(i,x) -> insertMuAction x i (fst p))
           (newb,newNb) <- disjunctionOfList $ solveNeededList2 otheres
@@ -771,7 +766,7 @@ solveDHIndaux bset nbset term p rules = do
           forM_ (zip is newNb) (\(i,x)-> do 
                 insertGoal (ActionG i (kdhFact x)) False
                 insertNotBasisElem x i
-                insertLess i (fst p) Adversary)
+                insertLess (LessAtom i (fst p) Adversary))
           substSystem
           bset2 <- getM sBasis
           nbset2 <- getM sNotBasis

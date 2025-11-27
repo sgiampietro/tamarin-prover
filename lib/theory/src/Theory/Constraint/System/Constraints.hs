@@ -9,7 +9,6 @@
 -- Copyright   : (c) 2010-2012 Benedikt Schmidt & Simon Meier
 -- License     : GPL v3 (see LICENSE)
 --
--- Maintainer  : Simon Meier <iridcode@gmail.com>
 -- Portability : GHC only
 --
 -- Types representing constraints.
@@ -23,9 +22,15 @@ module Theory.Constraint.System.Constraints (
   , Edge(..)
   , NoCanc(..)
   , Reason(..)
-  , Less
 
-  --, isNoCanc
+  -- ** Less Atoms
+  , LessAtom(..)
+  , laSmaller
+  , laLarger
+  , laReason
+  , lessAtomFromEdge
+  , lessAtomToEdge
+  , getLessRel
 
   -- * Goal constraints
   , Goal(..)
@@ -48,10 +53,9 @@ module Theory.Constraint.System.Constraints (
 import           GHC.Generics (Generic)
 import           Data.Binary
 import           Data.Data
--- import           Extension.Data.Monoid            (Monoid(..))
+import           Data.Label (mkLabels)
 import           Data.Map as M
 
--- import           Control.Basics
 import           Control.DeepSeq
 
 import           Text.PrettyPrint.Class
@@ -86,9 +90,6 @@ data Edge = Edge {
 data Reason = Formula | InjectiveFacts | Fresh | Adversary | NormalForm
       deriving (Ord, Eq, Data, Typeable, Generic, NFData, Binary)
 
--- | A *⋖* constraint between 'NodeId's.
-type Less = (NodeId, NodeId, Reason)
-
 -- Instances
 ------------
 instance Show Reason where
@@ -113,6 +114,39 @@ instance HasFrees Edge where
     foldFrees f (Edge x y) = foldFrees f x `mappend` foldFrees f y
     foldFreesOcc  f c (Edge x y) = foldFreesOcc f ("edge":c) (x, y)
     mapFrees  f (Edge x y) = Edge <$> mapFrees f x <*> mapFrees f y
+
+-- | A *⋖* constraint between 'NodeId's.
+data LessAtom = LessAtom
+  { _laSmaller :: NodeId
+  , _laLarger :: NodeId
+  , _laReason :: Reason }
+  deriving( Show, Generic, NFData, Binary )
+
+$(mkLabels [''LessAtom])
+
+instance Eq LessAtom where
+  (LessAtom s1 l1 _) == (LessAtom s2 l2 _) = s1 == s2 && l1 == l2
+
+instance Ord LessAtom where
+  compare (LessAtom s1 l1 _) (LessAtom s2 l2 _) = compare (s1, l1) (s2, l2)
+
+lessAtomFromEdge :: Reason -> Edge -> LessAtom
+lessAtomFromEdge r (Edge (src, _) (tgt, _)) = LessAtom src tgt r
+
+lessAtomToEdge :: LessAtom -> (NodeId, NodeId)
+lessAtomToEdge (LessAtom s t _) = (s, t)
+
+-- | Gets the relation of the lesses
+getLessRel :: [LessAtom] -> [(NodeId, NodeId)]
+getLessRel = Prelude.map lessAtomToEdge
+
+instance Apply LNSubst LessAtom where
+    apply subst (LessAtom smaller larger r) = LessAtom (apply subst smaller) (apply subst larger) r
+
+instance HasFrees LessAtom where
+    foldFrees f (LessAtom s l _) = foldFrees f s <> foldFrees f l
+    foldFreesOcc f c (LessAtom s l _) = foldFreesOcc f ("lessAtom":c) (s, l)
+    mapFrees f (LessAtom s l r) = LessAtom <$> mapFrees f s <*> mapFrees f l <*> pure r
 
 ------------------------------------------------------------------------------
 -- NoCanc, Basis and NonBasis types for DH multiplication                   --
@@ -245,8 +279,8 @@ prettyEdge (Edge c p) =
     prettyNodeConc c <-> operator_ ">-->" <-> prettyNodePrem p
 
 -- | Pretty print a less-atom as @src < tgt@.
-prettyLess :: HighlightDocument d => Less -> d
-prettyLess (i, j, r) = (prettyNAtom $ Less (varTerm i) (varTerm j)) <> colon <-> prettyReason r
+prettyLess :: HighlightDocument d => LessAtom -> d
+prettyLess (LessAtom i j r) = prettyNAtom (Less (varTerm i) (varTerm j)) <> colon <-> prettyReason r
 
 -- | Pretty print a goal.
 prettyGoal :: HighlightDocument d => Goal -> d

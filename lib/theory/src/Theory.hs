@@ -3,7 +3,6 @@
 -- Copyright   : (c) 2010-2012 Benedikt Schmidt & Simon Meier
 -- License     : GPL v3 (see LICENSE)
 --
--- Maintainer  : Simon Meier <iridcode@gmail.com>, Alexander Dax <alexander@dax.saarland>
 -- Portability : GHC only
 --
 -- Theory datatype and transformations on it.
@@ -79,6 +78,7 @@ module Theory (
   , lFormula
   , lAttributes
   , lProof
+  , lPlaintext
   , aName
   , aAttributes
   , aCaseIdentifiers
@@ -100,11 +100,13 @@ module Theory (
   , TheoryItem(..)
   , DiffTheoryItem(..)
   , thyName
+  , thyInFile
   , thySignature
   , thyTactic
   , thyCache
   , thyItems
   , diffThyName
+  , diffThyInFile
   , diffThySignature
   , diffThyCacheLeft
   , diffThyCacheRight
@@ -118,6 +120,7 @@ module Theory (
   , theoryRules
   , theoryLemmas
   , theoryCaseTests
+  , theoryFormalComments
   , theoryRestrictions
   , theoryProcesses
   , theoryProcessDefs
@@ -129,9 +132,12 @@ module Theory (
   , theoryAccLemmas
   , diffTheoryRestrictions
   , diffTheorySideRestrictions
+  , diffTheoryFormalComments
   , addTactic
   , addRestriction
   , addLemma
+  , addLemmaAtIndex
+  , modifyLemma
   , addAccLemma
   , addCaseTest
   , addRestrictionDiff
@@ -145,6 +151,8 @@ module Theory (
   , filterLemma
   , removeDiffLemma
   , lookupLemma
+  , lookupLemmaIndex
+  , getLemmaPreItems
   , lookupDiffLemma
   , lookupAccLemma
   , lookupCaseTest
@@ -225,7 +233,8 @@ module Theory (
 
   , getSource
   , getDiffSource
-
+  -- ** Alice
+  , Theory
   -- ** Proving
   , ProofSkeleton
   , DiffProofSkeleton
@@ -277,7 +286,6 @@ module Theory (
 import           Prelude                             hiding (id, (.))
 
 --import           GHC.Generics                        (Generic)
-
 -- import           Data.Typeable
 --import           Data.Binary
 --import           Data.List

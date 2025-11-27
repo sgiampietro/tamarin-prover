@@ -3,7 +3,6 @@
 --               contributing in 2019: Robert Künnemann, Johannes Wocker
 -- License     : GPL v3 (see LICENSE)
 --
--- Maintainer  : Simon Meier <iridcode@gmail.com>
 -- Portability : portable
 --
 -- Parsing Standard and Guarded Formulas
@@ -31,7 +30,7 @@ import Control.Basics
 smallerp :: Ord v => Parser v -> Parser (ProtoAtom SyntacticSugar (Term (Lit Name v)))
 smallerp varp = do
     mset <- enableMSet . sig <$> getState
-    unless mset (fail "Need builtins: multiset to use multiset comparisson operator.")
+    unless mset (fail "Need builtins: multiset to use multiset comparison operator.")
     a <- try (termp <* opLessTerm)
     b <- termp
     return $ (Syntactic . Pred) $ protoFact Linear "Smaller" [a,b]

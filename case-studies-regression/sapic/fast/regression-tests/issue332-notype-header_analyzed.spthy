@@ -19,8 +19,15 @@ heuristic: p
 
 
 
-rule (modulo E) Init[color=#ffffff, process="0"]:
-   [ ] --[ Init( ) ]-> [ ]
+rule (modulo E) Init[color=#ffffff, process="0", issapicrule,
+                     role='Process']:
+   [ ] --[ Init( ) ]-> [ State_( ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) p_0_[color=#ffffff, process="0", issapicrule,
+                     role='Process']:
+   [ State_( ) ] --> [ ]
 
   /* has exactly the trivial AC variant */
 
@@ -32,17 +39,14 @@ restriction single_session:
 
 /*
 Generated from:
-Tamarin version 1.8.0
-Maude version 3.2.1
-Git revision: 93c7165df1b26f607b8475e26d3a7e0d54f295cb, branch: master
-Compiled at: 2023-08-29 12:56:59.317473841 UTC
+Tamarin version 1.11.0
+Maude version 3.4
+Git revision: a288673cab40b1e997ba23b077ef491d39c2bef6 (with uncommited changes), branch: fix-issue713
+Compiled at: 2025-06-18 14:31:09.981542 UTC
 */
 
 end
 /* Output
-maude tool: 'maude'
- checking version: 3.2.1. OK.
- checking installation: OK.
 
 ==============================================================================
 summary of summaries:
@@ -50,7 +54,7 @@ summary of summaries:
 analyzed: examples/sapic/fast/regression-tests/issue332-notype-header.spthy
 
   output:          examples/sapic/fast/regression-tests/issue332-notype-header.spthy.tmp
-  processing time: 0.04s
+  processing time: 0.05s
   
 
 ==============================================================================

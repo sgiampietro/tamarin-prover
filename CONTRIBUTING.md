@@ -106,6 +106,8 @@ rm -rf case-studies
 python3 regressionTests.py
 ```
 
+(This includes changes to SAPIC.)
+
 This first removes any existing case-study runs you may have, then runs all the case studies, and finally compares the resulting output to the stored expected output. The script shows any differences between the outputs, and also compares the runtimes. It is expected that the runtime of the analyses changes every time (but on the order of 1% or so, possibly more depending on the machine you run it on), hence the times are shown using a color code: green for small changes, yellow for bigger changes, and red for significant changes. If small runtime changes are only differences, everything is fine. If some proof steps get reordered, but the number of steps stays constant that is ok, but should be noted. If that number changes or runtimes change significantly that must be discussed in a pull request.
 
 If you are running the regression on a server you can run multiple case studies in parallel by adding the "-j #" parameter where # is the number of parallel runs. Note that your machine should have 16GB of memory per run, and each run uses 3 threads already. For example:
@@ -114,8 +116,8 @@ If you are running the regression on a server you can run multiple case studies 
 python3 regressionTests.py -j 6
 ```
 
-For more details about `regressionTests.py`, have a look at `doc/READMEregressionTests.md`
-
+For more details about `regressionTests.py`, have a look at `doc/READMEregressionTests.md`, in particular the section
+"Adding new files to test" to see where to put files to pass the CI (travis).
 
 Editor support
 --------------
@@ -142,4 +144,34 @@ git subtree push --prefix etc https://github.com/$github_user/editors $branch
 3. FYI: if we ever want to add another subtree, we use:
 ```
 git subtree add --prefix $local_dir $remote_url $remote_branch --squash
+```
+
+Debugging
+---------
+
+We provide a module tailored to debugging the codebase in the REPL.
+The module is provided in `src/Main/ScratchPad.hs` and you can load it by running `stack ghci` in the top-level directory of this repository.
+It is important that you run this command in the top-level directory.
+If not, there will be an error.
+
+After you entered GHCI, you must load the scratch pad module using the command `:m *Main.ScratchPad`. If you then run the function `debug`, the debugging starts!
+
+The `ScratchPad` module is designed such that you can explore the proof tree using the functions `paths` and `methodsAt` and debug by modifying `debugInput` and `debugM`.
+You can find more documentation in the `Main.ScratchPad` module.
+
+Here is a complete example of how debugging could work:
+```
+stack ghci
+ghci> :m *Main.ScratchPad
+ghci> debug
+[Theory NAXOS_eCK] Theory loaded
+[Theory NAXOS_eCK] Theory translated
+[Theory NAXOS_eCK] Derivation checks started
+[Theory NAXOS_eCK] Derivation checks ended
+[Theory NAXOS_eCK] Theory closed
+--- starting constraint solving ---
+[Saturating Sources] Step 1 (Max 5)
+[Saturating Sources] Done
+The constraint system contains the following annotated nodes
+#i2
 ```

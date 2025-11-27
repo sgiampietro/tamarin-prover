@@ -25,8 +25,8 @@ guarded formula characterizing all satisfying traces:
 simplify
 solve( State_112( ) ▶₀ #l )
   case lookupxasx_1_11
-  solve( State_( ) ▶₀ #p )
-    case Init
+  solve( State_1( ) ▶₀ #p )
+    case ifTrue_0_
     SOLVED // trace found
   qed
 qed
@@ -37,7 +37,8 @@ qed
 
 
 
-rule (modulo E) Init[color=#ffffff, process="if True( )"]:
+rule (modulo E) Init[color=#ffffff, process="if True( )", issapicrule,
+                     role='Process']:
    [ ] --[ Init( ) ]-> [ State_( ) ]
 
   /* has exactly the trivial AC variant */
@@ -46,38 +47,75 @@ restriction Restr_ifTrue_0__1:
   "∀ #NOW. (Restr_ifTrue_0__1( ) @ #NOW) ⇒ (⊤)"
   // safety formula
 
-rule (modulo E) ifTrue_0_[color=#ffffff, process="if True( )"]:
-   [ State_( ) ]
-  --[ PositiveBranch( ), Restr_ifTrue_0__1( ) ]->
-   [ State_11( ) ]
+rule (modulo E) ifTrue_0_[color=#ffffff, process="if True( )",
+                          issapicrule, role='Process']:
+   [ State_( ) ] --[ Restr_ifTrue_0__1( ) ]-> [ State_1( ) ]
+
+  /* has exactly the trivial AC variant */
+
+restriction Restr_ifTrue_1__1:
+  "∀ #NOW. (Restr_ifTrue_1__1( ) @ #NOW) ⇒ (¬(⊤))"
+  // safety formula
+
+rule (modulo E) ifTrue_1_[color=#ffffff, process="if True( )",
+                          issapicrule, role='Process']:
+   [ State_( ) ] --[ Restr_ifTrue_1__1( ) ]-> [ State_2( ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) eventPositiveBranch_0_1[color=#ffffff,
+                                        process="event PositiveBranch( );", issapicrule, role='Process']:
+   [ State_1( ) ] --[ PositiveBranch( ) ]-> [ State_11( ) ]
 
   /* has exactly the trivial AC variant */
 
 rule (modulo E) lookupxasx_0_11[color=#ffffff,
-                                process="lookup 'x' as x.1"]:
-   [ State_11( ) ] --[ IsIn( 'x', x.1 ) ]-> [ ]
+                                process="lookup 'x' as x.1", derivchecks, issapicrule, role='Process']:
+   [ State_11( ) ] --[ IsIn( 'x', x.1 ) ]-> [ State_111( x.1 ) ]
 
   /*
   rule (modulo AC) lookupxasx_0_11[color=#ffffff,
-                                   process="lookup 'x' as x.1"]:
-     [ State_11( ) ] --[ IsIn( 'x', x ) ]-> [ ]
+                                   process="lookup 'x' as x.1", derivchecks, issapicrule, role='Process']:
+     [ State_11( ) ] --[ IsIn( 'x', x ) ]-> [ State_111( x ) ]
   */
 
 rule (modulo E) lookupxasx_1_11[color=#ffffff,
-                                process="lookup 'x' as x.1"]:
+                                process="lookup 'x' as x.1", derivchecks, issapicrule, role='Process']:
    [ State_11( ) ] --[ IsNotSet( 'x' ) ]-> [ State_112( ) ]
 
   /* has exactly the trivial AC variant */
 
+rule (modulo E) p_0_111[color=#ffffff, process="0", issapicrule,
+                        role='Process']:
+   [ State_111( x.1 ) ] --> [ ]
+
+  /*
+  rule (modulo AC) p_0_111[color=#ffffff, process="0", issapicrule,
+                           role='Process']:
+     [ State_111( x ) ] --> [ ]
+  */
+
 rule (modulo E) eventLookupElse_0_112[color=#ffffff,
-                                      process="event LookupElse( );"]:
+                                      process="event LookupElse( );", issapicrule, role='Process']:
    [ State_112( ) ] --[ LookupElse( ) ]-> [ State_1121( ) ]
 
   /* has exactly the trivial AC variant */
 
-rule (modulo E) insertyy_0_1121[color=#ffffff,
-                                process="insert 'y','y';"]:
-   [ State_1121( ) ] --[ Insert( 'y', 'y' ) ]-> [ ]
+rule (modulo E) insertyy_0_1121[color=#ffffff, process="insert 'y','y';",
+                                issapicrule, role='Process']:
+   [ State_1121( ) ] --[ Insert( 'y', 'y' ) ]-> [ State_11211( ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) p_0_11211[color=#ffffff, process="0", issapicrule,
+                          role='Process']:
+   [ State_11211( ) ] --> [ ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) p_0_2[color=#ffffff, process="0", issapicrule,
+                      role='Process']:
+   [ State_2( ) ] --> [ ]
 
   /* has exactly the trivial AC variant */
 
@@ -98,31 +136,18 @@ restriction single_session:
   "∀ #i #j. ((Init( ) @ #i) ∧ (Init( ) @ #j)) ⇒ (#i = #j)"
   // safety formula
 
-/*
-WARNING: the following wellformedness checks failed!
-
-Message Derivation Checks
-=========================
-
-  The variables of the follwing rule(s) are not derivable from their premises, you may be performing unintended pattern matching.
-
-Rule lookupxasx_0_11: 
-Failed to derive Variable(s): x.1
-*/
+/* All wellformedness checks were successful. */
 
 /*
 Generated from:
-Tamarin version 1.8.0
-Maude version 3.2.1
-Git revision: 93c7165df1b26f607b8475e26d3a7e0d54f295cb, branch: master
-Compiled at: 2023-08-29 12:56:59.317473841 UTC
+Tamarin version 1.11.0
+Maude version 3.4
+Git revision: a288673cab40b1e997ba23b077ef491d39c2bef6 (with uncommited changes), branch: fix-issue713
+Compiled at: 2025-06-18 14:31:09.981542 UTC
 */
 
 end
 /* Output
-maude tool: 'maude'
- checking version: 3.2.1. OK.
- checking installation: OK.
 
 ==============================================================================
 summary of summaries:
@@ -131,9 +156,6 @@ analyzed: examples/sapic/fast/basic/operator-precedence-3.spthy
 
   output:          examples/sapic/fast/basic/operator-precedence-3.spthy.tmp
   processing time: 0.07s
-  
-  WARNING: 1 wellformedness check failed!
-           The analysis results might be wrong!
   
   elseIsResolvedInnerFirst (exists-trace): verified (4 steps)
 

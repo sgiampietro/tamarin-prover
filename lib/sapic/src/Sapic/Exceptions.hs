@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE FlexibleInstances #-}
 -- |
 -- Copyright   : (c) 2019 Robert Künnemann
 -- License     : GPL v3 (see LICENSE)
@@ -9,23 +7,24 @@
 --
 -- Exceptions used during translation
 
-module Sapic.Exceptions (
-    WFLockTag(..),
-    WFerror(..),
-    SapicException(..),
-    ExportException(..)) where
-import Data.Typeable
-import Data.Set as S
-import qualified Data.List as List
+module Sapic.Exceptions
+  ( WFLockTag(..)
+  , WFerror(..)
+  , SapicException(..)
+  , ExportException(..)
+  ) where
+
 import Control.Exception
+import Data.List qualified as List
+import Data.Maybe qualified
+import Data.Set as S
+import Data.Typeable
+
 import Theory
 import Theory.Sapic
-import Data.Label
-import qualified Data.Maybe
 import Theory.Text.Pretty
-import Sapic.Annotation  --toAnProcess
 import Theory.Sapic.Print (prettySapic)
-import qualified Theory.Text.Pretty as Pretty
+import Theory.Text.Pretty qualified as Pretty
 
 -- two different kind of locking erros
 data WFLockTag = WFRep | WFPar  deriving (Show)
@@ -39,6 +38,7 @@ data WFerror = WFLock WFLockTag
                 | WFUnbound (Set LVar)
                 | WFReliable
                 | WFBoundTwice SapicLVar
+                | WFUnAnnotatedLock
                 | TypingErrorArgument SapicTerm [SapicType]
                 | TypingError SapicTerm SapicType SapicType
                 | TypingErrorFunctionMerge NoEqSym SapicFunType SapicFunType
@@ -47,10 +47,8 @@ data WFerror = WFLock WFLockTag
 
 -- | SapicExceptions see instance of show below for explanation.
 data SapicException an = NotImplementedError String
-                    -- SomethingBad
                     -- | VerdictNotWellFormed String
                     -- | InternalRepresentationError String
-                    -- | UnAnnotatedLock String
                     | ProcessNotWellformed WFerror (Maybe (LProcess an))
                     | InvalidPosition ProcessPosition
                     | ImplementationError String
@@ -62,19 +60,22 @@ data SapicException an = NotImplementedError String
                     | CannotExpandPredicate FactTag SyntacticRestriction
     deriving (Typeable)
 
+
+
+
 data ExportException = UnsupportedBuiltinMS
                        | UnsupportedBuiltinBP
                        | UnsupportedTypes [String]
 
 instance Show ExportException where
-    
+
     show (UnsupportedTypes incorrectFunctionUsages) = do
         let functionsString = List.intercalate ", " incorrectFunctionUsages
         (case length functionsString of
           1 -> "The function " ++ functionsString ++ ", which is declared with a user-defined type, appears in a rewrite rule. "
           _ -> "The functions " ++ functionsString ++ ", which are declared with a user-defined type, appear in a rewrite rule. ")
         ++ "However, the translation of rules only works with bitstrings at the moment."
-    show unsuppBuiltin = 
+    show unsuppBuiltin =
         "The builtins bilinear-pairing and multiset are not supported for export. However, your model uses " ++
         (case unsuppBuiltin of
             UnsupportedBuiltinBP -> "bilinear-pairing."
@@ -93,12 +94,12 @@ instance Show (SapicException an) where
     show (InvalidPosition p) = "Invalid position:" ++ prettyPosition p
     show (NotImplementedError s) = "This feature is not implemented yet. Sorry! " ++ s
     show (ImplementationError s) = "You've encountered an error in the implementation: " ++ s
-    show a@(ProcessNotWellformed e p) = "Process not well-formed: " ++ Pretty.render (text (show e) $-$ nest 2 (maybe emptyDoc prettySapic p))
+    show (ProcessNotWellformed e p) = "Process not well-formed: " ++ Pretty.render (text (show e) $-$ nest 2 (maybe emptyDoc prettySapic p))
     show ReliableTransmissionButNoProcess = "The builtin support for reliable channels currently only affects the process calculus, but you have not specified a top-level process. Please remove \"builtins: reliable-channel\" to proceed."
     show (CannotExpandPredicate facttag rstr) = "Undefined predicate "
                               ++ showFactTagArity facttag
                               ++ " in definition of predicate: "
-                              ++ get rstrName rstr
+                              ++ rstr._rstrName
                               ++ "."
 
 instance Show WFerror where
@@ -135,7 +136,8 @@ instance Show WFerror where
                               ++ prettySapicFunType t2
                               ++ "."
     show (FunctionNotDefined sym ) = "Function not defined " ++ show sym
-        
+    show WFUnAnnotatedLock = "There is an unlock that cannot be matched with a lock."
+
 
 instance Exception WFerror
 instance (Typeable an) => Exception (SapicException an)
