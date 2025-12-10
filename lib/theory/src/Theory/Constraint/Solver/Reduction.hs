@@ -888,8 +888,6 @@ insertDHEdges tuplelist indts premTerm p fun = do
     let rootpairs = zip (map (\(a,b,(c,t),d,e,f)-> (runReader (norm' t) hnd, runReader (norm' d) hnd)) tuplelist) indts
         cllist = nubBy (\(a,b,c,d,e,f) (a2,b2,c2,d2,e2,f2) -> b == b2) tuplelist
         temppairs = map (\((a,b),c)-> a ) rootpairs
-    --return ()
-    --(faPremsubst, listterms) <- foldM (\faP c -> solveIndFactDH SplitNow c faP) (premTerm,[]) rootpairs
     nodes <- getM sNodes
     void substSystem
     contradictoryIf $ doubleFresh nodes
@@ -904,7 +902,7 @@ insertDHEdges tuplelist indts premTerm p fun = do
             void $ solveIndicator faPremsubst listterms
         (les,js) -> do
             let fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) les
-                otheres = les \\ fres
+                otheres =  les \\ fres
             forM_ js (\i-> insertLess (LessAtom i (fst p) Adversary))
             ifs <- replicateM (length fres) $ freshLVar "vk" LSortNode
             forM_ (zip ifs fres) (\(i,x) -> insertMuAction fun x i (fst p))
@@ -1732,7 +1730,7 @@ solveTermDHEqsChain2 splitStrat mayB rules instrules fun p faPrem ta2 = do
                     action
         (es,js) -> do
                 let fres = filter (\fe -> sortOfLNTerm fe == LSortFrNZE) es
-                    otheres = es \\ fres
+                    otheres =  es \\ fres
                 forM_ js (\i-> insertLess (LessAtom i (fst p) Adversary))
                 ifs<- replicateM (length fres) $ freshLVar "vk" LSortNode
                 forM_ (zip ifs fres) (\(i,x) -> insertMuAction fun x i (fst p))
@@ -1974,7 +1972,11 @@ genTerm hnd i z  = case sortOfLNTerm i of
 solveIndFactDH :: SplitStrategy -> [((LNTerm, LNTerm), LNTerm)] -> LNTerm -> Reduction (LNTerm, [LNTerm])
 solveIndFactDH split listtups faPrem = do
     hndNormal <- getMaudeHandle
-    let queries' = map (\((t,rt), ind)-> createEqs rt ind) listtups
+    hndN <- getMaudeHandle
+    bset <- getM sBasis
+    nbset <- getM sNotBasis
+    let rts = map (\((_,rt), _)-> runReader (norm' (rootIndKnown2 hndN bset (S.map fst nbset) rt) ) hndN) listtups
+        queries' = zipWith (\rt ((_,_), ind)-> createEqs rt ind) rts listtups
         genqueries = filter (\(Equal t rt) -> t /= rt) queries'
     if genqueries == [] 
      then return (faPrem, nub $ map (\((a,b),c)-> a) listtups)
@@ -1983,7 +1985,6 @@ solveIndFactDH split listtups faPrem = do
             queries = filter (\(Equal t rt) -> not $ isMsgVar t) genqueries
             xindterms = map (\(Equal rt ind) -> ind) queries
             prterms = map (\(Equal rt ind) -> rt) queries
-        hndN <- getMaudeHandle
         se  <- gets id
         (eqsMsg, maySplitId) <- addEqs hndN msgeqs =<< getM sEqStore
         setM sEqStore =<< simp hndN (substCreatesNonNormalTerms hndN se) eqsMsg
