@@ -28,7 +28,9 @@ genericletBlock varp termp = many1 definition
 letBlock :: Parser LNSubst
 letBlock = do
         _  <- letIdentifier
-        ls <-genericletBlock (sortedLVar [LSortMsg, LSortNat]) (msetterm False llit)
+        -- Be careful when adding additional sorts: LSortMsg has an empty prefix and should be last in the list.
+        -- Generally: No sort prefix (suffix) should be a PREFIX of a sort prefix (suffix) later in the list.
+        ls <-genericletBlock (sortedLVar [LSortG, LSortE, LSortNat, LSortMsg]) (msetterm False llit) -- TODO: Might need to add more DH sorts here
         _  <- symbol "in"
         return $ toSubst ls
   where
