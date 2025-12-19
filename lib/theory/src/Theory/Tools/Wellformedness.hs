@@ -1150,11 +1150,12 @@ dhMultRestrictions thy =
       in
         [ et | Fact _ _ ts <- allFacts, t <- ts, et <- extractGeneratorLiterals t ]
       where
-        extractGeneratorLiterals t@(viewTerm -> FApp (DHMult dhExpSym) as@[t1, t2]) = case t1 of -- matches dhExp(t1, t2)
-          (viewTerm -> Lit _) -> t1 : concatMap extractGeneratorLiterals as
-          _                   -> concatMap extractGeneratorLiterals as
-        extractGeneratorLiterals (viewTerm -> FApp _  as) = concatMap extractGeneratorLiterals as
-        extractGeneratorLiterals _ = []
+        extractGeneratorLiterals t
+          | FApp (DHMult sym) (t1:ts) <- viewTerm t,
+            sym == dhExpSym,
+            Lit _ <- viewTerm t1 = t1 : concatMap extractGeneratorLiterals ts -- matches dhExp(t1, ...) where t1 is a literal
+          | FApp _ ts <- viewTerm t = concatMap extractGeneratorLiterals ts -- matches all other function applications
+          | Lit _ <- viewTerm t = []
     
     sameLiterals (l1:xs) = all (\l2 -> l1 == l2) xs
     sameLiterals _ = True
