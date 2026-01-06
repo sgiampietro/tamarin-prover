@@ -54,6 +54,7 @@ module Term.DHMultiplication (
   , varTermsOf'
   , varInMu
   , getMuArguments
+  , g2Exp
   --, unbox
   , isNoCanc
   , notUnifiableLits
@@ -342,8 +343,26 @@ listOfExponents t = case viewTerm2 t of
 --------------------------------------------------------------
 --------------------------------------------------------------
 
-
-
+g2Exp ::  LNTerm -> LNTerm
+g2Exp t@(LIT l) = if (isGVar t || isPubGVar t || isGConst t) then (fAppdhOne) else t
+g2Exp t@(FAPP (DHMult o) ts) = case ts of
+    --[ t1, t2 ] | o == dhMultSym   -> simplifyraw $ (FAPP (DHMult dhPlusSym) [gTerm2Exp t1, gTerm2Exp t2])
+    [ t1, t2 ] | o == dhTimesESym   -> t
+    [ t1, t2 ] | o == dhExpSym   ->  (FAPP (DHMult dhTimesESym) [g2Exp t1, g2Exp t2])
+    [ t1, t2 ] | o == dhPlusSym   -> t
+    [ t1, t2 ] | o == dhBPSym -> fAppdhOne
+    [ t1 ]     | o == dhGinvSym    ->  (FAPP (DHMult dhMinusSym) [g2Exp t1])
+    [ t1 ]     | o == dhInvSym    -> t
+    [ t1 ]     | o == dhMinusSym    -> t
+    [ t1 ]     | o == dhMuSym    -> t
+    [ t1 ]     | o == dhHSym     -> t
+    --[ t1 ]     | o == dhBoxSym    -> gTerm2Exp t1
+    --[ t1 ]     | o == dhBoxESym    -> gTerm2Exp t1
+    []         | o == dhZeroSym    -> t
+    []         | o == dhEgSym    ->  (FAPP (DHMult dhZeroSym) [])
+    []         | o == dhOneSym    -> t
+    _                               -> error $ "unexpected term form: `"++show t++"'"
+g2Exp t =  error $ "unexpected term form2: `"++show t++"'"
 
 eTermsOf :: LNTerm -> [ LNTerm ]
 --eTermsOf t@(viewTerm3 -> Box dht) = eTermsOf dht

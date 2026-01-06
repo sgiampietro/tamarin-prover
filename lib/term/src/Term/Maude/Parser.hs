@@ -332,7 +332,6 @@ ppTheory msig = BC.unlines $
         , "  eq tamXCdhExp(A, tamXCdhMinus(X) ) = tamXCdhGinv(tamXCdhExp(A, X)) ."
         , "  eq tamXCdhGinv (tamXCdhEg) = tamXCdhEg ."
         , "  eq tamXCdhMinus(tamXCdhZero) = tamXCdhZero ."
-        -- , "eq tamXCdhTimesE(tamXCdhMinus(tamXCdhOne), X, Y) = tamXCdhMinus(tamXCdhTimesE(X, Y)) ." 
         , "  eq tamXCdhMinus (tamXCdhPlus(X,Y)) = tamXCdhPlus((tamXCdhMinus(X)), (tamXCdhMinus(Y))) ."
         , "  eq tamXCdhMinus( tamXCdhMinus(X)) = X ."
         , "  eq tamXCdhTimesE(tamXCdhZero, X) = tamXCdhZero ."
@@ -416,23 +415,35 @@ parseVariantsReply msig reply = flip parseOnly reply $ do
                      <*> (string " --> " *> parseTerm msig <* endOfLine)
 
 
--- for the maude command "unify [n]"
+--for the maude command "variant unify [n]"
 parseUnifyDHFrReply :: MaudeSig -> ByteString -> Either String [MSubst]
-parseUnifyDHFrReply msig reply = flip parseOnly reply $
+parseUnifyDHFrReply msig reply = flip parseOnly reply $ trace (show ("TRYINGTHIS", reply)) $ 
+     choice [ endOfLine *> string "No unifiers." <* endOfLine <* string "rewrites: "
+              <* takeWhile1 isDigit <* endOfLine *> pure []      <* endOfInput
+           , endOfLine *> many1 (parseUnifier) <* choice[ "No more unifiers." <* endOfLine, "No more unifiers."<* endOfLine <* string "rewrites: "
+              <* takeWhile1 isDigit <* endOfLine  ]
+            , endOfLine *> many1 parseUnifier   ]
+              where
+                    parseUnifier = string "Unifier " *> takeWhile1 isDigit *> endOfLine *>
+                                    string "rewrites: " *> takeWhile1 isDigit *> endOfLine *>
+                                    manyTill parseEntry (choice [endOfLine, endOfInput])
+                    parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
+                                    <*> (string " --> " *> parseTerm msig <* endOfLine)
+
+-- for the maude command "unify [n]"
+{-parseUnifyDHFrReply msig reply = flip parseOnly reply $
      choice [ string "No unifier." <* endOfLine*> pure [] <* endOfInput
            , endOfLine *> many1 (parseUnifier)]
               where
                     parseUnifier = string "Unifier " *> takeWhile1 isDigit *> endOfLine *>
                                     manyTill parseEntry (choice [endOfLine, endOfInput])
-                    --parseUnifier2 = string "Unifier " *> takeWhile1 isDigit *> endOfLine *>
-                    --                manyTill parseEntry endOfInput
                     parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
-                                    <*> (string " --> " *> parseTerm msig <* endOfLine) 
+                                    <*> (string " --> " *> parseTerm msig <* endOfLine) -}
 
 
 -- for the maude command "filtered variant unify"
 parseUnifyDHReply :: MaudeSig -> ByteString -> Either String [MSubst]
-parseUnifyDHReply msig reply = flip parseOnly reply $ trace (show ("TRYINGTHIS", reply)) $ 
+parseUnifyDHReply msig reply = flip parseOnly reply $ 
      choice [ endOfLine *> string "No unifiers." <* endOfLine <* string "rewrites: "
               <* takeWhile1 isDigit <* endOfLine *> pure []      <* endOfInput
            , string "rewrites: " *> takeWhile1 isDigit *> endOfLine *>
@@ -442,7 +453,6 @@ parseUnifyDHReply msig reply = flip parseOnly reply $ trace (show ("TRYINGTHIS",
                                     manyTill parseEntry endOfLine
                     parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
                                     <*> (string " --> " *> parseTerm msig <* endOfLine)
-
 
 
 -- | @parseSubstitution l@ parses a single substitution returned by Maude.
@@ -583,13 +593,12 @@ ppTheoryDHsimp ::  ByteString
 ppTheoryDHsimp = BC.unlines $
       [ "fmod DHsimp is"
       , " protecting NAT ."
-      , " sort Msg Fresh DH G E NZE BG FrNZE ."
+      , " sort Msg Fresh VarE DH G E BG FrNZE ."
       , " subsort Fresh < Msg ."
       , " subsort G < DH ."
       , " subsort E < DH ."
-      , "  subsort VarE < E ."
-      , " subsort NZE < E ."
-      , " subsort FrNZE < NZE ."
+      , " subsort VarE < E ."
+      , " subsort FrNZE < E ."
       , " subsort BG < G ."
       , " op tamXCdhGinv : G -> G ."
       , " op tamXCdhMult : G G -> G ."
@@ -598,41 +607,30 @@ ppTheoryDHsimp = BC.unlines $
       , " op tamXCdhMinus : E -> E ."
       , " op tamXCdhPlus : E E -> E ."
       , " op tamXCdhEg : -> G ."
-      , " op tamXCdhTimesE : E E -> E [assoc comm] ."
+      , " op tamXCdhTimesE : E E -> E [comm assoc] ."
       , " op tamXCdhExp : G E -> G ."
-      , " op tamXCdhOne : -> NZE ."
+      , " op tamXCdhOne : -> E ."
       , " op tamXCdhMu : G -> E ."
       , " op tamXCdhMu2 : G G -> E ."
       , " op tamXCdhH : E -> E ."
       , " op tamXCdhH2 : E E -> E ."
-      , " op tamXCdhBP : G G -> E"
-      -- , "op tamPCdhBox : G -> G ."
-      -- , "op tamPCdhBoxE : E -> E ."
+      , " op tamXCdhBP : G G -> E ."
       , " op dh : Nat -> DH ."
       , " op g : Nat -> G ."
       , " op e : Nat -> E ."
-      , " op nze : Nat -> NZE ."
       , " op bg : Nat -> BG ."
       , " op fnze : Nat -> FrNZE ."
-      -- , " op vg : Nat -> VarG ."
-      -- , " op ve : Nat -> VarE ."
-      , " vars A B : G ."
-      , " vars X Y : E ."
-      , " vars U V W : NZE ."
-      , " eq tamXCdhTimesE(U, tamXCdhInv(U)) = tamXCdhOne ."
-      , " eq tamXCdhExp(tamXCdhExp(A, X), Y) = tamXCdhExp(A, tamXCdhTimesE(X, Y)) [variant] ."
-      , " eq tamXCdhExp(A, tamXCdhOne ) = A [variant] ."
-      , " eq tamXCdhExp(tamXCdhEg, X) = tamXCdhEg [variant] ."
-      , " eq tamXCdhTimesE(X, tamXCdhOne) = X [variant] ."
-      , " eq tamXCdhInv (tamXCdhInv(U) ) = U [variant] ."
-      , " eq tamXCdhInv(tamXCdhOne) = tamXCdhOne [variant] ."
-      , " eq tamXCdhTimesE(U, tamXCdhInv(U)) = tamXCdhOne [variant] ."
-      , " eq tamXCdhTimesE( tamXCdhInv(U) , tamXCdhInv(V)) = tamXCdhInv( tamXCdhTimesE(U, V)) [variant] ."
-      , " eq tamXCdhTimesE( tamXCdhInv(tamXCdhTimesE(U,V)), V) = tamXCdhInv(U) [variant] ."
-      , " eq tamXCdhInv( tamXCdhTimesE(tamXCdhInv(U),V)) = tamXCdhTimesE(U, tamXCdhInv(V)) [variant] ."
-      , " eq tamXCdhTimesE( U, tamXCdhTimesE(tamXCdhInv(U),V)) = V [variant] ."
-      , " eq tamXCdhTimesE( tamXCdhInv(U), tamXCdhTimesE(tamXCdhInv(V),W)) = tamXCdhTimesE( tamXCdhInv(tamXCdhTimesE(U,V)),W) [variant] ."
-      , " eq tamXCdhTimesE( tamXCdhInv(tamXCdhTimesE(U,V)), tamXCdhTimesE(V,W)) = tamXCdhTimesE( tamXCdhInv(U),W) [variant] ."
+      , " vars X Y Z : E ."
+      , " eq tamXCdhTimesE(X, tamXCdhOne) = X [variant] ." 
+      , " eq tamXCdhTimesE(X, tamXCdhInv(X)) = tamXCdhOne [variant] ."  
+      , " eq tamXCdhTimesE(X, tamXCdhTimesE(tamXCdhInv(X), Y)) = Y [variant] ."  
+      , " eq tamXCdhInv(tamXCdhInv(X)) = X [variant] ."
+      , " eq tamXCdhInv(tamXCdhOne) = tamXCdhOne [variant] ."  
+      , " eq tamXCdhTimesE(tamXCdhInv(X), tamXCdhInv(Y)) = tamXCdhInv(tamXCdhTimesE(X,Y)) [variant] ."  
+      , " eq tamXCdhTimesE(tamXCdhInv(tamXCdhTimesE(X,Y)), Y) = tamXCdhInv(X) [variant] ."  
+      , " eq tamXCdhInv(tamXCdhTimesE(tamXCdhInv(X), Y)) = tamXCdhTimesE(X, tamXCdhInv(Y)) [variant] ." 
+      , " eq tamXCdhTimesE(tamXCdhTimesE(tamXCdhInv(X), tamXCdhInv(Y)), Z)  = tamXCdhTimesE(tamXCdhInv(tamXCdhTimesE(X, Y)), Z) [variant] ."
+      , " eq tamXCdhTimesE(tamXCdhTimesE(tamXCdhInv(tamXCdhTimesE(X,Y)),Y), Z) = tamXCdhTimesE(tamXCdhInv(X), Z) [variant] ."  
       , "endfm"] 
 
 

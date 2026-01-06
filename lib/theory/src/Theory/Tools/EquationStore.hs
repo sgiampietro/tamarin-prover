@@ -65,7 +65,7 @@ import           GHC.Generics          (Generic)
 import           Logic.Connectives
 import Term.Unification
 import           Term.Rewriting.Norm (norm')
-import            Term.DHMultiplication (notUnifiableLits)
+import            Term.DHMultiplication (notUnifiableLits, g2Exp)
 import           Theory.Text.Pretty
 
 import           Control.Monad.Fresh
@@ -611,14 +611,15 @@ foreachDisj hnd f =
 -- DH multiplication functions
 ------------------------------------------------------------------------------
 
-
+eq2Exp :: MaudeHandle -> [Equal LNTerm] -> [Equal LNTerm]
+eq2Exp hnd eqs = map (\(Equal a b) -> Equal (runReader (norm' (g2Exp a)) hnd) (runReader (norm' (g2Exp b)) hnd)) eqs
 
 addDHEqs2 :: MonadFresh m
-       => MaudeHandle -> Bool ->  [(LNTerm,LNTerm, LVar)] -> [LNTerm] -> EqStore -> m [(EqStore, Maybe SplitId)]
-addDHEqs2 hnd zzbool t1zzs permt eqdhstore =
-    case (unifyLNDHProtoTermFactored eqs `runReader` hnd) of
+       => MaudeHandle -> Bool -> Bool ->  [(LNTerm,LNTerm, LVar)] -> [LNTerm] -> EqStore -> m [(EqStore, Maybe SplitId)]
+addDHEqs2 hnd zzbool isnew t1zzs permt eqdhstore =
+    case ((unifyLNDHProtoTermFactored eqs isnew) `runReader` hnd) of
         [] | zzbool -> return [(set eqsConj falseEqConstrConj eqdhstore, Nothing)]
-        [] | not zzbool -> addDHEqs2 hnd True (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) permt eqdhstore
+        [] | not zzbool -> addDHEqs2 hnd True isnew (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) permt eqdhstore
         [substFresh] | substFresh == emptySubstVFresh ->
             return [(eqdhstore, Nothing)]
         substs -> do
@@ -634,7 +635,8 @@ addDHEqs2 hnd zzbool t1zzs permt eqdhstore =
         --ist1var x = elem x $ concatMap varsVTerm t1
         --isindtvar x = elem x $ concatMap varsVTerm permt
     t1indt = zipWith Equal permt t1
-    eqs = apply (L.get eqsSubst eqdhstore) $ t1indt
+    eqs1 = apply (L.get eqsSubst eqdhstore) $ t1indt
+    eqs = eq2Exp hnd eqs1
     addsubsts sub eqst= applyEqStore hnd sub eqst
     changeqstore x eq = addsubsts x eq
     -- freshToFree x t = 
@@ -688,19 +690,18 @@ newBPeqs eqs = if (all isJust maybeEqs) then Just $ concat (map fromJust maybeEq
                   where maybeEqs = map splitBPeqs eqs
 
 addDHProtoEqs :: MonadFresh m
-       => MaudeHandle -> [LVar] -> [(LNTerm,LNTerm, LVar)] -> [LNTerm] -> Bool -> EqStore -> m [(EqStore, Maybe SplitId)]
-addDHProtoEqs hnd allevars t1zzs permt zzbool eqdhstore = do
+       => MaudeHandle -> [LVar] -> [LNTerm] -> [LNTerm] ->  EqStore -> m [(EqStore, Maybe SplitId)]
+addDHProtoEqs hnd allevars t1 permt eqdhstore = do
     -- todo: here 
-    let t1 = (map (\(a,_,_)->a) t1zzs)
-        eqst1 = zipWith Equal permt t1
-        splitBPeqs = newBPeqs eqst1
+    let eqst1 = zipWith Equal permt t1
+        eqs = eq2Exp hnd eqst1
+        splitBPeqs = newBPeqs eqs
         newlist = case splitBPeqs of 
                         Nothing -> []
                         Just ts -> ts
 -- TODO: need to generalize only 1 of the G variables on both sides of equality, not both!
-    case (if ((any (uncurry notUnifiableLits) (zip permt t1)) || isNothing splitBPeqs) then [] else unifyLNDHProtoTermFactored newlist `runReader` hnd) of
-        [] | zzbool -> return [(set eqsConj falseEqConstrConj eqdhstore, Nothing)]
-        [] | not zzbool ->  addDHProtoEqs hnd allevars (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) permt True eqdhstore
+    case (if ((any (uncurry notUnifiableLits) (zip permt t1)) || isNothing splitBPeqs) then [] else (unifyLNDHProtoTermFactored newlist False) `runReader` hnd) of
+        [] -> return [(set eqsConj falseEqConstrConj eqdhstore, Nothing)]
         [substFresh] | substFresh == emptySubstVFresh ->
             return [(eqdhstore, Nothing)]
         substs -> do
@@ -740,7 +741,7 @@ addDHProtoEqs hnd allevars t1zzs permt zzbool eqdhstore = do
                   --v1 <- freshLVar "vk" LSortVarE
                   return (c, fAppdhMult (cterm, varTerm w1))
               _ -> return (c, cterm)
-            generalize sub = liftM substFromListVFresh $ mapM generaltup $ filter (\(a,b)-> (not $ elem a (map (\(_,_,a)->a) t1zzs))) (substToListVFresh sub)
+            generalize sub = liftM substFromListVFresh $ mapM generaltup $ substToListVFresh sub
 
 
 

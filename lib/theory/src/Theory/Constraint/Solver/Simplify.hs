@@ -435,7 +435,7 @@ partialAtomValuation ctxt sys =
 
           EqE x y
             | x == y                                -> Just True
-            | (uncurry (==)) $ unpair $ isEq (x,y) -> Just True
+            | (isMixedTerm x && isMixedTerm y) && ((uncurry (==)) $ unpair $ isEq (x,y)) -> Just True
             | isDHTerm x && isDHTerm y              -> Nothing
             | not (runMaude (unifiableLNTerms x y)) -> Just False
             | otherwise                             ->

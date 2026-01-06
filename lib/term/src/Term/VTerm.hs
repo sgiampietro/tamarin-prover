@@ -21,6 +21,7 @@ module Term.VTerm (
     , occursVTerm
     , constsVTerm
     , isVar
+    , isLit
 
     -- ** Destructors
     , termVar
@@ -111,6 +112,10 @@ constTerm = lit . Con
 isVar :: VTerm c v -> Bool
 isVar (viewTerm -> Lit (Var _)) = True
 isVar _ = False
+
+isLit :: VTerm c v -> Bool
+isLit (viewTerm -> Lit (_)) = True
+isLit _ = False
 
 -- | @vars t@ returns a duplicate-free list of variables that occur in @t@.
 varsVTerm :: Ord v => VTerm c v -> [v]

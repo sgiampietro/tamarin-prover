@@ -359,12 +359,18 @@ startMaudeProcessDH maudePath = do
 
     -- | @unifyCmd eqs@ returns the Maude command to solve the unification problem @eqs@.
 --   Expects a nonempty list of equations
+unifyCmdDHSimp :: [Equal MTerm] -> ByteString
+unifyCmdDHSimp []  = error "unifyCmd: cannot create cmd for empty list of equations."
+unifyCmdDHSimp eqs =
+    "unify in DHsimp : " <> seqs <> " .\n"
+  where
+    ppEq (Equal t1 t2) = ppMaude t1 <> " =? " <> ppMaude t2
+    seqs = B.intercalate " /\\ " $ map ppEq eqs
+
 unifyCmdDH :: [Equal MTerm] -> ByteString
 unifyCmdDH []  = error "unifyCmd: cannot create cmd for empty list of equations."
 unifyCmdDH eqs =
     "filtered variant unify in DHsimp : " <> seqs <> " .\n"
-    -- "filtered variant unify in DHsimp : " <> seqs <> " .\n"
-    -- "unify [1] in DHsimp : " <> seqs <> " .\n"
   where
     ppEq (Equal t1 t2) = ppMaude t1 <> " =? " <> ppMaude t2
     seqs = B.intercalate " /\\ " $ map ppEq eqs
@@ -372,9 +378,7 @@ unifyCmdDH eqs =
 unifyCmdDHFr :: Int -> [Equal MTerm] -> ByteString
 unifyCmdDHFr _ []  = error "unifyCmd: cannot create cmd for empty list of equations."
 unifyCmdDHFr n eqs =
-    --"variant unify [1] in DHsimp : " <> seqs <> " .\n"
-    -- "filtered variant unify in DHsimp : " <> seqs <> " .\n"
-    (BC.pack $ "unify ["++ show n ++"] in DHsimp : ") <> seqs <> " .\n"
+    (BC.pack $ "variant unify ["++ show n ++"] in DHsimp : ") <> seqs <> " .\n"
   where
     ppEq (Equal t1 t2) = (ppMaude t1 <> " =? " <> ppMaude t2)
     seqs = B.intercalate " /\\ " $ map ppEq eqs
@@ -394,10 +398,10 @@ unifyViaMaudeDHFr hnd n sortOf eqs =
 
 -- | @unifyViaMaude hnd eqs@ computes all AC unifiers of @eqs@ using the
 --   Maude process @hnd@.
-unifyViaMaudeDH :: (IsConst c)
-    => MaudeHandle
+unifyViaMaudeDH :: (IsConst c) 
+    => MaudeHandle 
     -> (c -> LSort) -> [Equal (VTerm c LVar)] -> IO [SubstVFresh c LVar]
-unifyViaMaudeDH _   _      []  = return [emptySubstVFresh]
+unifyViaMaudeDH _  _      []  = return [emptySubstVFresh]
 unifyViaMaudeDH hnd sortOf eqs =
     computeViaMaude hnd incUnifCount toMaude fromMaude eqs
   where
