@@ -1051,7 +1051,7 @@ smartRanking :: ProofContext
              -> System
              -> [AnnotatedGoal] -> [AnnotatedGoal]
 smartRanking ctxt allowPremiseGLoopBreakers sys =
-    moveEvarToEnd . moveNatToEnd . sortOnUsefulness . unmark . sortDecisionTree notSolveLast . sortDecisionTree solveFirst . goalNrRanking
+    moveEvarToEnd . sortnumEVars . moveNatToEnd . sortOnUsefulness . unmark . sortDecisionTree notSolveLast . sortDecisionTree solveFirst . goalNrRanking
   where
     oneCaseOnly = catMaybes . map getMsgOneCase . L.get pcSources $ ctxt
 
@@ -1062,7 +1062,97 @@ smartRanking ctxt allowPremiseGLoopBreakers sys =
 
     sortOnUsefulness = sortOn (tagUsefulness . snd . snd)
 
+    sortnumEVars = sortOn (numVars)
+    numVars (PremiseG _ fa, _) |  (isKUFact fa || isKdhFact fa || isKDFact fa) && isMixedFact fa = (lenE, (length allvars - lenE))
+          where allvars = concatMap varsVTerm $ factTerms fa
+                lenE = length $ filter (\v-> sortOfLNTerm (varTerm v) == LSortE) allvars
+    numVars (PremiseG _ fa, _) | otherwise =  (0,0)
+    numVars (ActionG _ fa, _)  |  (isKUFact fa || isKdhFact fa || isKDFact fa) && isMixedFact fa = (lenE, (length allvars - lenE))
+              where allvars = concatMap varsVTerm $ factTerms fa
+                    lenE = length $ filter (\v-> sortOfLNTerm (varTerm v) == LSortE) allvars
+    numVars (ActionG _ fa, _) | otherwise = (0,0)
+    numVars _ = (0,0)
+
     moveNatToEnd = sortOn isNatSubtermSplit
+    isNatSubtermSplit (SubtermG st, _) = isNatSubterm st
+    isNatSubtermSplit _                = False
+
+    moveEvarToEnd = sortOn isEKVar
+    isEKVar (PremiseG _ fa, _) = case factTerms fa of 
+                                  [ta] -> all (\v-> sortOfLNTerm (varTerm v) == LSortE) (varsVTerm ta)
+                                  _  -> False
+    isEKVar (ActionG  _ fa, _) = case factTerms fa of 
+                                  [ta] ->  all (\v-> sortOfLNTerm (varTerm v) == LSortE) (varsVTerm ta)
+                                  _  -> False
+    isEKVar _               = False
+
+    moveKFactToEnd = sortOn isKDHFact
+    isKDHFact (ActionG _ fa, _) = isKLogFact fa && isMixedFact fa 
+    isKDHFact _               = False    
+
+    --moveKdhToEnd = sortOn isAllFreshGoal
+    onlyFreshVars fa = all (\v -> ((sortOfLNTerm (varTerm v) == LSortFrNZE) || (not $ isOfDHSort (varTerm v)) )) $ concatMap varsVTerm $ factTerms fa
+
+    isFreshKGoal (PremiseG _ fa) = (not (isKUFact fa || isKdhFact fa || isKLogFact fa || isKDFact fa)) && isMixedFact fa && onlyFreshVars fa
+    isFreshKGoal (ActionG  _ fa) = (not (isKUFact fa || isKdhFact fa || isKLogFact fa || isKDFact fa)) && isMixedFact fa && onlyFreshVars fa
+    isFreshKGoal _               = False  
+
+    isAllFreshGoal (PremiseG _ fa) = isMixedFact fa && onlyFreshVars fa
+    isAllFreshGoal (ActionG  _ fa) = isMixedFact fa && onlyFreshVars fa
+    isAllFreshGoal _               = False  
+
+    isKIGoal (PremiseG _ fa) = isKIFact fa
+    isKIGoal _               = False  
+
+    tagUsefulness Useful                = 0 :: Int
+    tagUsefulness ProbablyConstructible = 1
+    tagUsefulness LoopBreaker           = 1
+    tagUsefulness CurrentlyDeducible    = 2
+
+    unmark | allowPremiseGLoopBreakers = map unmarkPremiseG
+           | otherwise                 = id
+
+    notSolveLast =
+       [ isNonSolveLastGoal . fst ]
+       -- move the Last proto facts (L_) to the end by sorting all other goals in front
+
+    solveFirst =
+        [ isChainGoal . fst
+        , isDisjGoal . fst
+        , isSolveFirstGoal . fst
+        , isNonLoopBreakerProtoFactGoal
+        , isStandardActionGoal . fst
+        , isNotAuthOut . fst
+        , isPrivateKnowsGoal . fst
+        , isFreshKnowsGoal . fst
+        , isFreshKGoal .fst
+        , isAllFreshGoal . fst
+        , isSplitGoalSmall . fst
+        , isMsgOneCaseGoal . fst
+        , isSignatureGoal . fst
+        , isDoubleExpGoal . fst
+        , isNoLargeSplitGoal . fst]
+        --, isAllFreshGoal2 . fst]
+        -- move the rest (mostly more expensive KU-goals) before expensive
+        -- equation splits
+
+    -- FIXME: This small split goal preferral is quite hacky when using
+    -- induction. The problem is that we may end up solving message premise
+    -- goals all the time instead of performing a necessary split. We should make
+    -- sure that a split does not get too old.
+    smallSplitGoalSize = 3
+
+    isNonSolveLastGoal (PremiseG _ fa) = not $ isSolveLastFact fa
+    isNonSolveLastGoal (ActionG  _ fa) = not $ isSolveLastFact fa
+    isNonSolveLastGoal _               = True
+
+    isSolveFirstGoal (PremiseG _ fa) = isSolveFirstFact fa
+    isSolveFirstGoal (ActionG _ fa)  = isSolveFirstFact fa
+    isSolveFirstGoal _               = False
+
+
+
+    {-moveNatToEnd = sortOn isNatSubtermSplit
     isNatSubtermSplit (SubtermG st, _) = isNatSubterm st
     isNatSubtermSplit _                = False
 
@@ -1134,7 +1224,7 @@ smartRanking ctxt allowPremiseGLoopBreakers sys =
     isSolveFirstGoal (PremiseG _ fa) = isSolveFirstFact fa
     isSolveFirstGoal (ActionG _ fa)  = isSolveFirstFact fa
     isSolveFirstGoal _               = False
-
+-}
     isFreshKnowsGoal goal = case msgPremise goal of
         Just (viewTerm -> Lit (Var lv)) | lvarSort lv == LSortFresh -> True
         _                                                           -> False

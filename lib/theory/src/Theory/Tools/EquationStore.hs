@@ -65,7 +65,7 @@ import           GHC.Generics          (Generic)
 import           Logic.Connectives
 import Term.Unification
 import           Term.Rewriting.Norm (norm')
-import            Term.DHMultiplication (notUnifiableLits, g2Exp)
+import            Term.DHMultiplication (notUnifiableLits, g2Exp, varInMu)
 import           Theory.Text.Pretty
 
 import           Control.Monad.Fresh
@@ -84,10 +84,12 @@ import qualified Control.Monad.State   as MS
 import           Data.Binary
 import qualified Data.Foldable         as F
 import           Data.List          (delete,find,intersect,intersperse,nub,(\\), permutations)
+import qualified Data.Map              as M
 import Data.Maybe ( fromJust, isJust, isNothing )
 import qualified Data.Set              as S
 import           Extension.Data.Label  hiding (for, get)
 import qualified Extension.Data.Label  as L
+
 -- import           Extension.Data.Monoid
 
 ------------------------------------------------------------------------------
@@ -614,12 +616,44 @@ foreachDisj hnd f =
 eq2Exp :: MaudeHandle -> [Equal LNTerm] -> [Equal LNTerm]
 eq2Exp hnd eqs = map (\(Equal a b) -> Equal (runReader (norm' (g2Exp a)) hnd) (runReader (norm' (g2Exp b)) hnd)) eqs
 
+
+pickDistinct :: Eq a => (a -> Bool) -> [[a]] -> Maybe [a]
+pickDistinct p = go []
+  where
+    go chosen [] = Just (reverse chosen)
+    go chosen (xs:xss) =
+      try xs
+      where
+        try [] = Nothing
+        try (y:ys)
+          | p y && y `notElem` chosen =
+              case go (y:chosen) xss of
+                Just res -> Just res
+                Nothing  -> try ys
+          | otherwise = try ys
+
+
+inMuTerms :: Eq b => [(a, [b])] -> [(a, ([b],[b]))] -> [[a]]
+inMuTerms xs mus = [[x,z] | (x, ys) <- xs, (z, (zs,zs2))  <- mus, length (ys \\ zs2)==1, y <- ys \\ zs2, y `elem` zs]
+
+uniqueEVars :: MaudeHandle -> [Equal LNTerm ] -> ([Equal LNTerm], Bool)
+uniqueEVars hnd eqs = case representatives of
+                        Nothing -> ([], infinitechain) 
+                        Just uniquevars -> (zipWith neweq uniquevars eqs, infinitechain)
+      where notmuvars = map (\(Equal a b) -> filter (\l -> lvarSort l == LSortE) $ (varsVTerm a ++ varsVTerm b) \\ (varInMu a ++ varInMu b)) eqs
+            muvars = map (\(Equal a b) -> filter (\l -> lvarSort l == LSortE) (varInMu a ++ varInMu b)) eqs
+            eqwithnotmu = zip eqs notmuvars
+            eqwithmu = nub $ concat muvars
+            representatives = pickDistinct (\v-> not $ v `elem` eqwithmu) notmuvars
+            muterms = eqwithmu `intersect` (nub $ concat notmuvars)
+            infinitechain = not $ null muterms 
+            neweq v (Equal a b) = if v `elem` varsVTerm a then Equal (varTerm v) (runReader (norm' (fAppdhTimesE(fAppdhInv(fAppdhTimesE(a, fAppdhInv(varTerm v))),b))) hnd) else (Equal (varTerm v) (runReader (norm' (fAppdhTimesE(fAppdhInv(fAppdhTimesE(b, fAppdhInv(varTerm v))),a))) hnd))
+
 addDHEqs2 :: MonadFresh m
-       => MaudeHandle -> Bool -> Bool ->  [(LNTerm,LNTerm, LVar)] -> [LNTerm] -> EqStore -> m [(EqStore, Maybe SplitId)]
-addDHEqs2 hnd zzbool isnew t1zzs permt eqdhstore =
-    case ((unifyLNDHProtoTermFactored eqs isnew) `runReader` hnd) of
-        [] | zzbool -> return [(set eqsConj falseEqConstrConj eqdhstore, Nothing)]
-        [] | not zzbool -> addDHEqs2 hnd True isnew (map (\(t1,t1zz,zz) -> (t1zz,t1zz,zz)) t1zzs) permt eqdhstore
+       => MaudeHandle -> Bool ->  [LNTerm] -> [LNTerm] -> EqStore -> m [(EqStore, Maybe SplitId)]
+addDHEqs2 hnd isnew t1 permt eqdhstore = --isnew
+    case (unifyLNDHProtoTermFactored eqs False uniquesubst) `runReader` hnd of
+        [] -> return [(set eqsConj falseEqConstrConj eqdhstore, Nothing)]
         [substFresh] | substFresh == emptySubstVFresh ->
             return [(eqdhstore, Nothing)]
         substs -> do
@@ -629,17 +663,12 @@ addDHEqs2 hnd zzbool isnew t1zzs permt eqdhstore =
                 eqStores = map (\a -> (a,Nothing)) eqStores'
             return eqStores
   where
-    t1 = (map (\(a,_,_)->a) t1zzs)
-        --muvariablest1 = (concatMap varInMu t1)
-        --muvariablesindt = (concatMap varInMu permt)
-        --ist1var x = elem x $ concatMap varsVTerm t1
-        --isindtvar x = elem x $ concatMap varsVTerm permt
     t1indt = zipWith Equal permt t1
     eqs1 = apply (L.get eqsSubst eqdhstore) $ t1indt
     eqs = eq2Exp hnd eqs1
+    uniquesubst = uniqueEVars hnd eqs
     addsubsts sub eqst= applyEqStore hnd sub eqst
     changeqstore x eq = addsubsts x eq
-    -- freshToFree x t = 
     generaltup (c, cterm) = case (sortOfLNTerm (varTerm c)) of
         a | a == LSortE && lvarName c == "ff1" -> do
                   w1 <- freshLVar "yk" LSortVarE
@@ -660,7 +689,7 @@ addDHEqs2 hnd zzbool isnew t1zzs permt eqdhstore =
                   --v1 <- freshLVar "vk" LSortVarE
                   return (c, fAppdhMult (cterm, varTerm w1))
         _ -> return (c, cterm)
-    generalize sub = liftM substFromListVFresh $ mapM generaltup $ filter (\(a,b)-> (not $ elem a (map (\(_,_,a)->a) t1zzs))) (substToListVFresh sub)
+    generalize sub = liftM substFromListVFresh $ mapM generaltup (substToListVFresh sub)
 
 
 varOfSubst :: (LVar,LNTerm) -> [LVar]
@@ -695,12 +724,13 @@ addDHProtoEqs hnd allevars t1 permt eqdhstore = do
     -- todo: here 
     let eqst1 = zipWith Equal permt t1
         eqs = eq2Exp hnd eqst1
+        uniquesubst = uniqueEVars hnd eqs
         splitBPeqs = newBPeqs eqs
         newlist = case splitBPeqs of 
                         Nothing -> []
                         Just ts -> ts
 -- TODO: need to generalize only 1 of the G variables on both sides of equality, not both!
-    case (if ((any (uncurry notUnifiableLits) (zip permt t1)) || isNothing splitBPeqs) then [] else (unifyLNDHProtoTermFactored newlist False) `runReader` hnd) of
+    case (if ((any (uncurry notUnifiableLits) (zip permt t1)) || isNothing splitBPeqs) then [] else trace (show ("callingwith", uniquesubst)) (unifyLNDHProtoTermFactored newlist False uniquesubst) `runReader` hnd) of
         [] -> return [(set eqsConj falseEqConstrConj eqdhstore, Nothing)]
         [substFresh] | substFresh == emptySubstVFresh ->
             return [(eqdhstore, Nothing)]
@@ -722,7 +752,7 @@ addDHProtoEqs hnd allevars t1 permt eqdhstore = do
             allGterms t ssrt = all (\b -> sortOfLNTerm (varTerm b) == ssrt)  $ varsVTerm t 
             addgenterms evar = do
                 ek <- freshLVar "ek" LSortVarE
-                return (evar, fAppdhPlus (varTerm evar, varTerm ek)) 
+                return (evar, varTerm ek) -- fAppdhPlus (varTerm evar, varTerm ek)) 
             generaltup (c, cterm) = case (sortOfLNTerm (varTerm c)) of
               a | a == LSortE && lvarName c == "ff1" -> do
                   w1 <- freshLVar "yk" LSortVarE

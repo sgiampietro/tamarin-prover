@@ -194,53 +194,53 @@ expBase t@(FAPP (DHMult o) ts) = case  trace (show ("expBaset", t)) $ ts of
 expBase t =  error $ "unexpected term form2: `"++show t++"'"
 
 
-rootSet :: (Show a, Ord a ) => DHMultSym -> Term a -> S.Set (Term a)
-rootSet operator t@(LIT l) = S.singleton t
+rootSet :: (Show a, Ord a ) => DHMultSym -> Term a -> [Term a]
+rootSet operator t@(LIT l) = [t]
 rootSet operator t@(FAPP (DHMult o) ts) = case ts of
     --[t1]       | o == dhBoxSym    -> rootSet operator t1
     --[t1]       | o == dhBoxESym    -> rootSet operator t1
-    [ t1, t2 ] | o == operator    -> S.union (rootSet operator t1) (rootSet operator t2)
-    [ t1, t2 ] | o /= operator    -> S.singleton t
+    [ t1, t2 ] | o == operator    -> (rootSet operator t1) ++ (rootSet operator t2)
+    [ t1, t2 ] | o /= operator    -> [t]
     [ t1 ]     | o == dhGinvSym   -> rootSet o t1
     [ t1 ]     | o == dhInvSym   -> rootSet o t1
     [ t1 ]     | o == dhMinusSym  -> rootSet o t1
-    [ t1 ]                        -> S.singleton t
-    []                            -> S.singleton t
+    [ t1 ]                        -> [t]
+    []                            -> [t]
     _         -> error $ "malformed term `"++show t++"'"
 rootSet operator t = error ("rootSet applied on non DH term'"++show t++"Done")
 
 multRootList :: LNTerm ->  [LNTerm]
 multRootList a = case sortOfLNTerm a of
-  LSortG -> S.toList (rootSet dhMultSym a)
-  LSortPubG -> S.toList (rootSet dhMultSym a)
-  LSortE -> S.toList (rootSet dhPlusSym a)
-  LSortNZE -> S.toList (rootSet dhPlusSym a)
-  LSortFrNZE -> S.toList (rootSet dhPlusSym a)
+  LSortG -> (rootSet dhMultSym a)
+  LSortPubG -> (rootSet dhMultSym a)
+  LSortE ->  (rootSet dhPlusSym a)
+  LSortNZE ->  (rootSet dhPlusSym a)
+  LSortFrNZE -> (rootSet dhPlusSym a)
   -- error ("rootSet applied on non DH term'"++show a)
 
-rootSetMu :: (Show a, Ord a ) => DHMultSym -> Term a -> S.Set (Term a)
-rootSetMu operator t@(LIT l) = S.singleton t
+rootSetMu :: (Show a, Ord a ) => DHMultSym -> Term a -> [Term a]
+rootSetMu operator t@(LIT l) = [t]
 rootSetMu operator t@(FAPP (DHMult o) ts) = case ts of
     --[t1]       | o == dhBoxSym    -> rootSet operator t1
     --[t1]       | o == dhBoxESym    -> rootSet operator t1
-    [ t1, t2 ] | o == operator    -> S.union (rootSet operator t1) (rootSet operator t2)
-    [ t1, t2 ] | o /= operator    -> S.singleton t
+    [ t1, t2 ] | o == operator    -> (rootSet operator t1) ++ (rootSet operator t2)
+    [ t1, t2 ] | o /= operator    -> [t]
     [ t1 ]     | o == dhGinvSym   -> rootSet o t1
     [ t1 ]     | o == dhInvSym   -> rootSet o t1
     [ t1 ]     | o == dhMinusSym  -> rootSet o t1
     [ t1 ]     | o == dhMuSym  -> rootSet o t1
-    [ t1 ]                        -> S.singleton t
-    []                            -> S.singleton t
+    [ t1 ]                        -> [t]
+    []                            -> [t]
     _         -> error $ "malformed term `"++show t++"'"
 rootSetMu operator t = error ("Mu applied on non DH term'"++show t++"Done")
 
 multRootMixed :: LNTerm ->  [LNTerm]
 multRootMixed a = case sortOfLNTerm a of
-  LSortG -> S.toList (rootSetMu dhMultSym a)
-  LSortPubG -> S.toList (rootSetMu dhMultSym a)
-  LSortE -> S.toList (rootSetMu dhPlusSym a)
-  LSortNZE -> S.toList (rootSetMu dhPlusSym a)
-  LSortFrNZE -> S.toList (rootSetMu dhPlusSym a)
+  LSortG -> (rootSetMu dhMultSym a)
+  LSortPubG ->  (rootSetMu dhMultSym a)
+  LSortE -> (rootSetMu dhPlusSym a)
+  LSortNZE ->  (rootSetMu dhPlusSym a)
+  LSortFrNZE -> (rootSetMu dhPlusSym a)
   _ -> [] -- error ("rootSet applied on non DH term'"++show a)
 
 extractMixedRoot :: LNTerm -> [(LNTerm, LNTerm)]
@@ -252,7 +252,7 @@ isRoot :: (Show a, Ord a ) => DHMultSym -> Term a -> Bool
 isRoot o (LIT l) = True
 --isRoot o t@(viewTerm3 -> Box dht) = isRoot o dht
 --isRoot o t@(viewTerm3 -> BoxE dht) = isRoot o dht
-isRoot o t@(viewTerm3 -> DH dht ts) = S.size (rootSet o t) == 1
+isRoot o t@(viewTerm3 -> DH dht ts) = length (rootSet o t) == 1
 isRoot o _ = error "rootSet applied on non DH term'"
 
 

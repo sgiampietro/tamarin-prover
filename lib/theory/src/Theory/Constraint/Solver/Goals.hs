@@ -273,7 +273,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                     [y] | isDHLit y ->   do
                                             ru  <- labelNodeId i (annotatePrems <$> rules) Nothing -- TODO:probably want to also check existing rules
                                             act <- disjunctionOfList (filter isDHFact $ get rActs ru)
-                                            (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow)))
+                                            (void (solveFactDHEqs SplitNow fa act (protoCase SplitNow)))
                                             void substSystem
                                             return ru 
                     [y] | otherwise ->        do
@@ -301,24 +301,24 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                     let instrules = M.assocs nodes
                     (j,ru) <- disjunctionOfList instrules
                     act <- disjunctionOfList (filter isDHFact $ get rActs ru)
-                    (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow)))
+                    (void (solveFactDHEqs SplitNow fa act (protoCase SplitNow)))
                     void substSystem
                     insertAtom (EqE (varTerm i) (varTerm j))
                     return ru
                   `disjunction` do
                    ru  <- labelNodeId i (annotatePrems <$> rules) Nothing 
                    act <- disjunctionOfList (filter isDHFact $ get rActs ru)
-                   (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow)))
+                   (void (solveFactDHEqs SplitNow fa act (protoCase SplitNow)))
                    void substSystem
                    --void normSystem
                    return ru 
             _ | (isMixedFact fa)                       -> do
                     ru  <- labelNodeId i (annotatePrems <$> rules) Nothing
-                    let possacts = trace (show ("MixedFact", fa)) $  if isKLogFact fa && sortOfLNTerm (head $ factTerms fa) == LSortMsg then get rActs ru else (filter isMixedFact $ get rActs ru)
+                    let possacts = if isKLogFact fa && sortOfLNTerm (head $ factTerms fa) == LSortMsg then get rActs ru else (filter isMixedFact $ get rActs ru)
                     act <- disjunctionOfList possacts  -- (filter isMixedFact $ get rActs ru)
                     let bset = (S.fromList $ basisOfRule ru)
                         nbset = (S.fromList $ notBasisOfRule ru) 
-                    trace (show ("with",act)) (void (solveMixedFactEqs SplitNow (Equal fa act) bset nbset (protoCase SplitNow)))
+                    (void (solveMixedFactEqs SplitNow (Equal fa act) bset nbset (protoCase SplitNow)))
                     void substSystem
                     return ru
                   `disjunction` do
@@ -348,7 +348,7 @@ solveAction rules (i, fa@(Fact _ ann _)) = do
                    return ru 
             _ | isDHFact fa                       -> do unless (fa `elem` get rActs ru) $ do
                                                           act <- disjunctionOfList (filter isDHFact $ get rActs ru)
-                                                          (void (solveFactDHEqs SplitNow fa act (S.fromList $ basisOfRule ru) (S.fromList $ notBasisOfRule ru) (protoCase SplitNow)))
+                                                          (void (solveFactDHEqs SplitNow fa act (protoCase SplitNow)))
                                                           void substSystem
                                                           --void normSystem
                                                         return ru 
@@ -392,7 +392,7 @@ solvePremise rules p faPrem
   | isKIFact faPrem && isDHFact faPrem = do -- should match indicators with indicators (avoiding mu). In paper transform the mu rule also with any 1 way function.
         drules <- askM pcRules
         let drules2 = filter (\r->showRuleCaseName r /= "d_0_snd" && showRuleCaseName r /= "d_0_fst") (get crDestruct drules)
-        (ru, (i,c), (faConc, t)) <- trace (show ("CALLING KI", drules2)) $ insertDestNodeKI drules2 faPrem p
+        (ru, (i,c), (faConc, t)) <- insertDestNodeKI drules2 faPrem p
         neweqstore <- getM sEqStore
         let newsubsts = _eqsSubst neweqstore
             exploitPrem j rj (v,fa) = solveGoal (PremiseG (j,v) fa)

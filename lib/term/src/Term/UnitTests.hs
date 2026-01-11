@@ -332,8 +332,8 @@ testsClean = TestLabel "Tests for Cleaning" $
 testsRoot :: Test
 testsRoot = TestLabel "Tests for Root Set" $
     TestList
-      [ testEqual "a" (rootSet dhMultSym gh ) (S.singleton gg)
-      , testEqual "b" (rootSet dhMultSym gvar ) (S.singleton gg)
+      [ testEqual "a" (rootSet dhMultSym gh ) ([gg])
+      , testEqual "b" (rootSet dhMultSym gvar ) ([gg])
       , testEqual "c" (isRoot dhMultSym gvar ) True
       , testEqual "d" (isRoot dhMultSym gh ) False]
 

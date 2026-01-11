@@ -367,10 +367,12 @@ unifyCmdDHSimp eqs =
     ppEq (Equal t1 t2) = ppMaude t1 <> " =? " <> ppMaude t2
     seqs = B.intercalate " /\\ " $ map ppEq eqs
 
-unifyCmdDH :: [Equal MTerm] -> ByteString
-unifyCmdDH []  = error "unifyCmd: cannot create cmd for empty list of equations."
-unifyCmdDH eqs =
-    "filtered variant unify in DHsimp : " <> seqs <> " .\n"
+unifyCmdDH :: Bool -> [Equal MTerm] -> ByteString
+unifyCmdDH b []  = error "unifyCmd: cannot create cmd for empty list of equations."
+unifyCmdDH b eqs =
+    if b
+        then "filtered variant unify in DHsimp : " <> seqs <> " .\n"
+        else "unify in DHsimp : " <> seqs <> " .\n"
   where
     ppEq (Equal t1 t2) = ppMaude t1 <> " =? " <> ppMaude t2
     seqs = B.intercalate " /\\ " $ map ppEq eqs
@@ -399,16 +401,16 @@ unifyViaMaudeDHFr hnd n sortOf eqs =
 -- | @unifyViaMaude hnd eqs@ computes all AC unifiers of @eqs@ using the
 --   Maude process @hnd@.
 unifyViaMaudeDH :: (IsConst c) 
-    => MaudeHandle 
+    => Bool -> MaudeHandle 
     -> (c -> LSort) -> [Equal (VTerm c LVar)] -> IO [SubstVFresh c LVar]
-unifyViaMaudeDH _  _      []  = return [emptySubstVFresh]
-unifyViaMaudeDH hnd sortOf eqs =
+unifyViaMaudeDH _ _  _      []  = return [emptySubstVFresh]
+unifyViaMaudeDH b hnd sortOf eqs =
     computeViaMaude hnd incUnifCount toMaude fromMaude eqs
   where
     msig = mhMaudeSig hnd
-    toMaude          = fmap unifyCmdDH . mapM (traverse (lTermToMTerm sortOf))
+    toMaude          = fmap (unifyCmdDH b) . mapM (traverse (lTermToMTerm sortOf))
     fromMaude bindings reply =
-        map (msubstToLSubstVFresh bindings) <$> parseUnifyDHReply msig reply
+        map (msubstToLSubstVFresh bindings) <$> parseUnifyDHReply b msig reply
     incUnifCount mp  = mp { unifCount = 1 + unifCount mp }
 
 normCmdDH :: MTerm -> ByteString

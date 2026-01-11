@@ -442,8 +442,8 @@ parseUnifyDHFrReply msig reply = flip parseOnly reply $ trace (show ("TRYINGTHIS
 
 
 -- for the maude command "filtered variant unify"
-parseUnifyDHReply :: MaudeSig -> ByteString -> Either String [MSubst]
-parseUnifyDHReply msig reply = flip parseOnly reply $ 
+parseUnifyDHReply :: Bool -> MaudeSig -> ByteString -> Either String [MSubst]
+parseUnifyDHReply True msig reply = flip parseOnly reply $ 
      choice [ endOfLine *> string "No unifiers." <* endOfLine <* string "rewrites: "
               <* takeWhile1 isDigit <* endOfLine *> pure []      <* endOfInput
            , string "rewrites: " *> takeWhile1 isDigit *> endOfLine *>
@@ -453,7 +453,7 @@ parseUnifyDHReply msig reply = flip parseOnly reply $
                                     manyTill parseEntry endOfLine
                     parseEntry = (,) <$> (flip (,) <$> (string "x" *> decimal <* string ":") <*> parseSort)
                                     <*> (string " --> " *> parseTerm msig <* endOfLine)
-
+parseUnifyDHReply False msig reply = parseUnifyReply msig reply
 
 -- | @parseSubstitution l@ parses a single substitution returned by Maude.
 parseSubstitution :: MaudeSig -> Parser MSubst
