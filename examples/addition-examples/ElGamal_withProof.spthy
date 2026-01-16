@@ -1,0 +1,460 @@
+theory ElGamal begin
+
+// Function signature and definition of the equational theory E
+
+builtins: DH-multiplication
+functions: fst/1, pair/2, snd/1
+equations: fst(<x.1, x.2>) = x.1, snd(<x.1, x.2>) = x.2
+
+
+
+
+
+
+
+rule (modulo E) GenKey:
+   [ FrDH( Fx ) ]
+  -->
+   [
+   !SKey( $B, Fx ), !PubKey( $B, dhExp(P'g', Fx) ),
+   Out( dhExp(P'g', Fx) )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) RevealKey:
+   [ !SKey( $Y, Fx ) ] --[ Compromised( $Y ) ]-> [ Out( Fx ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) BobEncrypts:
+   [ !PubKey( $A, dhExp(P'g', Esa) ), FrDH( Fy ), FrDH( Fm ) ]
+  --[
+  Secret( $B, $A, dhExp(P'g', Fm) ),
+  BobSent( $B, $A, dhExp(P'g', Fm) )
+  ]->
+   [
+   Out( <$B, dhExp(P'g', Fy)> ),
+   Out( dhMult(dhExp(P'g', Fm), dhExp(dhExp(P'g', Esa), Fy)) )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) AliceReceives:
+   [
+   !SKey( $A, Fska ), In( <$B, dhExp(P'g', Ec1)> ),
+   In( dhExp(P'g', Ec2) )
+   ]
+  --[
+  ReceivedA( $A, $B,
+             dhMult(dhExp(P'g', Ec2), dhGinv(dhExp(dhExp(P'g', Ec1), Fska)))
+  )
+  ]->
+   [ ]
+
+  /* has exactly the trivial AC variant */
+
+lemma executable:
+  exists-trace
+  "∃ Gm A B #i #j.
+    ((BobSent( B, A, Gm ) @ #i) ∧ (ReceivedA( A, B, Gm ) @ #j)) ∧
+    (¬(∃ #l X. Compromised( X ) @ #l))"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ Gm A B #i #j.
+  (BobSent( B, A, Gm ) @ #i) ∧ (ReceivedA( A, B, Gm ) @ #j)
+ ∧
+  ∀ #l X. (Compromised( X ) @ #l) ⇒ ⊥"
+*/
+simplify
+solve( BobSent( B, A, Gm ) @ #i )
+  case BobEncrypts
+  solve( !PubKey( $A, dhExp(P'g', Esa) ) ▶₀ #i )
+    case GenKey
+    solve( ReceivedA( $A, $B, dhExp(P'g', Fm) ) @ #j )
+      case AliceReceives_case_1
+      by sorry /* removed */
+    next
+      case AliceReceives_case_2
+      by sorry /* removed */
+    next
+      case AliceReceives_case_3
+      solve( !SKey( $A, Fska ) ▶₀ #j )
+        case GenKey_case_1
+        solve( !KU( dhMult(dhExp(P'g', Fm),
+                           dhExp(P'g', dhTimesE(Evy, Fska)))
+               ) @ #vk.3 )
+          case coerce
+          solve( !KD( dhMult(dhExp(P'g', Fm),
+                             dhExp(P'g', dhTimesE(Evy, Fska)))
+                 ) ▶₀ #vk )
+            case Using_OutFacts_case_01
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_02
+            by sorry
+          next
+            case Using_OutFacts_case_03
+            solve( !KU( dhExp(P'g', Fy) ) @ #vk.3 )
+              case coerce
+              solve( !KD( dhExp(P'g', Fy) ) ▶₀ #vk.1 )
+                case Using_OutFacts_case_1
+                SOLVED // trace found
+              next
+                case Using_OutFacts_case_2
+                by sorry
+              next
+                case Using_OutFacts_case_3
+                by contradiction /* from formulas */
+              qed
+            qed
+          next
+            case Using_OutFacts_case_04
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_05
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_06
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_07
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_08
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_09
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_10
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_11
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_12
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_13
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_14
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_15
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_16
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_17
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_18
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_19
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_20
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_21
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_22
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_23
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_24
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_25
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_26
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_27
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_28
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_29
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_30
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_31
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_32
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_33
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_34
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_35
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_36
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_37
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_38
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_39
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_40
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_41
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_42
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_43
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_44
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_45
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_46
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_47
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_48
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_49
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_50
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_51
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_52
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_53
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_54
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_55
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_56
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_57
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_58
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_59
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_60
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_61
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_62
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_63
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_64
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_65
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_66
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_67
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_68
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_69
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_70
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_71
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_72
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_73
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_74
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_75
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_76
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_77
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_78
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_79
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_80
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_81
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_82
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_83
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_84
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_85
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_86
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_87
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_88
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_89
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_90
+            by contradiction /* from formulas */
+          next
+            case Using_OutFacts_case_91
+            by contradiction /* from formulas */
+          qed
+        qed
+      next
+        case GenKey_case_2
+        by sorry
+      qed
+    next
+      case AliceReceives_case_4
+      by sorry
+    qed
+  qed
+qed
+
+lemma secrecyB:
+  all-traces
+  "∀ Gm A B #i.
+    ((Secret( B, A, Gm ) @ #i) ∧ (¬(∃ #l. Compromised( A ) @ #l))) ⇒
+    (¬(∃ #j. K( Gm ) @ #j))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ Gm A B #i.
+  (Secret( B, A, Gm ) @ #i)
+ ∧
+  (∀ #l. (Compromised( A ) @ #l) ⇒ ⊥) ∧ (∃ #j. (K( Gm ) @ #j))"
+*/
+by sorry
+
+lemma secrecyA:
+  all-traces
+  "∀ Gm A B #i.
+    ((ReceivedA( A, B, Gm ) @ #i) ∧ (¬(∃ #l. Compromised( A ) @ #l))) ⇒
+    (¬(∃ #k. K( Gm ) @ #k))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ Gm A B #i.
+  (ReceivedA( A, B, Gm ) @ #i)
+ ∧
+  (∀ #l. (Compromised( A ) @ #l) ⇒ ⊥) ∧ (∃ #k. (K( Gm ) @ #k))"
+*/
+by sorry
+
+
+
+
+
+
+
+/*
+WARNING: the following wellformedness checks failed!
+
+Quantifier sorts
+================
+
+  Lemma `executable' uses quantifiers with wrong sort: ("m",LSortG)
+  
+  Lemma `secrecyB' uses quantifiers with wrong sort: ("m",LSortG)
+  
+  Lemma `secrecyA' uses quantifiers with wrong sort: ("m",LSortG)
+
+Message Derivation Checks
+=========================
+
+  The variables of the following rule(s) are not derivable from their premises, you may be performing unintended pattern matching.
+
+Rule GenKey: 
+Failed to derive Variable(s): $B, Fx
+
+Rule RevealKey: 
+Failed to derive Variable(s): $Y, Fx
+
+Rule BobEncrypts: 
+Failed to derive Variable(s): $A, $B, Esa, Fm, Fy
+
+Rule AliceReceives: 
+Failed to derive Variable(s): $A, $B, Ec1, Ec2, Fska
+*/
+
+/*
+Generated from:
+Tamarin version 1.11.0
+Maude version 3.3.1
+Git revision: 29d342fe767340bba559ce43c2dc6b0e54c4fd9f (with uncommited changes), branch: dh-with-addition
+Compiled at: 2025-12-10 16:10:28.092673 UTC
+*/
+
+end

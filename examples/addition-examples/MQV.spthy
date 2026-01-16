@@ -1,0 +1,89 @@
+theory MQV
+begin
+
+
+/* Load the built-in symmetrical encryption theory */
+builtins: DH-multiplication, symmetric-encryption
+
+/* -------------- */
+/* Setup rules */
+/* -------------- */
+
+rule GenKey: 
+   [ FrDH(Fx) ] 
+   --[  ]->
+   [ !SKey($A, Fx), !PubKey($A, dhExp(P'g', Fx) ) ,
+     Out(dhExp(P'g', Fx)) ]
+
+/* We consider an adversary that can obtain an authenticated public
+key for arbitrarily chosed private keys. */
+rule GenKeyCompromised:
+    [Kdh(Ey)]
+   --[ Compromised($A) ]->
+   [ !PubKey($A, dhExp(P'g', Ey)) ]
+
+
+/* -------------- */
+/* Protocol rules */
+/* -------------- */
+
+
+rule InitiatorRole:
+  [!SKey($I, Fski),!PubKey($R, dhExp(P'g',Eskr)), FrDH(Fei)]
+  --[ Neq($I, $R) ]->
+  [Out(dhExp(P'g', Fei)), Initiated($I, $R, Fski, Fei, dhExp(P'g',Eskr))]
+
+rule ReceiverRole:
+let kAB = dhExp(dhMult(dhExp(P'g',Efei),dhExp(dhExp(P'g',Eski),dhMu(dhExp(P'g',Efei)) ) ), dhPlus(Fer, dhTimesE(Fskr, dhMu(dhExp(P'g',Fer)))) )
+in
+  [!SKey($R, Fskr), !PubKey($I, dhExp(P'g',Eski)), In(dhExp(P'g',Efei)), FrDH(Fer), Fr(m)]
+  --[ Neq($I, $R), Neq(Eski, Fskr), Neq(Efei, Fer), RunningR($R,$I,kAB)]->
+  [ Out(dhExp(P'g', Fer)), Out(senc(<m,'R'>, kAB)), ReceiverSend($R,$I,kAB,m) ]
+
+rule InitiatorRole2:
+let kAB = dhExp(dhMult(dhExp(P'g',Efer),dhExp(dhExp(P'g',Eskr),dhMu(dhExp(P'g',Efer)))), dhPlus(Fei, dhTimesE(Fski, dhMu(dhExp(P'g',Fei)))) ) 
+in
+  [ In(dhExp(P'g',Efer)), Initiated($I, $R, Fski, Fei, dhExp(P'g',Eskr)), Fr(m), In(senc(<m2,'R'>, kAB))]
+  --[ Neq(Efer, Fei), Neq(Fski, Eskr), AgreeKeyI($I, $R, kAB), RunningI($I, $R, kAB) ]->
+  [Out(senc(<m, 'I'>, kAB)) ]
+
+
+rule ReceiverRole2:
+  [ In(senc(<m2,'I'>, GkAB)), ReceiverSend($R, $I, GkAB,m)]
+  --[Neq(m,m2),  AgreeKeyR($R, $I, GkAB)]->
+  [ ]
+
+/* -------------- */
+/*  Restrictions  */
+/* -------------- */
+
+restriction inequality:
+"All x y #i. Neq(x,y)@i ==> not (x=y)"
+
+
+/* -------------- */
+/*  Properties    */
+/* -------------- */
+
+lemma executable:
+exists-trace
+"Ex I R Gk #i #j. AgreeKeyI(I, R,Gk)@i & AgreeKeyR(R,I,Gk)@j & not (Ex #k C. Compromised(C)@k)"
+
+ lemma secrecyI:
+ "All I R Gk #i. AgreeKeyI(I, R, Gk)@i & (not (Ex #k. Compromised(I)@k))& (not (Ex #k. Compromised(R)@k)) ==> not (Ex #i. K(Gk)@i)"
+
+lemma agreementI:
+"All I R Gk #i. AgreeKeyI(I, R, Gk)@i & (not (Ex #k. Compromised(I)@k))& (not (Ex #k. Compromised(R)@k))  ==> Ex #j. RunningR(R, I, Gk)@j"
+
+lemma secrecyR:
+ "All R I Gk #i. AgreeKeyR(R, I, Gk)@i  & (not (Ex #k. Compromised(I)@k))& (not (Ex #k. Compromised(R)@k)) ==> not (Ex #i. K(Gk)@i)"
+
+lemma agreementR:
+"All R I Gk #i. AgreeKeyR(R,I,Gk)@i  & (not (Ex #k. Compromised(I)@k))& (not (Ex #k. Compromised(R)@k)) ==> Ex #j. RunningI(I, R, Gk)@j "
+
+
+
+end
+
+
+

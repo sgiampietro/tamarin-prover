@@ -1,0 +1,2670 @@
+theory MQV begin
+
+// Function signature and definition of the equational theory E
+
+builtins: DH-multiplication
+functions: fst/1, pair/2, sdec/2, senc/2, snd/1
+equations:
+    fst(<x.1, x.2>) = x.1,
+    sdec(senc(x.1, x.2), x.2) = x.1,
+    snd(<x.1, x.2>) = x.2
+
+
+
+
+
+
+
+
+
+rule (modulo E) GenKey:
+   [ FrDH( Fx ) ]
+  -->
+   [
+   !SKey( $A, Fx ), !PubKey( $A, dhExp(P'g', Fx) ),
+   Out( dhExp(P'g', Fx) )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) GenKeyCompromised:
+   [ Kdh( Ey ) ]
+  --[ Compromised( $A ) ]->
+   [ !PubKey( $A, dhExp(P'g', Ey) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) InitiatorRole:
+   [ !SKey( $I, Fski ), !PubKey( $R, dhExp(P'g', Eskr) ), FrDH( Fei )
+   ]
+  --[ Neq( $I, $R ) ]->
+   [
+   Out( dhExp(P'g', Fei) ),
+   Initiated( $I, $R, Fski, Fei, dhExp(P'g', Eskr) )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) ReceiverRole:
+   [
+   !SKey( $R, Fskr ), !PubKey( $I, dhExp(P'g', Eski) ),
+   In( dhExp(P'g', Efei) ), FrDH( Fer ), Fr( m )
+   ]
+  --[
+  Neq( $I, $R ), Neq( Eski, Fskr ), Neq( Efei, Fer ),
+  RunningR( $R, $I,
+            dhExp(dhMult(dhExp(P'g', Efei),
+                         dhExp(dhExp(P'g', Eski), dhMu(dhExp(P'g', Efei)))),
+                  dhPlus(Fer, dhTimesE(Fskr, dhMu(dhExp(P'g', Fer)))))
+  )
+  ]->
+   [
+   Out( dhExp(P'g', Fer) ),
+   Out( senc(<m, 'R'>,
+             dhExp(dhMult(dhExp(P'g', Efei),
+                          dhExp(dhExp(P'g', Eski), dhMu(dhExp(P'g', Efei)))),
+                   dhPlus(Fer, dhTimesE(Fskr, dhMu(dhExp(P'g', Fer))))))
+   ),
+   ReceiverSend( $R, $I,
+                 dhExp(dhMult(dhExp(P'g', Efei),
+                              dhExp(dhExp(P'g', Eski), dhMu(dhExp(P'g', Efei)))),
+                       dhPlus(Fer, dhTimesE(Fskr, dhMu(dhExp(P'g', Fer))))),
+                 m
+   )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) InitiatorRole2:
+   [
+   In( dhExp(P'g', Efer) ),
+   Initiated( $I, $R, Fski, Fei, dhExp(P'g', Eskr) ), Fr( m ),
+   In( senc(<m2, 'R'>,
+            dhExp(dhMult(dhExp(P'g', Efer),
+                         dhExp(dhExp(P'g', Eskr), dhMu(dhExp(P'g', Efer)))),
+                  dhPlus(Fei, dhTimesE(Fski, dhMu(dhExp(P'g', Fei))))))
+   )
+   ]
+  --[
+  Neq( Efer, Fei ), Neq( Fski, Eskr ),
+  AgreeKeyI( $I, $R,
+             dhExp(dhMult(dhExp(P'g', Efer),
+                          dhExp(dhExp(P'g', Eskr), dhMu(dhExp(P'g', Efer)))),
+                   dhPlus(Fei, dhTimesE(Fski, dhMu(dhExp(P'g', Fei)))))
+  ),
+  RunningI( $I, $R,
+            dhExp(dhMult(dhExp(P'g', Efer),
+                         dhExp(dhExp(P'g', Eskr), dhMu(dhExp(P'g', Efer)))),
+                  dhPlus(Fei, dhTimesE(Fski, dhMu(dhExp(P'g', Fei)))))
+  )
+  ]->
+   [
+   Out( senc(<m, 'I'>,
+             dhExp(dhMult(dhExp(P'g', Efer),
+                          dhExp(dhExp(P'g', Eskr), dhMu(dhExp(P'g', Efer)))),
+                   dhPlus(Fei, dhTimesE(Fski, dhMu(dhExp(P'g', Fei))))))
+   )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) ReceiverRole2:
+   [ In( senc(<m2, 'I'>, GkAB) ), ReceiverSend( $R, $I, GkAB, m ) ]
+  --[ Neq( m, m2 ), AgreeKeyR( $R, $I, GkAB ) ]->
+   [ ]
+
+  /* has exactly the trivial AC variant */
+
+restriction inequality:
+  "∀ x y #i. (Neq( x, y ) @ #i) ⇒ (¬(x = y))"
+  // safety formula
+
+lemma executable:
+  exists-trace
+  "∃ I R Gk #i #j.
+    ((AgreeKeyI( I, R, Gk ) @ #i) ∧ (AgreeKeyR( R, I, Gk ) @ #j)) ∧
+    (¬(∃ #k.1 C. Compromised( C ) @ #k.1))"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ I R Gk #i #j.
+  (AgreeKeyI( I, R, Gk ) @ #i) ∧ (AgreeKeyR( R, I, Gk ) @ #j)
+ ∧
+  ∀ #k.1 C. (Compromised( C ) @ #k.1) ⇒ ⊥"
+*/
+simplify
+solve( AgreeKeyI( I, R, Gk ) @ #i )
+  case InitiatorRole2
+  solve( Initiated( $I, $R, Fski, Fei, dhExp(P'g', Eskr) ) ▶₁ #i )
+    case InitiatorRole
+    solve( !SKey( $I, Fski ) ▶₀ #vr )
+      case GenKey
+      solve( !PubKey( $R, dhExp(P'g', Eskr) ) ▶₁ #vr )
+        case GenKeyCompromised
+        by contradiction /* from formulas */
+      next
+        case GenKey_case_1
+        by contradiction /* from formulas */
+      next
+        case GenKey_case_2
+        solve( AgreeKeyR( $R, $I,
+                          dhMult(dhExp(P'g', dhTimesE(Efer, Fei)),
+                                 dhMult(dhExp(P'g',
+                                              dhTimesE(Efer,
+                                                       dhTimesE(Fski, dhMu(dhExp(P'g', Fei))))),
+                                        dhMult(dhExp(P'g',
+                                                     dhTimesE(Fei,
+                                                              dhTimesE(Fx,
+                                                                       dhMu(dhExp(P'g', Efer))))),
+                                               dhExp(P'g',
+                                                     dhTimesE(Fski,
+                                                              dhTimesE(Fx,
+                                                                       dhTimesE(dhMu(dhExp(P'g',
+                                                                                           Efer)),
+                                                                                dhMu(dhExp(P'g',
+                                                                                           Fei)))))))))
+               ) @ #j )
+          case ReceiverRole2
+          solve( ReceiverSend( $R, $I,
+                               dhMult(dhExp(P'g', dhTimesE(Efer, Fei)),
+                                      dhMult(dhExp(P'g',
+                                                   dhTimesE(Efer,
+                                                            dhTimesE(Fski,
+                                                                     dhMu(dhExp(P'g', Fei))))),
+                                             dhMult(dhExp(P'g',
+                                                          dhTimesE(Fei,
+                                                                   dhTimesE(Fx,
+                                                                            dhMu(dhExp(P'g',
+                                                                                       Efer))))),
+                                                    dhExp(P'g',
+                                                          dhTimesE(Fski,
+                                                                   dhTimesE(Fx,
+                                                                            dhTimesE(dhMu(dhExp(P'g',
+                                                                                                Efer)),
+                                                                                     dhMu(dhExp(P'g',
+                                                                                                Fei))))))))),
+                               m
+                 ) ▶₁ #j )
+            case ReceiverRole_case_1
+            by sorry
+          next
+            case ReceiverRole_case_2
+            solve( !SKey( $R, Fx ) ▶₀ #vr.3 )
+              case GenKey
+              solve( !PubKey( $I, dhExp(P'g', Fski) ) ▶₁ #vr.3 )
+                case GenKey
+                solve( !KU( senc(<m2, 'R'>,
+                                 dhMult(dhExp(P'g', dhTimesE(Fer, Fei)),
+                                        dhMult(dhExp(P'g',
+                                                     dhTimesE(Fer,
+                                                              dhTimesE(Fski,
+                                                                       dhMu(dhExp(P'g', Fei))))),
+                                               dhMult(dhExp(P'g',
+                                                            dhTimesE(Fei,
+                                                                     dhTimesE(Fx,
+                                                                              dhMu(dhExp(P'g',
+                                                                                         Fer))))),
+                                                      dhExp(P'g',
+                                                            dhTimesE(Fski,
+                                                                     dhTimesE(Fx,
+                                                                              dhTimesE(dhMu(dhExp(P'g',
+                                                                                                  Fer)),
+                                                                                       dhMu(dhExp(P'g',
+                                                                                                  Fei))))))))))
+                       ) @ #vk.1 )
+                  case c_senc
+                  by sorry
+                next
+                  case coerce
+                  solve( !KD( senc(<m2, 'R'>,
+                                   dhMult(dhExp(P'g', dhTimesE(Fer, Fei)),
+                                          dhMult(dhExp(P'g',
+                                                       dhTimesE(Fer,
+                                                                dhTimesE(Fski,
+                                                                         dhMu(dhExp(P'g', Fei))))),
+                                                 dhMult(dhExp(P'g',
+                                                              dhTimesE(Fei,
+                                                                       dhTimesE(Fx,
+                                                                                dhMu(dhExp(P'g',
+                                                                                           Fer))))),
+                                                        dhExp(P'g',
+                                                              dhTimesE(Fski,
+                                                                       dhTimesE(Fx,
+                                                                                dhTimesE(dhMu(dhExp(P'g',
+                                                                                                    Fer)),
+                                                                                         dhMu(dhExp(P'g',
+                                                                                                    Fei))))))))))
+                         ) ▶₀ #vk )
+                    case GenKey_case_1
+                    by contradiction /* impossible chain */
+                  next
+                    case GenKey_case_2
+                    by contradiction /* impossible chain */
+                  next
+                    case GenKey_case_3
+                    by contradiction /* impossible chain */
+                  next
+                    case InitiatorRole2_case_1
+                    by contradiction /* cyclic */
+                  next
+                    case InitiatorRole2_case_2
+                    by sorry
+                  next
+                    case InitiatorRole_case_1
+                    by contradiction /* impossible chain */
+                  next
+                    case InitiatorRole_case_2
+                    by contradiction /* impossible chain */
+                  next
+                    case ReceiverRole_case_1
+                    by contradiction /* impossible chain */
+                  next
+                    case ReceiverRole_case_2
+                    solve( (#vl, 0) ~~> (#vk, 0) )
+                      case d_0_sdec
+                      by contradiction /* impossible chain */
+                    next
+                      case senc
+                      solve( !KU( senc(<m2, 'I'>,
+                                       dhMult(dhExp(P'g', dhTimesE(Fer, Fei)),
+                                              dhMult(dhExp(P'g',
+                                                           dhTimesE(Fer,
+                                                                    dhTimesE(Fski,
+                                                                             dhMu(dhExp(P'g',
+                                                                                        Fei))))),
+                                                     dhMult(dhExp(P'g',
+                                                                  dhTimesE(Fei,
+                                                                           dhTimesE(Fx,
+                                                                                    dhMu(dhExp(P'g',
+                                                                                               Fer))))),
+                                                            dhExp(P'g',
+                                                                  dhTimesE(Fski,
+                                                                           dhTimesE(Fx,
+                                                                                    dhTimesE(dhMu(dhExp(P'g',
+                                                                                                        Fer)),
+                                                                                             dhMu(dhExp(P'g',
+                                                                                                        Fei))))))))))
+                             ) @ #vk.2 )
+                        case c_senc
+                        by sorry
+                      next
+                        case coerce
+                        solve( !KD( senc(<m2, 'I'>,
+                                         dhMult(dhExp(P'g', dhTimesE(Fer, Fei)),
+                                                dhMult(dhExp(P'g',
+                                                             dhTimesE(Fer,
+                                                                      dhTimesE(Fski,
+                                                                               dhMu(dhExp(P'g',
+                                                                                          Fei))))),
+                                                       dhMult(dhExp(P'g',
+                                                                    dhTimesE(Fei,
+                                                                             dhTimesE(Fx,
+                                                                                      dhMu(dhExp(P'g',
+                                                                                                 Fer))))),
+                                                              dhExp(P'g',
+                                                                    dhTimesE(Fski,
+                                                                             dhTimesE(Fx,
+                                                                                      dhTimesE(dhMu(dhExp(P'g',
+                                                                                                          Fer)),
+                                                                                               dhMu(dhExp(P'g',
+                                                                                                          Fei))))))))))
+                               ) ▶₀ #vk.1 )
+                          case GenKey_case_1
+                          by contradiction /* impossible chain */
+                        next
+                          case GenKey_case_2
+                          by contradiction /* impossible chain */
+                        next
+                          case GenKey_case_3
+                          by contradiction /* impossible chain */
+                        next
+                          case InitiatorRole2_case_1
+                          solve( (#vl.1, 0) ~~> (#vk.1, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          next
+                            case senc
+                            solve( !KU( dhExp(P'g', Fer) ) @ #vk.2 )
+                              case coerce
+                              solve( !KD( dhExp(P'g', Fer) ) ▶₀ #vk.2 )
+                                case Using_OutFacts_case_1
+                                solve( !KU( dhExp(P'g', Fei) ) @ #vk.3 )
+                                  case coerce
+                                  solve( !KD( dhExp(P'g', Fei) ) ▶₀ #vk.3 )
+                                    case Using_OutFacts_case_1
+                                    SOLVED // trace found
+                                  next
+                                    case Using_OutFacts_case_2
+                                    by sorry
+                                  qed
+                                qed
+                              next
+                                case Using_OutFacts_case_2
+                                by sorry
+                              qed
+                            qed
+                          qed
+                        next
+                          case InitiatorRole2_case_2
+                          by sorry
+                        next
+                          case InitiatorRole_case_1
+                          by contradiction /* impossible chain */
+                        next
+                          case InitiatorRole_case_2
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_1
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_2
+                          by sorry
+                        next
+                          case ReceiverRole_case_3
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_4
+                          by sorry
+                        next
+                          case freshNZE
+                          by contradiction /* cyclic */
+                        next
+                          case pubGConstr_case_1
+                          by contradiction /* forbidden KD-fact */
+                        next
+                          case pubGConstr_case_2
+                          by contradiction /* forbidden KD-fact */
+                        next
+                          case pubGConstr_case_3
+                          by contradiction /* cyclic */
+                        qed
+                      qed
+                    qed
+                  next
+                    case ReceiverRole_case_3
+                    by contradiction /* impossible chain */
+                  next
+                    case ReceiverRole_case_4
+                    by sorry
+                  next
+                    case freshNZE
+                    by contradiction /* cyclic */
+                  next
+                    case pubGConstr_case_1
+                    by contradiction /* forbidden KD-fact */
+                  next
+                    case pubGConstr_case_2
+                    by contradiction /* forbidden KD-fact */
+                  next
+                    case pubGConstr_case_3
+                    by contradiction /* cyclic */
+                  qed
+                qed
+              next
+                case GenKeyCompromised
+                by contradiction /* from formulas */
+              qed
+            qed
+          qed
+        qed
+      qed
+    qed
+  qed
+qed
+
+lemma secrecyI:
+  all-traces
+  "∀ I R Gk #i.
+    (((AgreeKeyI( I, R, Gk ) @ #i) ∧
+      (¬(∃ #k.1. Compromised( I ) @ #k.1))) ∧
+     (¬(∃ #k.1. Compromised( R ) @ #k.1))) ⇒
+    (¬(∃ #i.1. K( Gk ) @ #i.1))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ I R Gk #i.
+  (AgreeKeyI( I, R, Gk ) @ #i)
+ ∧
+  (∀ #k.1. (Compromised( I ) @ #k.1) ⇒ ⊥) ∧
+  (∀ #k.1. (Compromised( R ) @ #k.1) ⇒ ⊥) ∧
+  (∃ #i.1. (K( Gk ) @ #i.1))"
+*/
+simplify
+solve( AgreeKeyI( I, R, Gk ) @ #i )
+  case InitiatorRole2
+  solve( Initiated( $I, $R, Fski, Fei, dhExp(P'g', Eskr) ) ▶₁ #i )
+    case InitiatorRole
+    solve( !SKey( $I, Fski ) ▶₀ #vr )
+      case GenKey
+      solve( !PubKey( $R, dhExp(P'g', Eskr) ) ▶₁ #vr )
+        case GenKeyCompromised
+        by contradiction /* from formulas */
+      next
+        case GenKey_case_1
+        by contradiction /* from formulas */
+      next
+        case GenKey_case_2
+        solve( K( dhMult(dhExp(P'g', dhTimesE(Efer, Fei)),
+                         dhMult(dhExp(P'g',
+                                      dhTimesE(Efer, dhTimesE(Fski, dhMu(dhExp(P'g', Fei))))),
+                                dhMult(dhExp(P'g',
+                                             dhTimesE(Fei, dhTimesE(Fx, dhMu(dhExp(P'g', Efer))))),
+                                       dhExp(P'g',
+                                             dhTimesE(Fski,
+                                                      dhTimesE(Fx,
+                                                               dhTimesE(dhMu(dhExp(P'g', Efer)),
+                                                                        dhMu(dhExp(P'g',
+                                                                                   Fei)))))))))
+               ) @ #i.1 )
+          case isend
+          by solve( Kdh( dhMult(dhExp(P'g', dhTimesE(Efer, Fei)),
+                                dhMult(dhExp(P'g',
+                                             dhTimesE(Efer,
+                                                      dhTimesE(Fski, dhMu(dhExp(P'g', Fei))))),
+                                       dhMult(dhExp(P'g',
+                                                    dhTimesE(Fei,
+                                                             dhTimesE(Fx,
+                                                                      dhMu(dhExp(P'g', Efer))))),
+                                              dhExp(P'g',
+                                                    dhTimesE(Fski,
+                                                             dhTimesE(Fx,
+                                                                      dhTimesE(dhMu(dhExp(P'g',
+                                                                                          Efer)),
+                                                                               dhMu(dhExp(P'g',
+                                                                                          Fei)))))))))
+                    ) ▶₀ #i.1 )
+        qed
+      qed
+    qed
+  qed
+qed
+
+lemma agreementI:
+  all-traces
+  "∀ I R Gk #i.
+    (((AgreeKeyI( I, R, Gk ) @ #i) ∧
+      (¬(∃ #k.1. Compromised( I ) @ #k.1))) ∧
+     (¬(∃ #k.1. Compromised( R ) @ #k.1))) ⇒
+    (∃ #j. RunningR( R, I, Gk ) @ #j)"
+/*
+guarded formula characterizing all counter-examples:
+"∃ I R Gk #i.
+  (AgreeKeyI( I, R, Gk ) @ #i)
+ ∧
+  (∀ #k.1. (Compromised( I ) @ #k.1) ⇒ ⊥) ∧
+  (∀ #k.1. (Compromised( R ) @ #k.1) ⇒ ⊥) ∧
+  (∀ #j. (RunningR( R, I, Gk ) @ #j) ⇒ ⊥)"
+*/
+simplify
+solve( AgreeKeyI( I, R, Gk ) @ #i )
+  case InitiatorRole2
+  solve( Initiated( $I, $R, Fski, Fei, dhExp(P'g', Eskr) ) ▶₁ #i )
+    case InitiatorRole
+    solve( !SKey( $I, Fski ) ▶₀ #vr )
+      case GenKey
+      solve( !PubKey( $R, dhExp(P'g', Eskr) ) ▶₁ #vr )
+        case GenKeyCompromised
+        by contradiction /* from formulas */
+      next
+        case GenKey_case_1
+        by contradiction /* from formulas */
+      next
+        case GenKey_case_2
+        solve( !KU( senc(<m2, 'R'>,
+                         dhMult(dhExp(P'g', dhTimesE(Efer, Fei)),
+                                dhMult(dhExp(P'g',
+                                             dhTimesE(Efer,
+                                                      dhTimesE(Fski, dhMu(dhExp(P'g', Fei))))),
+                                       dhMult(dhExp(P'g',
+                                                    dhTimesE(Fei,
+                                                             dhTimesE(Fx,
+                                                                      dhMu(dhExp(P'g', Efer))))),
+                                              dhExp(P'g',
+                                                    dhTimesE(Fski,
+                                                             dhTimesE(Fx,
+                                                                      dhTimesE(dhMu(dhExp(P'g',
+                                                                                          Efer)),
+                                                                               dhMu(dhExp(P'g',
+                                                                                          Fei))))))))))
+               ) @ #vk.1 )
+          case c_senc
+          solve( !KU( dhMult(dhExp(P'g', dhTimesE(Efer, Fei)),
+                             dhMult(dhExp(P'g',
+                                          dhTimesE(Efer, dhTimesE(Fski, dhMu(dhExp(P'g', Fei))))),
+                                    dhMult(dhExp(P'g',
+                                                 dhTimesE(Fei,
+                                                          dhTimesE(Fx, dhMu(dhExp(P'g', Efer))))),
+                                           dhExp(P'g',
+                                                 dhTimesE(Fski,
+                                                          dhTimesE(Fx,
+                                                                   dhTimesE(dhMu(dhExp(P'g', Efer)),
+                                                                            dhMu(dhExp(P'g',
+                                                                                       Fei)))))))))
+                 ) @ #vk.3 )
+            case coerce
+            by sorry
+          qed
+        next
+          case coerce
+          solve( !KD( senc(<m2, 'R'>,
+                           dhMult(dhExp(P'g', dhTimesE(Efer, Fei)),
+                                  dhMult(dhExp(P'g',
+                                               dhTimesE(Efer,
+                                                        dhTimesE(Fski, dhMu(dhExp(P'g', Fei))))),
+                                         dhMult(dhExp(P'g',
+                                                      dhTimesE(Fei,
+                                                               dhTimesE(Fx,
+                                                                        dhMu(dhExp(P'g', Efer))))),
+                                                dhExp(P'g',
+                                                      dhTimesE(Fski,
+                                                               dhTimesE(Fx,
+                                                                        dhTimesE(dhMu(dhExp(P'g',
+                                                                                            Efer)),
+                                                                                 dhMu(dhExp(P'g',
+                                                                                            Fei))))))))))
+                 ) ▶₀ #vk )
+            case GenKey_case_1
+            by contradiction /* impossible chain */
+          next
+            case GenKey_case_2
+            by contradiction /* impossible chain */
+          next
+            case GenKey_case_3
+            by contradiction /* impossible chain */
+          next
+            case InitiatorRole2_case_1
+            by contradiction /* cyclic */
+          next
+            case InitiatorRole2_case_2
+            by sorry
+          next
+            case InitiatorRole_case_1
+            by contradiction /* impossible chain */
+          next
+            case InitiatorRole_case_2
+            by contradiction /* impossible chain */
+          next
+            case ReceiverRole_case_1
+            by contradiction /* impossible chain */
+          next
+            case ReceiverRole_case_2
+            solve( (#vl, 0) ~~> (#vk, 0) )
+              case d_0_sdec
+              by contradiction /* impossible chain */
+            next
+              case senc_case_1
+              solve( !SKey( $R.1, Fskr ) ▶₀ #vr.3 )
+                case GenKey
+                solve( !PubKey( $I.1,
+                                dhGinv(dhExp(P'g',
+                                             dhTimesE(Evy,
+                                                      dhInv(dhMu(dhMult(dhExp(P'g', Evy),
+                                                                        dhMult(dhExp(P'g', Fei),
+                                                                               dhExp(P'g',
+                                                                                     dhTimesE(Fski,
+                                                                                              dhMu(dhExp(P'g',
+                                                                                                         Fei)))))))))))
+                       ) ▶₁ #vr.3 )
+                  case GenKeyCompromised
+                  solve( !KU( dhExp(P'g', Fer) ) @ #vk.1 )
+                    case coerce
+                    solve( !KD( dhExp(P'g', Fer) ) ▶₀ #vk.1 )
+                      case Using_OutFacts_case_1
+                      solve( Kdh( dhMinus(dhTimesE(Evy,
+                                                   dhInv(dhMu(dhMult(dhExp(P'g', Evy),
+                                                                     dhMult(dhExp(P'g', Fei),
+                                                                            dhExp(P'g',
+                                                                                  dhTimesE(Fski,
+                                                                                           dhMu(dhExp(P'g',
+                                                                                                      Fei))))))))))
+                             ) ▶₀ #vr.4 )
+                        case LeakedSetInserted_case_01
+                        solve( Kdh( dhMu(dhMult(dhExp(P'g', Evy),
+                                                dhMult(dhExp(P'g', Fei),
+                                                       dhExp(P'g',
+                                                             dhTimesE(Fski,
+                                                                      dhMu(dhExp(P'g', Fei)))))))
+                               ) @ #vk.3 )
+                          case isend_case_1
+                          by sorry
+                        next
+                          case isend_case_2
+                          solve( Kdh( dhExp(P'g', Fei) ) @ #vk.5 )
+                            case isend_case_1
+                            solve( !KU( dhMult(dhExp(P'g', Evy),
+                                               dhMult(dhExp(P'g', Fei),
+                                                      dhExp(P'g',
+                                                            dhTimesE(Fski,
+                                                                     dhMu(dhExp(P'g', Fei))))))
+                                   ) @ #vk.5 )
+                              case coerce
+                              solve( !KD( dhMult(dhExp(P'g', Evy),
+                                                 dhMult(dhExp(P'g', Fei),
+                                                        dhExp(P'g',
+                                                              dhTimesE(Fski,
+                                                                       dhMu(dhExp(P'g', Fei))))))
+                                     ) ▶₀ #vk.4 )
+                                case Using_OutFacts_case_1
+                                solve( Kdh( dhExp(P'g', Fei) ) @ #vk.6 )
+                                  case isend_case_1
+                                  solve( Kdh( Evy ) @ #vk.6 )
+                                    case freshNZE
+                                    SOLVED // trace found
+                                  next
+                                    case pubGConstr_case_1
+                                    SOLVED // trace found
+                                  next
+                                    case pubGConstr_case_2
+                                    SOLVED // trace found
+                                  qed
+                                next
+                                  case isend_case_2
+                                  by sorry
+                                qed
+                              next
+                                case Using_OutFacts_case_2
+                                by sorry
+                              next
+                                case Using_OutFacts_case_3
+                                by sorry
+                              next
+                                case Using_OutFacts_case_4
+                                by sorry
+                              qed
+                            qed
+                          next
+                            case isend_case_2
+                            by sorry
+                          qed
+                        next
+                          case isend_case_3
+                          by sorry
+                        next
+                          case isend_case_4
+                          by sorry
+                        qed
+                      next
+                        case LeakedSetInserted_case_02
+                        by contradiction /* adversary derived secret element! */
+                      next
+                        case LeakedSetInserted_case_03
+                        by sorry
+                      next
+                        case LeakedSetInserted_case_04
+                        by contradiction /* adversary derived secret element! */
+                      next
+                        case LeakedSetInserted_case_05
+                        by contradiction /* adversary derived secret element! */
+                      next
+                        case LeakedSetInserted_case_06
+                        by sorry
+                      next
+                        case LeakedSetInserted_case_07
+                        by sorry
+                      next
+                        case LeakedSetInserted_case_08
+                        by sorry
+                      next
+                        case LeakedSetInserted_case_09
+                        by contradiction /* adversary derived secret element! */
+                      next
+                        case LeakedSetInserted_case_10
+                        by contradiction /* adversary derived secret element! */
+                      next
+                        case LeakedSetInserted_case_11
+                        by sorry
+                      next
+                        case LeakedSetInserted_case_12
+                        by sorry
+                      next
+                        case LeakedSetInserted_case_13
+                        by contradiction /* forbidden KD-fact */
+                      next
+                        case LeakedSetInserted_case_14
+                        by sorry
+                      next
+                        case LeakedSetInserted_case_15
+                        by contradiction /* adversary derived secret element! */
+                      next
+                        case LeakedSetInserted_case_16
+                        by contradiction /* adversary derived secret element! */
+                      next
+                        case LeakedSetInserted_case_17
+                        by sorry
+                      qed
+                    next
+                      case Using_OutFacts_case_2
+                      by sorry
+                    qed
+                  qed
+                qed
+              qed
+            next
+              case senc_case_2
+              by sorry
+            qed
+          next
+            case freshNZE
+            by contradiction /* cyclic */
+          next
+            case pubGConstr_case_1
+            by contradiction /* forbidden KD-fact */
+          next
+            case pubGConstr_case_2
+            by contradiction /* forbidden KD-fact */
+          next
+            case pubGConstr_case_3
+            by contradiction /* cyclic */
+          qed
+        qed
+      qed
+    qed
+  qed
+qed
+
+lemma secrecyR:
+  all-traces
+  "∀ R I Gk #i.
+    (((AgreeKeyR( R, I, Gk ) @ #i) ∧
+      (¬(∃ #k.1. Compromised( I ) @ #k.1))) ∧
+     (¬(∃ #k.1. Compromised( R ) @ #k.1))) ⇒
+    (¬(∃ #i.1. K( Gk ) @ #i.1))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ R I Gk #i.
+  (AgreeKeyR( R, I, Gk ) @ #i)
+ ∧
+  (∀ #k.1. (Compromised( I ) @ #k.1) ⇒ ⊥) ∧
+  (∀ #k.1. (Compromised( R ) @ #k.1) ⇒ ⊥) ∧
+  (∃ #i.1. (K( Gk ) @ #i.1))"
+*/
+simplify
+solve( AgreeKeyR( R, I, Gk ) @ #i )
+  case ReceiverRole2
+  solve( ReceiverSend( $R, $I, Gk, m ) ▶₁ #i )
+    case ReceiverRole
+    solve( !SKey( $R, Fskr ) ▶₀ #vr )
+      case GenKey
+      solve( !PubKey( $I, dhExp(P'g', Eski) ) ▶₁ #vr )
+        case GenKeyCompromised
+        by contradiction /* from formulas */
+      next
+        case GenKey_case_1
+        by contradiction /* from formulas */
+      next
+        case GenKey_case_2
+        solve( K( dhMult(dhExp(P'g', dhTimesE(Efei, Fer)),
+                         dhMult(dhExp(P'g',
+                                      dhTimesE(Efei, dhTimesE(Fskr, dhMu(dhExp(P'g', Fer))))),
+                                dhMult(dhExp(P'g',
+                                             dhTimesE(Fer, dhTimesE(Fx, dhMu(dhExp(P'g', Efei))))),
+                                       dhExp(P'g',
+                                             dhTimesE(Fskr,
+                                                      dhTimesE(Fx,
+                                                               dhTimesE(dhMu(dhExp(P'g', Efei)),
+                                                                        dhMu(dhExp(P'g',
+                                                                                   Fer)))))))))
+               ) @ #i.1 )
+          case isend
+          by solve( Kdh( dhMult(dhExp(P'g', dhTimesE(Efei, Fer)),
+                                dhMult(dhExp(P'g',
+                                             dhTimesE(Efei,
+                                                      dhTimesE(Fskr, dhMu(dhExp(P'g', Fer))))),
+                                       dhMult(dhExp(P'g',
+                                                    dhTimesE(Fer,
+                                                             dhTimesE(Fx,
+                                                                      dhMu(dhExp(P'g', Efei))))),
+                                              dhExp(P'g',
+                                                    dhTimesE(Fskr,
+                                                             dhTimesE(Fx,
+                                                                      dhTimesE(dhMu(dhExp(P'g',
+                                                                                          Efei)),
+                                                                               dhMu(dhExp(P'g',
+                                                                                          Fer)))))))))
+                    ) ▶₀ #i.1 )
+        qed
+      qed
+    qed
+  qed
+qed
+
+lemma agreementR:
+  all-traces
+  "∀ R I Gk #i.
+    (((AgreeKeyR( R, I, Gk ) @ #i) ∧
+      (¬(∃ #k.1. Compromised( I ) @ #k.1))) ∧
+     (¬(∃ #k.1. Compromised( R ) @ #k.1))) ⇒
+    (∃ #j. RunningI( I, R, Gk ) @ #j)"
+/*
+guarded formula characterizing all counter-examples:
+"∃ R I Gk #i.
+  (AgreeKeyR( R, I, Gk ) @ #i)
+ ∧
+  (∀ #k.1. (Compromised( I ) @ #k.1) ⇒ ⊥) ∧
+  (∀ #k.1. (Compromised( R ) @ #k.1) ⇒ ⊥) ∧
+  (∀ #j. (RunningI( I, R, Gk ) @ #j) ⇒ ⊥)"
+*/
+simplify
+solve( AgreeKeyR( R, I, Gk ) @ #i )
+  case ReceiverRole2
+  solve( ReceiverSend( $R, $I, Gk, m ) ▶₁ #i )
+    case ReceiverRole
+    solve( !SKey( $R, Fskr ) ▶₀ #vr )
+      case GenKey
+      solve( !PubKey( $I, dhExp(P'g', Eski) ) ▶₁ #vr )
+        case GenKeyCompromised
+        by contradiction /* from formulas */
+      next
+        case GenKey_case_1
+        by contradiction /* from formulas */
+      next
+        case GenKey_case_2
+        solve( !KU( senc(<m2, 'I'>,
+                         dhMult(dhExp(P'g', dhTimesE(Efei, Fer)),
+                                dhMult(dhExp(P'g',
+                                             dhTimesE(Efei,
+                                                      dhTimesE(Fskr, dhMu(dhExp(P'g', Fer))))),
+                                       dhMult(dhExp(P'g',
+                                                    dhTimesE(Fer,
+                                                             dhTimesE(Fx,
+                                                                      dhMu(dhExp(P'g', Efei))))),
+                                              dhExp(P'g',
+                                                    dhTimesE(Fskr,
+                                                             dhTimesE(Fx,
+                                                                      dhTimesE(dhMu(dhExp(P'g',
+                                                                                          Efei)),
+                                                                               dhMu(dhExp(P'g',
+                                                                                          Fer))))))))))
+               ) @ #vk )
+          case c_senc
+          solve( !KU( dhMult(dhExp(P'g', dhTimesE(Efei, Fer)),
+                             dhMult(dhExp(P'g',
+                                          dhTimesE(Efei, dhTimesE(Fskr, dhMu(dhExp(P'g', Fer))))),
+                                    dhMult(dhExp(P'g',
+                                                 dhTimesE(Fer,
+                                                          dhTimesE(Fx, dhMu(dhExp(P'g', Efei))))),
+                                           dhExp(P'g',
+                                                 dhTimesE(Fskr,
+                                                          dhTimesE(Fx,
+                                                                   dhTimesE(dhMu(dhExp(P'g', Efei)),
+                                                                            dhMu(dhExp(P'g',
+                                                                                       Fer)))))))))
+                 ) @ #vk.3 )
+            case coerce
+            by solve( !KD( dhMult(dhExp(P'g', dhTimesE(Efei, Fer)),
+                                  dhMult(dhExp(P'g',
+                                               dhTimesE(Efei,
+                                                        dhTimesE(Fskr, dhMu(dhExp(P'g', Fer))))),
+                                         dhMult(dhExp(P'g',
+                                                      dhTimesE(Fer,
+                                                               dhTimesE(Fx,
+                                                                        dhMu(dhExp(P'g', Efei))))),
+                                                dhExp(P'g',
+                                                      dhTimesE(Fskr,
+                                                               dhTimesE(Fx,
+                                                                        dhTimesE(dhMu(dhExp(P'g',
+                                                                                            Efei)),
+                                                                                 dhMu(dhExp(P'g',
+                                                                                            Fer)))))))))
+                      ) ▶₀ #vk.1 )
+          qed
+        next
+          case coerce
+          solve( !KD( senc(<m2, 'I'>,
+                           dhMult(dhExp(P'g', dhTimesE(Efei, Fer)),
+                                  dhMult(dhExp(P'g',
+                                               dhTimesE(Efei,
+                                                        dhTimesE(Fskr, dhMu(dhExp(P'g', Fer))))),
+                                         dhMult(dhExp(P'g',
+                                                      dhTimesE(Fer,
+                                                               dhTimesE(Fx,
+                                                                        dhMu(dhExp(P'g', Efei))))),
+                                                dhExp(P'g',
+                                                      dhTimesE(Fskr,
+                                                               dhTimesE(Fx,
+                                                                        dhTimesE(dhMu(dhExp(P'g',
+                                                                                            Efei)),
+                                                                                 dhMu(dhExp(P'g',
+                                                                                            Fer))))))))))
+                 ) ▶₀ #vk )
+            case GenKey_case_1
+            by contradiction /* impossible chain */
+          next
+            case GenKey_case_2
+            by contradiction /* impossible chain */
+          next
+            case GenKey_case_3
+            by contradiction /* impossible chain */
+          next
+            case InitiatorRole
+            by contradiction /* impossible chain */
+          next
+            case InitiatorRole2
+            solve( (#vl, 0) ~~> (#vk, 0) )
+              case d_0_sdec
+              by contradiction /* impossible chain */
+            next
+              case senc_case_1
+              solve( Initiated( $I.1, $R.1, Fski, Fei,
+                                dhGinv(dhExp(P'g',
+                                             dhTimesE(Evy,
+                                                      dhInv(dhMu(dhMult(dhExp(P'g', Evy),
+                                                                        dhMult(dhExp(P'g', Fer),
+                                                                               dhExp(P'g',
+                                                                                     dhTimesE(Fskr,
+                                                                                              dhMu(dhExp(P'g',
+                                                                                                         Fer)))))))))))
+                     ) ▶₁ #vr.3 )
+                case InitiatorRole
+                solve( !SKey( $I.1, Fski ) ▶₀ #vr.4 )
+                  case GenKey
+                  solve( !PubKey( $R.1,
+                                  dhGinv(dhExp(P'g',
+                                               dhTimesE(Evy,
+                                                        dhInv(dhMu(dhMult(dhExp(P'g', Evy),
+                                                                          dhMult(dhExp(P'g', Fer),
+                                                                                 dhExp(P'g',
+                                                                                       dhTimesE(Fskr,
+                                                                                                dhMu(dhExp(P'g',
+                                                                                                           Fer)))))))))))
+                         ) ▶₁ #vr.4 )
+                    case GenKeyCompromised
+                    solve( Kdh( dhMinus(dhTimesE(Evy,
+                                                 dhInv(dhMu(dhMult(dhExp(P'g', Evy),
+                                                                   dhMult(dhExp(P'g', Fer),
+                                                                          dhExp(P'g',
+                                                                                dhTimesE(Fskr,
+                                                                                         dhMu(dhExp(P'g',
+                                                                                                    Fer))))))))))
+                           ) ▶₀ #vr.5 )
+                      case LeakedSetInserted_case_01
+                      solve( Kdh( dhMu(dhMult(dhExp(P'g', Evy),
+                                              dhMult(dhExp(P'g', Fer),
+                                                     dhExp(P'g',
+                                                           dhTimesE(Fskr,
+                                                                    dhMu(dhExp(P'g', Fer)))))))
+                             ) @ #vk.2 )
+                        case isend_case_1
+                        solve( !KD( senc(dhExp(P'g',
+                                               dhTimesE(Fskr, dhMu(dhExp(P'g', Fer)))),
+                                         x)
+                               ) ▶₀ #vr.6 )
+                          case GenKey_case_1
+                          by contradiction /* impossible chain */
+                        next
+                          case GenKey_case_2
+                          by contradiction /* impossible chain */
+                        next
+                          case GenKey_case_3
+                          by contradiction /* impossible chain */
+                        next
+                          case InitiatorRole2_case_1
+                          by contradiction /* cyclic */
+                        next
+                          case InitiatorRole2_case_2
+                          solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case InitiatorRole_case_1
+                          by contradiction /* cyclic */
+                        next
+                          case InitiatorRole_case_2
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_1
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_2
+                          solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case ReceiverRole_case_3
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_4
+                          solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case freshNZE
+                          by contradiction /* cyclic */
+                        next
+                          case pubGConstr_case_1
+                          by contradiction /* forbidden KD-fact */
+                        next
+                          case pubGConstr_case_2
+                          by contradiction /* forbidden KD-fact */
+                        next
+                          case pubGConstr_case_3
+                          by contradiction /* cyclic */
+                        qed
+                      next
+                        case isend_case_2
+                        solve( Kdh( dhExp(P'g', Fer) ) @ #vk.6 )
+                          case isend_case_1
+                          solve( !KU( dhExp(P'g', Fei) ) @ #vk.4 )
+                            case coerce
+                            solve( !KD( dhExp(P'g', Fei) ) ▶₀ #vk.3 )
+                              case Using_OutFacts_case_1
+                              by contradiction /* cyclic */
+                            next
+                              case Using_OutFacts_case_2
+                              solve( !KD( senc(dhExp(P'g', Fei), x) ) ▶₀ #vr.6 )
+                                case GenKey_case_1
+                                by contradiction /* impossible chain */
+                              next
+                                case GenKey_case_2
+                                by contradiction /* impossible chain */
+                              next
+                                case GenKey_case_3
+                                by contradiction /* impossible chain */
+                              next
+                                case InitiatorRole
+                                by contradiction /* impossible chain */
+                              next
+                                case InitiatorRole2_case_1
+                                by contradiction /* cyclic */
+                              next
+                                case InitiatorRole2_case_2
+                                solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                                  case d_0_sdec
+                                  by contradiction /* impossible chain */
+                                qed
+                              next
+                                case ReceiverRole_case_1
+                                by contradiction /* cyclic */
+                              next
+                                case ReceiverRole_case_2
+                                by contradiction /* cyclic */
+                              next
+                                case ReceiverRole_case_3
+                                by contradiction /* impossible chain */
+                              next
+                                case ReceiverRole_case_4
+                                solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                                  case d_0_sdec
+                                  by contradiction /* impossible chain */
+                                qed
+                              next
+                                case freshNZE
+                                by contradiction /* cyclic */
+                              next
+                                case pubGConstr_case_1
+                                by contradiction /* forbidden KD-fact */
+                              next
+                                case pubGConstr_case_2
+                                by contradiction /* forbidden KD-fact */
+                              next
+                                case pubGConstr_case_3
+                                by contradiction /* cyclic */
+                              qed
+                            qed
+                          qed
+                        next
+                          case isend_case_2
+                          solve( !KD( senc(dhExp(P'g', Fer), x) ) ▶₀ #vr.6 )
+                            case GenKey_case_1
+                            by contradiction /* impossible chain */
+                          next
+                            case GenKey_case_2
+                            by contradiction /* impossible chain */
+                          next
+                            case GenKey_case_3
+                            by contradiction /* impossible chain */
+                          next
+                            case InitiatorRole2_case_1
+                            by contradiction /* cyclic */
+                          next
+                            case InitiatorRole2_case_2
+                            solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                              case d_0_sdec
+                              by contradiction /* impossible chain */
+                            qed
+                          next
+                            case InitiatorRole_case_1
+                            by contradiction /* cyclic */
+                          next
+                            case InitiatorRole_case_2
+                            by contradiction /* impossible chain */
+                          next
+                            case ReceiverRole_case_1
+                            solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                              case d_0_sdec
+                              by contradiction /* impossible chain */
+                            qed
+                          next
+                            case ReceiverRole_case_2
+                            by contradiction /* impossible chain */
+                          next
+                            case ReceiverRole_case_3
+                            solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                              case d_0_sdec
+                              by contradiction /* impossible chain */
+                            qed
+                          next
+                            case freshNZE
+                            by contradiction /* cyclic */
+                          next
+                            case pubGConstr_case_1
+                            by contradiction /* forbidden KD-fact */
+                          next
+                            case pubGConstr_case_2
+                            by contradiction /* forbidden KD-fact */
+                          next
+                            case pubGConstr_case_3
+                            by contradiction /* cyclic */
+                          qed
+                        qed
+                      next
+                        case isend_case_3
+                        solve( Kdh( dhExp(P'g', Fer) ) @ #vk.6 )
+                          case isend_case_1
+                          solve( !KU( dhExp(P'g', Fei) ) @ #vk.4 )
+                            case coerce
+                            solve( !KD( dhExp(P'g', Fei) ) ▶₀ #vk.3 )
+                              case Using_OutFacts_case_1
+                              by contradiction /* cyclic */
+                            next
+                              case Using_OutFacts_case_2
+                              solve( !KD( senc(dhExp(P'g', Fei), x.1) ) ▶₀ #vr.7 )
+                                case GenKey_case_1
+                                by contradiction /* impossible chain */
+                              next
+                                case GenKey_case_2
+                                by contradiction /* impossible chain */
+                              next
+                                case InitiatorRole
+                                by contradiction /* impossible chain */
+                              next
+                                case InitiatorRole2_case_1
+                                by contradiction /* cyclic */
+                              next
+                                case InitiatorRole2_case_2
+                                solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                                  case d_0_sdec
+                                  by contradiction /* impossible chain */
+                                qed
+                              next
+                                case ReceiverRole_case_1
+                                by contradiction /* cyclic */
+                              next
+                                case ReceiverRole_case_2
+                                by contradiction /* cyclic */
+                              next
+                                case ReceiverRole_case_3
+                                by contradiction /* impossible chain */
+                              next
+                                case ReceiverRole_case_4
+                                solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                                  case d_0_sdec
+                                  by contradiction /* impossible chain */
+                                qed
+                              next
+                                case freshNZE
+                                by contradiction /* cyclic */
+                              next
+                                case pubGConstr_case_1
+                                by contradiction /* forbidden KD-fact */
+                              next
+                                case pubGConstr_case_2
+                                by contradiction /* forbidden KD-fact */
+                              next
+                                case pubGConstr_case_3
+                                by contradiction /* cyclic */
+                              qed
+                            qed
+                          qed
+                        next
+                          case isend_case_2
+                          solve( !KD( senc(dhExp(P'g', Fer), x.1) ) ▶₀ #vr.7 )
+                            case GenKey_case_1
+                            by contradiction /* impossible chain */
+                          next
+                            case GenKey_case_2
+                            by contradiction /* impossible chain */
+                          next
+                            case InitiatorRole2_case_1
+                            by contradiction /* cyclic */
+                          next
+                            case InitiatorRole2_case_2
+                            solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                              case d_0_sdec
+                              by contradiction /* impossible chain */
+                            qed
+                          next
+                            case InitiatorRole_case_1
+                            by contradiction /* cyclic */
+                          next
+                            case InitiatorRole_case_2
+                            by contradiction /* impossible chain */
+                          next
+                            case ReceiverRole_case_1
+                            solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                              case d_0_sdec
+                              by contradiction /* impossible chain */
+                            qed
+                          next
+                            case ReceiverRole_case_2
+                            by contradiction /* impossible chain */
+                          next
+                            case ReceiverRole_case_3
+                            solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                              case d_0_sdec
+                              by contradiction /* impossible chain */
+                            qed
+                          next
+                            case freshNZE
+                            by contradiction /* cyclic */
+                          next
+                            case pubGConstr_case_1
+                            by contradiction /* forbidden KD-fact */
+                          next
+                            case pubGConstr_case_2
+                            by contradiction /* forbidden KD-fact */
+                          next
+                            case pubGConstr_case_3
+                            by contradiction /* cyclic */
+                          qed
+                        qed
+                      next
+                        case isend_case_4
+                        solve( !KD( senc(dhExp(P'g', Fer), x) ) ▶₀ #vr.6 )
+                          case GenKey_case_1
+                          by contradiction /* impossible chain */
+                        next
+                          case GenKey_case_2
+                          by contradiction /* impossible chain */
+                        next
+                          case GenKey_case_3
+                          by contradiction /* impossible chain */
+                        next
+                          case InitiatorRole2_case_1
+                          by contradiction /* cyclic */
+                        next
+                          case InitiatorRole2_case_2
+                          solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case InitiatorRole_case_1
+                          by contradiction /* cyclic */
+                        next
+                          case InitiatorRole_case_2
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_1
+                          solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case ReceiverRole_case_2
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_3
+                          solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case freshNZE
+                          by contradiction /* cyclic */
+                        next
+                          case pubGConstr_case_1
+                          by contradiction /* forbidden KD-fact */
+                        next
+                          case pubGConstr_case_2
+                          by contradiction /* forbidden KD-fact */
+                        next
+                          case pubGConstr_case_3
+                          by contradiction /* cyclic */
+                        qed
+                      qed
+                    next
+                      case LeakedSetInserted_case_02
+                      by contradiction /* adversary derived secret element! */
+                    next
+                      case LeakedSetInserted_case_03
+                      solve( !KD( senc(Evy, x) ) ▶₀ #vr.6 )
+                        case GenKey_case_1
+                        by contradiction /* impossible chain */
+                      next
+                        case GenKey_case_2
+                        by contradiction /* impossible chain */
+                      next
+                        case GenKey_case_3
+                        by contradiction /* impossible chain */
+                      next
+                        case InitiatorRole2_case_1
+                        by contradiction /* cyclic */
+                      next
+                        case InitiatorRole2_case_2
+                        solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                          case d_0_sdec
+                          by contradiction /* impossible chain */
+                        qed
+                      next
+                        case InitiatorRole_case_1
+                        by contradiction /* cyclic */
+                      next
+                        case InitiatorRole_case_2
+                        by contradiction /* impossible chain */
+                      next
+                        case ReceiverRole_case_1
+                        by contradiction /* impossible chain */
+                      next
+                        case ReceiverRole_case_2
+                        solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                          case d_0_sdec
+                          by contradiction /* impossible chain */
+                        qed
+                      next
+                        case ReceiverRole_case_3
+                        by contradiction /* impossible chain */
+                      next
+                        case ReceiverRole_case_4
+                        solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                          case d_0_sdec
+                          by contradiction /* impossible chain */
+                        qed
+                      next
+                        case freshNZE
+                        by contradiction /* cyclic */
+                      next
+                        case pubGConstr_case_1
+                        by contradiction /* forbidden KD-fact */
+                      next
+                        case pubGConstr_case_2
+                        by contradiction /* forbidden KD-fact */
+                      next
+                        case pubGConstr_case_3
+                        by contradiction /* cyclic */
+                      qed
+                    next
+                      case LeakedSetInserted_case_04
+                      by contradiction /* adversary derived secret element! */
+                    next
+                      case LeakedSetInserted_case_05
+                      by contradiction /* adversary derived secret element! */
+                    next
+                      case LeakedSetInserted_case_06
+                      solve( !KD( senc(Evy, x) ) ▶₀ #vr.6 )
+                        case GenKey_case_1
+                        by contradiction /* impossible chain */
+                      next
+                        case GenKey_case_2
+                        by contradiction /* impossible chain */
+                      next
+                        case GenKey_case_3
+                        by contradiction /* impossible chain */
+                      next
+                        case InitiatorRole2_case_1
+                        by contradiction /* cyclic */
+                      next
+                        case InitiatorRole2_case_2
+                        solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                          case d_0_sdec
+                          by contradiction /* impossible chain */
+                        qed
+                      next
+                        case InitiatorRole_case_1
+                        by contradiction /* cyclic */
+                      next
+                        case InitiatorRole_case_2
+                        by contradiction /* impossible chain */
+                      next
+                        case ReceiverRole_case_1
+                        by contradiction /* impossible chain */
+                      next
+                        case ReceiverRole_case_2
+                        solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                          case d_0_sdec
+                          by contradiction /* impossible chain */
+                        qed
+                      next
+                        case ReceiverRole_case_3
+                        by contradiction /* impossible chain */
+                      next
+                        case ReceiverRole_case_4
+                        solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                          case d_0_sdec
+                          by contradiction /* impossible chain */
+                        qed
+                      next
+                        case freshNZE
+                        by contradiction /* cyclic */
+                      next
+                        case pubGConstr_case_1
+                        by contradiction /* forbidden KD-fact */
+                      next
+                        case pubGConstr_case_2
+                        by contradiction /* forbidden KD-fact */
+                      next
+                        case pubGConstr_case_3
+                        by contradiction /* cyclic */
+                      qed
+                    next
+                      case LeakedSetInserted_case_07
+                      solve( !KD( senc(dhInv(dhMu(dhMult(dhExp(P'g', Evy),
+                                                         dhMult(dhExp(P'g', Fer),
+                                                                dhExp(P'g',
+                                                                      dhTimesE(Fskr,
+                                                                               dhMu(dhExp(P'g',
+                                                                                          Fer)))))))),
+                                       x)
+                             ) ▶₀ #vr.6 )
+                        case GenKey_case_1
+                        by contradiction /* impossible chain */
+                      next
+                        case GenKey_case_2
+                        by contradiction /* impossible chain */
+                      next
+                        case GenKey_case_3
+                        by contradiction /* impossible chain */
+                      next
+                        case InitiatorRole2_case_1
+                        by contradiction /* cyclic */
+                      next
+                        case InitiatorRole2_case_2
+                        solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                          case d_0_sdec
+                          by contradiction /* impossible chain */
+                        qed
+                      next
+                        case InitiatorRole_case_1
+                        by contradiction /* cyclic */
+                      next
+                        case InitiatorRole_case_2
+                        by contradiction /* impossible chain */
+                      next
+                        case ReceiverRole_case_1
+                        by contradiction /* impossible chain */
+                      next
+                        case ReceiverRole_case_2
+                        solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                          case d_0_sdec
+                          by contradiction /* impossible chain */
+                        qed
+                      next
+                        case ReceiverRole_case_3
+                        by contradiction /* impossible chain */
+                      next
+                        case ReceiverRole_case_4
+                        solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                          case d_0_sdec
+                          by contradiction /* impossible chain */
+                        qed
+                      next
+                        case freshNZE
+                        by contradiction /* cyclic */
+                      next
+                        case pubGConstr_case_1
+                        by contradiction /* forbidden KD-fact */
+                      next
+                        case pubGConstr_case_2
+                        by contradiction /* forbidden KD-fact */
+                      next
+                        case pubGConstr_case_3
+                        by contradiction /* cyclic */
+                      qed
+                    next
+                      case LeakedSetInserted_case_08
+                      solve( !KU( dhExp(P'g', Fei) ) @ #vk.2 )
+                        case coerce
+                        solve( !KD( dhExp(P'g', Fei) ) ▶₀ #vk.1 )
+                          case Using_OutFacts_case_1
+                          solve( !KD( senc(dhInv(dhMu(dhMult(dhExp(P'g', Evy),
+                                                             dhMult(dhExp(P'g', Fer),
+                                                                    dhExp(P'g',
+                                                                          dhTimesE(Fskr,
+                                                                                   dhMu(dhExp(P'g',
+                                                                                              Fer)))))))),
+                                           x)
+                                 ) ▶₀ #vr.6 )
+                            case GenKey_case_1
+                            by contradiction /* impossible chain */
+                          next
+                            case GenKey_case_2
+                            by contradiction /* impossible chain */
+                          next
+                            case GenKey_case_3
+                            by contradiction /* impossible chain */
+                          next
+                            case InitiatorRole2_case_1
+                            by contradiction /* cyclic */
+                          next
+                            case InitiatorRole2_case_2
+                            solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                              case d_0_sdec
+                              by contradiction /* impossible chain */
+                            qed
+                          next
+                            case InitiatorRole_case_1
+                            by contradiction /* cyclic */
+                          next
+                            case InitiatorRole_case_2
+                            by contradiction /* impossible chain */
+                          next
+                            case ReceiverRole_case_1
+                            by contradiction /* cyclic */
+                          next
+                            case ReceiverRole_case_2
+                            by contradiction /* cyclic */
+                          next
+                            case ReceiverRole_case_3
+                            by contradiction /* impossible chain */
+                          next
+                            case ReceiverRole_case_4
+                            solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                              case d_0_sdec
+                              by contradiction /* impossible chain */
+                            qed
+                          next
+                            case freshNZE
+                            by contradiction /* cyclic */
+                          next
+                            case pubGConstr_case_1
+                            by contradiction /* forbidden KD-fact */
+                          next
+                            case pubGConstr_case_2
+                            by contradiction /* forbidden KD-fact */
+                          next
+                            case pubGConstr_case_3
+                            by contradiction /* cyclic */
+                          qed
+                        next
+                          case Using_OutFacts_case_2
+                          solve( !KD( senc(dhExp(P'g', Fei), x.1) ) ▶₀ #vr.7 )
+                            case GenKey_case_1
+                            by contradiction /* impossible chain */
+                          next
+                            case GenKey_case_2
+                            by contradiction /* impossible chain */
+                          next
+                            case GenKey_case_3
+                            by contradiction /* impossible chain */
+                          next
+                            case InitiatorRole
+                            by contradiction /* impossible chain */
+                          next
+                            case InitiatorRole2_case_1
+                            solve( (#vl, 0) ~~> (#vr.7, 0) )
+                              case d_0_sdec
+                              by contradiction /* impossible chain */
+                            qed
+                          next
+                            case InitiatorRole2_case_2
+                            solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                              case d_0_sdec
+                              by contradiction /* impossible chain */
+                            qed
+                          next
+                            case ReceiverRole_case_1
+                            by contradiction /* cyclic */
+                          next
+                            case ReceiverRole_case_2
+                            by contradiction /* cyclic */
+                          next
+                            case ReceiverRole_case_3
+                            by contradiction /* impossible chain */
+                          next
+                            case ReceiverRole_case_4
+                            solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                              case d_0_sdec
+                              by contradiction /* impossible chain */
+                            qed
+                          next
+                            case freshNZE
+                            by contradiction /* cyclic */
+                          next
+                            case pubGConstr_case_1
+                            by contradiction /* forbidden KD-fact */
+                          next
+                            case pubGConstr_case_2
+                            by contradiction /* forbidden KD-fact */
+                          next
+                            case pubGConstr_case_3
+                            by contradiction /* cyclic */
+                          qed
+                        qed
+                      qed
+                    next
+                      case LeakedSetInserted_case_09
+                      by contradiction /* adversary derived secret element! */
+                    next
+                      case LeakedSetInserted_case_10
+                      by contradiction /* adversary derived secret element! */
+                    next
+                      case LeakedSetInserted_case_11
+                      solve( Kdh( dhMult(dhExp(P'g', Evy),
+                                         dhMult(dhExp(P'g', Fer),
+                                                dhExp(P'g',
+                                                      dhTimesE(Fskr, dhMu(dhExp(P'g', Fer))))))
+                             ) @ #vk.6 )
+                        case isend_case_1
+                        solve( !KD( senc(dhExp(P'g',
+                                               dhTimesE(Fskr, dhMu(dhExp(P'g', Fer)))),
+                                         x.1)
+                               ) ▶₀ #vr.7 )
+                          case GenKey_case_1
+                          by contradiction /* impossible chain */
+                        next
+                          case GenKey_case_2
+                          by contradiction /* impossible chain */
+                        next
+                          case GenKey_case_3
+                          by contradiction /* impossible chain */
+                        next
+                          case InitiatorRole2_case_1
+                          by contradiction /* cyclic */
+                        next
+                          case InitiatorRole2_case_2
+                          solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case InitiatorRole_case_1
+                          by contradiction /* cyclic */
+                        next
+                          case InitiatorRole_case_2
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_1
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_2
+                          solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case ReceiverRole_case_3
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_4
+                          solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case freshNZE_case_1
+                          by contradiction /* cyclic */
+                        next
+                          case freshNZE_case_2
+                          by contradiction /* cyclic */
+                        next
+                          case pubGConstr_case_1
+                          by contradiction /* forbidden KD-fact */
+                        next
+                          case pubGConstr_case_2
+                          by contradiction /* forbidden KD-fact */
+                        next
+                          case pubGConstr_case_3
+                          by contradiction /* cyclic */
+                        qed
+                      next
+                        case isend_case_2
+                        solve( Kdh( dhExp(P'g', Fer) ) @ #vk.7 )
+                          case isend_case_1
+                          solve( !KU( dhExp(P'g', Fei) ) @ #vk.5 )
+                            case coerce
+                            solve( !KD( dhExp(P'g', Fei) ) ▶₀ #vk.3 )
+                              case Using_OutFacts_case_1
+                              by contradiction /* cyclic */
+                            next
+                              case Using_OutFacts_case_2
+                              solve( !KD( senc(dhExp(P'g', Fei), x.1) ) ▶₀ #vr.7 )
+                                case GenKey_case_1
+                                by contradiction /* impossible chain */
+                              next
+                                case GenKey_case_2
+                                by contradiction /* impossible chain */
+                              next
+                                case GenKey_case_3
+                                by contradiction /* impossible chain */
+                              next
+                                case InitiatorRole
+                                by contradiction /* impossible chain */
+                              next
+                                case InitiatorRole2_case_1
+                                by contradiction /* cyclic */
+                              next
+                                case InitiatorRole2_case_2
+                                solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                                  case d_0_sdec
+                                  by contradiction /* impossible chain */
+                                qed
+                              next
+                                case ReceiverRole_case_1
+                                by contradiction /* cyclic */
+                              next
+                                case ReceiverRole_case_2
+                                by contradiction /* cyclic */
+                              next
+                                case ReceiverRole_case_3
+                                by contradiction /* impossible chain */
+                              next
+                                case ReceiverRole_case_4
+                                solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                                  case d_0_sdec
+                                  by contradiction /* impossible chain */
+                                qed
+                              next
+                                case freshNZE_case_1
+                                by contradiction /* cyclic */
+                              next
+                                case freshNZE_case_2
+                                by contradiction /* cyclic */
+                              next
+                                case pubGConstr_case_1
+                                by contradiction /* forbidden KD-fact */
+                              next
+                                case pubGConstr_case_2
+                                by contradiction /* forbidden KD-fact */
+                              next
+                                case pubGConstr_case_3
+                                by contradiction /* cyclic */
+                              qed
+                            qed
+                          qed
+                        next
+                          case isend_case_2
+                          solve( !KD( senc(dhExp(P'g', Fer), x.1) ) ▶₀ #vr.7 )
+                            case GenKey_case_1
+                            by contradiction /* impossible chain */
+                          next
+                            case GenKey_case_2
+                            by contradiction /* impossible chain */
+                          next
+                            case GenKey_case_3
+                            by contradiction /* impossible chain */
+                          next
+                            case InitiatorRole2_case_1
+                            by contradiction /* cyclic */
+                          next
+                            case InitiatorRole2_case_2
+                            solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                              case d_0_sdec
+                              by contradiction /* impossible chain */
+                            qed
+                          next
+                            case InitiatorRole_case_1
+                            by contradiction /* cyclic */
+                          next
+                            case InitiatorRole_case_2
+                            by contradiction /* impossible chain */
+                          next
+                            case ReceiverRole_case_1
+                            solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                              case d_0_sdec
+                              by contradiction /* impossible chain */
+                            qed
+                          next
+                            case ReceiverRole_case_2
+                            by contradiction /* impossible chain */
+                          next
+                            case ReceiverRole_case_3
+                            solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                              case d_0_sdec
+                              by contradiction /* impossible chain */
+                            qed
+                          next
+                            case freshNZE_case_1
+                            by contradiction /* cyclic */
+                          next
+                            case freshNZE_case_2
+                            by contradiction /* cyclic */
+                          next
+                            case pubGConstr_case_1
+                            by contradiction /* forbidden KD-fact */
+                          next
+                            case pubGConstr_case_2
+                            by contradiction /* forbidden KD-fact */
+                          next
+                            case pubGConstr_case_3
+                            by contradiction /* cyclic */
+                          qed
+                        qed
+                      next
+                        case isend_case_3
+                        solve( !KD( senc(dhExp(P'g', Fskr), x.1) ) ▶₀ #vr.7 )
+                          case GenKey_case_1
+                          by contradiction /* impossible chain */
+                        next
+                          case GenKey_case_2
+                          by contradiction /* impossible chain */
+                        next
+                          case InitiatorRole2_case_1
+                          by contradiction /* cyclic */
+                        next
+                          case InitiatorRole2_case_2
+                          solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case InitiatorRole_case_1
+                          by contradiction /* cyclic */
+                        next
+                          case InitiatorRole_case_2
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_1
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_2
+                          solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case ReceiverRole_case_3
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_4
+                          solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case freshNZE_case_1
+                          by contradiction /* cyclic */
+                        next
+                          case freshNZE_case_2
+                          by contradiction /* cyclic */
+                        next
+                          case pubGConstr_case_1
+                          by contradiction /* forbidden KD-fact */
+                        next
+                          case pubGConstr_case_2
+                          by contradiction /* forbidden KD-fact */
+                        next
+                          case pubGConstr_case_3
+                          by contradiction /* cyclic */
+                        qed
+                      next
+                        case isend_case_4
+                        solve( !KD( senc(dhExp(P'g', Fer), x.1) ) ▶₀ #vr.7 )
+                          case GenKey_case_1
+                          by contradiction /* impossible chain */
+                        next
+                          case GenKey_case_2
+                          by contradiction /* impossible chain */
+                        next
+                          case GenKey_case_3
+                          by contradiction /* impossible chain */
+                        next
+                          case InitiatorRole2_case_1
+                          by contradiction /* cyclic */
+                        next
+                          case InitiatorRole2_case_2
+                          solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case InitiatorRole_case_1
+                          by contradiction /* cyclic */
+                        next
+                          case InitiatorRole_case_2
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_1
+                          solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case ReceiverRole_case_2
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_3
+                          solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case freshNZE_case_1
+                          by contradiction /* cyclic */
+                        next
+                          case freshNZE_case_2
+                          by contradiction /* cyclic */
+                        next
+                          case pubGConstr_case_1
+                          by contradiction /* forbidden KD-fact */
+                        next
+                          case pubGConstr_case_2
+                          by contradiction /* forbidden KD-fact */
+                        next
+                          case pubGConstr_case_3
+                          by contradiction /* cyclic */
+                        qed
+                      qed
+                    next
+                      case LeakedSetInserted_case_12
+                      solve( Kdh( dhMult(dhExp(P'g', Evy),
+                                         dhMult(dhExp(P'g', Fer),
+                                                dhExp(P'g',
+                                                      dhTimesE(Fskr, dhMu(dhExp(P'g', Fer))))))
+                             ) @ #vk.6 )
+                        case isend_case_1
+                        solve( !KD( senc(dhExp(P'g',
+                                               dhTimesE(Fskr, dhMu(dhExp(P'g', Fer)))),
+                                         x.1)
+                               ) ▶₀ #vr.7 )
+                          case GenKey_case_1
+                          by contradiction /* impossible chain */
+                        next
+                          case GenKey_case_2
+                          by contradiction /* impossible chain */
+                        next
+                          case GenKey_case_3
+                          by contradiction /* impossible chain */
+                        next
+                          case InitiatorRole2_case_1
+                          by contradiction /* cyclic */
+                        next
+                          case InitiatorRole2_case_2
+                          solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case InitiatorRole_case_1
+                          by contradiction /* cyclic */
+                        next
+                          case InitiatorRole_case_2
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_1
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_2
+                          solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case ReceiverRole_case_3
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_4
+                          solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case freshNZE_case_1
+                          by contradiction /* cyclic */
+                        next
+                          case freshNZE_case_2
+                          by contradiction /* cyclic */
+                        next
+                          case pubGConstr_case_1
+                          by contradiction /* forbidden KD-fact */
+                        next
+                          case pubGConstr_case_2
+                          by contradiction /* forbidden KD-fact */
+                        next
+                          case pubGConstr_case_3
+                          by contradiction /* cyclic */
+                        qed
+                      next
+                        case isend_case_2
+                        solve( Kdh( dhExp(P'g', Fer) ) @ #vk.7 )
+                          case isend_case_1
+                          solve( !KU( dhExp(P'g', Fei) ) @ #vk.5 )
+                            case coerce
+                            solve( !KD( dhExp(P'g', Fei) ) ▶₀ #vk.3 )
+                              case Using_OutFacts_case_1
+                              by contradiction /* cyclic */
+                            next
+                              case Using_OutFacts_case_2
+                              solve( !KD( senc(dhExp(P'g', Fei), x.1) ) ▶₀ #vr.7 )
+                                case GenKey_case_1
+                                by contradiction /* impossible chain */
+                              next
+                                case GenKey_case_2
+                                by contradiction /* impossible chain */
+                              next
+                                case GenKey_case_3
+                                by contradiction /* impossible chain */
+                              next
+                                case InitiatorRole
+                                by contradiction /* impossible chain */
+                              next
+                                case InitiatorRole2_case_1
+                                by contradiction /* cyclic */
+                              next
+                                case InitiatorRole2_case_2
+                                solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                                  case d_0_sdec
+                                  by contradiction /* impossible chain */
+                                qed
+                              next
+                                case ReceiverRole_case_1
+                                by contradiction /* cyclic */
+                              next
+                                case ReceiverRole_case_2
+                                by contradiction /* cyclic */
+                              next
+                                case ReceiverRole_case_3
+                                by contradiction /* impossible chain */
+                              next
+                                case ReceiverRole_case_4
+                                solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                                  case d_0_sdec
+                                  by contradiction /* impossible chain */
+                                qed
+                              next
+                                case freshNZE_case_1
+                                by contradiction /* cyclic */
+                              next
+                                case freshNZE_case_2
+                                by contradiction /* cyclic */
+                              next
+                                case pubGConstr_case_1
+                                by contradiction /* forbidden KD-fact */
+                              next
+                                case pubGConstr_case_2
+                                by contradiction /* forbidden KD-fact */
+                              next
+                                case pubGConstr_case_3
+                                by contradiction /* cyclic */
+                              qed
+                            qed
+                          qed
+                        next
+                          case isend_case_2
+                          solve( !KD( senc(dhExp(P'g', Fer), x.1) ) ▶₀ #vr.7 )
+                            case GenKey_case_1
+                            by contradiction /* impossible chain */
+                          next
+                            case GenKey_case_2
+                            by contradiction /* impossible chain */
+                          next
+                            case GenKey_case_3
+                            by contradiction /* impossible chain */
+                          next
+                            case InitiatorRole2_case_1
+                            by contradiction /* cyclic */
+                          next
+                            case InitiatorRole2_case_2
+                            solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                              case d_0_sdec
+                              by contradiction /* impossible chain */
+                            qed
+                          next
+                            case InitiatorRole_case_1
+                            by contradiction /* cyclic */
+                          next
+                            case InitiatorRole_case_2
+                            by contradiction /* impossible chain */
+                          next
+                            case ReceiverRole_case_1
+                            solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                              case d_0_sdec
+                              by contradiction /* impossible chain */
+                            qed
+                          next
+                            case ReceiverRole_case_2
+                            by contradiction /* impossible chain */
+                          next
+                            case ReceiverRole_case_3
+                            solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                              case d_0_sdec
+                              by contradiction /* impossible chain */
+                            qed
+                          next
+                            case freshNZE_case_1
+                            by contradiction /* cyclic */
+                          next
+                            case freshNZE_case_2
+                            by contradiction /* cyclic */
+                          next
+                            case pubGConstr_case_1
+                            by contradiction /* forbidden KD-fact */
+                          next
+                            case pubGConstr_case_2
+                            by contradiction /* forbidden KD-fact */
+                          next
+                            case pubGConstr_case_3
+                            by contradiction /* cyclic */
+                          qed
+                        qed
+                      next
+                        case isend_case_3
+                        solve( !KD( senc(dhExp(P'g', Fskr), x.1) ) ▶₀ #vr.7 )
+                          case GenKey_case_1
+                          by contradiction /* impossible chain */
+                        next
+                          case GenKey_case_2
+                          by contradiction /* impossible chain */
+                        next
+                          case InitiatorRole2_case_1
+                          by contradiction /* cyclic */
+                        next
+                          case InitiatorRole2_case_2
+                          solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case InitiatorRole_case_1
+                          by contradiction /* cyclic */
+                        next
+                          case InitiatorRole_case_2
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_1
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_2
+                          solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case ReceiverRole_case_3
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_4
+                          solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case freshNZE_case_1
+                          by contradiction /* cyclic */
+                        next
+                          case freshNZE_case_2
+                          by contradiction /* cyclic */
+                        next
+                          case pubGConstr_case_1
+                          by contradiction /* forbidden KD-fact */
+                        next
+                          case pubGConstr_case_2
+                          by contradiction /* forbidden KD-fact */
+                        next
+                          case pubGConstr_case_3
+                          by contradiction /* cyclic */
+                        qed
+                      next
+                        case isend_case_4
+                        solve( !KD( senc(dhExp(P'g', Fer), x.1) ) ▶₀ #vr.7 )
+                          case GenKey_case_1
+                          by contradiction /* impossible chain */
+                        next
+                          case GenKey_case_2
+                          by contradiction /* impossible chain */
+                        next
+                          case GenKey_case_3
+                          by contradiction /* impossible chain */
+                        next
+                          case InitiatorRole2_case_1
+                          by contradiction /* cyclic */
+                        next
+                          case InitiatorRole2_case_2
+                          solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case InitiatorRole_case_1
+                          by contradiction /* cyclic */
+                        next
+                          case InitiatorRole_case_2
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_1
+                          solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case ReceiverRole_case_2
+                          by contradiction /* impossible chain */
+                        next
+                          case ReceiverRole_case_3
+                          solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                            case d_0_sdec
+                            by contradiction /* impossible chain */
+                          qed
+                        next
+                          case freshNZE_case_1
+                          by contradiction /* cyclic */
+                        next
+                          case freshNZE_case_2
+                          by contradiction /* cyclic */
+                        next
+                          case pubGConstr_case_1
+                          by contradiction /* forbidden KD-fact */
+                        next
+                          case pubGConstr_case_2
+                          by contradiction /* forbidden KD-fact */
+                        next
+                          case pubGConstr_case_3
+                          by contradiction /* cyclic */
+                        qed
+                      qed
+                    next
+                      case LeakedSetInserted_case_13
+                      by contradiction /* forbidden KD-fact */
+                    next
+                      case LeakedSetInserted_case_14
+                      solve( !KU( dhExp(P'g', Fei) ) @ #vk.1 )
+                        case coerce
+                        solve( !KD( dhExp(P'g', Fei) ) ▶₀ #vk.1 )
+                          case Using_OutFacts_case_1
+                          solve( !KD( senc(dhTimesE(Evy,
+                                                    dhInv(dhMu(dhMult(dhExp(P'g', Evy),
+                                                                      dhMult(dhExp(P'g', Fer),
+                                                                             dhExp(P'g',
+                                                                                   dhTimesE(Fskr,
+                                                                                            dhMu(dhExp(P'g',
+                                                                                                       Fer))))))))),
+                                           x)
+                                 ) ▶₀ #vr.6 )
+                            case GenKey_case_1
+                            by contradiction /* impossible chain */
+                          next
+                            case GenKey_case_2
+                            by contradiction /* impossible chain */
+                          next
+                            case GenKey_case_3
+                            by contradiction /* impossible chain */
+                          next
+                            case InitiatorRole2_case_1
+                            by contradiction /* cyclic */
+                          next
+                            case InitiatorRole2_case_2
+                            solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                              case d_0_sdec
+                              by contradiction /* impossible chain */
+                            qed
+                          next
+                            case InitiatorRole_case_1
+                            by contradiction /* cyclic */
+                          next
+                            case InitiatorRole_case_2
+                            by contradiction /* impossible chain */
+                          next
+                            case ReceiverRole_case_1
+                            by contradiction /* cyclic */
+                          next
+                            case ReceiverRole_case_2
+                            by contradiction /* cyclic */
+                          next
+                            case ReceiverRole_case_3
+                            by contradiction /* impossible chain */
+                          next
+                            case ReceiverRole_case_4
+                            solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                              case d_0_sdec
+                              by contradiction /* impossible chain */
+                            qed
+                          next
+                            case freshNZE
+                            by contradiction /* cyclic */
+                          next
+                            case pubGConstr_case_1
+                            by contradiction /* forbidden KD-fact */
+                          next
+                            case pubGConstr_case_2
+                            by contradiction /* forbidden KD-fact */
+                          next
+                            case pubGConstr_case_3
+                            by contradiction /* cyclic */
+                          qed
+                        next
+                          case Using_OutFacts_case_2
+                          solve( !KD( senc(dhExp(P'g', Fei), x.1) ) ▶₀ #vr.7 )
+                            case GenKey_case_1
+                            by contradiction /* impossible chain */
+                          next
+                            case GenKey_case_2
+                            by contradiction /* impossible chain */
+                          next
+                            case GenKey_case_3
+                            by contradiction /* impossible chain */
+                          next
+                            case InitiatorRole
+                            by contradiction /* impossible chain */
+                          next
+                            case InitiatorRole2_case_1
+                            solve( (#vl, 0) ~~> (#vr.7, 0) )
+                              case d_0_sdec
+                              by contradiction /* impossible chain */
+                            qed
+                          next
+                            case InitiatorRole2_case_2
+                            solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                              case d_0_sdec
+                              by contradiction /* impossible chain */
+                            qed
+                          next
+                            case ReceiverRole_case_1
+                            by contradiction /* cyclic */
+                          next
+                            case ReceiverRole_case_2
+                            by contradiction /* cyclic */
+                          next
+                            case ReceiverRole_case_3
+                            by contradiction /* impossible chain */
+                          next
+                            case ReceiverRole_case_4
+                            solve( (#vl.1, 0) ~~> (#vr.7, 0) )
+                              case d_0_sdec
+                              by contradiction /* impossible chain */
+                            qed
+                          next
+                            case freshNZE
+                            by contradiction /* cyclic */
+                          next
+                            case pubGConstr_case_1
+                            by contradiction /* forbidden KD-fact */
+                          next
+                            case pubGConstr_case_2
+                            by contradiction /* forbidden KD-fact */
+                          next
+                            case pubGConstr_case_3
+                            by contradiction /* cyclic */
+                          qed
+                        qed
+                      qed
+                    next
+                      case LeakedSetInserted_case_15
+                      by contradiction /* adversary derived secret element! */
+                    next
+                      case LeakedSetInserted_case_16
+                      by contradiction /* adversary derived secret element! */
+                    next
+                      case LeakedSetInserted_case_17
+                      solve( !KD( senc(Evy, x) ) ▶₀ #vr.6 )
+                        case GenKey_case_1
+                        by contradiction /* impossible chain */
+                      next
+                        case GenKey_case_2
+                        by contradiction /* impossible chain */
+                      next
+                        case GenKey_case_3
+                        by contradiction /* impossible chain */
+                      next
+                        case InitiatorRole2_case_1
+                        by contradiction /* cyclic */
+                      next
+                        case InitiatorRole2_case_2
+                        solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                          case d_0_sdec
+                          by contradiction /* impossible chain */
+                        qed
+                      next
+                        case InitiatorRole_case_1
+                        by contradiction /* cyclic */
+                      next
+                        case InitiatorRole_case_2
+                        by contradiction /* impossible chain */
+                      next
+                        case ReceiverRole_case_1
+                        by contradiction /* impossible chain */
+                      next
+                        case ReceiverRole_case_2
+                        solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                          case d_0_sdec
+                          by contradiction /* impossible chain */
+                        qed
+                      next
+                        case ReceiverRole_case_3
+                        by contradiction /* impossible chain */
+                      next
+                        case ReceiverRole_case_4
+                        solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                          case d_0_sdec
+                          by contradiction /* impossible chain */
+                        qed
+                      next
+                        case freshNZE
+                        by contradiction /* cyclic */
+                      next
+                        case pubGConstr_case_1
+                        by contradiction /* forbidden KD-fact */
+                      next
+                        case pubGConstr_case_2
+                        by contradiction /* forbidden KD-fact */
+                      next
+                        case pubGConstr_case_3
+                        by contradiction /* cyclic */
+                      qed
+                    qed
+                  qed
+                qed
+              qed
+            next
+              case senc_case_2
+              by contradiction /* from formulas */
+            next
+              case senc_case_3
+              by contradiction /* from formulas */
+            next
+              case senc_case_4
+              by solve( Initiated( $I.1, $R.1, Fski, Fei, dhExp(P'g', Fx)
+                        ) ▶₁ #vr.3 )
+            next
+              case senc_case_5
+              by solve( Initiated( $I.1, $R.1, Fei, Fei,
+                                   dhMult(dhGinv(dhExp(P'g',
+                                                       dhTimesE(Evy,
+                                                                dhInv(dhMu(dhMult(dhExp(P'g', Evy),
+                                                                                  dhMult(dhExp(P'g',
+                                                                                               Fer),
+                                                                                         dhExp(P'g',
+                                                                                               dhTimesE(Fskr,
+                                                                                                        dhTimesE(dhMu(dhExp(P'g',
+                                                                                                                            Fer)),
+                                                                                                                 dhMu(dhExp(P'g',
+                                                                                                                            Fei)))))))))))),
+                                          dhMult(dhGinv(dhExp(P'g',
+                                                              dhTimesE(Fskr,
+                                                                       dhTimesE(dhInv(dhMu(dhMult(dhExp(P'g',
+                                                                                                        Evy),
+                                                                                                  dhMult(dhExp(P'g',
+                                                                                                               Fer),
+                                                                                                         dhExp(P'g',
+                                                                                                               dhTimesE(Fskr,
+                                                                                                                        dhTimesE(dhMu(dhExp(P'g',
+                                                                                                                                            Fer)),
+                                                                                                                                 dhMu(dhExp(P'g',
+                                                                                                                                            Fei))))))))),
+                                                                                dhTimesE(dhMu(dhExp(P'g',
+                                                                                                    Fer)),
+                                                                                         dhMu(dhExp(P'g',
+                                                                                                    Fei))))))),
+                                                 dhExp(P'g',
+                                                       dhTimesE(Fskr,
+                                                                dhTimesE(dhInv(dhMu(dhMult(dhExp(P'g',
+                                                                                                 Evy),
+                                                                                           dhMult(dhExp(P'g',
+                                                                                                        Fer),
+                                                                                                  dhExp(P'g',
+                                                                                                        dhTimesE(Fskr,
+                                                                                                                 dhTimesE(dhMu(dhExp(P'g',
+                                                                                                                                     Fer)),
+                                                                                                                          dhMu(dhExp(P'g',
+                                                                                                                                     Fei))))))))),
+                                                                         dhMu(dhExp(P'g', Fer)))))))
+                        ) ▶₁ #vr.3 )
+            next
+              case senc_case_6
+              solve( Initiated( $I.1, $R.1, Fski, Fei, dhExp(P'g', Fskr)
+                     ) ▶₁ #vr.3 )
+                case InitiatorRole
+                solve( !SKey( $I.1, Fski ) ▶₀ #vr.4 )
+                  case GenKey
+                  solve( !PubKey( $R.1, dhExp(P'g', Fskr) ) ▶₁ #vr.4 )
+                    case GenKey
+                    by contradiction /* from formulas */
+                  next
+                    case GenKeyCompromised
+                    solve( Kdh( Fskr ) ▶₀ #vr.5 )
+                      case LeakedSetInserted
+                      solve( !KD( senc(Fskr, x) ) ▶₀ #vr.6 )
+                        case GenKey_case_1
+                        by contradiction /* impossible chain */
+                      next
+                        case GenKey_case_2
+                        by contradiction /* impossible chain */
+                      next
+                        case GenKey_case_3
+                        by contradiction /* impossible chain */
+                      next
+                        case InitiatorRole2_case_1
+                        by contradiction /* cyclic */
+                      next
+                        case InitiatorRole2_case_2
+                        solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                          case d_0_sdec
+                          by contradiction /* impossible chain */
+                        qed
+                      next
+                        case InitiatorRole_case_1
+                        by contradiction /* cyclic */
+                      next
+                        case InitiatorRole_case_2
+                        by contradiction /* impossible chain */
+                      next
+                        case ReceiverRole_case_1
+                        by contradiction /* impossible chain */
+                      next
+                        case ReceiverRole_case_2
+                        solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                          case d_0_sdec
+                          by contradiction /* impossible chain */
+                        qed
+                      next
+                        case ReceiverRole_case_3
+                        by contradiction /* impossible chain */
+                      next
+                        case ReceiverRole_case_4
+                        solve( (#vl.1, 0) ~~> (#vr.6, 0) )
+                          case d_0_sdec
+                          by contradiction /* impossible chain */
+                        qed
+                      next
+                        case freshNZE
+                        by contradiction /* cyclic */
+                      next
+                        case pubGConstr_case_1
+                        by contradiction /* forbidden KD-fact */
+                      next
+                        case pubGConstr_case_2
+                        by contradiction /* forbidden KD-fact */
+                      next
+                        case pubGConstr_case_3
+                        by contradiction /* cyclic */
+                      qed
+                    qed
+                  qed
+                qed
+              qed
+            qed
+          next
+            case ReceiverRole_case_1
+            by contradiction /* impossible chain */
+          next
+            case ReceiverRole_case_2
+            solve( (#vl, 0) ~~> (#vk, 0) )
+              case d_0_sdec
+              by contradiction /* impossible chain */
+            qed
+          next
+            case ReceiverRole_case_3
+            by contradiction /* impossible chain */
+          next
+            case ReceiverRole_case_4
+            solve( (#vl, 0) ~~> (#vk, 0) )
+              case d_0_sdec
+              by contradiction /* impossible chain */
+            qed
+          next
+            case freshNZE
+            by contradiction /* cyclic */
+          next
+            case pubGConstr_case_1
+            by contradiction /* forbidden KD-fact */
+          next
+            case pubGConstr_case_2
+            by contradiction /* forbidden KD-fact */
+          next
+            case pubGConstr_case_3
+            by contradiction /* cyclic */
+          qed
+        qed
+      qed
+    qed
+  qed
+qed
+
+
+
+
+
+
+
+
+
+
+
+/*
+WARNING: the following wellformedness checks failed!
+
+Quantifier sorts
+================
+
+  Lemma `executable' uses quantifiers with wrong sort: ("k",LSortG)
+  
+  Lemma `secrecyI' uses quantifiers with wrong sort: ("k",LSortG)
+  
+  Lemma `agreementI' uses quantifiers with wrong sort: ("k",LSortG)
+  
+  Lemma `secrecyR' uses quantifiers with wrong sort: ("k",LSortG)
+  
+  Lemma `agreementR' uses quantifiers with wrong sort: ("k",LSortG)
+
+Message Derivation Checks
+=========================
+
+  The variables of the following rule(s) are not derivable from their premises, you may be performing unintended pattern matching.
+
+Rule GenKey: 
+Failed to derive Variable(s): $A, Fx
+
+Rule GenKeyCompromised: 
+Failed to derive Variable(s): $A, Ey
+
+Rule InitiatorRole: 
+Failed to derive Variable(s): $I, $R, Eskr, Fei, Fski
+
+Rule ReceiverRole: 
+Failed to derive Variable(s): $I, $R, m, Efei, Eski, Fer, Fskr
+
+Rule InitiatorRole2: 
+Failed to derive Variable(s): $I, $R, m, m2, Efer, Eskr, Fei, Fski
+
+Rule ReceiverRole2: 
+Failed to derive Variable(s): $I, $R, m, m2, GkAB
+*/
+
+/*
+Generated from:
+Tamarin version 1.11.0
+Maude version 3.3.1
+Git revision: 29d342fe767340bba559ce43c2dc6b0e54c4fd9f (with uncommited changes), branch: dh-with-addition
+Compiled at: 2025-12-10 16:10:28.092673 UTC
+*/
+
+end

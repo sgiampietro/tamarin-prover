@@ -1,0 +1,68 @@
+theory ElGamal
+begin
+
+
+/* Load the built-in symmetrical encryption theory */
+builtins: DH-multiplication
+
+/* -------------- */
+/*  Setup rules   */
+/* -------------- */
+
+rule GenKey:  
+   [ FrDH(Fx) ] 
+   --[  ]->
+   [ !SKey($B,Fx),
+     !PubKey($B,dhExp(P'g', Fx)), Out(dhExp(P'g',Fx)) ]
+
+// Allow parties to get compromised by revealing their secret key.
+rule RevealKey: 
+   [!SKey($Y, Fx)] 
+   --[Compromised($Y)]->
+   [Out(Fx)]
+
+
+/* --------------- */
+/* Protocol rules  */
+/* --------------- */
+
+rule BobEncrypts:
+let pka = dhExp(P'g',Esa)
+    s = dhExp(pka, Fy)
+    c = dhExp(P'g', Fy)
+in
+  [!PubKey($A,pka), FrDH(Fy), FrDH(Fm)]
+  --[Secret($B, $A,dhExp(P'g', Fm)), BobSent($B, $A, dhExp(P'g', Fm)) ]->
+  [Out(<$B,c>), Out(dhMult(dhExp(P'g', Fm), s)) ]
+
+rule AliceReceives:
+let c1 = dhExp(P'g', Ec1)
+    c2 = dhExp(P'g', Ec2)
+    s = dhExp(c1, Fska)
+    m = dhMult(c2, dhGinv(s))
+in
+  [!SKey($A, Fska), In(<$B,c1>), In(c2)]
+  --[ ReceivedA($A, $B, m)]->
+  []
+
+
+/* --------------- */
+/* Properties      */
+/* --------------- */
+
+lemma executable:
+exists-trace
+"Ex Gm A B #i #j.  BobSent(B, A, Gm)@i & ReceivedA(A, B, Gm)@j & (not (Ex #l X. Compromised(X)@l) )"
+
+
+lemma secrecyB:
+"All Gm A B #i. Secret(B,A,Gm)@i& (not (Ex #l. Compromised(A)@l) ) ==> not (Ex #j. K(Gm)@j)"
+
+
+lemma secrecyA:
+"All Gm A B #i. ReceivedA(A, B, Gm)@i & (not (Ex #l. Compromised(A)@l) ) ==> not (Ex #k. K(Gm)@k)"
+
+end
+
+
+

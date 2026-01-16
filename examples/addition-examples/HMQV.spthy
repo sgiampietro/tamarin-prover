@@ -1,0 +1,95 @@
+theory HMQV
+begin
+
+
+/* Load the built-in symmetrical encryption theory */
+builtins: DH-multiplication, symmetric-encryption
+
+/* -------------- */
+/* Setup rules */
+/* -------------- */
+
+rule GenKey: 
+   [ FrDH(Fx) ] 
+   --[  ]->
+   [ !SKey(PA, Fx), !PubKey(PA, dhExp(P'g', Fx) ) ,
+     Out(dhExp(P'g', Fx)) ]
+
+/* We consider an adversary that can obtain an authenticated public
+key for arbitrarily chosen private keys. */
+rule GenKeyCompromised:
+    [Kdh(Ey)]
+   --[ Compromised(PA) ]->
+   [ !PubKey(PA, dhExp(P'g', Ey))]
+
+
+/* -------------- */
+/* Protocol rules */
+/* -------------- */
+
+
+rule InitiatorRole:
+  [!SKey(PI, Fski),!PubKey(PR, dhExp(P'g',Eskr)), FrDH(Fei)]
+  --[ Neq(PI, PR) ]->
+  [Out(dhExp(P'g', Fei)), Initiated(PI, PR, Fski, Fei, dhExp(P'g',Eskr))]
+
+rule ReceiverRole:
+let d = dhMu2(PR, dhExp(P'g',Efei))
+    b = dhMu2(PI, dhExp(P'g',Fer))
+    kAB = dhExp(dhMult(dhExp(P'g',Efei),dhExp(dhExp(P'g',Eski),d ) ), dhPlus(Fer, dhTimesE(Fskr, b)) )
+    kH = dhMu(kAB)
+in
+  [!SKey(PR, Fskr), !PubKey(PI, dhExp(P'g',Eski)), In(dhExp(P'g',Efei)), FrDH(Fer), Fr(m)]
+  --[ Neq(PI, PR), Neq(Eski, Fskr), Neq(Efei, Fer), RunningR(PR,PI,kH)]->
+  [ Out(dhExp(P'g', Fer)), Out(senc(<m,'R'>, kH)), ReceiverSend(PR,PI, kH,m) ]
+
+rule InitiatorRole2:
+let d = dhMu2(PR, dhExp(P'g', Fei))
+    b = dhMu2(PI, dhExp(P'g', Efer))
+    kAB = dhExp(dhMult(dhExp(P'g',Efer),dhExp(dhExp(P'g',Eskr),b)), dhPlus(Fei, dhTimesE(Fski, d)) ) 
+    kH = dhMu(kAB)
+in
+  [ In(dhExp(P'g',Efer)), Initiated(PI, PR, Fski, Fei, dhExp(P'g',Eskr)), Fr(m), In(senc(<m2,'R'>, kH))]
+  --[ Neq(Efer, Fei), Neq(Fski, Eskr), AgreeKeyI(PI, PR, kH), RunningI(PI, PR, kH) ]->
+  [Out(senc(<m, 'I'>, kH)) ]
+
+
+rule ReceiverRole2:
+  [ In(senc(<m2,'I'>, EkH)), ReceiverSend(PR, PI, EkH,m)]
+  --[Neq(m,m2),  AgreeKeyR(PR, PI, EkH)]->
+  [ ]
+
+/* -------------- */
+/*  Restrictions  */
+/* -------------- */
+
+restriction inequality:
+"All x y #i. Neq(x,y)@i ==> not (x=y)"
+
+
+/* -------------- */
+/*  Properties    */
+/* -------------- */
+
+lemma executable:
+exists-trace
+"Ex I R Ek #i #j. AgreeKeyI(I, R,Ek)@i & AgreeKeyR(R,I,Ek)@j & not (Ex #k C. Compromised(C)@k)"
+
+ lemma secrecyI:
+ "All I R Ek #i. AgreeKeyI(I, R, Ek)@i & (not (Ex #k. Compromised(I)@k))& (not (Ex #k. Compromised(R)@k)) ==> not (Ex #i. K(Ek)@i)"
+
+lemma agreementI:
+"All I R Ek #i. AgreeKeyI(I, R, Ek)@i & (not (Ex #k. Compromised(I)@k))& (not (Ex #k. Compromised(R)@k))  ==> Ex #j. RunningR(R, I, Ek)@j"
+
+lemma secrecyR:
+ "All R I Ek #i. AgreeKeyR(R, I, Ek)@i  & (not (Ex #k. Compromised(I)@k))& (not (Ex #k. Compromised(R)@k)) ==> not (Ex #i. K(Ek)@i)"
+
+lemma agreementR:
+"All R I Ek #i. AgreeKeyR(R,I,Ek)@i  & (not (Ex #k. Compromised(I)@k))& (not (Ex #k. Compromised(R)@k)) ==> Ex #j. RunningI(I, R, Ek)@j "
+
+
+
+end
+
+
+
